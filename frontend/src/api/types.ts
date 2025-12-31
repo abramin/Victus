@@ -18,7 +18,9 @@ export interface UserProfile {
   birthDate: string;
   sex: Sex;
   goal: Goal;
+  currentWeightKg?: number;
   targetWeightKg: number;
+  timeframeWeeks?: number;
   targetWeeklyChangeKg: number;
   carbRatio: number;
   proteinRatio: number;
