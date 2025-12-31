@@ -21,6 +21,14 @@ func Connect(cfg Config) (*sql.DB, error) {
 		return nil, fmt.Errorf("database path is required")
 	}
 
+	dsn := cfg.Path
+
+	// Handle in-memory database: use shared cache so all connections
+	// access the same in-memory database (critical for connection pooling)
+	if cfg.Path == ":memory:" {
+		dsn = "file::memory:?cache=shared"
+	}
+
 	dir := filepath.Dir(cfg.Path)
 	if dir != "." && dir != "" {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -28,7 +36,7 @@ func Connect(cfg Config) (*sql.DB, error) {
 		}
 	}
 
-	db, err := sql.Open("sqlite", cfg.Path)
+	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("opening database: %w", err)
 	}
