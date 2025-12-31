@@ -4,7 +4,7 @@ const apiBaseUrl = Cypress.env("apiBaseUrl") as string
 
 const validProfile = {
   height_cm: 180,
-  birthDate: "1990-01-01T00:00:00Z",
+  birthDate: "1990-01-01",
   sex: "male",
   goal: "maintain",
   targetWeightKg: 82,
