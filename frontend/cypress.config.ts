@@ -8,6 +8,7 @@ export default defineConfig({
     "cypress-cucumber-preprocessor": {
       stepDefinitions: "cypress/e2e/**/*.steps.{js,ts}",
     },
+    apiBaseUrl: "http://localhost:8080",
   },
   e2e: {
     baseUrl: "http://localhost:5173",
