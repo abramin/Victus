@@ -108,6 +108,14 @@ type PlannedTraining struct {
 	PlannedDurationMin int
 }
 
+// TrainingTypeConfig represents the database-stored configuration for a training type.
+// Used for load calculations and TDEE refinement.
+type TrainingTypeConfig struct {
+	Type              TrainingType
+	EstimatedCalPerMin float64
+	LoadScore         float64
+}
+
 // MacroPoints represents macro points for a meal.
 type MacroPoints struct {
 	Carbs   int

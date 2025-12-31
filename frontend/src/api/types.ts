@@ -112,3 +112,10 @@ export interface CreateDailyLogRequest {
   plannedTraining: PlannedTraining;
   dayType: DayType;
 }
+
+// Training Config Types
+export interface TrainingConfig {
+  type: TrainingType;
+  estimatedCalPerMin: number;
+  loadScore: number;
+}

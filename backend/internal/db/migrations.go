@@ -12,6 +12,7 @@ func RunMigrations(db *sql.DB) error {
 	migrations := []string{
 		createUserProfileTable,
 		createDailyLogsTable,
+		createTrainingConfigsTable,
 	}
 
 	for i, migration := range migrations {
@@ -115,6 +116,33 @@ CREATE TABLE IF NOT EXISTS daily_logs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_daily_logs_date ON daily_logs(log_date);
+`
+
+const createTrainingConfigsTable = `
+CREATE TABLE IF NOT EXISTS training_configs (
+    id INTEGER PRIMARY KEY,
+    type TEXT UNIQUE NOT NULL CHECK(type IN (
+        'rest', 'qigong', 'walking', 'gmb', 'run', 'row', 'cycle', 'hiit',
+        'strength', 'calisthenics', 'mobility', 'mixed'
+    )),
+    estimated_cal_per_min REAL NOT NULL DEFAULT 5,
+    load_score REAL NOT NULL DEFAULT 3
+);
+
+-- Seed default training configs (from PRD Section 3.3)
+INSERT OR IGNORE INTO training_configs (type, estimated_cal_per_min, load_score) VALUES
+    ('rest', 0, 0),
+    ('qigong', 2, 0.5),
+    ('walking', 4, 1),
+    ('gmb', 5, 3),
+    ('run', 8, 3),
+    ('row', 8, 3),
+    ('cycle', 6, 2),
+    ('hiit', 12, 5),
+    ('strength', 7, 5),
+    ('calisthenics', 5, 3),
+    ('mobility', 2, 0.5),
+    ('mixed', 6, 4);
 `
 
 // ALTER TABLE migrations for existing databases (split for SQLite compatibility)

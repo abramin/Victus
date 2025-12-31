@@ -15,21 +15,24 @@ import (
 
 // Server wraps HTTP server configuration and routing.
 type Server struct {
-	mux             *http.ServeMux
-	profileService  *service.ProfileService
-	dailyLogService *service.DailyLogService
+	mux                   *http.ServeMux
+	profileService        *service.ProfileService
+	dailyLogService       *service.DailyLogService
+	trainingConfigService *service.TrainingConfigService
 }
 
 // NewServer configures routes and middleware.
 func NewServer(db *sql.DB) *Server {
 	profileStore := store.NewProfileStore(db)
 	dailyLogStore := store.NewDailyLogStore(db)
+	trainingConfigStore := store.NewTrainingConfigStore(db)
 
 	mux := http.NewServeMux()
 	srv := &Server{
-		mux:             mux,
-		profileService:  service.NewProfileService(profileStore),
-		dailyLogService: service.NewDailyLogService(dailyLogStore, profileStore),
+		mux:                   mux,
+		profileService:        service.NewProfileService(profileStore),
+		dailyLogService:       service.NewDailyLogService(dailyLogStore, profileStore),
+		trainingConfigService: service.NewTrainingConfigService(trainingConfigStore),
 	}
 
 	// Health
@@ -44,6 +47,9 @@ func NewServer(db *sql.DB) *Server {
 	mux.HandleFunc("POST /api/logs", srv.createDailyLog)
 	mux.HandleFunc("GET /api/logs/today", srv.getTodayLog)
 	mux.HandleFunc("DELETE /api/logs/today", srv.deleteTodayLog)
+
+	// Training config routes
+	mux.HandleFunc("GET /api/training-configs", srv.getTrainingConfigs)
 
 	return srv
 }

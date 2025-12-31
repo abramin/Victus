@@ -1,0 +1,40 @@
+package api
+
+import (
+	"encoding/json"
+	"net/http"
+
+	"victus/internal/domain"
+)
+
+// TrainingConfigResponse represents a training configuration in API responses.
+type TrainingConfigResponse struct {
+	Type              string  `json:"type"`
+	EstimatedCalPerMin float64 `json:"estimatedCalPerMin"`
+	LoadScore         float64 `json:"loadScore"`
+}
+
+// getTrainingConfigs handles GET /api/training-configs
+func (s *Server) getTrainingConfigs(w http.ResponseWriter, r *http.Request) {
+	configs, err := s.trainingConfigService.GetAll(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal_error", "Failed to retrieve training configurations")
+		return
+	}
+
+	response := make([]TrainingConfigResponse, len(configs))
+	for i, cfg := range configs {
+		response[i] = toTrainingConfigResponse(cfg)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+func toTrainingConfigResponse(cfg domain.TrainingTypeConfig) TrainingConfigResponse {
+	return TrainingConfigResponse{
+		Type:              string(cfg.Type),
+		EstimatedCalPerMin: cfg.EstimatedCalPerMin,
+		LoadScore:         cfg.LoadScore,
+	}
+}
