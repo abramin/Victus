@@ -4,7 +4,7 @@ const apiBaseUrl = Cypress.env("apiBaseUrl") as string
 
 const validProfile = {
   height_cm: 180,
-  birthDate: "1990-01-01T00:00:00Z",
+  birthDate: "1990-01-01",
   sex: "male",
   goal: "maintain",
   targetWeightKg: 82,
@@ -18,6 +18,21 @@ const invalidProfile = {
 
 Given("the profile API is running", () => {
   cy.request(`${apiBaseUrl}/api/health`).its("status").should("eq", 200)
+})
+
+Given("the database is clean", () => {
+  // Delete today's log first (it has a foreign key to profile)
+  cy.request({
+    method: "DELETE",
+    url: `${apiBaseUrl}/api/logs/today`,
+    failOnStatusCode: false,
+  })
+  // Delete profile
+  cy.request({
+    method: "DELETE",
+    url: `${apiBaseUrl}/api/profile`,
+    failOnStatusCode: false,
+  })
 })
 
 When("I upsert a valid user profile", () => {

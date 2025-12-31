@@ -9,21 +9,27 @@ import (
 	"strconv"
 	"time"
 
+	"victus/internal/service"
 	"victus/internal/store"
 )
 
 // Server wraps HTTP server configuration and routing.
 type Server struct {
-	mux          *http.ServeMux
-	profileStore *store.ProfileStore
+	mux             *http.ServeMux
+	profileService  *service.ProfileService
+	dailyLogService *service.DailyLogService
 }
 
 // NewServer configures routes and middleware.
 func NewServer(db *sql.DB) *Server {
+	profileStore := store.NewProfileStore(db)
+	dailyLogStore := store.NewDailyLogStore(db)
+
 	mux := http.NewServeMux()
 	srv := &Server{
-		mux:          mux,
-		profileStore: store.NewProfileStore(db),
+		mux:             mux,
+		profileService:  service.NewProfileService(profileStore),
+		dailyLogService: service.NewDailyLogService(dailyLogStore, profileStore),
 	}
 
 	// Health
@@ -32,6 +38,12 @@ func NewServer(db *sql.DB) *Server {
 	// Profile routes
 	mux.HandleFunc("GET /api/profile", srv.getProfile)
 	mux.HandleFunc("PUT /api/profile", srv.upsertProfile)
+	mux.HandleFunc("DELETE /api/profile", srv.deleteProfile)
+
+	// Daily log routes
+	mux.HandleFunc("POST /api/logs", srv.createDailyLog)
+	mux.HandleFunc("GET /api/logs/today", srv.getTodayLog)
+	mux.HandleFunc("DELETE /api/logs/today", srv.deleteTodayLog)
 
 	return srv
 }

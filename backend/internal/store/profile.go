@@ -122,3 +122,9 @@ func (s *ProfileStore) Upsert(ctx context.Context, p *models.UserProfile) error 
 
 	return err
 }
+
+// Delete removes the user profile.
+func (s *ProfileStore) Delete(ctx context.Context) error {
+	_, err := s.db.ExecContext(ctx, "DELETE FROM user_profile WHERE id = 1")
+	return err
+}

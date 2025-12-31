@@ -10,6 +10,7 @@ import (
 func RunMigrations(db *sql.DB) error {
 	migrations := []string{
 		createUserProfileTable,
+		createDailyLogsTable,
 	}
 
 	for i, migration := range migrations {
@@ -46,4 +47,51 @@ CREATE TABLE IF NOT EXISTS user_profile (
     CHECK (abs((carb_ratio + protein_ratio + fat_ratio) - 1.0) < 0.01),
     CHECK (abs((breakfast_ratio + lunch_ratio + dinner_ratio) - 1.0) < 0.01)
 );
+`
+
+const createDailyLogsTable = `
+CREATE TABLE IF NOT EXISTS daily_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    log_date TEXT UNIQUE NOT NULL,
+    weight_kg REAL NOT NULL,
+    body_fat_percent REAL,
+    resting_heart_rate INTEGER,
+    sleep_quality INTEGER NOT NULL CHECK (sleep_quality BETWEEN 1 AND 100),
+    sleep_hours REAL,
+
+    -- Planned training
+    planned_training_type TEXT NOT NULL,
+    planned_duration_min INTEGER NOT NULL,
+
+    -- Calculated outputs (stored for history)
+    total_carbs_g INTEGER,
+    total_protein_g INTEGER,
+    total_fats_g INTEGER,
+    total_calories INTEGER,
+    breakfast_carb_points INTEGER,
+    breakfast_protein_points INTEGER,
+    breakfast_fat_points INTEGER,
+    lunch_carb_points INTEGER,
+    lunch_protein_points INTEGER,
+    lunch_fat_points INTEGER,
+    dinner_carb_points INTEGER,
+    dinner_protein_points INTEGER,
+    dinner_fat_points INTEGER,
+    fruit_g INTEGER,
+    veggies_g INTEGER,
+    water_l REAL,
+    day_type TEXT,
+    estimated_tdee INTEGER,
+
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+
+    CHECK (weight_kg BETWEEN 30 AND 300),
+    CHECK (body_fat_percent IS NULL OR body_fat_percent BETWEEN 3 AND 70),
+    CHECK (resting_heart_rate IS NULL OR resting_heart_rate BETWEEN 30 AND 200),
+    CHECK (sleep_hours IS NULL OR sleep_hours BETWEEN 0 AND 24),
+    CHECK (planned_duration_min BETWEEN 0 AND 480)
+);
+
+CREATE INDEX IF NOT EXISTS idx_daily_logs_date ON daily_logs(log_date);
 `

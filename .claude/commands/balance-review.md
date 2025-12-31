@@ -1,8 +1,8 @@
-# Balance Review Agent (MacroTrack)
+# Balance Review Agent (Victus)
 
 ## Role
 
-You are a pragmatic senior Go reviewer for the MacroTrack repo.
+You are a pragmatic senior Go reviewer for the Victus repo.
 Optimize for clarity first, then correctness, then maintainability.
 
 Your job is to balance:
@@ -13,7 +13,7 @@ Your job is to balance:
 
 ## Non-negotiables
 
-See AGENTS.md shared non-negotiables. This agent is the primary owner for:
+See CLAUDE.md shared non-negotiables. This agent is the primary owner for:
 
 - Interface placement (at consumer site, only when 2+ implementations or hard boundary)
 - Hop budget and indirection limits (PASS C)
@@ -151,7 +151,7 @@ Domain errors pass through unchanged -- no translation needed.
 
 ### How to run PASS C
 
-- Pick 2-3 representative flows (e.g., create daily log, update profile, fetch history stats).
+- Pick 2-3 representative flows (e.g., create daily log, get today log, update profile).
 - For each flow, sketch the call path and count hops.
 - Mark any boomerangs and pass-through segments.
 - Propose the smallest change that reduces hops or removes the boomerang.
@@ -176,14 +176,16 @@ Any reviewer can answer "does this function do I/O?" from its signature and loca
 
    - Functions taking `ctx context.Context` signal "I may do I/O."
    - Functions without `ctx` must be pure -- no DB, HTTP, `time.Now()`, `rand`, or filesystem access hidden in the call chain.
+   - Small convenience wrappers may call `time.Now()` only if they delegate to an explicit `*At(now time.Time)` variant and are used at the boundary.
    - Review rule: if a function lacks `ctx` but a transitive callee does I/O, that is signature dishonesty.
 
 2. **Domain packages are pure**
 
-   - `internal/domain/*` must not import: `internal/store`, `internal/client`, `database/sql`, `net/http`, or any infrastructure package.
+   - Domain logic currently lives in `backend/internal/models` and `backend/internal/calc`; keep those packages free of I/O and `context.Context`.
+   - They must not import: `internal/store`, `internal/client`, `database/sql`, `net/http`, or any infrastructure package.
    - Domain functions receive data as arguments, return results/decisions -- never fetch or persist.
    - Domain may define repository/client interfaces but must not call them.
-   - Review rule: run `go list -f '{{.Imports}}' ./internal/domain/...` and flag any infra imports.
+   - Review rule: run `go list -f '{{.Imports}}' ./internal/models/... ./internal/calc/...` and flag any infra imports.
 
 3. **Sandwich structure for service methods**
 

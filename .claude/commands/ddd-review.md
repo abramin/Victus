@@ -1,4 +1,4 @@
-# DDD Patterns Agent (MacroTrack)
+# DDD Patterns Agent (Victus)
 
 ## Mission
 
@@ -8,18 +8,17 @@ Keep the model sharp: clear aggregates, invariants, domain primitives, clean orc
 
 ## Non-negotiables
 
-See AGENTS.md shared non-negotiables, plus these DDD-specific rules:
+See CLAUDE.md shared non-negotiables, plus these DDD-specific rules:
 
 - Services own orchestration; domain owns rules and decisions.
 - Stores return domain models as pointers (not persistence structs, not copies).
-- Domain entities do not contain API input/transport rules.
+- Domain entities avoid transport/persistence concerns. JSON tags in `backend/internal/models` are acceptable for now, but do not add `db:` tags or handler-specific validation tags; split DTOs if needed.
 - **Service/store error boundary:** Stores return sentinel errors only (`ErrNotFound`, etc.); services own domain errors. Use Execute callback pattern for atomic validate-then-mutate to avoid error boomerangs.
 - Stores are pure I/O -- no business logic, no state transition decisions.
-- Domain entities do not contain API input/transport rules (no `json:`, `db:` tags).
-- **Domain layer is pure:**
+- **Domain layer is pure (today: `backend/internal/models`, `backend/internal/calc`):**
   - No I/O: no database, no HTTP, no filesystem.
   - No `context.Context` in domain function signatures.
-  - No `time.Now()` or `rand.*` -- receive these as parameters.
+  - No `time.Now()` or `rand.*` in domain logic -- receive these as parameters (prefer `*At` helpers).
   - Domain receives all data it needs as arguments; returns results/decisions.
   - Domain may define repository interfaces; domain must not call them.
 
@@ -27,10 +26,12 @@ See AGENTS.md shared non-negotiables, plus these DDD-specific rules:
 
 | Layer                                                        | Responsibility                                                                      | Purity                              |
 | ------------------------------------------------------------ | ----------------------------------------------------------------------------------- | ----------------------------------- |
-| **Domain** (`internal/domain/*`)                             | Entities, value objects, aggregates, domain services, invariants, state transitions | **Pure** -- no I/O, no ctx          |
-| **Application** (`internal/service/*`)                       | Use-case orchestration, transaction boundaries, calling repos/clients, sequencing   | Effectful -- owns ctx, coordinates I/O |
-| **Infrastructure** (`internal/store/*`, `internal/client/*`) | Persistence, external APIs, adapters                                                | Effectful -- does actual I/O        |
-| **Transport** (`internal/handler/*`, `internal/api/*`)        | HTTP parsing, response formatting, auth context wiring                              | Effectful -- thin, no business logic |
+| **Domain** (`backend/internal/models`, `backend/internal/calc`) | Entities, value objects, aggregates, domain services, invariants, state transitions | **Pure** -- no I/O, no ctx          |
+| **Application** (`backend/internal/service` if introduced)     | Use-case orchestration, transaction boundaries, calling repos/clients, sequencing   | Effectful -- owns ctx, coordinates I/O |
+| **Infrastructure** (`backend/internal/store`, `backend/internal/db`) | Persistence, external APIs, adapters                                            | Effectful -- does actual I/O        |
+| **Transport** (`backend/internal/api`)                         | HTTP parsing, response formatting, auth context wiring                              | Effectful -- thin, no business logic |
+
+Note: Victus currently combines transport + application concerns in `backend/internal/api`. Keep handlers thin and follow sandwich structure there until a service layer exists.
 
 ## Store boundaries
 

@@ -1,13 +1,14 @@
-# Adaptive Model & Data Integrity Agent (MacroTrack)
+# Adaptive Model & Data Integrity Agent (Victus)
 
 ## Mission
 
-Ensure correctness, consistency, and safety in MacroTrack's nutrition calculations, adaptive model state, and time-series data integrity.
+Ensure correctness, consistency, and safety in Victus nutrition calculations, adaptive model state, and time-series data integrity.
 
 ## Non-negotiables
 
 - **One log per date per user**: date-only keys, consistent timezone, no duplicates.
 - **Unit clarity**: kg, kcal, minutes, ratios are explicit and validated at boundaries.
+- **Enum alignment**: training types and day types must match PRD and `backend/internal/models`.
 - **No negative outputs**: macros, points, fruit/veg grams, and calories must not drop below zero.
 - **Stable adaptive windows**: minimum history (e.g., 14 days) before using adaptive TDEE; handle missing days.
 - **Training load rules**: use actual training when present, otherwise planned; no future dates in history.

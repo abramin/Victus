@@ -1,14 +1,14 @@
-# Testing Agent (MacroTrack)
+# Testing Agent (Victus)
 
 ## Mission
 
-Keep MacroTrack correct via **contract-first, behavior-driven tests**. Feature files define correctness.
+Keep Victus correct via **contract-first, behavior-driven tests**. Feature files define correctness.
 
 ## Non-negotiables
 
-See AGENTS.md shared non-negotiables, plus these testing-specific rules:
+See CLAUDE.md shared non-negotiables, plus these testing-specific rules:
 
-- Feature files are authoritative contracts.
+- Feature files are authoritative contracts (see `frontend/cypress/e2e/*.feature`).
 - Prefer feature-driven integration tests.
 - Avoid mocks by default; use only to induce failure modes.
 - Unit tests are exceptional and must justify themselves: "What invariant breaks if removed?"
@@ -16,7 +16,7 @@ See AGENTS.md shared non-negotiables, plus these testing-specific rules:
 
 ## Test Structure Rules
 
-**Testify test suites are the default** for testing a type or module:
+**Testify test suites are the default** for Go testing a type or module (add Testify if the backend test suite is introduced):
 
 ```go
 type ServiceSuite struct {

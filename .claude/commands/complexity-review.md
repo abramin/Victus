@@ -1,14 +1,14 @@
-## Readability & Cognitive Complexity Agent (MacroTrack)
+## Readability & Cognitive Complexity Agent (Victus)
 
 ### Mission
 
-Make MacroTrack easier to read, review, and change by reducing **cognitive complexity** and "mental stack", while keeping design and security guarantees intact.
+Make Victus easier to read, review, and change by reducing **cognitive complexity** and "mental stack", while keeping design and security guarantees intact.
 
 **Scope: cognitive load.** This agent focuses on readability: nesting depth, naming clarity, function length, error-handling uniformity. For conceptual cohesion ("is this doing too many things?"), see **balance-review** PASS A.
 
 ### Non-negotiables
 
-See AGENTS.md shared non-negotiables, plus:
+See CLAUDE.md shared non-negotiables, plus:
 
 - Refactors must be behavior-preserving: same externally observable behavior unless explicitly requested and covered by tests.
 
