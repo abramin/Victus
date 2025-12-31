@@ -14,16 +14,18 @@ import (
 
 // Server wraps HTTP server configuration and routing.
 type Server struct {
-	mux          *http.ServeMux
-	profileStore *store.ProfileStore
+	mux           *http.ServeMux
+	profileStore  *store.ProfileStore
+	dailyLogStore *store.DailyLogStore
 }
 
 // NewServer configures routes and middleware.
 func NewServer(db *sql.DB) *Server {
 	mux := http.NewServeMux()
 	srv := &Server{
-		mux:          mux,
-		profileStore: store.NewProfileStore(db),
+		mux:           mux,
+		profileStore:  store.NewProfileStore(db),
+		dailyLogStore: store.NewDailyLogStore(db),
 	}
 
 	// Health
@@ -32,6 +34,10 @@ func NewServer(db *sql.DB) *Server {
 	// Profile routes
 	mux.HandleFunc("GET /api/profile", srv.getProfile)
 	mux.HandleFunc("PUT /api/profile", srv.upsertProfile)
+
+	// Daily log routes
+	mux.HandleFunc("POST /api/logs", srv.createDailyLog)
+	mux.HandleFunc("GET /api/logs/today", srv.getTodayLog)
 
 	return srv
 }

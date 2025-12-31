@@ -1,4 +1,4 @@
-import type { UserProfile, APIError } from './types';
+import type { UserProfile, APIError, DailyLog, CreateDailyLogRequest } from './types';
 
 const API_BASE = '/api';
 
@@ -41,4 +41,26 @@ export async function saveProfile(profile: UserProfile): Promise<UserProfile> {
   });
 
   return handleResponse<UserProfile>(response);
+}
+
+export async function getTodayLog(): Promise<DailyLog | null> {
+  const response = await fetch(`${API_BASE}/logs/today`);
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  return handleResponse<DailyLog>(response);
+}
+
+export async function createDailyLog(log: CreateDailyLogRequest): Promise<DailyLog> {
+  const response = await fetch(`${API_BASE}/logs`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(log),
+  });
+
+  return handleResponse<DailyLog>(response);
 }

@@ -116,12 +116,15 @@ interface DailyLog {
   weightKg: number;
   bodyFatPercent?: number;
   restingHeartRate?: number;
-  sleepQuality: 1 | 2 | 3 | 4 | 5; // 1=terrible, 5=excellent
+  sleepQuality: number; // 1-100 (Garmin score)
   sleepHours?: number;
   
   // Planned training
   plannedTraining: TrainingSession;
-  
+
+  // User-selected day type (determines macro strategy)
+  dayType: 'performance' | 'fatburner' | 'metabolize';
+
   // Actual training (logged later)
   actualTraining?: TrainingSession;
   
@@ -141,17 +144,19 @@ interface TrainingSession {
   notes?: string;
 }
 
-type TrainingType = 
+type TrainingType =
   | 'rest'
-  | 'light_cardio'      // Walking, easy cycling
-  | 'moderate_cardio'   // Running, rowing
-  | 'hiit'              // High intensity intervals
-  | 'strength_upper'    // Upper body focused
-  | 'strength_lower'    // Lower body focused
-  | 'strength_full'     // Full body
-  | 'calisthenics'      // GMB, animal flow
-  | 'mobility'          // Qigong, stretching
-  | 'mixed';            // Multiple types
+  | 'qigong'
+  | 'walking'
+  | 'gmb'
+  | 'run'
+  | 'row'
+  | 'cycle'
+  | 'hiit'
+  | 'strength'
+  | 'calisthenics'
+  | 'mobility'
+  | 'mixed';
 
 interface DailyTargets {
   // Total day macros (grams)
@@ -193,32 +198,29 @@ interface AdaptiveMultipliers {
 ```typescript
 interface TrainingTypeConfig {
   type: TrainingType;
-  
-  // Maps to spreadsheet day types
-  dayTypeMapping: 'performance' | 'fatburner' | 'metabolize';
-  
+
   // Estimated calorie burn per minute (used for TDEE refinement)
   estimatedCalPerMin: number;
-  
+
   // Load score for accumulation (arbitrary units, relative)
   loadScore: number;
-  
-  // Recovery time typically needed (days)
-  typicalRecoveryDays: number;
 }
 
 // Default configurations
+// Note: DayType is now user-selected, not derived from training type
 const TRAINING_CONFIGS: TrainingTypeConfig[] = [
-  { type: 'rest', dayTypeMapping: 'fatburner', estimatedCalPerMin: 0, loadScore: 0, typicalRecoveryDays: 0 },
-  { type: 'light_cardio', dayTypeMapping: 'fatburner', estimatedCalPerMin: 5, loadScore: 1, typicalRecoveryDays: 0 },
-  { type: 'moderate_cardio', dayTypeMapping: 'performance', estimatedCalPerMin: 8, loadScore: 3, typicalRecoveryDays: 1 },
-  { type: 'hiit', dayTypeMapping: 'performance', estimatedCalPerMin: 12, loadScore: 5, typicalRecoveryDays: 2 },
-  { type: 'strength_upper', dayTypeMapping: 'performance', estimatedCalPerMin: 6, loadScore: 4, typicalRecoveryDays: 2 },
-  { type: 'strength_lower', dayTypeMapping: 'performance', estimatedCalPerMin: 7, loadScore: 5, typicalRecoveryDays: 2 },
-  { type: 'strength_full', dayTypeMapping: 'performance', estimatedCalPerMin: 7, loadScore: 6, typicalRecoveryDays: 2 },
-  { type: 'calisthenics', dayTypeMapping: 'performance', estimatedCalPerMin: 5, loadScore: 3, typicalRecoveryDays: 1 },
-  { type: 'mobility', dayTypeMapping: 'fatburner', estimatedCalPerMin: 2, loadScore: 0.5, typicalRecoveryDays: 0 },
-  { type: 'mixed', dayTypeMapping: 'performance', estimatedCalPerMin: 6, loadScore: 4, typicalRecoveryDays: 1 },
+  { type: 'rest', estimatedCalPerMin: 0, loadScore: 0 },
+  { type: 'qigong', estimatedCalPerMin: 2, loadScore: 0.5 },
+  { type: 'walking', estimatedCalPerMin: 4, loadScore: 1 },
+  { type: 'gmb', estimatedCalPerMin: 5, loadScore: 3 },
+  { type: 'run', estimatedCalPerMin: 8, loadScore: 3 },
+  { type: 'row', estimatedCalPerMin: 8, loadScore: 3 },
+  { type: 'cycle', estimatedCalPerMin: 6, loadScore: 2 },
+  { type: 'hiit', estimatedCalPerMin: 12, loadScore: 5 },
+  { type: 'strength', estimatedCalPerMin: 7, loadScore: 5 },
+  { type: 'calisthenics', estimatedCalPerMin: 5, loadScore: 3 },
+  { type: 'mobility', estimatedCalPerMin: 2, loadScore: 0.5 },
+  { type: 'mixed', estimatedCalPerMin: 6, loadScore: 4 },
 ];
 ```
 
@@ -240,7 +242,7 @@ function calculateBaseMacros(
   
   return {
     carbsG: (totalCalories * profile.carbRatio) / 4.1,
-    proteinG: (totalCalories * profile.proteinRatio) / 4.1,
+    proteinG: (totalCalories * profile.proteinRatio) / 4.3,
     fatsG: (totalCalories * profile.fatRatio) / 9.3,
     totalCalories
   };
@@ -296,7 +298,7 @@ function applyDayTypeMultipliers(
     fatsG: baseMacros.fatsG * mult.fats,
     totalCalories: 
       (baseMacros.carbsG * mult.carbs * 4.1) +
-      (baseMacros.proteinG * mult.protein * 4.1) +
+      (baseMacros.proteinG * mult.protein * 4.3) +
       (baseMacros.fatsG * mult.fats * 9.3)
   };
 }
@@ -519,7 +521,7 @@ function calculateRecoveryScore(
   
   // Sleep quality contribution (if available)
   const avgSleep = recentLogs.reduce((sum, log) => sum + log.sleepQuality, 0) / recentLogs.length;
-  score += (avgSleep - 3) * 5; // ±10 points based on sleep
+  score += (avgSleep - 50) * 0.2; // ±10 points based on sleep
   
   return Math.max(0, Math.min(100, score));
 }
@@ -630,9 +632,9 @@ function calculateAdaptiveAdjustments(
   
   // 3. Sleep adjustment
   // Poor sleep = cortisol/hunger issues, slight increase to prevent binging
-  if (todayInput.sleepQuality <= 2) {
+  if (todayInput.sleepQuality <= 40) {
     adjustments.sleep = 1.03;
-  } else if (todayInput.sleepQuality >= 5) {
+  } else if (todayInput.sleepQuality >= 85) {
     adjustments.sleep = 0.99;
   } else {
     adjustments.sleep = 1.0;
@@ -759,13 +761,14 @@ GET    /api/stats/training-load      # Current load state
   "date": "2025-12-31",
   "weightKg": 88.5,
   "bodyFatPercent": 26.5,
-  "sleepQuality": 4,
+  "sleepQuality": 80,
   "sleepHours": 7.5,
   "restingHeartRate": 58,
   "plannedTraining": {
-    "type": "strength_lower",
+    "type": "strength",
     "plannedDurationMin": 60
-  }
+  },
+  "dayType": "performance"
 }
 
 // Response:
@@ -901,7 +904,7 @@ CREATE INDEX idx_logs_date ON daily_logs(log_date);
 - Morning check-in card
   - Weight input (numeric, kg)
   - Body fat % (optional, numeric)
-  - Sleep quality (1-5 star rating)
+- Sleep quality (1-100 score)
   - Sleep hours (optional, numeric)
   - RHR (optional, numeric)
 - Training selection
@@ -957,7 +960,7 @@ CREATE INDEX idx_logs_date ON daily_logs(log_date);
   /components
     /daily-input
       WeightInput.tsx
-      SleepQualityRating.tsx
+      SleepQualityInput.tsx
       TrainingSelector.tsx
       DailyInputForm.tsx
     /targets
@@ -1125,12 +1128,13 @@ For complete traceability, here are the key formulas extracted from the original
 
 ### Data Input - Weekly Calorie Calculation (I6)
 ```excel
-=((F6*4.1)+(F7*4.1)+(F8*9.3))*E3
+=((F6*4.1)+(F7*4.3)+(F8*9.3))*E3
 ```
 Where:
 - F6 = Carbs per kg bodyweight
 - F7 = Protein per kg bodyweight  
 - F8 = Fats per kg bodyweight
 - E3 = Starting weight
-- 4.1 = kcal per gram carbs/protein
+- 4.1 = kcal per gram carbs
+- 4.3 = kcal per gram protein
 - 9.3 = kcal per gram fat
