@@ -6,7 +6,7 @@ import (
 	"errors"
 	"time"
 
-	"victus/internal/models"
+	"victus/internal/domain"
 )
 
 // ErrDailyLogNotFound is returned when no daily log exists for the given date.
@@ -24,7 +24,7 @@ func NewDailyLogStore(db *sql.DB) *DailyLogStore {
 
 // GetByDate retrieves a daily log by date (YYYY-MM-DD format).
 // Returns ErrDailyLogNotFound if no log exists for that date.
-func (s *DailyLogStore) GetByDate(ctx context.Context, date string) (*models.DailyLog, error) {
+func (s *DailyLogStore) GetByDate(ctx context.Context, date string) (*domain.DailyLog, error) {
 	const query = `
 		SELECT
 			log_date, weight_kg, body_fat_percent, resting_heart_rate,
@@ -41,7 +41,7 @@ func (s *DailyLogStore) GetByDate(ctx context.Context, date string) (*models.Dai
 	`
 
 	var (
-		log            models.DailyLog
+		log            domain.DailyLog
 		bodyFatPercent sql.NullFloat64
 		heartRate      sql.NullInt64
 		sleepHours     sql.NullFloat64
@@ -99,7 +99,7 @@ func (s *DailyLogStore) GetByDate(ctx context.Context, date string) (*models.Dai
 
 // Create inserts a new daily log.
 // Returns an error if a log already exists for that date.
-func (s *DailyLogStore) Create(ctx context.Context, log *models.DailyLog) error {
+func (s *DailyLogStore) Create(ctx context.Context, log *domain.DailyLog) error {
 	const query = `
 		INSERT INTO daily_logs (
 			log_date, weight_kg, body_fat_percent, resting_heart_rate,

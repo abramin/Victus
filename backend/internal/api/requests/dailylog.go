@@ -3,7 +3,7 @@ package requests
 import (
 	"time"
 
-	"victus/internal/models"
+	"victus/internal/domain"
 )
 
 // PlannedTrainingRequest represents training plan in API requests.
@@ -50,6 +50,7 @@ type DailyTargetsResponse struct {
 	TotalProteinG int                 `json:"totalProteinG"`
 	TotalFatsG    int                 `json:"totalFatsG"`
 	TotalCalories int                 `json:"totalCalories"`
+	EstimatedTDEE int                 `json:"estimatedTDEE"` // Pre-adjustment TDEE
 	Meals         MealTargetsResponse `json:"meals"`
 	FruitG        int                 `json:"fruitG"`
 	VeggiesG      int                 `json:"veggiesG"`
@@ -74,24 +75,24 @@ type DailyLogResponse struct {
 }
 
 // DailyLogFromRequest converts a CreateDailyLogRequest to a DailyLog model.
-func DailyLogFromRequest(req CreateDailyLogRequest) *models.DailyLog {
-	return &models.DailyLog{
+func DailyLogFromRequest(req CreateDailyLogRequest) *domain.DailyLog {
+	return &domain.DailyLog{
 		Date:             req.Date,
 		WeightKg:         req.WeightKg,
 		BodyFatPercent:   req.BodyFatPercent,
 		RestingHeartRate: req.RestingHeartRate,
-		SleepQuality:     models.SleepQuality(req.SleepQuality),
+		SleepQuality:     domain.SleepQuality(req.SleepQuality),
 		SleepHours:       req.SleepHours,
-		PlannedTraining: models.PlannedTraining{
-			Type:               models.TrainingType(req.PlannedTraining.Type),
+		PlannedTraining: domain.PlannedTraining{
+			Type:               domain.TrainingType(req.PlannedTraining.Type),
 			PlannedDurationMin: req.PlannedTraining.PlannedDurationMin,
 		},
-		DayType: models.DayType(req.DayType),
+		DayType: domain.DayType(req.DayType),
 	}
 }
 
 // DailyLogToResponse converts a DailyLog model to a DailyLogResponse.
-func DailyLogToResponse(d *models.DailyLog) DailyLogResponse {
+func DailyLogToResponse(d *domain.DailyLog) DailyLogResponse {
 	resp := DailyLogResponse{
 		Date:             d.Date,
 		WeightKg:         d.WeightKg,
@@ -109,6 +110,7 @@ func DailyLogToResponse(d *models.DailyLog) DailyLogResponse {
 			TotalProteinG: d.CalculatedTargets.TotalProteinG,
 			TotalFatsG:    d.CalculatedTargets.TotalFatsG,
 			TotalCalories: d.CalculatedTargets.TotalCalories,
+			EstimatedTDEE: d.CalculatedTargets.EstimatedTDEE,
 			Meals: MealTargetsResponse{
 				Breakfast: MacroPointsResponse{
 					Carbs:   d.CalculatedTargets.Meals.Breakfast.Carbs,

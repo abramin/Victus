@@ -101,18 +101,33 @@ func (s *TargetsSuite) TestEstimatedTDEE() {
 		s.InDelta(2136, tdee, 5)
 	})
 
-	s.Run("training adds calories based on type and duration", func() {
-		// HIIT: 12 cal/min, 30 min = 360 extra calories
+	s.Run("training adds calories based on type and duration using MET", func() {
+		// HIIT with MET-based calculation: (MET-1) × weight × hours
+		// HIIT MET = 12.8, (12.8-1) × 85 kg × 0.5 hr = 501.5 cal
 		tdeeHIIT := CalculateEstimatedTDEE(s.maleProfile, 85, TrainingTypeHIIT, 30, s.now)
 		tdeeRest := CalculateEstimatedTDEE(s.maleProfile, 85, TrainingTypeRest, 0, s.now)
-		s.InDelta(360, tdeeHIIT-tdeeRest, 5, "30 min HIIT should add ~360 cal")
+		s.InDelta(502, tdeeHIIT-tdeeRest, 5, "30 min HIIT should add ~502 cal with MET formula")
 	})
 
-	s.Run("strength training calories", func() {
-		// Strength: 7 cal/min, 60 min = 420 extra calories
+	s.Run("strength training calories with MET", func() {
+		// Strength MET = 5.0, (5.0-1) × 85 kg × 1 hr = 340 cal
 		tdeeStrength := CalculateEstimatedTDEE(s.maleProfile, 85, TrainingTypeStrength, 60, s.now)
 		tdeeRest := CalculateEstimatedTDEE(s.maleProfile, 85, TrainingTypeRest, 0, s.now)
-		s.InDelta(420, tdeeStrength-tdeeRest, 5, "60 min strength should add ~420 cal")
+		s.InDelta(340, tdeeStrength-tdeeRest, 5, "60 min strength should add ~340 cal with MET formula")
+	})
+
+	s.Run("heavier person burns more calories for same activity", func() {
+		// MET-based calculation is weight-adjusted
+		tdee70kg := CalculateEstimatedTDEE(s.maleProfile, 70, TrainingTypeRun, 30, s.now)
+		tdee100kg := CalculateEstimatedTDEE(s.maleProfile, 100, TrainingTypeRun, 30, s.now)
+
+		rest70kg := CalculateEstimatedTDEE(s.maleProfile, 70, TrainingTypeRest, 0, s.now)
+		rest100kg := CalculateEstimatedTDEE(s.maleProfile, 100, TrainingTypeRest, 0, s.now)
+
+		exercise70kg := tdee70kg - rest70kg
+		exercise100kg := tdee100kg - rest100kg
+
+		s.Greater(exercise100kg, exercise70kg, "Heavier person burns more during exercise")
 	})
 }
 
@@ -272,5 +287,222 @@ func (s *TargetsSuite) TestRoundToNearest5() {
 	s.Run("exact multiples unchanged", func() {
 		s.Equal(25, roundToNearest5(25))
 		s.Equal(100, roundToNearest5(100))
+	})
+}
+
+// =============================================================================
+// NEW TESTS FOR EVIDENCE-BASED CALCULATION ENGINE (Slice 3.5)
+// =============================================================================
+
+func (s *TargetsSuite) TestBMREquations() {
+	s.Run("Katch-McArdle with known body fat", func() {
+		profileWithBF := *s.maleProfile
+		profileWithBF.BMREquation = BMREquationKatchMcArdle
+		profileWithBF.BodyFatPercent = 20 // 20% body fat
+
+		// BMR = 370 + (21.6 × LBM)
+		// LBM = 85 kg × (1 - 0.20) = 68 kg
+		// BMR = 370 + (21.6 × 68) = 370 + 1468.8 = 1838.8
+		bmr := CalculateBMR(&profileWithBF, 85, s.now, BMREquationKatchMcArdle)
+		s.InDelta(1838.8, bmr, 1, "Katch-McArdle should use lean body mass")
+	})
+
+	s.Run("Katch-McArdle falls back to Mifflin when no body fat", func() {
+		profileNoBF := *s.maleProfile
+		profileNoBF.BMREquation = BMREquationKatchMcArdle
+		profileNoBF.BodyFatPercent = 0 // No body fat data
+
+		bmrKatch := CalculateBMR(&profileNoBF, 85, s.now, BMREquationKatchMcArdle)
+		bmrMifflin := CalculateBMR(&profileNoBF, 85, s.now, BMREquationMifflinStJeor)
+
+		s.InDelta(bmrMifflin, bmrKatch, 1, "Should fall back to Mifflin-St Jeor")
+	})
+
+	s.Run("Oxford-Henry age stratification for male", func() {
+		// Male under 30: 14.4 × weight + 313
+		youngProfile := *s.maleProfile
+		youngProfile.BirthDate = time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC) // 25 years old
+
+		bmr := CalculateBMR(&youngProfile, 85, s.now, BMREquationOxfordHenry)
+		expected := 14.4*85 + 313 // = 1537
+		s.InDelta(expected, bmr, 1, "Young male should use under-30 formula")
+	})
+
+	s.Run("Oxford-Henry age stratification for female", func() {
+		femaleProfile := &UserProfile{
+			HeightCM:  165,
+			BirthDate: time.Date(1990, 6, 15, 0, 0, 0, 0, time.UTC), // 34 years old
+			Sex:       SexFemale,
+		}
+
+		// Female 30-60: 8.18 × weight + 502
+		bmr := CalculateBMR(femaleProfile, 65, s.now, BMREquationOxfordHenry)
+		expected := 8.18*65 + 502 // = 1033.7
+		s.InDelta(expected, bmr, 1, "Adult female should use 30-60 formula")
+	})
+
+	s.Run("Harris-Benedict calculation", func() {
+		// Male: 88.362 + (13.397 × weight) + (4.799 × height) - (5.677 × age)
+		// = 88.362 + (13.397 × 85) + (4.799 × 180) - (5.677 × 40)
+		// = 88.362 + 1138.745 + 863.82 - 227.08 = 1863.85
+		bmr := CalculateBMR(s.maleProfile, 85, s.now, BMREquationHarrisBenedict)
+		s.InDelta(1863.85, bmr, 1, "Harris-Benedict for 40yo male")
+	})
+}
+
+func (s *TargetsSuite) TestMETBasedExerciseCalories() {
+	s.Run("rest returns zero additional calories", func() {
+		cal := CalculateExerciseCalories(TrainingTypeRest, 85, 60)
+		s.Equal(0.0, cal, "Rest has MET=1, so (1-1) × weight × hours = 0")
+	})
+
+	s.Run("running calculation is weight-adjusted", func() {
+		// Run MET = 9.8, (9.8-1) × 85 × 0.5 = 374.0
+		cal := CalculateExerciseCalories(TrainingTypeRun, 85, 30)
+		s.InDelta(374, cal, 1, "Running 30 min for 85kg person")
+	})
+
+	s.Run("weight affects calorie burn proportionally", func() {
+		cal70kg := CalculateExerciseCalories(TrainingTypeRun, 70, 30)
+		cal100kg := CalculateExerciseCalories(TrainingTypeRun, 100, 30)
+
+		// Ratio should be close to weight ratio
+		s.InDelta(100.0/70.0, cal100kg/cal70kg, 0.01)
+	})
+}
+
+func (s *TargetsSuite) TestProteinRecommendations() {
+	s.Run("fat loss uses higher protein target", func() {
+		rec := GetProteinRecommendation(GoalLoseWeight, true, 0.20)
+		s.GreaterOrEqual(rec.OptimalGPerKg, 2.0, "Fat loss should target 2.0+ g/kg")
+	})
+
+	s.Run("aggressive deficit increases protein", func() {
+		moderate := GetProteinRecommendation(GoalLoseWeight, true, 0.15)
+		aggressive := GetProteinRecommendation(GoalLoseWeight, true, 0.30)
+		s.Greater(aggressive.OptimalGPerKg, moderate.OptimalGPerKg,
+			"More aggressive deficit should recommend more protein")
+	})
+
+	s.Run("gain weight has lower protein than fat loss", func() {
+		gainRec := GetProteinRecommendation(GoalGainWeight, true, 0)
+		loseRec := GetProteinRecommendation(GoalLoseWeight, true, 0.20)
+		s.Less(gainRec.OptimalGPerKg, loseRec.OptimalGPerKg,
+			"Gaining weight needs less protein than losing")
+	})
+
+	s.Run("training day vs rest day affects protein for gain goal", func() {
+		training := GetProteinRecommendation(GoalGainWeight, true, 0)
+		rest := GetProteinRecommendation(GoalGainWeight, false, 0)
+		s.Greater(training.OptimalGPerKg, rest.OptimalGPerKg,
+			"Training days should have higher protein target")
+	})
+
+	s.Run("all recommendations have sources", func() {
+		rec := GetProteinRecommendation(GoalLoseWeight, true, 0.20)
+		s.NotEmpty(rec.Source, "Should cite research source")
+	})
+}
+
+func (s *TargetsSuite) TestFatFloor() {
+	s.Run("minimum fat is 0.7 g/kg", func() {
+		fatMin := GetFatMinimum(85)
+		s.InDelta(59.5, fatMin, 0.1, "85 kg × 0.7 = 59.5g minimum")
+	})
+
+	s.Run("scales with weight", func() {
+		fatMin60 := GetFatMinimum(60)
+		fatMin100 := GetFatMinimum(100)
+		s.InDelta(42, fatMin60, 0.1)
+		s.InDelta(70, fatMin100, 0.1)
+	})
+}
+
+func (s *TargetsSuite) TestProtectedProteinMultipliers() {
+	s.Run("fatburner protects protein while cutting carbs", func() {
+		mult := getDayTypeModifiers(DayTypeFatburner)
+		s.Equal(1.00, mult.Protein, "Protein should not be reduced")
+		s.Less(mult.Carbs, 1.0, "Carbs should be reduced")
+	})
+
+	s.Run("performance maintains protein while boosting carbs", func() {
+		mult := getDayTypeModifiers(DayTypePerformance)
+		s.Equal(1.00, mult.Protein, "Protein should stay at 100%")
+		s.Greater(mult.Carbs, 1.0, "Carbs should increase for performance")
+	})
+
+	s.Run("metabolize has highest carb boost", func() {
+		multPerf := getDayTypeModifiers(DayTypePerformance)
+		multMeta := getDayTypeModifiers(DayTypeMetabolize)
+		s.Greater(multMeta.Carbs, multPerf.Carbs, "Metabolize should have more carbs than performance")
+	})
+}
+
+func (s *TargetsSuite) TestCalculateDailyTargetsIntegration() {
+	s.Run("EstimatedTDEE is populated", func() {
+		log := &DailyLog{
+			Date:            "2025-01-01",
+			WeightKg:        85,
+			SleepQuality:    80,
+			PlannedTraining: PlannedTraining{Type: TrainingTypeStrength, PlannedDurationMin: 60},
+			DayType:         DayTypePerformance,
+		}
+		targets := CalculateDailyTargets(s.maleProfile, log, s.now)
+		s.Greater(targets.EstimatedTDEE, 0, "EstimatedTDEE should be populated")
+		s.Greater(targets.EstimatedTDEE, targets.TotalCalories,
+			"For lose_weight goal, TDEE should be higher than target calories")
+	})
+
+	s.Run("protein meets minimum g/kg requirement", func() {
+		log := &DailyLog{
+			Date:            "2025-01-01",
+			WeightKg:        85,
+			SleepQuality:    80,
+			PlannedTraining: PlannedTraining{Type: TrainingTypeStrength, PlannedDurationMin: 60},
+			DayType:         DayTypeFatburner,
+		}
+		targets := CalculateDailyTargets(s.maleProfile, log, s.now)
+
+		proteinGPerKg := float64(targets.TotalProteinG) / 85.0
+		s.GreaterOrEqual(proteinGPerKg, 1.8,
+			"Protein should meet evidence-based minimum for fat loss")
+	})
+
+	s.Run("fat meets minimum floor", func() {
+		log := &DailyLog{
+			Date:            "2025-01-01",
+			WeightKg:        85,
+			SleepQuality:    80,
+			PlannedTraining: PlannedTraining{Type: TrainingTypeStrength, PlannedDurationMin: 60},
+			DayType:         DayTypeFatburner,
+		}
+		targets := CalculateDailyTargets(s.maleProfile, log, s.now)
+
+		// Fat minimum is 0.7 g/kg = 59.5g for 85kg, but stored as int so rounds to 59 or 60
+		// Allow for rounding tolerance
+		fatMinG := GetFatMinimum(85) - 1 // 59.5 - 1 = 58.5g (allowing for rounding)
+		s.GreaterOrEqual(float64(targets.TotalFatsG), fatMinG,
+			"Fat should meet 0.7 g/kg minimum (with rounding tolerance)")
+	})
+
+	s.Run("uses configured BMR equation", func() {
+		profileWithBF := *s.maleProfile
+		profileWithBF.BMREquation = BMREquationKatchMcArdle
+		profileWithBF.BodyFatPercent = 15
+
+		log := &DailyLog{
+			Date:            "2025-01-01",
+			WeightKg:        85,
+			SleepQuality:    80,
+			PlannedTraining: PlannedTraining{Type: TrainingTypeRest, PlannedDurationMin: 0},
+			DayType:         DayTypePerformance,
+		}
+
+		targetsDefault := CalculateDailyTargets(s.maleProfile, log, s.now)
+		targetsKatch := CalculateDailyTargets(&profileWithBF, log, s.now)
+
+		// Katch-McArdle with 15% BF should give different results
+		s.NotEqual(targetsDefault.EstimatedTDEE, targetsKatch.EstimatedTDEE,
+			"Different BMR equation should produce different TDEE")
 	})
 }

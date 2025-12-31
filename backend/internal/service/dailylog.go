@@ -4,8 +4,7 @@ import (
 	"context"
 	"time"
 
-	"victus/internal/calc"
-	"victus/internal/models"
+	"victus/internal/domain"
 	"victus/internal/store"
 )
 
@@ -25,7 +24,7 @@ func NewDailyLogService(ls *store.DailyLogStore, ps *store.ProfileStore) *DailyL
 
 // Create creates a new daily log with calculated targets.
 // Returns store.ErrProfileNotFound if no profile exists.
-func (s *DailyLogService) Create(ctx context.Context, log *models.DailyLog, now time.Time) (*models.DailyLog, error) {
+func (s *DailyLogService) Create(ctx context.Context, log *domain.DailyLog, now time.Time) (*domain.DailyLog, error) {
 	// Get profile (required for calculations)
 	profile, err := s.profileStore.Get(ctx)
 	if err != nil {
@@ -39,8 +38,8 @@ func (s *DailyLogService) Create(ctx context.Context, log *models.DailyLog, now 
 	}
 
 	// Calculate targets
-	log.CalculatedTargets = calc.CalculateDailyTargets(profile, log, now)
-	log.EstimatedTDEE = calc.CalculateEstimatedTDEE(
+	log.CalculatedTargets = domain.CalculateDailyTargets(profile, log, now)
+	log.EstimatedTDEE = domain.CalculateEstimatedTDEE(
 		profile,
 		log.WeightKg,
 		log.PlannedTraining.Type,
@@ -58,7 +57,7 @@ func (s *DailyLogService) Create(ctx context.Context, log *models.DailyLog, now 
 
 // GetToday retrieves today's daily log.
 // Returns store.ErrDailyLogNotFound if no log exists for today.
-func (s *DailyLogService) GetToday(ctx context.Context, now time.Time) (*models.DailyLog, error) {
+func (s *DailyLogService) GetToday(ctx context.Context, now time.Time) (*domain.DailyLog, error) {
 	today := now.Format("2006-01-02")
 	return s.logStore.GetByDate(ctx, today)
 }

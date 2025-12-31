@@ -20,6 +20,8 @@ type UserProfile struct {
 	PointsConfig         PointsConfig
 	FruitTargetG         float64
 	VeggieTargetG        float64
+	BMREquation          BMREquation // Which BMR equation to use (default: mifflin_st_jeor)
+	BodyFatPercent       float64     // For Katch-McArdle equation (0 if unknown)
 	CreatedAt            time.Time
 	UpdatedAt            time.Time
 }
@@ -126,6 +128,16 @@ func (p *UserProfile) ValidateAt(now time.Time) error {
 		return ErrInvalidVeggieTarget
 	}
 
+	// BMR equation validation (empty is allowed, defaults to mifflin_st_jeor)
+	if p.BMREquation != "" && !ValidBMREquations[p.BMREquation] {
+		return ErrInvalidBMREquation
+	}
+
+	// Body fat percent validation (0 means not provided, otherwise must be 3-70%)
+	if p.BodyFatPercent != 0 && (p.BodyFatPercent < 3 || p.BodyFatPercent > 70) {
+		return ErrInvalidBodyFatPercent
+	}
+
 	return nil
 }
 
@@ -163,5 +175,9 @@ func (p *UserProfile) SetDefaults() {
 	}
 	if p.VeggieTargetG == 0 {
 		p.VeggieTargetG = 500
+	}
+
+	if p.BMREquation == "" {
+		p.BMREquation = BMREquationMifflinStJeor
 	}
 }

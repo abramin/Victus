@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 )
 
 // RunMigrations applies all database migrations.
@@ -18,6 +19,22 @@ func RunMigrations(db *sql.DB) error {
 			return fmt.Errorf("migration %d failed: %w", i, err)
 		}
 	}
+
+	// Run ALTER TABLE migrations separately to handle "duplicate column" errors gracefully
+	alterMigrations := []string{
+		addBMREquationColumn,
+		addBodyFatPercentColumn,
+	}
+
+	for _, migration := range alterMigrations {
+		if _, err := db.Exec(migration); err != nil {
+			// Ignore "duplicate column name" errors (column already exists)
+			if !strings.Contains(err.Error(), "duplicate column name") {
+				return fmt.Errorf("alter migration failed: %w", err)
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -41,6 +58,8 @@ CREATE TABLE IF NOT EXISTS user_profile (
     fat_multiplier REAL NOT NULL DEFAULT 3.5,
     fruit_target_g REAL NOT NULL DEFAULT 600,
     veggie_target_g REAL NOT NULL DEFAULT 500,
+    bmr_equation TEXT NOT NULL DEFAULT 'mifflin_st_jeor',
+    body_fat_percent REAL,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
 
@@ -95,3 +114,7 @@ CREATE TABLE IF NOT EXISTS daily_logs (
 
 CREATE INDEX IF NOT EXISTS idx_daily_logs_date ON daily_logs(log_date);
 `
+
+// ALTER TABLE migrations for existing databases (split for SQLite compatibility)
+const addBMREquationColumn = `ALTER TABLE user_profile ADD COLUMN bmr_equation TEXT NOT NULL DEFAULT 'mifflin_st_jeor'`
+const addBodyFatPercentColumn = `ALTER TABLE user_profile ADD COLUMN body_fat_percent REAL`

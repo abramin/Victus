@@ -3,7 +3,7 @@ package requests
 import (
 	"time"
 
-	"victus/internal/models"
+	"victus/internal/domain"
 )
 
 // MealRatiosRequest represents meal distribution ratios in API requests.
@@ -35,6 +35,8 @@ type CreateProfileRequest struct {
 	PointsConfig         PointsConfigRequest `json:"pointsConfig"`
 	FruitTargetG         float64             `json:"fruitTargetG"`
 	VeggieTargetG        float64             `json:"veggieTargetG"`
+	BMREquation          string              `json:"bmrEquation,omitempty"`    // mifflin_st_jeor (default), katch_mcardle, oxford_henry, harris_benedict
+	BodyFatPercent       *float64            `json:"bodyFatPercent,omitempty"` // For Katch-McArdle equation
 }
 
 // MealRatiosResponse represents meal distribution ratios in API responses.
@@ -66,44 +68,54 @@ type ProfileResponse struct {
 	PointsConfig         PointsConfigResponse `json:"pointsConfig"`
 	FruitTargetG         float64              `json:"fruitTargetG"`
 	VeggieTargetG        float64              `json:"veggieTargetG"`
+	BMREquation          string               `json:"bmrEquation"`
+	BodyFatPercent       *float64             `json:"bodyFatPercent,omitempty"`
 	CreatedAt            string               `json:"createdAt,omitempty"`
 	UpdatedAt            string               `json:"updatedAt,omitempty"`
 }
 
 // ProfileFromRequest converts a CreateProfileRequest to a UserProfile model.
-func ProfileFromRequest(req CreateProfileRequest) (*models.UserProfile, error) {
+func ProfileFromRequest(req CreateProfileRequest) (*domain.UserProfile, error) {
 	birthDate, err := time.Parse("2006-01-02", req.BirthDate)
 	if err != nil {
 		return nil, err
 	}
 
-	return &models.UserProfile{
+	profile := &domain.UserProfile{
 		HeightCM:             req.HeightCM,
 		BirthDate:            birthDate,
-		Sex:                  models.Sex(req.Sex),
-		Goal:                 models.Goal(req.Goal),
+		Sex:                  domain.Sex(req.Sex),
+		Goal:                 domain.Goal(req.Goal),
 		TargetWeightKg:       req.TargetWeightKg,
 		TargetWeeklyChangeKg: req.TargetWeeklyChangeKg,
 		CarbRatio:            req.CarbRatio,
 		ProteinRatio:         req.ProteinRatio,
 		FatRatio:             req.FatRatio,
-		MealRatios: models.MealRatios{
+		MealRatios: domain.MealRatios{
 			Breakfast: req.MealRatios.Breakfast,
 			Lunch:     req.MealRatios.Lunch,
 			Dinner:    req.MealRatios.Dinner,
 		},
-		PointsConfig: models.PointsConfig{
+		PointsConfig: domain.PointsConfig{
 			CarbMultiplier:    req.PointsConfig.CarbMultiplier,
 			ProteinMultiplier: req.PointsConfig.ProteinMultiplier,
 			FatMultiplier:     req.PointsConfig.FatMultiplier,
 		},
 		FruitTargetG:  req.FruitTargetG,
 		VeggieTargetG: req.VeggieTargetG,
-	}, nil
+		BMREquation:   domain.BMREquation(req.BMREquation),
+	}
+
+	// Handle optional body fat percent
+	if req.BodyFatPercent != nil {
+		profile.BodyFatPercent = *req.BodyFatPercent
+	}
+
+	return profile, nil
 }
 
 // ProfileToResponse converts a UserProfile model to a ProfileResponse.
-func ProfileToResponse(p *models.UserProfile) ProfileResponse {
+func ProfileToResponse(p *domain.UserProfile) ProfileResponse {
 	resp := ProfileResponse{
 		HeightCM:             p.HeightCM,
 		BirthDate:            p.BirthDate.Format("2006-01-02"),
@@ -126,6 +138,12 @@ func ProfileToResponse(p *models.UserProfile) ProfileResponse {
 		},
 		FruitTargetG:  p.FruitTargetG,
 		VeggieTargetG: p.VeggieTargetG,
+		BMREquation:   string(p.BMREquation),
+	}
+
+	// Include body fat percent only if set
+	if p.BodyFatPercent > 0 {
+		resp.BodyFatPercent = &p.BodyFatPercent
 	}
 
 	if !p.CreatedAt.IsZero() {

@@ -67,6 +67,24 @@ var ValidDayTypes = map[DayType]bool{
 	DayTypeMetabolize:  true,
 }
 
+// BMREquation represents available BMR calculation methods.
+type BMREquation string
+
+const (
+	BMREquationMifflinStJeor  BMREquation = "mifflin_st_jeor"  // Default, best for general population
+	BMREquationKatchMcArdle   BMREquation = "katch_mcardle"    // Best if body fat % is known
+	BMREquationOxfordHenry    BMREquation = "oxford_henry"     // Large sample, good accuracy
+	BMREquationHarrisBenedict BMREquation = "harris_benedict"  // Legacy, included for comparison
+)
+
+// ValidBMREquations contains all valid BMR equation values.
+var ValidBMREquations = map[BMREquation]bool{
+	BMREquationMifflinStJeor:  true,
+	BMREquationKatchMcArdle:   true,
+	BMREquationOxfordHenry:    true,
+	BMREquationHarrisBenedict: true,
+}
+
 // SleepQuality represents sleep quality score (1-100).
 type SleepQuality int
 
@@ -110,6 +128,7 @@ type DailyTargets struct {
 	TotalProteinG int
 	TotalFatsG    int
 	TotalCalories int
+	EstimatedTDEE int // Pre-adjustment TDEE for adaptive tracking
 	Meals         MealTargets
 	FruitG        int
 	VeggiesG      int
