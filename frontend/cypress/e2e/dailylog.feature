@@ -36,3 +36,18 @@ Feature: Daily log management
     When I fetch today's daily log
     Then the response status should be 404
     And the error response should include "not_found"
+
+  Scenario: Reject duplicate daily log for same date
+    Given the profile API is running
+    And I have upserted a valid user profile
+    And I have created a valid daily log for today
+    When I create a valid daily log
+    Then the response status should be 409
+    And the error response should include "already_exists"
+
+  Scenario: Delete today's log
+    Given the profile API is running
+    And I have upserted a valid user profile
+    And I have created a valid daily log for today
+    When I delete today's daily log
+    Then the response status should be 204

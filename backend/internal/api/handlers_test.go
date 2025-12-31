@@ -328,10 +328,10 @@ func (s *HandlerSuite) TestDailyLogNotFound() {
 	})
 }
 
-func (s *HandlerSuite) TestDailyLogCRUD() {
+func (s *HandlerSuite) TestDailyLogCreation() {
 	s.createProfile()
 
-	s.Run("creates log with calculated targets", func() {
+	s.Run("returns calculated targets with log data", func() {
 		today := time.Now().Format("2006-01-02")
 		req := map[string]interface{}{
 			"date":         today,
@@ -357,8 +357,27 @@ func (s *HandlerSuite) TestDailyLogCRUD() {
 		s.Greater(targets["totalCalories"], float64(0))
 		s.Greater(targets["totalCarbsG"], float64(0))
 	})
+}
 
-	s.Run("fetches today's log", func() {
+func (s *HandlerSuite) TestDailyLogRetrieval() {
+	s.createProfile()
+
+	// Create a log first
+	today := time.Now().Format("2006-01-02")
+	req := map[string]interface{}{
+		"date":         today,
+		"weightKg":     85,
+		"sleepQuality": 80,
+		"plannedTraining": map[string]interface{}{
+			"type":               "strength",
+			"plannedDurationMin": 60,
+		},
+		"dayType": "performance",
+	}
+	rec := s.doRequest("POST", "/api/logs", req)
+	s.Require().Equal(http.StatusCreated, rec.Code)
+
+	s.Run("fetches today's log after creation", func() {
 		rec := s.doRequest("GET", "/api/logs/today", nil)
 		s.Equal(http.StatusOK, rec.Code)
 
@@ -366,8 +385,27 @@ func (s *HandlerSuite) TestDailyLogCRUD() {
 		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
 		s.Equal(float64(85), resp["weightKg"])
 	})
+}
 
-	s.Run("deletes today's log", func() {
+func (s *HandlerSuite) TestDailyLogDeletion() {
+	s.createProfile()
+
+	// Create a log first
+	today := time.Now().Format("2006-01-02")
+	req := map[string]interface{}{
+		"date":         today,
+		"weightKg":     85,
+		"sleepQuality": 80,
+		"plannedTraining": map[string]interface{}{
+			"type":               "strength",
+			"plannedDurationMin": 60,
+		},
+		"dayType": "performance",
+	}
+	rec := s.doRequest("POST", "/api/logs", req)
+	s.Require().Equal(http.StatusCreated, rec.Code)
+
+	s.Run("removes log and returns 204", func() {
 		rec := s.doRequest("DELETE", "/api/logs/today", nil)
 		s.Equal(http.StatusNoContent, rec.Code)
 

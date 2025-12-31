@@ -76,8 +76,8 @@ func (s *StoreSuite) TestProfileNotFoundBeforeCreation() {
 	})
 }
 
-func (s *StoreSuite) TestProfileRoundTrip() {
-	s.Run("data survives save and load", func() {
+func (s *StoreSuite) TestProfileDataIntegrity() {
+	s.Run("all fields survive serialization", func() {
 		profile := s.validProfile()
 		err := s.profileStore.Upsert(s.ctx, profile)
 		s.Require().NoError(err)
@@ -139,8 +139,8 @@ func (s *StoreSuite) TestDailyLogNotFoundBeforeCreation() {
 	})
 }
 
-func (s *StoreSuite) TestDailyLogRoundTrip() {
-	s.Run("data survives save and load with all fields", func() {
+func (s *StoreSuite) TestLogFieldPreservation() {
+	s.Run("all fields including nested structures survive persistence", func() {
 		log := &domain.DailyLog{
 			Date:            "2025-01-15",
 			WeightKg:        85,
