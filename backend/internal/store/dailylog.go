@@ -96,12 +96,6 @@ func (s *DailyLogStore) GetByDate(ctx context.Context, date string) (*models.Dai
 	return &log, nil
 }
 
-// GetToday retrieves today's daily log.
-// Returns ErrDailyLogNotFound if no log exists for today.
-func (s *DailyLogStore) GetToday(ctx context.Context) (*models.DailyLog, error) {
-	today := time.Now().Format("2006-01-02")
-	return s.GetByDate(ctx, today)
-}
 
 // Create inserts a new daily log.
 // Returns an error if a log already exists for that date.
@@ -164,9 +158,8 @@ func (s *DailyLogStore) Create(ctx context.Context, log *models.DailyLog) error 
 	return err
 }
 
-// DeleteToday removes today's daily log.
-func (s *DailyLogStore) DeleteToday(ctx context.Context) error {
-	today := time.Now().Format("2006-01-02")
-	_, err := s.db.ExecContext(ctx, "DELETE FROM daily_logs WHERE log_date = ?", today)
+// DeleteByDate removes the daily log for the given date.
+func (s *DailyLogStore) DeleteByDate(ctx context.Context, date string) error {
+	_, err := s.db.ExecContext(ctx, "DELETE FROM daily_logs WHERE log_date = ?", date)
 	return err
 }
