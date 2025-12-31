@@ -110,3 +110,11 @@ Then("the daily log response should include the submitted log data", () => {
     expect(training.plannedDurationMin).to.equal(validDailyLog.plannedTraining.plannedDurationMin)
   })
 })
+
+When("I delete today's daily log", () => {
+  cy.request({
+    method: "DELETE",
+    url: `${apiBaseUrl}/api/logs/today`,
+    failOnStatusCode: false,
+  }).as("lastResponse")
+})
