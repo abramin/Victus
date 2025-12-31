@@ -224,6 +224,10 @@ const TRAINING_CONFIGS: TrainingTypeConfig[] = [
 ];
 ```
 
+### 3.4 Validation Rules
+- Daily logs must be for today or past dates; future-dated logs are rejected at the API/domain boundary.
+- Enum fields are validated and constrained: training type and day type values must be one of the allowed enums, with DB CHECK constraints on `planned_training_type`, `actual_training_type`, `day_type`, and `training_configs` mappings.
+
 ---
 
 ## 4. Core Algorithms
@@ -842,11 +846,17 @@ CREATE TABLE daily_logs (
   sleep_hours REAL,
   
   -- Planned training
-  planned_training_type TEXT NOT NULL,
+  planned_training_type TEXT NOT NULL CHECK(planned_training_type IN (
+    'rest', 'qigong', 'walking', 'gmb', 'run', 'row', 'cycle', 'hiit',
+    'strength', 'calisthenics', 'mobility', 'mixed'
+  )),
   planned_duration_min INTEGER NOT NULL,
   
   -- Actual training (nullable, filled in later)
-  actual_training_type TEXT,
+  actual_training_type TEXT CHECK(actual_training_type IN (
+    'rest', 'qigong', 'walking', 'gmb', 'run', 'row', 'cycle', 'hiit',
+    'strength', 'calisthenics', 'mobility', 'mixed'
+  )),
   actual_duration_min INTEGER,
   perceived_intensity INTEGER CHECK(perceived_intensity BETWEEN 1 AND 5),
   training_notes TEXT,
@@ -868,7 +878,7 @@ CREATE TABLE daily_logs (
   fruit_g REAL,
   veggies_g REAL,
   water_l REAL,
-  day_type TEXT,
+  day_type TEXT CHECK(day_type IN ('performance', 'fatburner', 'metabolize')),
   
   -- Adaptive state at calculation time
   estimated_tdee REAL,
@@ -885,8 +895,11 @@ CREATE TABLE daily_logs (
 -- Training type configurations (user-adjustable)
 CREATE TABLE training_configs (
   id INTEGER PRIMARY KEY,
-  type TEXT UNIQUE NOT NULL,
-  day_type_mapping TEXT NOT NULL,
+  type TEXT UNIQUE NOT NULL CHECK(type IN (
+    'rest', 'qigong', 'walking', 'gmb', 'run', 'row', 'cycle', 'hiit',
+    'strength', 'calisthenics', 'mobility', 'mixed'
+  )),
+  day_type_mapping TEXT NOT NULL CHECK(day_type_mapping IN ('performance', 'fatburner', 'metabolize')),
   estimated_cal_per_min REAL DEFAULT 5,
   load_score REAL DEFAULT 3,
   typical_recovery_days INTEGER DEFAULT 1
