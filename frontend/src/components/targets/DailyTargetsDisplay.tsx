@@ -49,24 +49,92 @@ function MealCard({ title, points }: { title: string; points: MacroPoints }) {
   );
 }
 
-function MacroSummary({ targets }: { targets: DailyTargets }) {
+function MacroProgressBar({
+  label,
+  grams,
+  calories,
+  totalCalories,
+  color
+}: {
+  label: string;
+  grams: number;
+  calories: number;
+  totalCalories: number;
+  color: string;
+}) {
+  const percentage = totalCalories > 0 ? Math.round((calories / totalCalories) * 100) : 0;
+
   return (
-    <div className="grid grid-cols-4 gap-4 text-center">
-      <div>
-        <div className="text-3xl font-bold text-slate-100">{targets.totalCalories}</div>
-        <div className="text-sm text-slate-400">Calories</div>
+    <div className="space-y-1">
+      <div className="flex justify-between text-sm">
+        <span className={color}>{label}</span>
+        <span className="text-slate-400">{grams}g ({percentage}%)</span>
       </div>
-      <div>
-        <div className="text-3xl font-bold text-amber-400">{targets.totalCarbsG}g</div>
-        <div className="text-sm text-slate-400">Carbs</div>
+      <div className="h-3 bg-slate-700 rounded-full overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-all duration-500 ${
+            label === 'Carbs' ? 'bg-amber-500' :
+            label === 'Protein' ? 'bg-red-500' : 'bg-blue-500'
+          }`}
+          style={{ width: `${percentage}%` }}
+        />
       </div>
-      <div>
-        <div className="text-3xl font-bold text-red-400">{targets.totalProteinG}g</div>
-        <div className="text-sm text-slate-400">Protein</div>
+    </div>
+  );
+}
+
+function MacroSummary({ targets }: { targets: DailyTargets }) {
+  const carbCalories = targets.totalCarbsG * 4;
+  const proteinCalories = targets.totalProteinG * 4;
+  const fatCalories = targets.totalFatsG * 9;
+
+  return (
+    <div className="space-y-6">
+      {/* Total Calories Display */}
+      <div className="text-center">
+        <div className="text-4xl font-bold text-slate-100">{targets.totalCalories}</div>
+        <div className="text-sm text-slate-400">Total Calories</div>
       </div>
-      <div>
-        <div className="text-3xl font-bold text-blue-400">{targets.totalFatsG}g</div>
-        <div className="text-sm text-slate-400">Fats</div>
+
+      {/* Macro Numbers Grid */}
+      <div className="grid grid-cols-3 gap-4 text-center">
+        <div>
+          <div className="text-2xl font-bold text-amber-400">{targets.totalCarbsG}g</div>
+          <div className="text-xs text-slate-400">Carbs</div>
+        </div>
+        <div>
+          <div className="text-2xl font-bold text-red-400">{targets.totalProteinG}g</div>
+          <div className="text-xs text-slate-400">Protein</div>
+        </div>
+        <div>
+          <div className="text-2xl font-bold text-blue-400">{targets.totalFatsG}g</div>
+          <div className="text-xs text-slate-400">Fats</div>
+        </div>
+      </div>
+
+      {/* Visual Progress Bars */}
+      <div className="space-y-3 pt-2">
+        <MacroProgressBar
+          label="Carbs"
+          grams={targets.totalCarbsG}
+          calories={carbCalories}
+          totalCalories={targets.totalCalories}
+          color="text-amber-400"
+        />
+        <MacroProgressBar
+          label="Protein"
+          grams={targets.totalProteinG}
+          calories={proteinCalories}
+          totalCalories={targets.totalCalories}
+          color="text-red-400"
+        />
+        <MacroProgressBar
+          label="Fats"
+          grams={targets.totalFatsG}
+          calories={fatCalories}
+          totalCalories={targets.totalCalories}
+          color="text-blue-400"
+        />
       </div>
     </div>
   );
