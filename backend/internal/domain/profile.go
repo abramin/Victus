@@ -11,7 +11,9 @@ type UserProfile struct {
 	BirthDate            time.Time
 	Sex                  Sex
 	Goal                 Goal
+	CurrentWeightKg      float64 // Current weight for calculations
 	TargetWeightKg       float64
+	TimeframeWeeks       int     // Weeks to reach target weight (for derived weekly change)
 	TargetWeeklyChangeKg float64
 	CarbRatio            float64
 	ProteinRatio         float64
@@ -83,13 +85,23 @@ func (p *UserProfile) ValidateAt(now time.Time) error {
 		return ErrInvalidGoal
 	}
 
+	// Current weight validation (optional - 0 means not set)
+	if p.CurrentWeightKg != 0 && (p.CurrentWeightKg < 30 || p.CurrentWeightKg > 300) {
+		return ErrInvalidCurrentWeight
+	}
+
 	// Target weight validation
 	if p.TargetWeightKg < 30 || p.TargetWeightKg > 300 {
 		return ErrInvalidTargetWeight
 	}
 
-	// Weekly change validation
-	if p.TargetWeeklyChangeKg < -1.0 || p.TargetWeeklyChangeKg > 1.0 {
+	// Timeframe validation (optional - 0 means not set)
+	if p.TimeframeWeeks < 0 || p.TimeframeWeeks > 520 {
+		return ErrInvalidTimeframeWeeks
+	}
+
+	// Weekly change validation (expanded to ±2.0 kg for lb users)
+	if p.TargetWeeklyChangeKg < -2.0 || p.TargetWeeklyChangeKg > 2.0 {
 		return ErrInvalidWeeklyChange
 	}
 

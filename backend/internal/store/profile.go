@@ -28,7 +28,7 @@ func (s *ProfileStore) Get(ctx context.Context) (*domain.UserProfile, error) {
 	const query = `
 		SELECT
 			height_cm, birth_date, sex, goal,
-			target_weight_kg, target_weekly_change_kg,
+			current_weight_kg, target_weight_kg, timeframe_weeks, target_weekly_change_kg,
 			carb_ratio, protein_ratio, fat_ratio,
 			breakfast_ratio, lunch_ratio, dinner_ratio,
 			carb_multiplier, protein_multiplier, fat_multiplier,
@@ -40,16 +40,18 @@ func (s *ProfileStore) Get(ctx context.Context) (*domain.UserProfile, error) {
 	`
 
 	var (
-		p              domain.UserProfile
-		birthDate      string
-		bodyFatPercent sql.NullFloat64
-		createdAt      string
-		updatedAt      string
+		p               domain.UserProfile
+		birthDate       string
+		currentWeightKg sql.NullFloat64
+		timeframeWeeks  sql.NullInt64
+		bodyFatPercent  sql.NullFloat64
+		createdAt       string
+		updatedAt       string
 	)
 
 	err := s.db.QueryRowContext(ctx, query).Scan(
 		&p.HeightCM, &birthDate, &p.Sex, &p.Goal,
-		&p.TargetWeightKg, &p.TargetWeeklyChangeKg,
+		&currentWeightKg, &p.TargetWeightKg, &timeframeWeeks, &p.TargetWeeklyChangeKg,
 		&p.CarbRatio, &p.ProteinRatio, &p.FatRatio,
 		&p.MealRatios.Breakfast, &p.MealRatios.Lunch, &p.MealRatios.Dinner,
 		&p.PointsConfig.CarbMultiplier, &p.PointsConfig.ProteinMultiplier, &p.PointsConfig.FatMultiplier,
@@ -70,7 +72,13 @@ func (s *ProfileStore) Get(ctx context.Context) (*domain.UserProfile, error) {
 	p.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", createdAt)
 	p.UpdatedAt, _ = time.Parse("2006-01-02 15:04:05", updatedAt)
 
-	// Handle nullable body fat percent
+	// Handle nullable fields
+	if currentWeightKg.Valid {
+		p.CurrentWeightKg = currentWeightKg.Float64
+	}
+	if timeframeWeeks.Valid {
+		p.TimeframeWeeks = int(timeframeWeeks.Int64)
+	}
 	if bodyFatPercent.Valid {
 		p.BodyFatPercent = bodyFatPercent.Float64
 	}
@@ -83,7 +91,7 @@ func (s *ProfileStore) Upsert(ctx context.Context, p *domain.UserProfile) error 
 	const query = `
 		INSERT INTO user_profile (
 			id, height_cm, birth_date, sex, goal,
-			target_weight_kg, target_weekly_change_kg,
+			current_weight_kg, target_weight_kg, timeframe_weeks, target_weekly_change_kg,
 			carb_ratio, protein_ratio, fat_ratio,
 			breakfast_ratio, lunch_ratio, dinner_ratio,
 			carb_multiplier, protein_multiplier, fat_multiplier,
@@ -92,7 +100,7 @@ func (s *ProfileStore) Upsert(ctx context.Context, p *domain.UserProfile) error 
 			created_at, updated_at
 		) VALUES (
 			1, ?, ?, ?, ?,
-			?, ?,
+			?, ?, ?, ?,
 			?, ?, ?,
 			?, ?, ?,
 			?, ?, ?,
@@ -105,7 +113,9 @@ func (s *ProfileStore) Upsert(ctx context.Context, p *domain.UserProfile) error 
 			birth_date = excluded.birth_date,
 			sex = excluded.sex,
 			goal = excluded.goal,
+			current_weight_kg = excluded.current_weight_kg,
 			target_weight_kg = excluded.target_weight_kg,
+			timeframe_weeks = excluded.timeframe_weeks,
 			target_weekly_change_kg = excluded.target_weekly_change_kg,
 			carb_ratio = excluded.carb_ratio,
 			protein_ratio = excluded.protein_ratio,
@@ -123,7 +133,11 @@ func (s *ProfileStore) Upsert(ctx context.Context, p *domain.UserProfile) error 
 			updated_at = datetime('now')
 	`
 
-	// Convert body fat percent to nullable for database
+	// Convert nullable fields for database
+	var currentWeightKg interface{}
+	if p.CurrentWeightKg > 0 {
+		currentWeightKg = p.CurrentWeightKg
+	}
 	var bodyFatPercent interface{}
 	if p.BodyFatPercent > 0 {
 		bodyFatPercent = p.BodyFatPercent
@@ -131,7 +145,7 @@ func (s *ProfileStore) Upsert(ctx context.Context, p *domain.UserProfile) error 
 
 	_, err := s.db.ExecContext(ctx, query,
 		p.HeightCM, p.BirthDate.Format("2006-01-02"), p.Sex, p.Goal,
-		p.TargetWeightKg, p.TargetWeeklyChangeKg,
+		currentWeightKg, p.TargetWeightKg, p.TimeframeWeeks, p.TargetWeeklyChangeKg,
 		p.CarbRatio, p.ProteinRatio, p.FatRatio,
 		p.MealRatios.Breakfast, p.MealRatios.Lunch, p.MealRatios.Dinner,
 		p.PointsConfig.CarbMultiplier, p.PointsConfig.ProteinMultiplier, p.PointsConfig.FatMultiplier,

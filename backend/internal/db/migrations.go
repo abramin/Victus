@@ -24,6 +24,8 @@ func RunMigrations(db *sql.DB) error {
 	alterMigrations := []string{
 		addBMREquationColumn,
 		addBodyFatPercentColumn,
+		addCurrentWeightColumn,
+		addTimeframeWeeksColumn,
 	}
 
 	for _, migration := range alterMigrations {
@@ -118,3 +120,5 @@ CREATE INDEX IF NOT EXISTS idx_daily_logs_date ON daily_logs(log_date);
 // ALTER TABLE migrations for existing databases (split for SQLite compatibility)
 const addBMREquationColumn = `ALTER TABLE user_profile ADD COLUMN bmr_equation TEXT NOT NULL DEFAULT 'mifflin_st_jeor'`
 const addBodyFatPercentColumn = `ALTER TABLE user_profile ADD COLUMN body_fat_percent REAL`
+const addCurrentWeightColumn = `ALTER TABLE user_profile ADD COLUMN current_weight_kg REAL`
+const addTimeframeWeeksColumn = `ALTER TABLE user_profile ADD COLUMN timeframe_weeks INTEGER DEFAULT 0`

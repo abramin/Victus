@@ -26,7 +26,9 @@ type CreateProfileRequest struct {
 	BirthDate            string              `json:"birthDate"`
 	Sex                  string              `json:"sex"`
 	Goal                 string              `json:"goal"`
+	CurrentWeightKg      *float64            `json:"currentWeightKg,omitempty"` // Current weight for calculations
 	TargetWeightKg       float64             `json:"targetWeightKg"`
+	TimeframeWeeks       *int                `json:"timeframeWeeks,omitempty"` // Weeks to reach target weight
 	TargetWeeklyChangeKg float64             `json:"targetWeeklyChangeKg"`
 	CarbRatio            float64             `json:"carbRatio"`
 	ProteinRatio         float64             `json:"proteinRatio"`
@@ -59,7 +61,9 @@ type ProfileResponse struct {
 	BirthDate            string               `json:"birthDate"`
 	Sex                  string               `json:"sex"`
 	Goal                 string               `json:"goal"`
+	CurrentWeightKg      *float64             `json:"currentWeightKg,omitempty"`
 	TargetWeightKg       float64              `json:"targetWeightKg"`
+	TimeframeWeeks       *int                 `json:"timeframeWeeks,omitempty"`
 	TargetWeeklyChangeKg float64              `json:"targetWeeklyChangeKg"`
 	CarbRatio            float64              `json:"carbRatio"`
 	ProteinRatio         float64              `json:"proteinRatio"`
@@ -106,7 +110,13 @@ func ProfileFromRequest(req CreateProfileRequest) (*domain.UserProfile, error) {
 		BMREquation:   domain.BMREquation(req.BMREquation),
 	}
 
-	// Handle optional body fat percent
+	// Handle optional fields
+	if req.CurrentWeightKg != nil {
+		profile.CurrentWeightKg = *req.CurrentWeightKg
+	}
+	if req.TimeframeWeeks != nil {
+		profile.TimeframeWeeks = *req.TimeframeWeeks
+	}
 	if req.BodyFatPercent != nil {
 		profile.BodyFatPercent = *req.BodyFatPercent
 	}
@@ -141,7 +151,13 @@ func ProfileToResponse(p *domain.UserProfile) ProfileResponse {
 		BMREquation:   string(p.BMREquation),
 	}
 
-	// Include body fat percent only if set
+	// Include optional fields only if set
+	if p.CurrentWeightKg > 0 {
+		resp.CurrentWeightKg = &p.CurrentWeightKg
+	}
+	if p.TimeframeWeeks > 0 {
+		resp.TimeframeWeeks = &p.TimeframeWeeks
+	}
 	if p.BodyFatPercent > 0 {
 		resp.BodyFatPercent = &p.BodyFatPercent
 	}

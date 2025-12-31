@@ -168,13 +168,13 @@ func (s *ProfileSuite) TestTargetWeightValidation() {
 func (s *ProfileSuite) TestWeeklyChangeValidation() {
 	s.Run("accepts change at lower boundary", func() {
 		p := s.validProfile()
-		p.TargetWeeklyChangeKg = -1.0
+		p.TargetWeeklyChangeKg = -2.0
 		s.Require().NoError(p.ValidateAt(s.now))
 	})
 
 	s.Run("accepts change at upper boundary", func() {
 		p := s.validProfile()
-		p.TargetWeeklyChangeKg = 1.0
+		p.TargetWeeklyChangeKg = 2.0
 		s.Require().NoError(p.ValidateAt(s.now))
 	})
 
@@ -184,15 +184,27 @@ func (s *ProfileSuite) TestWeeklyChangeValidation() {
 		s.Require().NoError(p.ValidateAt(s.now))
 	})
 
+	s.Run("accepts 0.5 increment values", func() {
+		p := s.validProfile()
+		p.TargetWeeklyChangeKg = -0.5
+		s.Require().NoError(p.ValidateAt(s.now))
+
+		p.TargetWeeklyChangeKg = 0.5
+		s.Require().NoError(p.ValidateAt(s.now))
+
+		p.TargetWeeklyChangeKg = 1.5
+		s.Require().NoError(p.ValidateAt(s.now))
+	})
+
 	s.Run("rejects change below minimum", func() {
 		p := s.validProfile()
-		p.TargetWeeklyChangeKg = -1.1
+		p.TargetWeeklyChangeKg = -2.1
 		s.Require().ErrorIs(p.ValidateAt(s.now), ErrInvalidWeeklyChange)
 	})
 
 	s.Run("rejects change above maximum", func() {
 		p := s.validProfile()
-		p.TargetWeeklyChangeKg = 1.1
+		p.TargetWeeklyChangeKg = 2.1
 		s.Require().ErrorIs(p.ValidateAt(s.now), ErrInvalidWeeklyChange)
 	})
 }
