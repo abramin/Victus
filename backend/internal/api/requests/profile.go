@@ -35,6 +35,8 @@ type CreateProfileRequest struct {
 	PointsConfig         PointsConfigRequest `json:"pointsConfig"`
 	FruitTargetG         float64             `json:"fruitTargetG"`
 	VeggieTargetG        float64             `json:"veggieTargetG"`
+	BMREquation          string              `json:"bmrEquation,omitempty"`    // mifflin_st_jeor (default), katch_mcardle, oxford_henry, harris_benedict
+	BodyFatPercent       *float64            `json:"bodyFatPercent,omitempty"` // For Katch-McArdle equation
 }
 
 // MealRatiosResponse represents meal distribution ratios in API responses.
@@ -66,6 +68,8 @@ type ProfileResponse struct {
 	PointsConfig         PointsConfigResponse `json:"pointsConfig"`
 	FruitTargetG         float64              `json:"fruitTargetG"`
 	VeggieTargetG        float64              `json:"veggieTargetG"`
+	BMREquation          string               `json:"bmrEquation"`
+	BodyFatPercent       *float64             `json:"bodyFatPercent,omitempty"`
 	CreatedAt            string               `json:"createdAt,omitempty"`
 	UpdatedAt            string               `json:"updatedAt,omitempty"`
 }
@@ -77,7 +81,7 @@ func ProfileFromRequest(req CreateProfileRequest) (*models.UserProfile, error) {
 		return nil, err
 	}
 
-	return &models.UserProfile{
+	profile := &models.UserProfile{
 		HeightCM:             req.HeightCM,
 		BirthDate:            birthDate,
 		Sex:                  models.Sex(req.Sex),
@@ -99,7 +103,15 @@ func ProfileFromRequest(req CreateProfileRequest) (*models.UserProfile, error) {
 		},
 		FruitTargetG:  req.FruitTargetG,
 		VeggieTargetG: req.VeggieTargetG,
-	}, nil
+		BMREquation:   models.BMREquation(req.BMREquation),
+	}
+
+	// Handle optional body fat percent
+	if req.BodyFatPercent != nil {
+		profile.BodyFatPercent = *req.BodyFatPercent
+	}
+
+	return profile, nil
 }
 
 // ProfileToResponse converts a UserProfile model to a ProfileResponse.
@@ -126,6 +138,12 @@ func ProfileToResponse(p *models.UserProfile) ProfileResponse {
 		},
 		FruitTargetG:  p.FruitTargetG,
 		VeggieTargetG: p.VeggieTargetG,
+		BMREquation:   string(p.BMREquation),
+	}
+
+	// Include body fat percent only if set
+	if p.BodyFatPercent > 0 {
+		resp.BodyFatPercent = &p.BodyFatPercent
 	}
 
 	if !p.CreatedAt.IsZero() {

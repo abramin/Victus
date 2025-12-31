@@ -50,6 +50,7 @@ type DailyTargetsResponse struct {
 	TotalProteinG int                 `json:"totalProteinG"`
 	TotalFatsG    int                 `json:"totalFatsG"`
 	TotalCalories int                 `json:"totalCalories"`
+	EstimatedTDEE int                 `json:"estimatedTDEE"` // Pre-adjustment TDEE
 	Meals         MealTargetsResponse `json:"meals"`
 	FruitG        int                 `json:"fruitG"`
 	VeggiesG      int                 `json:"veggiesG"`
@@ -109,6 +110,7 @@ func DailyLogToResponse(d *models.DailyLog) DailyLogResponse {
 			TotalProteinG: d.CalculatedTargets.TotalProteinG,
 			TotalFatsG:    d.CalculatedTargets.TotalFatsG,
 			TotalCalories: d.CalculatedTargets.TotalCalories,
+			EstimatedTDEE: d.CalculatedTargets.EstimatedTDEE,
 			Meals: MealTargetsResponse{
 				Breakfast: MacroPointsResponse{
 					Carbs:   d.CalculatedTargets.Meals.Breakfast.Carbs,

@@ -16,6 +16,8 @@ var (
 	ErrInvalidFruitTarget      = errors.New("fruit target must be between 0 and 2000 g")
 	ErrInvalidVeggieTarget     = errors.New("veggie target must be between 0 and 2000 g")
 	ErrInvalidPointsMultiplier = errors.New("points multipliers must be positive")
+	ErrInvalidBMREquation      = errors.New("invalid BMR equation")
+	ErrInvalidBodyFatPercent   = errors.New("body fat percent must be 0 or between 3 and 70%")
 )
 
 // DailyLog validation errors

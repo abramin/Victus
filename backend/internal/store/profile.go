@@ -33,16 +33,18 @@ func (s *ProfileStore) Get(ctx context.Context) (*models.UserProfile, error) {
 			breakfast_ratio, lunch_ratio, dinner_ratio,
 			carb_multiplier, protein_multiplier, fat_multiplier,
 			fruit_target_g, veggie_target_g,
+			bmr_equation, body_fat_percent,
 			created_at, updated_at
 		FROM user_profile
 		WHERE id = 1
 	`
 
 	var (
-		p         models.UserProfile
-		birthDate string
-		createdAt string
-		updatedAt string
+		p              models.UserProfile
+		birthDate      string
+		bodyFatPercent sql.NullFloat64
+		createdAt      string
+		updatedAt      string
 	)
 
 	err := s.db.QueryRowContext(ctx, query).Scan(
@@ -52,6 +54,7 @@ func (s *ProfileStore) Get(ctx context.Context) (*models.UserProfile, error) {
 		&p.MealRatios.Breakfast, &p.MealRatios.Lunch, &p.MealRatios.Dinner,
 		&p.PointsConfig.CarbMultiplier, &p.PointsConfig.ProteinMultiplier, &p.PointsConfig.FatMultiplier,
 		&p.FruitTargetG, &p.VeggieTargetG,
+		&p.BMREquation, &bodyFatPercent,
 		&createdAt, &updatedAt,
 	)
 
@@ -67,6 +70,11 @@ func (s *ProfileStore) Get(ctx context.Context) (*models.UserProfile, error) {
 	p.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", createdAt)
 	p.UpdatedAt, _ = time.Parse("2006-01-02 15:04:05", updatedAt)
 
+	// Handle nullable body fat percent
+	if bodyFatPercent.Valid {
+		p.BodyFatPercent = bodyFatPercent.Float64
+	}
+
 	return &p, nil
 }
 
@@ -80,6 +88,7 @@ func (s *ProfileStore) Upsert(ctx context.Context, p *models.UserProfile) error 
 			breakfast_ratio, lunch_ratio, dinner_ratio,
 			carb_multiplier, protein_multiplier, fat_multiplier,
 			fruit_target_g, veggie_target_g,
+			bmr_equation, body_fat_percent,
 			created_at, updated_at
 		) VALUES (
 			1, ?, ?, ?, ?,
@@ -87,6 +96,7 @@ func (s *ProfileStore) Upsert(ctx context.Context, p *models.UserProfile) error 
 			?, ?, ?,
 			?, ?, ?,
 			?, ?, ?,
+			?, ?,
 			?, ?,
 			datetime('now'), datetime('now')
 		)
@@ -108,8 +118,16 @@ func (s *ProfileStore) Upsert(ctx context.Context, p *models.UserProfile) error 
 			fat_multiplier = excluded.fat_multiplier,
 			fruit_target_g = excluded.fruit_target_g,
 			veggie_target_g = excluded.veggie_target_g,
+			bmr_equation = excluded.bmr_equation,
+			body_fat_percent = excluded.body_fat_percent,
 			updated_at = datetime('now')
 	`
+
+	// Convert body fat percent to nullable for database
+	var bodyFatPercent interface{}
+	if p.BodyFatPercent > 0 {
+		bodyFatPercent = p.BodyFatPercent
+	}
 
 	_, err := s.db.ExecContext(ctx, query,
 		p.HeightCM, p.BirthDate.Format("2006-01-02"), p.Sex, p.Goal,
@@ -118,6 +136,7 @@ func (s *ProfileStore) Upsert(ctx context.Context, p *models.UserProfile) error 
 		p.MealRatios.Breakfast, p.MealRatios.Lunch, p.MealRatios.Dinner,
 		p.PointsConfig.CarbMultiplier, p.PointsConfig.ProteinMultiplier, p.PointsConfig.FatMultiplier,
 		p.FruitTargetG, p.VeggieTargetG,
+		p.BMREquation, bodyFatPercent,
 	)
 
 	return err

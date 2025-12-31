@@ -5,26 +5,44 @@ import (
 	"time"
 )
 
-// TrainingConfig defines properties for each training type.
+// TrainingConfig defines properties for each training type using MET values.
+// MET (Metabolic Equivalent of Task) provides weight-adjusted calorie calculations.
+// Based on 2024 Compendium of Physical Activities.
 type TrainingConfig struct {
-	CalPerMin float64
-	LoadScore float64
+	MET       float64 // Metabolic Equivalent of Task
+	LoadScore float64 // For recovery/load tracking
 }
 
-// TrainingConfigs maps training types to their configuration.
+// TrainingConfigs maps training types to their MET-based configuration.
 var TrainingConfigs = map[TrainingType]TrainingConfig{
-	TrainingTypeRest:         {CalPerMin: 0, LoadScore: 0},
-	TrainingTypeQigong:       {CalPerMin: 2, LoadScore: 0.5},
-	TrainingTypeWalking:      {CalPerMin: 4, LoadScore: 1},
-	TrainingTypeGMB:          {CalPerMin: 5, LoadScore: 3},
-	TrainingTypeRun:          {CalPerMin: 8, LoadScore: 3},
-	TrainingTypeRow:          {CalPerMin: 8, LoadScore: 3},
-	TrainingTypeCycle:        {CalPerMin: 6, LoadScore: 2},
-	TrainingTypeHIIT:         {CalPerMin: 12, LoadScore: 5},
-	TrainingTypeStrength:     {CalPerMin: 7, LoadScore: 5},
-	TrainingTypeCalisthenics: {CalPerMin: 5, LoadScore: 3},
-	TrainingTypeMobility:     {CalPerMin: 2, LoadScore: 0.5},
-	TrainingTypeMixed:        {CalPerMin: 6, LoadScore: 4},
+	TrainingTypeRest:         {MET: 1.0, LoadScore: 0},      // Resting
+	TrainingTypeQigong:       {MET: 2.5, LoadScore: 0.5},    // Tai chi, qigong (code 15552)
+	TrainingTypeWalking:      {MET: 3.5, LoadScore: 1},      // Walking 3.0 mph (code 17170)
+	TrainingTypeGMB:          {MET: 4.0, LoadScore: 3},      // Calisthenics, light (code 02020)
+	TrainingTypeRun:          {MET: 9.8, LoadScore: 3},      // Running 6 mph (code 12050)
+	TrainingTypeRow:          {MET: 7.0, LoadScore: 3},      // Rowing, moderate (code 15235)
+	TrainingTypeCycle:        {MET: 6.8, LoadScore: 2},      // Cycling 12-14 mph (code 01040)
+	TrainingTypeHIIT:         {MET: 12.8, LoadScore: 5},     // Circuit training, vigorous (code 02040)
+	TrainingTypeStrength:     {MET: 5.0, LoadScore: 5},      // Weight training, vigorous (code 02054)
+	TrainingTypeCalisthenics: {MET: 4.0, LoadScore: 3},      // Calisthenics, moderate (code 02020)
+	TrainingTypeMobility:     {MET: 2.5, LoadScore: 0.5},    // Stretching, yoga (code 02101)
+	TrainingTypeMixed:        {MET: 6.0, LoadScore: 4},      // General conditioning
+}
+
+// CalculateExerciseCalories computes calories burned using MET formula.
+// Formula: Calories = (MET - 1) × weight(kg) × duration(hours)
+// We subtract 1 from MET to get "extra" calories above resting (avoids double-counting with BMR).
+func CalculateExerciseCalories(trainingType TrainingType, weightKg float64, durationMin int) float64 {
+	config := TrainingConfigs[trainingType]
+	durationHours := float64(durationMin) / 60.0
+
+	// MET includes resting metabolism, subtract 1 to get extra calories burned
+	netMET := config.MET - 1.0
+	if netMET < 0 {
+		netMET = 0
+	}
+
+	return netMET * weightKg * durationHours
 }
 
 // DayTypeMultipliers defines macro multipliers for each day type by goal.
@@ -54,48 +72,95 @@ var Multipliers = map[DayType]map[Goal]DayTypeMultipliers{
 }
 
 // CalculateDailyTargets computes daily macro targets based on profile and log.
+// Uses evidence-based algorithms: MET-based exercise calories, protein-first macros,
+// protected protein on day types, and fat floor enforcement.
 func CalculateDailyTargets(profile *UserProfile, log *DailyLog, now time.Time) DailyTargets {
-	// 1. Calculate base BMR using Mifflin-St Jeor
-	bmr := calculateMifflinStJeor(profile, log.WeightKg, now)
+	// 1. Calculate BMR using configured equation (default: Mifflin-St Jeor)
+	bmrEquation := profile.BMREquation
+	if bmrEquation == "" {
+		bmrEquation = BMREquationMifflinStJeor
+	}
+	bmr := CalculateBMR(profile, log.WeightKg, now, bmrEquation)
 
-	// 2. Get training configuration
-	trainingConfig := TrainingConfigs[log.PlannedTraining.Type]
-	trainingCalories := trainingConfig.CalPerMin * float64(log.PlannedTraining.PlannedDurationMin)
+	// 2. Calculate exercise calories using MET-based formula (weight-adjusted)
+	exerciseCalories := CalculateExerciseCalories(
+		log.PlannedTraining.Type,
+		log.WeightKg,
+		log.PlannedTraining.PlannedDurationMin,
+	)
 
-	// 3. Use day type from log (user-selected)
+	// 3. Calculate TDEE = BMR × NEAT multiplier + Exercise Calories
+	neatMultiplier := 1.2 // Sedentary activity factor
+	estimatedTDEE := bmr*neatMultiplier + exerciseCalories
+
+	// 4. Apply goal-based calorie adjustment
+	var targetCalories float64
+	var deficitSeverity float64
+
+	switch profile.Goal {
+	case GoalLoseWeight:
+		// Target 500-750 kcal deficit for ~0.5-0.75 kg/week loss
+		deficit := math.Min(estimatedTDEE*0.20, 750) // Max 20% or 750 kcal
+		targetCalories = estimatedTDEE - deficit
+		deficitSeverity = deficit / estimatedTDEE
+	case GoalGainWeight:
+		// Target 250-500 kcal surplus for lean gains
+		surplus := math.Min(estimatedTDEE*0.10, 500) // Max 10% or 500 kcal
+		targetCalories = estimatedTDEE + surplus
+	default: // GoalMaintain
+		targetCalories = estimatedTDEE
+	}
+
+	// 5. Calculate macros with protein-first approach
+	isTrainingDay := log.PlannedTraining.Type != TrainingTypeRest
+	proteinRec := GetProteinRecommendation(profile.Goal, isTrainingDay, deficitSeverity)
+
+	// Use optimal protein target
+	proteinG := log.WeightKg * proteinRec.OptimalGPerKg
+	proteinCalories := proteinG * 4.0 // Standard 4 kcal/g
+
+	// 6. Set fat floor (0.7 g/kg minimum for essential fatty acids)
+	fatMinG := GetFatMinimum(log.WeightKg)
+
+	// Calculate fat based on remaining calories after protein
+	remainingAfterProtein := targetCalories - proteinCalories
+
+	// Allocate ~35% of remaining to fat (minimum fatMinG)
+	fatCaloriesTarget := remainingAfterProtein * 0.35
+	fatG := math.Max(fatCaloriesTarget/9.0, fatMinG)
+	fatCalories := fatG * 9.0
+
+	// 7. Remaining goes to carbs
+	carbCalories := targetCalories - proteinCalories - fatCalories
+	if carbCalories < 0 {
+		carbCalories = 0
+	}
+	carbG := carbCalories / 4.0
+
+	// 8. Apply day type modifiers (protecting protein)
 	dayType := log.DayType
+	mult := getDayTypeModifiers(dayType)
 
-	// 4. Calculate TDEE with sedentary activity factor (1.2) + training
-	activityFactor := 1.2
-	tdee := bmr*activityFactor + trainingCalories
+	// Protein stays at or above optimal - only adjust carbs and fats
+	finalCarbsG := carbG * mult.Carbs
+	finalProteinG := math.Max(proteinG*mult.Protein, log.WeightKg*proteinRec.MinGPerKg)
+	finalFatsG := math.Max(fatG*mult.Fats, fatMinG)
 
-	// 5. Calculate base macros from TDEE using profile ratios
-	// Carbs: 4.1 kcal/g; /Protein: 4.3 kcal/g, Fats: 9.3 kcal/g
-	baseCarbsG := (tdee * profile.CarbRatio) / 4.1
-	baseProteinG := (tdee * profile.ProteinRatio) / 4.3
-	baseFatsG := (tdee * profile.FatRatio) / 9.3
+	// 9. Recalculate total calories from final macros
+	totalCalories := (finalCarbsG * 4.0) + (finalProteinG * 4.0) + (finalFatsG * 9.0)
 
-	// 6. Apply day type multipliers based on goal
-	mult := Multipliers[dayType][profile.Goal]
-	finalCarbsG := baseCarbsG * mult.Carbs
-	finalProteinG := baseProteinG * mult.Protein
-	finalFatsG := baseFatsG * mult.Fats
-
-	// 7. Recalculate total calories from adjusted macros
-	totalCalories := (finalCarbsG * 4.1) + (finalProteinG * 4.3) + (finalFatsG * 9.3)
-
-	// 8. Calculate fruit/veggies targets
+	// 10. Calculate fruit/veggies targets
 	fruitG := calculateFruit(finalCarbsG, profile.FruitTargetG, dayType)
 	veggiesG := calculateVeggies(finalCarbsG, profile.VeggieTargetG)
 
-	// 9. Convert to meal points
+	// 11. Convert to meal points
 	meals := calculateMealPoints(
 		finalCarbsG, finalProteinG, finalFatsG,
 		float64(fruitG), float64(veggiesG),
 		profile.MealRatios, profile.PointsConfig,
 	)
 
-	// 10. Calculate water target (0.04 L per kg body weight)
+	// 12. Calculate water target (0.04 L per kg body weight)
 	waterL := math.Round(log.WeightKg*0.04*10) / 10
 
 	return DailyTargets{
@@ -103,6 +168,7 @@ func CalculateDailyTargets(profile *UserProfile, log *DailyLog, now time.Time) D
 		TotalProteinG: int(math.Round(finalProteinG)),
 		TotalFatsG:    int(math.Round(finalFatsG)),
 		TotalCalories: int(math.Round(totalCalories)),
+		EstimatedTDEE: int(math.Round(estimatedTDEE)),
 		Meals:         meals,
 		FruitG:        fruitG,
 		VeggiesG:      veggiesG,
@@ -111,13 +177,200 @@ func CalculateDailyTargets(profile *UserProfile, log *DailyLog, now time.Time) D
 	}
 }
 
-// CalculateEstimatedTDEE returns the estimated TDEE for the day.
+// CalculateEstimatedTDEE returns the estimated TDEE for the day using MET-based exercise calories.
 func CalculateEstimatedTDEE(profile *UserProfile, weightKg float64, trainingType TrainingType, durationMin int, now time.Time) int {
-	bmr := calculateMifflinStJeor(profile, weightKg, now)
-	trainingConfig := TrainingConfigs[trainingType]
-	trainingCalories := trainingConfig.CalPerMin * float64(durationMin)
-	tdee := bmr*1.2 + trainingCalories
+	// Use configured BMR equation (default: Mifflin-St Jeor)
+	bmrEquation := profile.BMREquation
+	if bmrEquation == "" {
+		bmrEquation = BMREquationMifflinStJeor
+	}
+	bmr := CalculateBMR(profile, weightKg, now, bmrEquation)
+	exerciseCalories := CalculateExerciseCalories(trainingType, weightKg, durationMin)
+	tdee := bmr*1.2 + exerciseCalories
 	return int(math.Round(tdee))
+}
+
+// =============================================================================
+// BMR CALCULATION FUNCTIONS
+// =============================================================================
+
+// CalculateBMR calculates BMR using the specified equation.
+// Returns BMR in kcal/day.
+func CalculateBMR(profile *UserProfile, weightKg float64, now time.Time, equation BMREquation) float64 {
+	age := calculateAge(profile.BirthDate, now)
+
+	switch equation {
+	case BMREquationKatchMcArdle:
+		// Requires body fat percentage - falls back to Mifflin if not available
+		if profile.BodyFatPercent > 0 {
+			return calculateKatchMcArdle(weightKg, profile.BodyFatPercent)
+		}
+		return calculateMifflinStJeor(profile, weightKg, now)
+
+	case BMREquationOxfordHenry:
+		return calculateOxfordHenry(profile.Sex, weightKg, float64(age))
+
+	case BMREquationHarrisBenedict:
+		return calculateHarrisBenedict(profile.Sex, weightKg, profile.HeightCM, float64(age))
+
+	default: // BMREquationMifflinStJeor
+		return calculateMifflinStJeor(profile, weightKg, now)
+	}
+}
+
+// calculateKatchMcArdle: BMR = 370 + (21.6 × LBM in kg)
+// Most accurate when body fat % is known.
+func calculateKatchMcArdle(weightKg, bodyFatPercent float64) float64 {
+	leanBodyMass := weightKg * (1 - bodyFatPercent/100)
+	return 370 + (21.6 * leanBodyMass)
+}
+
+// calculateOxfordHenry - from 2005 meta-analysis, age-stratified.
+// Better validated across populations than Mifflin-St Jeor.
+func calculateOxfordHenry(sex Sex, weightKg float64, age float64) float64 {
+	if sex == SexMale {
+		switch {
+		case age < 30:
+			return 14.4*weightKg + 313
+		case age < 60:
+			return 11.4*weightKg + 541
+		default: // 60+
+			return 11.4*weightKg + 541
+		}
+	}
+	// Female
+	switch {
+	case age < 30:
+		return 10.4*weightKg + 615
+	case age < 60:
+		return 8.18*weightKg + 502
+	default: // 60+
+		return 8.52*weightKg + 421
+	}
+}
+
+// calculateHarrisBenedict - legacy equation, included for comparison.
+func calculateHarrisBenedict(sex Sex, weightKg, heightCm, age float64) float64 {
+	if sex == SexMale {
+		return 88.362 + (13.397 * weightKg) + (4.799 * heightCm) - (5.677 * age)
+	}
+	return 447.593 + (9.247 * weightKg) + (3.098 * heightCm) - (4.330 * age)
+}
+
+// =============================================================================
+// EVIDENCE-BASED PROTEIN RECOMMENDATIONS
+// =============================================================================
+
+// ProteinRecommendation contains evidence-based protein targets.
+type ProteinRecommendation struct {
+	MinGPerKg     float64 // Minimum recommended
+	OptimalGPerKg float64 // Optimal target
+	MaxGPerKg     float64 // Upper useful limit (diminishing returns beyond)
+	Source        string  // Citation
+}
+
+// GetProteinRecommendation returns evidence-based protein targets.
+// Based on meta-analyses: Morton 2018, Helms 2014, Phillips 2016.
+func GetProteinRecommendation(goal Goal, isTrainingDay bool, deficitSeverity float64) ProteinRecommendation {
+	switch goal {
+	case GoalLoseWeight:
+		// Higher protein during deficit preserves lean mass
+		// Helms 2014: 2.3-3.1 g/kg FFM for lean athletes
+		// Longland 2016: 2.4 g/kg during 40% deficit
+		if deficitSeverity > 0.25 { // Aggressive cut (>25% deficit)
+			return ProteinRecommendation{
+				MinGPerKg:     2.0,
+				OptimalGPerKg: 2.4,
+				MaxGPerKg:     3.0,
+				Source:        "Helms 2014, Longland 2016",
+			}
+		}
+		// Moderate deficit
+		return ProteinRecommendation{
+			MinGPerKg:     1.8,
+			OptimalGPerKg: 2.2,
+			MaxGPerKg:     2.6,
+			Source:        "Phillips 2016",
+		}
+
+	case GoalGainWeight:
+		// Morton 2018: ~1.6 g/kg breakpoint, up to 2.2 for trained
+		if isTrainingDay {
+			return ProteinRecommendation{
+				MinGPerKg:     1.6,
+				OptimalGPerKg: 2.0,
+				MaxGPerKg:     2.2,
+				Source:        "Morton 2018",
+			}
+		}
+		return ProteinRecommendation{
+			MinGPerKg:     1.4,
+			OptimalGPerKg: 1.8,
+			MaxGPerKg:     2.0,
+			Source:        "Morton 2018",
+		}
+
+	default: // GoalMaintain
+		if isTrainingDay {
+			return ProteinRecommendation{
+				MinGPerKg:     1.4,
+				OptimalGPerKg: 1.8,
+				MaxGPerKg:     2.0,
+				Source:        "ISSN Position Stand",
+			}
+		}
+		return ProteinRecommendation{
+			MinGPerKg:     1.2,
+			OptimalGPerKg: 1.6,
+			MaxGPerKg:     1.8,
+			Source:        "ISSN Position Stand",
+		}
+	}
+}
+
+// GetFatMinimum returns minimum fat intake for essential fatty acids and hormones.
+// Generally 0.5-1.0 g/kg; we use 0.7 g/kg as a reasonable floor.
+func GetFatMinimum(weightKg float64) float64 {
+	return weightKg * 0.7
+}
+
+// =============================================================================
+// PROTECTED PROTEIN DAY TYPE MULTIPLIERS
+// =============================================================================
+
+// getDayTypeModifiers returns adjusted multipliers that protect protein.
+// Key insight: During deficit, protein should stay constant or increase to preserve muscle.
+// We reduce carbs instead of protein on low-calorie days.
+func getDayTypeModifiers(dayType DayType) DayTypeMultipliers {
+	switch dayType {
+	case DayTypeFatburner:
+		// Low carb day - reduce carbs significantly, maintain protein
+		return DayTypeMultipliers{
+			Carbs:   0.60, // 40% carb reduction
+			Protein: 1.00, // Maintain protein
+			Fats:    0.85, // Slight fat reduction
+		}
+	case DayTypePerformance:
+		// High training day - increase carbs for performance
+		return DayTypeMultipliers{
+			Carbs:   1.30, // 30% more carbs
+			Protein: 1.00, // Maintain protein
+			Fats:    1.00, // Maintain fats
+		}
+	case DayTypeMetabolize:
+		// Refeed/high day
+		return DayTypeMultipliers{
+			Carbs:   1.50, // 50% more carbs
+			Protein: 1.00, // Maintain protein
+			Fats:    1.10, // Slight fat increase
+		}
+	default:
+		return DayTypeMultipliers{
+			Carbs:   1.0,
+			Protein: 1.0,
+			Fats:    1.0,
+		}
+	}
 }
 
 // calculateMifflinStJeor calculates BMR using the Mifflin-St Jeor equation.

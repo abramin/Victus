@@ -10,6 +10,7 @@ type Goal = domain.Goal
 type MealRatios = domain.MealRatios
 type PointsConfig = domain.PointsConfig
 type UserProfile = domain.UserProfile
+type BMREquation = domain.BMREquation
 
 // Re-export constants
 const (
@@ -19,7 +20,15 @@ const (
 	GoalLoseWeight = domain.GoalLoseWeight
 	GoalMaintain   = domain.GoalMaintain
 	GoalGainWeight = domain.GoalGainWeight
+
+	BMREquationMifflinStJeor  = domain.BMREquationMifflinStJeor
+	BMREquationKatchMcArdle   = domain.BMREquationKatchMcArdle
+	BMREquationOxfordHenry    = domain.BMREquationOxfordHenry
+	BMREquationHarrisBenedict = domain.BMREquationHarrisBenedict
 )
+
+// Re-export validation map
+var ValidBMREquations = domain.ValidBMREquations
 
 // Re-export errors
 var (
@@ -35,6 +44,8 @@ var (
 	ErrInvalidFruitTarget      = domain.ErrInvalidFruitTarget
 	ErrInvalidVeggieTarget     = domain.ErrInvalidVeggieTarget
 	ErrInvalidPointsMultiplier = domain.ErrInvalidPointsMultiplier
+	ErrInvalidBMREquation      = domain.ErrInvalidBMREquation
+	ErrInvalidBodyFatPercent   = domain.ErrInvalidBodyFatPercent
 )
 
 // Re-export constructor
