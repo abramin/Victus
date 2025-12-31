@@ -69,12 +69,16 @@ As a user, I want to:
 interface UserProfile {
   id: string;
   createdAt: Date;
-  
+
   // Biometrics (set once, rarely changed)
   height_cm: number;
   birthDate: Date;
   sex: 'male' | 'female';
-  
+  bodyFatPercent?: number; // Optional, enables Katch-McArdle BMR
+
+  // BMR equation preference
+  bmrEquation: 'mifflin_st_jeor' | 'katch_mcardle' | 'oxford_henry' | 'harris_benedict';
+
   // Goals (changed periodically)
   goal: 'lose_weight' | 'maintain' | 'gain_weight';
   targetWeightKg: number;
@@ -164,19 +168,20 @@ interface DailyTargets {
   totalProteinG: number;
   totalFatsG: number;
   totalCalories: number;
-  
+  estimatedTDEE: number; // Pre-adjustment TDEE for transparency
+
   // Meal breakdown (points)
   meals: {
     breakfast: MacroPoints;
     lunch: MacroPoints;
     dinner: MacroPoints;
   };
-  
+
   // Additional targets
   fruitG: number;
   veggiesG: number;
   waterL: number;
-  
+
   // Day classification
   dayType: 'performance' | 'fatburner' | 'metabolize';
 }
@@ -199,28 +204,30 @@ interface AdaptiveMultipliers {
 interface TrainingTypeConfig {
   type: TrainingType;
 
-  // Estimated calorie burn per minute (used for TDEE refinement)
-  estimatedCalPerMin: number;
+  // MET value for weight-adjusted calorie calculation
+  // Formula: Calories = (MET - 1) × weight(kg) × duration(hours)
+  // Source: 2024 Compendium of Physical Activities
+  met: number;
 
   // Load score for accumulation (arbitrary units, relative)
   loadScore: number;
 }
 
-// Default configurations
+// Default configurations (MET values from 2024 Compendium of Physical Activities)
 // Note: DayType is now user-selected, not derived from training type
 const TRAINING_CONFIGS: TrainingTypeConfig[] = [
-  { type: 'rest', estimatedCalPerMin: 0, loadScore: 0 },
-  { type: 'qigong', estimatedCalPerMin: 2, loadScore: 0.5 },
-  { type: 'walking', estimatedCalPerMin: 4, loadScore: 1 },
-  { type: 'gmb', estimatedCalPerMin: 5, loadScore: 3 },
-  { type: 'run', estimatedCalPerMin: 8, loadScore: 3 },
-  { type: 'row', estimatedCalPerMin: 8, loadScore: 3 },
-  { type: 'cycle', estimatedCalPerMin: 6, loadScore: 2 },
-  { type: 'hiit', estimatedCalPerMin: 12, loadScore: 5 },
-  { type: 'strength', estimatedCalPerMin: 7, loadScore: 5 },
-  { type: 'calisthenics', estimatedCalPerMin: 5, loadScore: 3 },
-  { type: 'mobility', estimatedCalPerMin: 2, loadScore: 0.5 },
-  { type: 'mixed', estimatedCalPerMin: 6, loadScore: 4 },
+  { type: 'rest', met: 1.0, loadScore: 0 },
+  { type: 'qigong', met: 2.5, loadScore: 0.5 },    // Tai chi, qigong (code 15552)
+  { type: 'walking', met: 3.5, loadScore: 1 },    // Walking 3.0 mph (code 17170)
+  { type: 'gmb', met: 4.0, loadScore: 3 },        // Calisthenics, light (code 02020)
+  { type: 'run', met: 9.8, loadScore: 3 },        // Running 6 mph (code 12050)
+  { type: 'row', met: 7.0, loadScore: 3 },        // Rowing, moderate (code 15235)
+  { type: 'cycle', met: 6.8, loadScore: 2 },      // Cycling 12-14 mph (code 01040)
+  { type: 'hiit', met: 12.8, loadScore: 5 },      // Circuit training, vigorous (code 02040)
+  { type: 'strength', met: 5.0, loadScore: 5 },   // Weight training, vigorous (code 02054)
+  { type: 'calisthenics', met: 4.0, loadScore: 3 }, // Calisthenics, moderate (code 02020)
+  { type: 'mobility', met: 2.5, loadScore: 0.5 }, // Stretching, yoga (code 02101)
+  { type: 'mixed', met: 6.0, loadScore: 4 },      // General conditioning
 ];
 ```
 
@@ -243,7 +250,7 @@ function calculateBaseMacros(
   kcalFactor: number // Starting point ~29-33 kcal/kg
 ): BaseMacros {
   const totalCalories = currentWeight * kcalFactor;
-  
+
   return {
     carbsG: (totalCalories * profile.carbRatio) / 4.1,
     proteinG: (totalCalories * profile.proteinRatio) / 4.3,
@@ -253,9 +260,69 @@ function calculateBaseMacros(
 }
 ```
 
-### 4.2 Day Type Multipliers (From Spreadsheet)
+### 4.1a Protein-First Calculation (Evidence-Based)
 
-The spreadsheet applies multipliers based on day type and goal:
+Modern approach: calculate protein based on g/kg body weight targets, not percentage of calories. This ensures adequate protein intake regardless of calorie level.
+
+**Research-Based Protein Targets:**
+| Goal | Training Day | Rest Day | Source |
+|------|-------------|----------|--------|
+| **Fat Loss** | 2.0-2.4 g/kg | 2.0-2.4 g/kg | Helms 2014, Longland 2016 |
+| **Muscle Gain** | 1.6-2.0 g/kg | 1.4-1.8 g/kg | Morton 2018 |
+| **Maintenance** | 1.4-1.8 g/kg | 1.2-1.6 g/kg | ISSN Position Stand |
+
+**Key Insight:** During aggressive cuts (>20% deficit), protein should **increase** to 2.4 g/kg to preserve muscle mass.
+
+```typescript
+interface ProteinRecommendation {
+  minGPerKg: number;
+  optimalGPerKg: number;
+  maxGPerKg: number;
+  source: string;
+}
+
+function getProteinRecommendation(
+  goal: Goal,
+  isTrainingDay: boolean,
+  deficitSeverity: number
+): ProteinRecommendation {
+  if (goal === 'lose_weight') {
+    if (deficitSeverity > 0.25) { // Aggressive cut (>25% deficit)
+      return { minGPerKg: 2.0, optimalGPerKg: 2.4, maxGPerKg: 3.0, source: 'Helms 2014, Longland 2016' };
+    }
+    return { minGPerKg: 1.8, optimalGPerKg: 2.2, maxGPerKg: 2.6, source: 'Phillips 2016' };
+  }
+  if (goal === 'gain_weight') {
+    return isTrainingDay
+      ? { minGPerKg: 1.6, optimalGPerKg: 2.0, maxGPerKg: 2.2, source: 'Morton 2018' }
+      : { minGPerKg: 1.4, optimalGPerKg: 1.8, maxGPerKg: 2.0, source: 'Morton 2018' };
+  }
+  // Maintenance
+  return isTrainingDay
+    ? { minGPerKg: 1.4, optimalGPerKg: 1.8, maxGPerKg: 2.0, source: 'ISSN Position Stand' }
+    : { minGPerKg: 1.2, optimalGPerKg: 1.6, maxGPerKg: 1.8, source: 'ISSN Position Stand' };
+}
+```
+
+### 4.1b Fat Floor Enforcement
+
+Minimum fat intake is required for essential fatty acids and hormone production (testosterone, estrogen).
+
+**Minimum:** 0.7 g/kg body weight (never drop below this regardless of other calculations)
+
+```typescript
+function getFatMinimum(weightKg: number): number {
+  return weightKg * 0.7; // g/kg minimum for hormonal health
+}
+
+// In macro calculation:
+const fatMinG = getFatMinimum(weightKg);
+const finalFatsG = Math.max(calculatedFat, fatMinG);
+```
+
+### 4.2 Day Type Multipliers (Updated: Protected Protein)
+
+Day type multipliers now **protect protein** during deficit days. Research shows cutting protein costs muscle mass—cut carbs instead (Helms 2014, Longland 2016).
 
 ```typescript
 interface DayTypeMultipliers {
@@ -268,24 +335,29 @@ function getDayTypeMultipliers(
   dayType: 'performance' | 'fatburner' | 'metabolize',
   goal: 'lose_weight' | 'gain_weight' | 'maintain'
 ): DayTypeMultipliers {
+  // Note: Protein stays at 1.0 across all day types to preserve muscle mass
+  // Carbs flex based on day type; fats adjust slightly
   const MULTIPLIERS = {
     fatburner: {
-      lose_weight: { carbs: 0.8, protein: 0.8, fats: 0.8 },
-      gain_weight: { carbs: 0.656, protein: 0.656, fats: 0.656 },
-      maintain: { carbs: 0.72, protein: 0.72, fats: 0.72 }
+      // Low carb day - reduce carbs significantly, maintain protein
+      lose_weight: { carbs: 0.60, protein: 1.00, fats: 0.85 },
+      gain_weight: { carbs: 0.60, protein: 1.00, fats: 0.85 },
+      maintain: { carbs: 0.60, protein: 1.00, fats: 0.85 }
     },
     performance: {
-      lose_weight: { carbs: 1.15, protein: 1.15, fats: 1.15 },
-      gain_weight: { carbs: 1.116, protein: 1.116, fats: 1.116 },
-      maintain: { carbs: 1.13, protein: 1.13, fats: 1.13 }
+      // High training day - increase carbs for performance
+      lose_weight: { carbs: 1.30, protein: 1.00, fats: 1.00 },
+      gain_weight: { carbs: 1.30, protein: 1.00, fats: 1.00 },
+      maintain: { carbs: 1.30, protein: 1.00, fats: 1.00 }
     },
     metabolize: {
-      lose_weight: { carbs: 1.2, protein: 1.2, fats: 1.2 },
-      gain_weight: { carbs: 1.357, protein: 1.35, fats: 1.357 },
-      maintain: { carbs: 1.28, protein: 1.27, fats: 1.28 }
+      // Refeed/high day
+      lose_weight: { carbs: 1.50, protein: 1.00, fats: 1.10 },
+      gain_weight: { carbs: 1.50, protein: 1.00, fats: 1.10 },
+      maintain: { carbs: 1.50, protein: 1.00, fats: 1.10 }
     }
   };
-  
+
   return MULTIPLIERS[dayType][goal];
 }
 
@@ -372,6 +444,55 @@ function calculateFruitVeggies(
 ---
 
 ## 5. Adaptive Algorithms (NEW - Not in Spreadsheet)
+
+### 5.0 BMR Equation Options
+
+Multiple BMR equations are available. Users can select their preferred equation in settings.
+
+| Equation | Best For | Notes |
+|----------|----------|-------|
+| **Mifflin-St Jeor** (default) | General population | Predicts within 10% for most people |
+| **Katch-McArdle** | Athletes with known body fat % | Uses lean body mass, most accurate if BF% known |
+| **Oxford-Henry** | Large sample validation | Good accuracy across populations, age-stratified |
+| **Harris-Benedict** | Legacy comparison | Included for reference, older formula |
+
+```typescript
+type BMREquation = 'mifflin_st_jeor' | 'katch_mcardle' | 'oxford_henry' | 'harris_benedict';
+
+function calculateBMR(
+  profile: UserProfile,
+  weightKg: number,
+  equation: BMREquation
+): number {
+  const age = calculateAge(profile.birthDate);
+
+  switch (equation) {
+    case 'katch_mcardle':
+      // Requires body fat %, falls back to Mifflin if not available
+      if (profile.bodyFatPercent) {
+        const lbm = weightKg * (1 - profile.bodyFatPercent / 100);
+        return 370 + (21.6 * lbm);
+      }
+      // Fall through to Mifflin-St Jeor
+    case 'mifflin_st_jeor':
+      return profile.sex === 'male'
+        ? (10 * weightKg) + (6.25 * profile.height_cm) - (5 * age) + 5
+        : (10 * weightKg) + (6.25 * profile.height_cm) - (5 * age) - 161;
+
+    case 'oxford_henry':
+      // Age-stratified coefficients
+      if (profile.sex === 'male') {
+        return age < 30 ? (14.4 * weightKg + 313) : (11.4 * weightKg + 541);
+      }
+      return age < 30 ? (10.4 * weightKg + 615) : (8.18 * weightKg + 502);
+
+    case 'harris_benedict':
+      return profile.sex === 'male'
+        ? 88.362 + (13.397 * weightKg) + (4.799 * profile.height_cm) - (5.677 * age)
+        : 447.593 + (9.247 * weightKg) + (3.098 * profile.height_cm) - (4.330 * age);
+  }
+}
+```
 
 ### 5.1 Adaptive TDEE Estimation
 
@@ -817,6 +938,10 @@ CREATE TABLE user_profile (
   height_cm REAL NOT NULL,
   birth_date DATE NOT NULL,
   sex TEXT CHECK(sex IN ('male', 'female')) NOT NULL,
+  body_fat_percent REAL,  -- Optional, enables Katch-McArdle BMR
+  bmr_equation TEXT DEFAULT 'mifflin_st_jeor' CHECK(bmr_equation IN (
+    'mifflin_st_jeor', 'katch_mcardle', 'oxford_henry', 'harris_benedict'
+  )),
   goal TEXT CHECK(goal IN ('lose_weight', 'maintain', 'gain_weight')) NOT NULL,
   target_weight_kg REAL,
   target_weekly_change_kg REAL,
@@ -893,20 +1018,32 @@ CREATE TABLE daily_logs (
 );
 
 -- Training type configurations (user-adjustable)
+-- Note: Day type is now user-selected per log, not mapped from training type
 CREATE TABLE training_configs (
   id INTEGER PRIMARY KEY,
   type TEXT UNIQUE NOT NULL CHECK(type IN (
     'rest', 'qigong', 'walking', 'gmb', 'run', 'row', 'cycle', 'hiit',
     'strength', 'calisthenics', 'mobility', 'mixed'
   )),
-  day_type_mapping TEXT NOT NULL CHECK(day_type_mapping IN ('performance', 'fatburner', 'metabolize')),
-  estimated_cal_per_min REAL DEFAULT 5,
+  met REAL DEFAULT 5.0,  -- MET value for weight-adjusted calorie calculation
   load_score REAL DEFAULT 3,
   typical_recovery_days INTEGER DEFAULT 1
 );
 
+-- Daily intake log for adaptive TDEE calculation
+CREATE TABLE daily_intake_log (
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL,
+  date DATE NOT NULL,
+  weight_kg REAL,
+  total_intake_kcal REAL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(user_id, date)
+);
+
 -- Index for quick date lookups
 CREATE INDEX idx_logs_date ON daily_logs(log_date);
+CREATE INDEX idx_intake_log_date ON daily_intake_log(date);
 ```
 
 ---
