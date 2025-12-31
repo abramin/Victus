@@ -5,7 +5,7 @@ FRONTEND_PORT ?= 5173
 export BACKEND_PORT
 export FRONTEND_PORT
 
-.PHONY: app-up app-down wait-backend wait-frontend e2e e2e-native
+.PHONY: app-up app-down wait-backend wait-frontend e2e e2e-native test
 
 app-up:
 	docker compose up -d --build
@@ -35,3 +35,7 @@ e2e: app-up wait-backend wait-frontend
 # Run Cypress natively (faster on macOS Apple Silicon)
 e2e-native: app-up wait-backend wait-frontend
 	cd frontend && npm run e2e:run
+
+# Run backend unit and integration tests
+test:
+	cd backend && go test ./...
