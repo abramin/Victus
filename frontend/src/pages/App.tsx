@@ -1,50 +1,32 @@
-import { useEffect, useState } from 'react'
-
-interface HealthResponse {
-  status: string
-  service: string
-  time: string
-}
+import { useProfile } from '../hooks/useProfile';
+import { ProfileForm } from '../components/settings/ProfileForm';
 
 function App() {
-  const [health, setHealth] = useState<HealthResponse | null>(null)
-  const [error, setError] = useState<string>('')
+  const { profile, loading, saving, error, saveError, save } = useProfile();
 
-  useEffect(() => {
-    fetch('/api/health')
-      .then(async (res) => {
-        if (!res.ok) throw new Error('Health check failed')
-        const data = (await res.json()) as HealthResponse
-        setHealth(data)
-      })
-      .catch((err) => setError(err.message))
-  }, [])
+  if (loading) {
+    return (
+      <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+        <div className="text-slate-300">Loading profile...</div>
+      </main>
+    );
+  }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      <div className="max-w-lg w-full bg-slate-950/60 backdrop-blur rounded-lg border border-slate-800 shadow-xl p-8">
-        <h1 className="text-3xl font-semibold mb-4">Victus Stack</h1>
-        <p className="text-slate-300 mb-6">
-          Go backend, React + TypeScript frontend, and SQLite persistence ready for development.
-        </p>
+    <main className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 py-8 px-4">
+      <div className="max-w-2xl mx-auto">
+        <h1 className="text-3xl font-semibold mb-6 text-slate-100">Victus - Profile Setup</h1>
 
-        <div className="space-y-2">
-          <h2 className="text-xl font-medium">Health</h2>
-          {health ? (
-            <ul className="text-sm text-slate-200 list-disc pl-5 space-y-1">
-              <li>Service: {health.service}</li>
-              <li>Status: {health.status}</li>
-              <li>Time: {health.time}</li>
-            </ul>
-          ) : error ? (
-            <p className="text-red-400 text-sm">{error}</p>
-          ) : (
-            <p className="text-slate-400 text-sm">Checking backend health...</p>
-          )}
-        </div>
+        {error && !profile && (
+          <div className="mb-6 p-4 bg-yellow-900/50 border border-yellow-700 rounded-md">
+            <p className="text-yellow-300">No profile found. Please set up your profile below.</p>
+          </div>
+        )}
+
+        <ProfileForm initialProfile={profile} onSave={save} saving={saving} error={saveError} />
       </div>
     </main>
-  )
+  );
 }
 
-export default App
+export default App;
