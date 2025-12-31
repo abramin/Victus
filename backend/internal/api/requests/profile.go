@@ -3,7 +3,7 @@ package requests
 import (
 	"time"
 
-	"victus/internal/models"
+	"victus/internal/domain"
 )
 
 // MealRatiosRequest represents meal distribution ratios in API requests.
@@ -75,35 +75,35 @@ type ProfileResponse struct {
 }
 
 // ProfileFromRequest converts a CreateProfileRequest to a UserProfile model.
-func ProfileFromRequest(req CreateProfileRequest) (*models.UserProfile, error) {
+func ProfileFromRequest(req CreateProfileRequest) (*domain.UserProfile, error) {
 	birthDate, err := time.Parse("2006-01-02", req.BirthDate)
 	if err != nil {
 		return nil, err
 	}
 
-	profile := &models.UserProfile{
+	profile := &domain.UserProfile{
 		HeightCM:             req.HeightCM,
 		BirthDate:            birthDate,
-		Sex:                  models.Sex(req.Sex),
-		Goal:                 models.Goal(req.Goal),
+		Sex:                  domain.Sex(req.Sex),
+		Goal:                 domain.Goal(req.Goal),
 		TargetWeightKg:       req.TargetWeightKg,
 		TargetWeeklyChangeKg: req.TargetWeeklyChangeKg,
 		CarbRatio:            req.CarbRatio,
 		ProteinRatio:         req.ProteinRatio,
 		FatRatio:             req.FatRatio,
-		MealRatios: models.MealRatios{
+		MealRatios: domain.MealRatios{
 			Breakfast: req.MealRatios.Breakfast,
 			Lunch:     req.MealRatios.Lunch,
 			Dinner:    req.MealRatios.Dinner,
 		},
-		PointsConfig: models.PointsConfig{
+		PointsConfig: domain.PointsConfig{
 			CarbMultiplier:    req.PointsConfig.CarbMultiplier,
 			ProteinMultiplier: req.PointsConfig.ProteinMultiplier,
 			FatMultiplier:     req.PointsConfig.FatMultiplier,
 		},
 		FruitTargetG:  req.FruitTargetG,
 		VeggieTargetG: req.VeggieTargetG,
-		BMREquation:   models.BMREquation(req.BMREquation),
+		BMREquation:   domain.BMREquation(req.BMREquation),
 	}
 
 	// Handle optional body fat percent
@@ -115,7 +115,7 @@ func ProfileFromRequest(req CreateProfileRequest) (*models.UserProfile, error) {
 }
 
 // ProfileToResponse converts a UserProfile model to a ProfileResponse.
-func ProfileToResponse(p *models.UserProfile) ProfileResponse {
+func ProfileToResponse(p *domain.UserProfile) ProfileResponse {
 	resp := ProfileResponse{
 		HeightCM:             p.HeightCM,
 		BirthDate:            p.BirthDate.Format("2006-01-02"),

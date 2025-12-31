@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"victus/internal/models"
+	"victus/internal/domain"
 	"victus/internal/store"
 )
 
@@ -20,13 +20,13 @@ func NewProfileService(s *store.ProfileStore) *ProfileService {
 
 // Get retrieves the user profile.
 // Returns store.ErrProfileNotFound if no profile exists.
-func (s *ProfileService) Get(ctx context.Context) (*models.UserProfile, error) {
+func (s *ProfileService) Get(ctx context.Context) (*domain.UserProfile, error) {
 	return s.store.Get(ctx)
 }
 
 // Upsert creates or updates the user profile.
 // Applies defaults and validates before persisting.
-func (s *ProfileService) Upsert(ctx context.Context, profile *models.UserProfile, now time.Time) (*models.UserProfile, error) {
+func (s *ProfileService) Upsert(ctx context.Context, profile *domain.UserProfile, now time.Time) (*domain.UserProfile, error) {
 	profile.SetDefaults()
 	if err := profile.ValidateAt(now); err != nil {
 		return nil, err

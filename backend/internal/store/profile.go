@@ -6,7 +6,7 @@ import (
 	"errors"
 	"time"
 
-	"victus/internal/models"
+	"victus/internal/domain"
 )
 
 // ErrProfileNotFound is returned when no profile exists.
@@ -24,7 +24,7 @@ func NewProfileStore(db *sql.DB) *ProfileStore {
 
 // Get retrieves the user profile.
 // Returns ErrProfileNotFound if no profile exists.
-func (s *ProfileStore) Get(ctx context.Context) (*models.UserProfile, error) {
+func (s *ProfileStore) Get(ctx context.Context) (*domain.UserProfile, error) {
 	const query = `
 		SELECT
 			height_cm, birth_date, sex, goal,
@@ -40,7 +40,7 @@ func (s *ProfileStore) Get(ctx context.Context) (*models.UserProfile, error) {
 	`
 
 	var (
-		p              models.UserProfile
+		p              domain.UserProfile
 		birthDate      string
 		bodyFatPercent sql.NullFloat64
 		createdAt      string
@@ -79,7 +79,7 @@ func (s *ProfileStore) Get(ctx context.Context) (*models.UserProfile, error) {
 }
 
 // Upsert creates or updates the user profile.
-func (s *ProfileStore) Upsert(ctx context.Context, p *models.UserProfile) error {
+func (s *ProfileStore) Upsert(ctx context.Context, p *domain.UserProfile) error {
 	const query = `
 		INSERT INTO user_profile (
 			id, height_cm, birth_date, sex, goal,

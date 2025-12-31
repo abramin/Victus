@@ -2,33 +2,54 @@ package domain
 
 import "errors"
 
+// ValidationError represents a domain validation error.
+// All validation errors wrap this type so they can be detected with IsValidationError.
+type ValidationError struct {
+	msg string
+}
+
+func (e *ValidationError) Error() string {
+	return e.msg
+}
+
+// newValidationError creates a new validation error with the given message.
+func newValidationError(msg string) error {
+	return &ValidationError{msg: msg}
+}
+
+// IsValidationError returns true if the error is a domain validation error.
+func IsValidationError(err error) bool {
+	var ve *ValidationError
+	return errors.As(err, &ve)
+}
+
 // Profile validation errors
 var (
-	ErrInvalidHeight           = errors.New("height must be between 100 and 250 cm")
-	ErrInvalidBirthDate        = errors.New("birth date must be in the past and user must be at least 13 years old")
-	ErrInvalidSex              = errors.New("sex must be 'male' or 'female'")
-	ErrInvalidGoal             = errors.New("goal must be 'lose_weight', 'maintain', or 'gain_weight'")
-	ErrInvalidTargetWeight     = errors.New("target weight must be between 30 and 300 kg")
-	ErrInvalidWeeklyChange     = errors.New("weekly change must be between -1.0 and 1.0 kg")
-	ErrMacroRatiosNotSum100    = errors.New("carb, protein, and fat ratios must sum to 100%")
-	ErrMealRatiosNotSum100     = errors.New("breakfast, lunch, and dinner ratios must sum to 100%")
-	ErrInvalidRatio            = errors.New("ratios must be between 0 and 1")
-	ErrInvalidFruitTarget      = errors.New("fruit target must be between 0 and 2000 g")
-	ErrInvalidVeggieTarget     = errors.New("veggie target must be between 0 and 2000 g")
-	ErrInvalidPointsMultiplier = errors.New("points multipliers must be positive")
-	ErrInvalidBMREquation      = errors.New("invalid BMR equation")
-	ErrInvalidBodyFatPercent   = errors.New("body fat percent must be 0 or between 3 and 70%")
+	ErrInvalidHeight           = newValidationError("height must be between 100 and 250 cm")
+	ErrInvalidBirthDate        = newValidationError("birth date must be in the past and user must be at least 13 years old")
+	ErrInvalidSex              = newValidationError("sex must be 'male' or 'female'")
+	ErrInvalidGoal             = newValidationError("goal must be 'lose_weight', 'maintain', or 'gain_weight'")
+	ErrInvalidTargetWeight     = newValidationError("target weight must be between 30 and 300 kg")
+	ErrInvalidWeeklyChange     = newValidationError("weekly change must be between -1.0 and 1.0 kg")
+	ErrMacroRatiosNotSum100    = newValidationError("carb, protein, and fat ratios must sum to 100%")
+	ErrMealRatiosNotSum100     = newValidationError("breakfast, lunch, and dinner ratios must sum to 100%")
+	ErrInvalidRatio            = newValidationError("ratios must be between 0 and 1")
+	ErrInvalidFruitTarget      = newValidationError("fruit target must be between 0 and 2000 g")
+	ErrInvalidVeggieTarget     = newValidationError("veggie target must be between 0 and 2000 g")
+	ErrInvalidPointsMultiplier = newValidationError("points multipliers must be positive")
+	ErrInvalidBMREquation      = newValidationError("invalid BMR equation")
+	ErrInvalidBodyFatPercent   = newValidationError("body fat percent must be 0 or between 3 and 70%")
 )
 
 // DailyLog validation errors
 var (
-	ErrInvalidDate             = errors.New("date must be in YYYY-MM-DD format")
-	ErrInvalidWeight           = errors.New("weight must be between 30 and 300 kg")
-	ErrInvalidBodyFat          = errors.New("body fat must be between 3 and 70%")
-	ErrInvalidHeartRate        = errors.New("resting heart rate must be between 30 and 200 bpm")
-	ErrInvalidSleepQuality     = errors.New("sleep quality must be between 1 and 100")
-	ErrInvalidSleepHours       = errors.New("sleep hours must be between 0 and 24")
-	ErrInvalidTrainingType     = errors.New("invalid training type")
-	ErrInvalidTrainingDuration = errors.New("training duration must be between 0 and 480 minutes")
-	ErrInvalidDayType          = errors.New("invalid day type")
+	ErrInvalidDate             = newValidationError("date must be in YYYY-MM-DD format")
+	ErrInvalidWeight           = newValidationError("weight must be between 30 and 300 kg")
+	ErrInvalidBodyFat          = newValidationError("body fat must be between 3 and 70%")
+	ErrInvalidHeartRate        = newValidationError("resting heart rate must be between 30 and 200 bpm")
+	ErrInvalidSleepQuality     = newValidationError("sleep quality must be between 1 and 100")
+	ErrInvalidSleepHours       = newValidationError("sleep hours must be between 0 and 24")
+	ErrInvalidTrainingType     = newValidationError("invalid training type")
+	ErrInvalidTrainingDuration = newValidationError("training duration must be between 0 and 480 minutes")
+	ErrInvalidDayType          = newValidationError("invalid day type")
 )

@@ -8,7 +8,6 @@ import (
 
 	"victus/internal/db"
 	"victus/internal/domain"
-	"victus/internal/models"
 
 	"github.com/stretchr/testify/suite"
 	_ "modernc.org/sqlite"
@@ -45,19 +44,19 @@ func (s *StoreSuite) TearDownTest() {
 	}
 }
 
-func (s *StoreSuite) validProfile() *models.UserProfile {
-	return &models.UserProfile{
+func (s *StoreSuite) validProfile() *domain.UserProfile {
+	return &domain.UserProfile{
 		HeightCM:             180,
 		BirthDate:            time.Date(1990, 6, 15, 0, 0, 0, 0, time.UTC),
-		Sex:                  models.SexMale,
-		Goal:                 models.GoalLoseWeight,
+		Sex:                  domain.SexMale,
+		Goal:                 domain.GoalLoseWeight,
 		TargetWeightKg:       80,
 		TargetWeeklyChangeKg: -0.5,
 		CarbRatio:            0.45,
 		ProteinRatio:         0.30,
 		FatRatio:             0.25,
-		MealRatios:           models.MealRatios{Breakfast: 0.30, Lunch: 0.30, Dinner: 0.40},
-		PointsConfig:         models.PointsConfig{CarbMultiplier: 1.15, ProteinMultiplier: 4.35, FatMultiplier: 3.5},
+		MealRatios:           domain.MealRatios{Breakfast: 0.30, Lunch: 0.30, Dinner: 0.40},
+		PointsConfig:         domain.PointsConfig{CarbMultiplier: 1.15, ProteinMultiplier: 4.35, FatMultiplier: 3.5},
 		FruitTargetG:         600,
 		VeggieTargetG:        500,
 	}
@@ -108,14 +107,14 @@ func (s *StoreSuite) TestProfileRoundTrip() {
 
 		// Update
 		profile.HeightCM = 175
-		profile.Goal = models.GoalGainWeight
+		profile.Goal = domain.GoalGainWeight
 		err = s.profileStore.Upsert(s.ctx, profile)
 		s.Require().NoError(err)
 
 		loaded, err := s.profileStore.Get(s.ctx)
 		s.Require().NoError(err)
 		s.Equal(175.0, loaded.HeightCM)
-		s.Equal(models.GoalGainWeight, loaded.Goal)
+		s.Equal(domain.GoalGainWeight, loaded.Goal)
 	})
 }
 
@@ -142,26 +141,26 @@ func (s *StoreSuite) TestDailyLogNotFoundBeforeCreation() {
 
 func (s *StoreSuite) TestDailyLogRoundTrip() {
 	s.Run("data survives save and load with all fields", func() {
-		log := &models.DailyLog{
+		log := &domain.DailyLog{
 			Date:            "2025-01-15",
 			WeightKg:        85,
 			SleepQuality:    80,
-			PlannedTraining: models.PlannedTraining{Type: models.TrainingTypeStrength, PlannedDurationMin: 60},
-			DayType:         models.DayTypePerformance,
-			CalculatedTargets: models.DailyTargets{
+			PlannedTraining: domain.PlannedTraining{Type: domain.TrainingTypeStrength, PlannedDurationMin: 60},
+			DayType:         domain.DayTypePerformance,
+			CalculatedTargets: domain.DailyTargets{
 				TotalCarbsG:   250,
 				TotalProteinG: 150,
 				TotalFatsG:    80,
 				TotalCalories: 2400,
-				Meals: models.MealTargets{
-					Breakfast: models.MacroPoints{Carbs: 60, Protein: 40, Fats: 20},
-					Lunch:     models.MacroPoints{Carbs: 80, Protein: 50, Fats: 30},
-					Dinner:    models.MacroPoints{Carbs: 110, Protein: 60, Fats: 30},
+				Meals: domain.MealTargets{
+					Breakfast: domain.MacroPoints{Carbs: 60, Protein: 40, Fats: 20},
+					Lunch:     domain.MacroPoints{Carbs: 80, Protein: 50, Fats: 30},
+					Dinner:    domain.MacroPoints{Carbs: 110, Protein: 60, Fats: 30},
 				},
 				FruitG:   300,
 				VeggiesG: 400,
 				WaterL:   3.4,
-				DayType:  models.DayTypePerformance,
+				DayType:  domain.DayTypePerformance,
 			},
 			EstimatedTDEE: 2500,
 		}
@@ -186,16 +185,16 @@ func (s *StoreSuite) TestDailyLogRoundTrip() {
 
 func (s *StoreSuite) TestDailyLogNullableFieldRoundTrip() {
 	s.Run("nil optional fields stay nil", func() {
-		log := &models.DailyLog{
+		log := &domain.DailyLog{
 			Date:              "2025-01-15",
 			WeightKg:          85,
 			BodyFatPercent:    nil,
 			RestingHeartRate:  nil,
 			SleepQuality:      80,
 			SleepHours:        nil,
-			PlannedTraining:   models.PlannedTraining{Type: models.TrainingTypeRest, PlannedDurationMin: 0},
-			DayType:           models.DayTypeFatburner,
-			CalculatedTargets: models.DailyTargets{DayType: models.DayTypeFatburner},
+			PlannedTraining:   domain.PlannedTraining{Type: domain.TrainingTypeRest, PlannedDurationMin: 0},
+			DayType:           domain.DayTypeFatburner,
+			CalculatedTargets: domain.DailyTargets{DayType: domain.DayTypeFatburner},
 		}
 
 		err := s.logStore.Create(s.ctx, log)
@@ -214,16 +213,16 @@ func (s *StoreSuite) TestDailyLogNullableFieldRoundTrip() {
 		hr := 55
 		sh := 7.5
 
-		log := &models.DailyLog{
+		log := &domain.DailyLog{
 			Date:              "2025-01-16",
 			WeightKg:          85,
 			BodyFatPercent:    &bf,
 			RestingHeartRate:  &hr,
 			SleepQuality:      80,
 			SleepHours:        &sh,
-			PlannedTraining:   models.PlannedTraining{Type: models.TrainingTypeRest, PlannedDurationMin: 0},
-			DayType:           models.DayTypeFatburner,
-			CalculatedTargets: models.DailyTargets{DayType: models.DayTypeFatburner},
+			PlannedTraining:   domain.PlannedTraining{Type: domain.TrainingTypeRest, PlannedDurationMin: 0},
+			DayType:           domain.DayTypeFatburner,
+			CalculatedTargets: domain.DailyTargets{DayType: domain.DayTypeFatburner},
 		}
 
 		err := s.logStore.Create(s.ctx, log)
@@ -245,26 +244,26 @@ func (s *StoreSuite) TestDailyLogNullableFieldRoundTrip() {
 
 func (s *StoreSuite) TestDailyLogDateUniqueness() {
 	s.Run("duplicate date returns error", func() {
-		log := &models.DailyLog{
+		log := &domain.DailyLog{
 			Date:              "2025-01-15",
 			WeightKg:          85,
 			SleepQuality:      80,
-			PlannedTraining:   models.PlannedTraining{Type: models.TrainingTypeRest, PlannedDurationMin: 0},
-			DayType:           models.DayTypeFatburner,
-			CalculatedTargets: models.DailyTargets{DayType: models.DayTypeFatburner},
+			PlannedTraining:   domain.PlannedTraining{Type: domain.TrainingTypeRest, PlannedDurationMin: 0},
+			DayType:           domain.DayTypeFatburner,
+			CalculatedTargets: domain.DailyTargets{DayType: domain.DayTypeFatburner},
 		}
 
 		err := s.logStore.Create(s.ctx, log)
 		s.Require().NoError(err)
 
 		// Try to create again with same date
-		log2 := &models.DailyLog{
+		log2 := &domain.DailyLog{
 			Date:              "2025-01-15",
 			WeightKg:          90,
 			SleepQuality:      70,
-			PlannedTraining:   models.PlannedTraining{Type: models.TrainingTypeStrength, PlannedDurationMin: 60},
-			DayType:           models.DayTypePerformance,
-			CalculatedTargets: models.DailyTargets{DayType: models.DayTypePerformance},
+			PlannedTraining:   domain.PlannedTraining{Type: domain.TrainingTypeStrength, PlannedDurationMin: 60},
+			DayType:           domain.DayTypePerformance,
+			CalculatedTargets: domain.DailyTargets{DayType: domain.DayTypePerformance},
 		}
 
 		err = s.logStore.Create(s.ctx, log2)
@@ -275,13 +274,13 @@ func (s *StoreSuite) TestDailyLogDateUniqueness() {
 
 func (s *StoreSuite) TestDailyLogDelete() {
 	s.Run("delete removes log", func() {
-		log := &models.DailyLog{
+		log := &domain.DailyLog{
 			Date:              "2025-01-15",
 			WeightKg:          85,
 			SleepQuality:      80,
-			PlannedTraining:   models.PlannedTraining{Type: models.TrainingTypeRest, PlannedDurationMin: 0},
-			DayType:           models.DayTypeFatburner,
-			CalculatedTargets: models.DailyTargets{DayType: models.DayTypeFatburner},
+			PlannedTraining:   domain.PlannedTraining{Type: domain.TrainingTypeRest, PlannedDurationMin: 0},
+			DayType:           domain.DayTypeFatburner,
+			CalculatedTargets: domain.DailyTargets{DayType: domain.DayTypeFatburner},
 		}
 
 		err := s.logStore.Create(s.ctx, log)
@@ -305,13 +304,13 @@ func (s *StoreSuite) TestDailyLogMultipleDates() {
 		dates := []string{"2025-01-10", "2025-01-11", "2025-01-12"}
 
 		for _, date := range dates {
-			log := &models.DailyLog{
+			log := &domain.DailyLog{
 				Date:              date,
 				WeightKg:          85,
 				SleepQuality:      80,
-				PlannedTraining:   models.PlannedTraining{Type: models.TrainingTypeRest, PlannedDurationMin: 0},
+				PlannedTraining:   domain.PlannedTraining{Type: domain.TrainingTypeRest, PlannedDurationMin: 0},
 				DayType:           domain.DayTypeFatburner,
-				CalculatedTargets: models.DailyTargets{DayType: domain.DayTypeFatburner},
+				CalculatedTargets: domain.DailyTargets{DayType: domain.DayTypeFatburner},
 			}
 			err := s.logStore.Create(s.ctx, log)
 			s.Require().NoError(err)
