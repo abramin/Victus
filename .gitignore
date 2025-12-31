@@ -1,0 +1,11 @@
+# Node
+frontend/node_modules
+frontend/dist
+
+# Go
+backend/bin
+backend/data
+backend/.env
+
+# Editors
+.DS_Store
