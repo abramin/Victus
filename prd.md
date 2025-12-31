@@ -735,6 +735,7 @@ POST   /api/auth/login
 User Profile
 GET    /api/profile
 PUT    /api/profile
+DELETE /api/profile                  # Delete profile (for test cleanup)
 PATCH  /api/profile/goals
 PATCH  /api/profile/ratios
 
@@ -742,6 +743,7 @@ Daily Logs
 POST   /api/logs                     # Create today's entry
 GET    /api/logs                     # List all logs (paginated)
 GET    /api/logs/today               # Get today's log
+DELETE /api/logs/today               # Delete today's log (for test cleanup)
 GET    /api/logs/:date               # Get specific date's log
 PATCH  /api/logs/:date/actual-training  # Update actual training
 

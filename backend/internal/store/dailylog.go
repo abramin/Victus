@@ -163,3 +163,10 @@ func (s *DailyLogStore) Create(ctx context.Context, log *models.DailyLog) error 
 
 	return err
 }
+
+// DeleteToday removes today's daily log.
+func (s *DailyLogStore) DeleteToday(ctx context.Context) error {
+	today := time.Now().Format("2006-01-02")
+	_, err := s.db.ExecContext(ctx, "DELETE FROM daily_logs WHERE log_date = ?", today)
+	return err
+}

@@ -34,10 +34,12 @@ func NewServer(db *sql.DB) *Server {
 	// Profile routes
 	mux.HandleFunc("GET /api/profile", srv.getProfile)
 	mux.HandleFunc("PUT /api/profile", srv.upsertProfile)
+	mux.HandleFunc("DELETE /api/profile", srv.deleteProfile)
 
 	// Daily log routes
 	mux.HandleFunc("POST /api/logs", srv.createDailyLog)
 	mux.HandleFunc("GET /api/logs/today", srv.getTodayLog)
+	mux.HandleFunc("DELETE /api/logs/today", srv.deleteTodayLog)
 
 	return srv
 }

@@ -92,3 +92,15 @@ func (s *Server) upsertProfile(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(saved)
 }
+
+// deleteProfile handles DELETE /api/profile
+func (s *Server) deleteProfile(w http.ResponseWriter, r *http.Request) {
+	if err := s.profileStore.Delete(r.Context()); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(APIError{Error: "internal_error"})
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}

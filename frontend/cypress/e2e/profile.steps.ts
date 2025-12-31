@@ -20,6 +20,21 @@ Given("the profile API is running", () => {
   cy.request(`${apiBaseUrl}/api/health`).its("status").should("eq", 200)
 })
 
+Given("the database is clean", () => {
+  // Delete today's log first (it has a foreign key to profile)
+  cy.request({
+    method: "DELETE",
+    url: `${apiBaseUrl}/api/logs/today`,
+    failOnStatusCode: false,
+  })
+  // Delete profile
+  cy.request({
+    method: "DELETE",
+    url: `${apiBaseUrl}/api/profile`,
+    failOnStatusCode: false,
+  })
+})
+
 When("I upsert a valid user profile", () => {
   cy.request({
     method: "PUT",

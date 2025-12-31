@@ -18,6 +18,7 @@ Feature: Daily log management
 
   Scenario: Reject daily log creation without profile
     Given the profile API is running
+    And the database is clean
     When I create a valid daily log
     Then the response status should be 400
     And the error response should include "profile_required"
@@ -31,6 +32,7 @@ Feature: Daily log management
 
   Scenario: Return 404 when no log exists for today
     Given the profile API is running
+    And the database is clean
     When I fetch today's daily log
     Then the response status should be 404
     And the error response should include "not_found"

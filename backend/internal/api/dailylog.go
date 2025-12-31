@@ -139,3 +139,15 @@ func (s *Server) getTodayLog(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(log)
 }
+
+// deleteTodayLog handles DELETE /api/logs/today
+func (s *Server) deleteTodayLog(w http.ResponseWriter, r *http.Request) {
+	if err := s.dailyLogStore.DeleteToday(r.Context()); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(APIError{Error: "internal_error"})
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
