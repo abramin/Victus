@@ -74,7 +74,7 @@ Custom Claude commands are available in `.claude/commands/` for code review:
 - `/testing-review` - Test coverage and quality
 - `/secure-design-agent` - Security review
 - `/qa` - OpenAPI contract completeness
-- `/event-finance-review` - Model and data integrity
+- `/adaptive-model` - Model and data integrity
 
 ## Go Style Guidelines
 

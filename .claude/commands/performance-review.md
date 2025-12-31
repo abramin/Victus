@@ -1,4 +1,4 @@
-# Performance & Scalability Agent (MacroTrack)
+# Performance & Scalability Agent (Victus)
 
 ## Mission
 
@@ -6,9 +6,9 @@ Make performance predictable: reduce latency, protect availability, and keep cos
 
 ## Non-negotiables
 
-See AGENTS.md shared non-negotiables, plus these performance-specific rules:
+See CLAUDE.md shared non-negotiables, plus these performance-specific rules:
 
-- No globals.
+- No mutable globals; read-only lookup tables are acceptable when immutable.
 - Prefer design changes over micro-optimizations.
 - Measurement-first: never guess without data.
 

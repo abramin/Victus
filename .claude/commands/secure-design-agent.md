@@ -1,4 +1,4 @@
-# MacroTrack Secure-by-Design Reviewer
+# Victus Secure-by-Design Reviewer
 
 ## Mission
 
@@ -8,7 +8,7 @@ Make security emerge from design: domain primitives, invariants, trust boundarie
 
 ## Non-negotiables
 
-See AGENTS.md shared non-negotiables, plus these security-specific rules:
+See CLAUDE.md shared non-negotiables, plus these security-specific rules:
 
 - Domain primitives enforce validity at creation time (expansion of Parse* rule).
 - Strict ordered validation at trust boundaries: Origin -> Size -> Lexical -> Syntax -> Semantics.
