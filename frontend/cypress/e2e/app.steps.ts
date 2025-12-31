@@ -8,6 +8,6 @@ When("I visit the home page", () => {
   cy.visit("/")
 })
 
-Then("I see the Victus Stack heading", () => {
-  cy.contains("h1", "Victus Stack").should("be.visible")
+Then("I see the Victus heading", () => {
+  cy.contains("h1", "Victus").should("be.visible")
 })
