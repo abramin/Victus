@@ -128,6 +128,20 @@ interface UserProfile {
   // Fruit/Veg preferences
   fruitTargetG: number;  // e.g., 600
   veggieTargetG: number; // e.g., 500
+
+  // Supplement configuration (for points calculation)
+  // These represent "fixed" macro contributions that are subtracted
+  // before converting remaining macros to meal points
+  supplements: {
+    // Intra-workout (used on performance days only)
+    maltodextrinG: number;   // Intra-workout carbs, e.g., 25g (96% carbs)
+    wheyG: number;           // Whey protein, e.g., 30g (88% protein)
+
+    // Daily supplements (used on all day types)
+    collagenG: number;       // Collagen peptides, e.g., 20g (90% protein)
+    eaaMorningG: number;     // EAA morning dose, e.g., 10g (100% protein)
+    eaaEveningG: number;     // EAA evening dose, e.g., 10g (100% protein)
+  };
 }
 
 // Derived values (calculated, not stored)
@@ -601,24 +615,175 @@ function applyDayTypeMultipliers(
 
 ### 4.3 Macro Points Conversion (From Spreadsheet)
 
+Meal points are **not** simple grams-to-points conversions. The spreadsheet:
+1. Subtracts "fixed food/supplement" contributions from daily macro grams
+2. Multiplies by a points-per-gram factor
+3. Multiplies by the meal split %
+4. Rounds to the nearest 5 (like Excel's MROUND)
+
+#### Fixed Contribution Assumptions
+| Source | Macro | Assumed Content |
+|--------|-------|-----------------|
+| Fruit | Carbs | 10% carbs by weight |
+| Vegetables | Carbs | 3% carbs by weight |
+| Maltodextrin (intra-workout) | Carbs | 96% carbs by weight |
+| Collagen | Protein | 90% protein by weight |
+| Whey | Protein | 88% protein by weight |
+| EAA (morning) | Protein | 100% protein by weight |
+| EAA (evening) | Protein | 100% protein by weight |
+
+#### Points-per-Gram Factors
+- Carbs: **1.15**
+- Protein: **4.35**
+- Fat: **3.5**
+
+#### Supplement Configuration
 ```typescript
+interface SupplementConfig {
+  // Intra-workout (performance days only)
+  maltodextrinG: number;      // Intra-workout carbs (e.g., 25g)
+  wheyG: number;              // Whey protein (e.g., 30g)
+
+  // Daily supplements
+  collagenG: number;          // Collagen peptides (e.g., 20g)
+  eaaMorningG: number;        // EAA morning dose (e.g., 10g)
+  eaaEveningG: number;        // EAA evening dose (e.g., 10g)
+}
+```
+
+#### Calculation Functions
+
+```typescript
+// Round to nearest increment (like Excel MROUND)
+function roundToNearest(value: number, increment: number): number {
+  return Math.round(value / increment) * increment;
+}
+
+function calculateCarbPoints(
+  dailyCarbsG: number,
+  mealRatio: number,
+  dayType: 'performance' | 'fatburner' | 'metabolize',
+  fruitG: number,
+  veggiesG: number,
+  maltodextrinG: number,
+  config: { carbMultiplier: number }
+): number {
+  // Fixed carb contributions to subtract
+  const veggieCarbs = veggiesG * 0.03;
+  const fruitCarbs = fruitG * 0.10;
+
+  let availableCarbs: number;
+  if (dayType === 'performance') {
+    // Performance days: also subtract maltodextrin (intra-workout carbs)
+    const maltoCarbs = maltodextrinG * 0.96;
+    availableCarbs = dailyCarbsG - veggieCarbs - fruitCarbs - maltoCarbs;
+  } else {
+    // Fatburner/Metabolize days: no intra-workout carbs
+    availableCarbs = dailyCarbsG - veggieCarbs - fruitCarbs;
+  }
+
+  return roundToNearest(availableCarbs * config.carbMultiplier * mealRatio, 5);
+}
+
+function calculateProteinPoints(
+  dailyProteinG: number,
+  mealRatio: number,
+  dayType: 'performance' | 'fatburner' | 'metabolize',
+  collagenG: number,
+  eaaMorningG: number,
+  eaaEveningG: number,
+  wheyG: number,
+  config: { proteinMultiplier: number }
+): number {
+  // Fixed protein contributions to subtract
+  const collagenProtein = collagenG * 0.90;
+
+  let availableProtein: number;
+  if (dayType === 'performance') {
+    // Performance days: subtract collagen, EAAs, AND whey
+    const wheyProtein = wheyG * 0.88;
+    availableProtein = dailyProteinG - collagenProtein - eaaMorningG - eaaEveningG - wheyProtein;
+  } else {
+    // Fatburner/Metabolize days: subtract collagen and EAAs (no whey)
+    availableProtein = dailyProteinG - collagenProtein - eaaMorningG - eaaEveningG;
+  }
+
+  return roundToNearest(availableProtein * config.proteinMultiplier * mealRatio, 5);
+}
+
+function calculateFatPoints(
+  dailyFatsG: number,
+  mealRatio: number,
+  config: { fatMultiplier: number }
+): number {
+  // Fat has no fixed contributions to subtract
+  return roundToNearest(dailyFatsG * config.fatMultiplier * mealRatio, 5);
+}
+
+// Main conversion function
 function convertToMealPoints(
   macrosG: { carbsG: number; proteinG: number; fatsG: number },
   mealRatio: number,
+  dayType: 'performance' | 'fatburner' | 'metabolize',
   fruitG: number,
   veggiesG: number,
+  supplements: SupplementConfig,
   config: UserProfile['pointsConfig']
 ): MacroPoints {
-  const fruitCarbs = fruitG * 0.10;
-  const veggieCarbs = veggiesG * 0.03;
-  const availableCarbs = macrosG.carbsG - fruitCarbs - veggieCarbs;
-  
   return {
-    carbs: Math.round((availableCarbs * config.carbMultiplier * mealRatio) / 5) * 5,
-    protein: Math.round((macrosG.proteinG * config.proteinMultiplier * mealRatio) / 5) * 5,
-    fats: Math.round((macrosG.fatsG * config.fatMultiplier * mealRatio) / 5) * 5
+    carbs: calculateCarbPoints(
+      macrosG.carbsG,
+      mealRatio,
+      dayType,
+      fruitG,
+      veggiesG,
+      supplements.maltodextrinG,
+      config
+    ),
+    protein: calculateProteinPoints(
+      macrosG.proteinG,
+      mealRatio,
+      dayType,
+      supplements.collagenG,
+      supplements.eaaMorningG,
+      supplements.eaaEveningG,
+      supplements.wheyG,
+      config
+    ),
+    fats: calculateFatPoints(
+      macrosG.fatsG,
+      mealRatio,
+      config
+    )
   };
 }
+```
+
+#### Example Calculation
+
+For a **performance day** with:
+- Daily macros: 300g carbs, 196g protein, 73g fat
+- Breakfast ratio: 30%
+- Fruit: 600g, Veggies: 500g
+- Supplements: maltodextrin 25g, collagen 20g, EAA morning 10g, EAA evening 10g, whey 30g
+
+**Carbs:**
+```
+availableCarbs = 300 - (500 * 0.03) - (600 * 0.10) - (25 * 0.96)
+               = 300 - 15 - 60 - 24 = 201g
+carbPoints = MROUND(201 * 1.15 * 0.30, 5) = MROUND(69.35, 5) = 70
+```
+
+**Protein:**
+```
+availableProtein = 196 - (20 * 0.90) - 10 - 10 - (30 * 0.88)
+                 = 196 - 18 - 10 - 10 - 26.4 = 131.6g
+proteinPoints = MROUND(131.6 * 4.35 * 0.30, 5) = MROUND(171.74, 5) = 170
+```
+
+**Fat:**
+```
+fatPoints = MROUND(73 * 3.5 * 0.30, 5) = MROUND(76.65, 5) = 75
 ```
 
 ### 4.4 Fruit and Vegetable Calculation (From Spreadsheet)
@@ -1613,7 +1778,14 @@ GET    /api/plans                    # List all plans (history)
     "dinner": 0.40
   },
   "fruitTargetG": 600,
-  "veggieTargetG": 500
+  "veggieTargetG": 500,
+  "supplements": {
+    "maltodextrinG": 25,
+    "wheyG": 30,
+    "collagenG": 20,
+    "eaaMorningG": 10,
+    "eaaEveningG": 10
+  }
 }
 
 // Response includes derived values:
@@ -1781,7 +1953,15 @@ CREATE TABLE user_profile (
   -- F&V targets
   fruit_target_g REAL DEFAULT 600,
   veggie_target_g REAL DEFAULT 500,
-  
+
+  -- Supplement configuration (for points calculation)
+  -- These represent "fixed" macro contributions subtracted before meal point conversion
+  maltodextrin_g REAL DEFAULT 0,    -- Intra-workout carbs (performance days), 96% carbs
+  whey_g REAL DEFAULT 0,            -- Whey protein (performance days), 88% protein
+  collagen_g REAL DEFAULT 0,        -- Collagen peptides (all days), 90% protein
+  eaa_morning_g REAL DEFAULT 0,     -- EAA morning dose (all days), 100% protein
+  eaa_evening_g REAL DEFAULT 0,     -- EAA evening dose (all days), 100% protein
+
   -- Recalibration settings
   recalibration_tolerance_percent REAL DEFAULT 3.0,
   

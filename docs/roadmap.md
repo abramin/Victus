@@ -28,6 +28,7 @@ Foundation improvements before adding new features.
 | 1 | #24 | Profile Setup Improvements | Slice 2 | S |
 | 2 | #5 | Day Type System & Training Config | Slice 4 | M |
 | 3 | #31 | Multiple Training Sessions Per Day | Slice 3 | M |
+| 4 | #32 | Supplement Config & Points Calculation | Slice 4, #5 | M |
 
 **Key deliverables:**
 - Current weight handling with decimals
@@ -36,6 +37,7 @@ Foundation improvements before adding new features.
 - Day type multipliers (protected protein)
 - Training type configurations with MET values
 - **Multiple training sessions per day** (e.g., morning Qigong + afternoon strength)
+- **Corrected points calculation** with supplement deductions (maltodextrin, whey, collagen, EAA)
 
 ---
 
@@ -152,6 +154,11 @@ Slice 4 (Targets Display) ──────────────────
 │ & Training    │     │ Daily Log     │                           │
 └───────┬───────┘     └───────┬───────┘                           │
         │                     │                                    │
+        ▼                     │                                    │
+┌───────────────┐             │                                    │
+│ #32 Suppl &   │             │                                    │
+│ Points Calc   │             │                                    │
+└───────┬───────┘             │                                    │
         │         ┌───────────┴───────────┐                       │
         │         ▼                       ▼                       │
         │   ┌───────────┐         ┌───────────┐                   │
@@ -210,6 +217,7 @@ Slice 4 (Targets Display) ──────────────────
 |---|-------|-------|--------|
 | 5 | Day Type System & Training Config | 1 | Open |
 | 31 | Multiple Training Sessions Per Day | 1 | Open |
+| 32 | Supplement Config & Points Calculation | 1 | Open |
 | 6 | Weight History & Trend Visualization | 2 | Open |
 | 7 | Actual Training Logging | 2 | Open |
 | 8 | Adaptive TDEE Calculation | 3 | Open |
@@ -229,6 +237,7 @@ Slice 4 (Targets Display) ──────────────────
 
 ## Notes
 
-- **PRD Alignment**: Issues #5, #8, #11, #12 have revision comments added to align with PRD v2.0
-- **Critical Path**: Profile → Day Types → Weight History → TDEE → Planning → Recalibration
+- **PRD Alignment**: Issues #5, #8, #11, #12, #32 have been aligned with PRD v2.0
+- **Points Calculation Fix**: Issue #32 implements the corrected meal points algorithm from the spreadsheet (PRD Section 4.3) with supplement deductions
+- **Critical Path**: Profile → Day Types → Points Calculation → Weight History → TDEE → Planning → Recalibration
 - **v2.0 Focus**: Phase 4 (Long-Term Planning) is the major new feature set
