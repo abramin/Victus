@@ -93,3 +93,15 @@ func (s *DailyLogService) DeleteToday(ctx context.Context, now time.Time) error 
 	today := now.Format("2006-01-02")
 	return s.logStore.DeleteByDate(ctx, today)
 }
+
+// GetWeightTrend returns weight samples and regression trend for the given start date.
+// If startDate is empty, all samples are returned.
+func (s *DailyLogService) GetWeightTrend(ctx context.Context, startDate string) ([]domain.WeightSample, *domain.WeightTrend, error) {
+	samples, err := s.logStore.ListWeights(ctx, startDate)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	trend := domain.CalculateWeightTrend(samples)
+	return samples, trend, nil
+}

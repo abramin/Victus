@@ -5,6 +5,7 @@ import { OnboardingWizard } from '../components/onboarding';
 import { AppLayout, type NavItem } from '../components/layout';
 import { MealPointsDashboard } from '../components/meal-points';
 import { PlanCalendar } from '../components/plan';
+import { WeightHistory } from '../components/history';
 import { DailyUpdateForm } from '../components/daily-update';
 import { ProfileForm } from '../components/settings/ProfileForm';
 
@@ -45,6 +46,10 @@ function App() {
 
       {currentNav === 'plan' && (
         <PlanCalendar profile={profile} />
+      )}
+
+      {currentNav === 'history' && (
+        <WeightHistory />
       )}
 
       {currentNav === 'daily-update' && (

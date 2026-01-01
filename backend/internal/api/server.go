@@ -52,6 +52,9 @@ func NewServer(db *sql.DB) *Server {
 	// Training config routes
 	mux.HandleFunc("GET /api/training-configs", srv.getTrainingConfigs)
 
+	// Stats routes
+	mux.HandleFunc("GET /api/stats/weight-trend", srv.getWeightTrend)
+
 	return srv
 }
 

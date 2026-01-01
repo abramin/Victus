@@ -138,3 +138,23 @@ export interface TrainingConfig {
   met: number; // Metabolic Equivalent of Task for calorie calculations
   loadScore: number;
 }
+
+// Weight Trend Types
+export type WeightTrendRange = '7d' | '30d' | '90d' | 'all';
+
+export interface WeightTrendPoint {
+  date: string;
+  weightKg: number;
+}
+
+export interface WeightTrendSummary {
+  weeklyChangeKg: number;
+  rSquared: number;
+  startWeightKg: number;
+  endWeightKg: number;
+}
+
+export interface WeightTrendResponse {
+  points: WeightTrendPoint[];
+  trend?: WeightTrendSummary;
+}
