@@ -120,8 +120,8 @@ func (s *StoreSuite) TestProfileDataIntegrity() {
 	})
 }
 
-func (s *StoreSuite) TestProfileDelete() {
-	s.Run("delete removes profile", func() {
+func (s *StoreSuite) TestProfileRemoval() {
+	s.Run("removes profile from store", func() {
 		s.createProfile()
 
 		err := s.profileStore.Delete(s.ctx)
@@ -129,6 +129,15 @@ func (s *StoreSuite) TestProfileDelete() {
 
 		_, err = s.profileStore.Get(s.ctx)
 		s.Require().ErrorIs(err, ErrProfileNotFound)
+	})
+
+	s.Run("is idempotent on missing profile", func() {
+		// Ensure no profile exists
+		_ = s.profileStore.Delete(s.ctx)
+
+		// Deleting again should not error
+		err := s.profileStore.Delete(s.ctx)
+		s.Require().NoError(err, "Deleting nonexistent profile should not error")
 	})
 }
 
@@ -268,8 +277,8 @@ func (s *StoreSuite) TestDailyLogDateUniqueness() {
 	})
 }
 
-func (s *StoreSuite) TestDailyLogDelete() {
-	s.Run("delete removes log", func() {
+func (s *StoreSuite) TestDailyLogRemoval() {
+	s.Run("removes log from store", func() {
 		log := &domain.DailyLog{
 			Date:              "2025-01-15",
 			WeightKg:          85,
@@ -288,7 +297,7 @@ func (s *StoreSuite) TestDailyLogDelete() {
 		s.Require().ErrorIs(err, ErrDailyLogNotFound)
 	})
 
-	s.Run("delete nonexistent log succeeds silently", func() {
+	s.Run("is idempotent on missing log", func() {
 		err := s.logStore.DeleteByDate(s.ctx, "2025-12-31")
 		s.Require().NoError(err, "Deleting nonexistent log should not error")
 	})

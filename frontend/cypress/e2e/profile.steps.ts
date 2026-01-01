@@ -16,6 +16,12 @@ const invalidProfile = {
   height_cm: 90,
 }
 
+const profileWithBMREquation = {
+  ...validProfile,
+  bmrEquation: "katch_mcardle",
+  bodyFatPercent: 15,
+}
+
 Given("the profile API is running", () => {
   cy.request(`${apiBaseUrl}/api/health`).its("status").should("eq", 200)
 })
@@ -110,5 +116,21 @@ Then("the error response should include {string}", (errorCode: string) => {
   cy.get("@lastResponse").then((response) => {
     const body = (response as Cypress.Response).body as Record<string, unknown>
     expect(body.error).to.equal(errorCode)
+  })
+})
+
+When("I upsert a profile with Katch-McArdle BMR equation", () => {
+  cy.request({
+    method: "PUT",
+    url: `${apiBaseUrl}/api/profile`,
+    body: profileWithBMREquation,
+  }).as("lastResponse")
+})
+
+Then("the profile response should include the selected BMR equation", () => {
+  cy.get("@lastResponse").then((response) => {
+    const body = (response as Cypress.Response).body as Record<string, unknown>
+    expect(body.bmrEquation).to.equal("katch_mcardle")
+    expect(body.bodyFatPercent).to.equal(15)
   })
 })
