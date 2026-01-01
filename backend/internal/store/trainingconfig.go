@@ -20,7 +20,7 @@ func NewTrainingConfigStore(db *sql.DB) *TrainingConfigStore {
 // GetAll retrieves all training configurations.
 func (s *TrainingConfigStore) GetAll(ctx context.Context) ([]domain.TrainingTypeConfig, error) {
 	const query = `
-		SELECT type, estimated_cal_per_min, load_score
+		SELECT type, met, load_score
 		FROM training_configs
 		ORDER BY type
 	`
@@ -34,7 +34,7 @@ func (s *TrainingConfigStore) GetAll(ctx context.Context) ([]domain.TrainingType
 	var configs []domain.TrainingTypeConfig
 	for rows.Next() {
 		var cfg domain.TrainingTypeConfig
-		if err := rows.Scan(&cfg.Type, &cfg.EstimatedCalPerMin, &cfg.LoadScore); err != nil {
+		if err := rows.Scan(&cfg.Type, &cfg.MET, &cfg.LoadScore); err != nil {
 			return nil, err
 		}
 		configs = append(configs, cfg)
@@ -50,14 +50,14 @@ func (s *TrainingConfigStore) GetAll(ctx context.Context) ([]domain.TrainingType
 // GetByType retrieves a training configuration by type.
 func (s *TrainingConfigStore) GetByType(ctx context.Context, trainingType domain.TrainingType) (*domain.TrainingTypeConfig, error) {
 	const query = `
-		SELECT type, estimated_cal_per_min, load_score
+		SELECT type, met, load_score
 		FROM training_configs
 		WHERE type = ?
 	`
 
 	var cfg domain.TrainingTypeConfig
 	err := s.db.QueryRowContext(ctx, query, trainingType).Scan(
-		&cfg.Type, &cfg.EstimatedCalPerMin, &cfg.LoadScore,
+		&cfg.Type, &cfg.MET, &cfg.LoadScore,
 	)
 	if err != nil {
 		return nil, err

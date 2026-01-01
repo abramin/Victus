@@ -125,24 +125,24 @@ CREATE TABLE IF NOT EXISTS training_configs (
         'rest', 'qigong', 'walking', 'gmb', 'run', 'row', 'cycle', 'hiit',
         'strength', 'calisthenics', 'mobility', 'mixed'
     )),
-    estimated_cal_per_min REAL NOT NULL DEFAULT 5,
+    met REAL NOT NULL DEFAULT 5.0,
     load_score REAL NOT NULL DEFAULT 3
 );
 
--- Seed default training configs (from PRD Section 3.3)
-INSERT OR IGNORE INTO training_configs (type, estimated_cal_per_min, load_score) VALUES
-    ('rest', 0, 0),
-    ('qigong', 2, 0.5),
-    ('walking', 4, 1),
-    ('gmb', 5, 3),
-    ('run', 8, 3),
-    ('row', 8, 3),
-    ('cycle', 6, 2),
-    ('hiit', 12, 5),
-    ('strength', 7, 5),
-    ('calisthenics', 5, 3),
-    ('mobility', 2, 0.5),
-    ('mixed', 6, 4);
+-- Seed default training configs with MET values from 2024 Compendium of Physical Activities
+INSERT OR IGNORE INTO training_configs (type, met, load_score) VALUES
+    ('rest', 1.0, 0),
+    ('qigong', 2.5, 0.5),
+    ('walking', 3.5, 1),
+    ('gmb', 4.0, 3),
+    ('run', 9.8, 3),
+    ('row', 7.0, 3),
+    ('cycle', 6.8, 2),
+    ('hiit', 12.8, 5),
+    ('strength', 5.0, 5),
+    ('calisthenics', 4.0, 3),
+    ('mobility', 2.5, 0.5),
+    ('mixed', 6.0, 4);
 `
 
 // ALTER TABLE migrations for existing databases (split for SQLite compatibility)

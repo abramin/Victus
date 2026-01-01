@@ -116,6 +116,6 @@ export interface CreateDailyLogRequest {
 // Training Config Types
 export interface TrainingConfig {
   type: TrainingType;
-  estimatedCalPerMin: number;
+  met: number; // Metabolic Equivalent of Task for calorie calculations
   loadScore: number;
 }

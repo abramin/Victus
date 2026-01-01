@@ -9,9 +9,9 @@ import (
 
 // TrainingConfigResponse represents a training configuration in API responses.
 type TrainingConfigResponse struct {
-	Type              string  `json:"type"`
-	EstimatedCalPerMin float64 `json:"estimatedCalPerMin"`
-	LoadScore         float64 `json:"loadScore"`
+	Type      string  `json:"type"`
+	MET       float64 `json:"met"`
+	LoadScore float64 `json:"loadScore"`
 }
 
 // getTrainingConfigs handles GET /api/training-configs
@@ -33,8 +33,8 @@ func (s *Server) getTrainingConfigs(w http.ResponseWriter, r *http.Request) {
 
 func toTrainingConfigResponse(cfg domain.TrainingTypeConfig) TrainingConfigResponse {
 	return TrainingConfigResponse{
-		Type:              string(cfg.Type),
-		EstimatedCalPerMin: cfg.EstimatedCalPerMin,
-		LoadScore:         cfg.LoadScore,
+		Type:      string(cfg.Type),
+		MET:       cfg.MET,
+		LoadScore: cfg.LoadScore,
 	}
 }

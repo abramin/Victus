@@ -457,22 +457,22 @@ func (s *HandlerSuite) TestTrainingConfigsEndpoint() {
 		// Should have all 12 training types
 		s.Len(configs, 12)
 
-		// Verify a few expected values from PRD Section 3.3
+		// Verify a few expected MET values from 2024 Compendium of Physical Activities
 		configMap := make(map[string]TrainingConfigResponse)
 		for _, c := range configs {
 			configMap[c.Type] = c
 		}
 
-		// Rest should have 0 cal/min and 0 load score
-		s.Equal(float64(0), configMap["rest"].EstimatedCalPerMin)
+		// Rest should have MET 1.0 and load score 0
+		s.Equal(1.0, configMap["rest"].MET)
 		s.Equal(float64(0), configMap["rest"].LoadScore)
 
-		// HIIT should have highest cal/min (12) and high load score (5)
-		s.Equal(float64(12), configMap["hiit"].EstimatedCalPerMin)
+		// HIIT should have highest MET (12.8) and high load score (5)
+		s.Equal(12.8, configMap["hiit"].MET)
 		s.Equal(float64(5), configMap["hiit"].LoadScore)
 
-		// Strength should have load score 5
-		s.Equal(float64(7), configMap["strength"].EstimatedCalPerMin)
+		// Strength should have MET 5.0 and load score 5
+		s.Equal(5.0, configMap["strength"].MET)
 		s.Equal(float64(5), configMap["strength"].LoadScore)
 	})
 }

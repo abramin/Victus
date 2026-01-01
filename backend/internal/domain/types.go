@@ -109,11 +109,12 @@ type PlannedTraining struct {
 }
 
 // TrainingTypeConfig represents the database-stored configuration for a training type.
+// MET (Metabolic Equivalent of Task) values are from the 2024 Compendium of Physical Activities.
 // Used for load calculations and TDEE refinement.
 type TrainingTypeConfig struct {
-	Type              TrainingType
-	EstimatedCalPerMin float64
-	LoadScore         float64
+	Type      TrainingType
+	MET       float64 // Metabolic Equivalent of Task for calorie calculations
+	LoadScore float64
 }
 
 // MacroPoints represents macro points for a meal.
