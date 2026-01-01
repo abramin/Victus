@@ -19,6 +19,7 @@ type DailyLogServiceSuite struct {
 	db             *sql.DB
 	profileStore   *store.ProfileStore
 	logStore       *store.DailyLogStore
+	sessionStore   *store.TrainingSessionStore
 	profileService *ProfileService
 	logService     *DailyLogService
 	ctx            context.Context
@@ -39,8 +40,9 @@ func (s *DailyLogServiceSuite) SetupTest() {
 
 	s.profileStore = store.NewProfileStore(s.db)
 	s.logStore = store.NewDailyLogStore(s.db)
+	s.sessionStore = store.NewTrainingSessionStore(s.db)
 	s.profileService = NewProfileService(s.profileStore)
-	s.logService = NewDailyLogService(s.logStore, s.profileStore)
+	s.logService = NewDailyLogService(s.logStore, s.sessionStore, s.profileStore)
 	s.ctx = context.Background()
 	s.now = time.Date(2025, 1, 15, 12, 0, 0, 0, time.UTC)
 }
@@ -74,43 +76,13 @@ func (s *DailyLogServiceSuite) createProfile() {
 	s.Require().NoError(err)
 }
 
-// --- DailyLogService.Create tests ---
+// --- DailyLogService tests ---
+// Justification: Tests default application and edge cases not covered by feature scenarios.
+// Feature scenarios test full happy paths; these test service-layer behaviors.
 
-func (s *DailyLogServiceSuite) TestLogCreationCalculatesTargets() {
-	s.createProfile()
-
-	log := &domain.DailyLog{
-		Date:            "2025-01-15",
-		WeightKg:        85,
-		SleepQuality:    80,
-		PlannedTraining: domain.PlannedTraining{Type: domain.TrainingTypeStrength, PlannedDurationMin: 60},
-		DayType:         domain.DayTypePerformance,
-	}
-
-	result, err := s.logService.Create(s.ctx, log, s.now)
-	s.Require().NoError(err)
-
-	// Verify targets were calculated
-	s.Greater(result.CalculatedTargets.TotalCalories, 0, "Should have calculated calories")
-	s.Greater(result.CalculatedTargets.TotalProteinG, 0, "Should have calculated protein")
-	s.Greater(result.CalculatedTargets.TotalCarbsG, 0, "Should have calculated carbs")
-	s.Greater(result.CalculatedTargets.TotalFatsG, 0, "Should have calculated fats")
-	s.Greater(result.EstimatedTDEE, 0, "Should have calculated TDEE")
-}
-
-func (s *DailyLogServiceSuite) TestLogCreationRequiresProfile() {
-	// No profile created - database is fresh from SetupTest
-	log := &domain.DailyLog{
-		Date:            "2025-01-15",
-		WeightKg:        85,
-		SleepQuality:    80,
-		PlannedTraining: domain.PlannedTraining{Type: domain.TrainingTypeStrength, PlannedDurationMin: 60},
-		DayType:         domain.DayTypePerformance,
-	}
-
-	_, err := s.logService.Create(s.ctx, log, s.now)
-	s.Require().ErrorIs(err, store.ErrProfileNotFound)
-}
+// NOTE: The following tests were removed as redundant with dailylog.feature scenarios:
+// - TestLogCreationCalculatesTargets: "Create a daily log with calculated targets"
+// - TestLogCreationRequiresProfile: "Reject daily log creation without profile"
 
 func (s *DailyLogServiceSuite) TestLogCreationAppliesDefaults() {
 	s.createProfile()
@@ -126,7 +98,8 @@ func (s *DailyLogServiceSuite) TestLogCreationAppliesDefaults() {
 	// Verify defaults were applied
 	s.Equal("2025-01-15", result.Date, "Date should default to today")
 	s.Equal(domain.SleepQuality(50), result.SleepQuality, "Sleep quality should default to 50")
-	s.Equal(domain.TrainingTypeRest, result.PlannedTraining.Type, "Training type should default to rest")
+	s.Require().Len(result.PlannedSessions, 1, "Should have default rest session")
+	s.Equal(domain.TrainingTypeRest, result.PlannedSessions[0].Type, "Training type should default to rest")
 	s.Equal(domain.DayTypeFatburner, result.DayType, "Day type should default to fatburner")
 }
 
@@ -142,56 +115,10 @@ func (s *DailyLogServiceSuite) TestLogCreationRejectsInvalidInput() {
 	s.Require().ErrorIs(err, domain.ErrInvalidWeight)
 }
 
-func (s *DailyLogServiceSuite) TestLogRetrievalAfterCreation() {
-	s.createProfile()
-
-	// Create a log for today
-	log := &domain.DailyLog{
-		Date:            "2025-01-15",
-		WeightKg:        85,
-		SleepQuality:    80,
-		PlannedTraining: domain.PlannedTraining{Type: domain.TrainingTypeStrength, PlannedDurationMin: 60},
-		DayType:         domain.DayTypePerformance,
-	}
-	_, err := s.logService.Create(s.ctx, log, s.now)
-	s.Require().NoError(err)
-
-	// Retrieve it
-	result, err := s.logService.GetToday(s.ctx, s.now)
-	s.Require().NoError(err)
-	s.Equal("2025-01-15", result.Date)
-	s.Equal(85.0, result.WeightKg)
-}
-
-func (s *DailyLogServiceSuite) TestLogRetrievalWhenEmpty() {
-	_, err := s.logService.GetToday(s.ctx, s.now)
-	s.Require().ErrorIs(err, store.ErrDailyLogNotFound)
-}
-
-func (s *DailyLogServiceSuite) TestLogDeletion() {
-	s.Run("DeleteToday removes today's log", func() {
-		s.createProfile()
-
-		// Create a log
-		log := &domain.DailyLog{
-			Date:            "2025-01-15",
-			WeightKg:        85,
-			SleepQuality:    80,
-			PlannedTraining: domain.PlannedTraining{Type: domain.TrainingTypeRest, PlannedDurationMin: 0},
-			DayType:         domain.DayTypeFatburner,
-		}
-		_, err := s.logService.Create(s.ctx, log, s.now)
-		s.Require().NoError(err)
-
-		// Delete it
-		err = s.logService.DeleteToday(s.ctx, s.now)
-		s.Require().NoError(err)
-
-		// Verify it's gone
-		_, err = s.logService.GetToday(s.ctx, s.now)
-		s.Require().ErrorIs(err, store.ErrDailyLogNotFound)
-	})
-}
+// NOTE: The following tests were removed as redundant with dailylog.feature scenarios:
+// - TestLogRetrievalAfterCreation: "Fetch today's log after creation"
+// - TestLogRetrievalWhenEmpty: "Return 404 when no log exists for today"
+// - TestLogDeletion: "Delete today's log"
 
 // --- ProfileService tests ---
 

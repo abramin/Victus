@@ -24,12 +24,13 @@ func NewDailyLogStore(db *sql.DB) *DailyLogStore {
 
 // GetByDate retrieves a daily log by date (YYYY-MM-DD format).
 // Returns ErrDailyLogNotFound if no log exists for that date.
+// Note: PlannedSessions is NOT populated by this method. Use the service layer
+// which combines this with TrainingSessionStore.GetByLogID.
 func (s *DailyLogStore) GetByDate(ctx context.Context, date string) (*domain.DailyLog, error) {
 	const query = `
 		SELECT
-			log_date, weight_kg, body_fat_percent, resting_heart_rate,
+			id, log_date, weight_kg, body_fat_percent, resting_heart_rate,
 			sleep_quality, sleep_hours,
-			planned_training_type, planned_duration_min,
 			total_carbs_g, total_protein_g, total_fats_g, total_calories,
 			breakfast_carb_points, breakfast_protein_points, breakfast_fat_points,
 			lunch_carb_points, lunch_protein_points, lunch_fat_points,
@@ -50,9 +51,8 @@ func (s *DailyLogStore) GetByDate(ctx context.Context, date string) (*domain.Dai
 	)
 
 	err := s.db.QueryRowContext(ctx, query, date).Scan(
-		&log.Date, &log.WeightKg, &bodyFatPercent, &heartRate,
+		&log.ID, &log.Date, &log.WeightKg, &bodyFatPercent, &heartRate,
 		&log.SleepQuality, &sleepHours,
-		&log.PlannedTraining.Type, &log.PlannedTraining.PlannedDurationMin,
 		&log.CalculatedTargets.TotalCarbsG, &log.CalculatedTargets.TotalProteinG,
 		&log.CalculatedTargets.TotalFatsG, &log.CalculatedTargets.TotalCalories,
 		&log.CalculatedTargets.Meals.Breakfast.Carbs, &log.CalculatedTargets.Meals.Breakfast.Protein,
@@ -96,10 +96,22 @@ func (s *DailyLogStore) GetByDate(ctx context.Context, date string) (*domain.Dai
 	return &log, nil
 }
 
+// GetIDByDate returns the log ID for a given date.
+// Returns ErrDailyLogNotFound if no log exists for that date.
+func (s *DailyLogStore) GetIDByDate(ctx context.Context, date string) (int64, error) {
+	var id int64
+	err := s.db.QueryRowContext(ctx, "SELECT id FROM daily_logs WHERE log_date = ?", date).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, ErrDailyLogNotFound
+	}
+	return id, err
+}
 
-// Create inserts a new daily log.
+
+// Create inserts a new daily log and returns the inserted ID.
 // Returns an error if a log already exists for that date.
-func (s *DailyLogStore) Create(ctx context.Context, log *domain.DailyLog) error {
+// Note: Training sessions are stored separately via TrainingSessionStore.
+func (s *DailyLogStore) Create(ctx context.Context, log *domain.DailyLog) (int64, error) {
 	const query = `
 		INSERT INTO daily_logs (
 			log_date, weight_kg, body_fat_percent, resting_heart_rate,
@@ -114,7 +126,7 @@ func (s *DailyLogStore) Create(ctx context.Context, log *domain.DailyLog) error 
 		) VALUES (
 			?, ?, ?, ?,
 			?, ?,
-			?, ?,
+			'rest', 0,
 			?, ?, ?, ?,
 			?, ?, ?,
 			?, ?, ?,
@@ -138,10 +150,11 @@ func (s *DailyLogStore) Create(ctx context.Context, log *domain.DailyLog) error 
 		sleepHours = *log.SleepHours
 	}
 
-	_, err := s.db.ExecContext(ctx, query,
+	result, err := s.db.ExecContext(ctx, query,
 		log.Date, log.WeightKg, bodyFatPercent, heartRate,
 		log.SleepQuality, sleepHours,
-		log.PlannedTraining.Type, log.PlannedTraining.PlannedDurationMin,
+		// planned_training_type and planned_duration_min use default values ('rest', 0)
+		// Training sessions are stored in the training_sessions table
 		log.CalculatedTargets.TotalCarbsG, log.CalculatedTargets.TotalProteinG,
 		log.CalculatedTargets.TotalFatsG, log.CalculatedTargets.TotalCalories,
 		log.CalculatedTargets.Meals.Breakfast.Carbs, log.CalculatedTargets.Meals.Breakfast.Protein,
@@ -154,8 +167,11 @@ func (s *DailyLogStore) Create(ctx context.Context, log *domain.DailyLog) error 
 		log.CalculatedTargets.WaterL, log.DayType,
 		log.EstimatedTDEE,
 	)
+	if err != nil {
+		return 0, err
+	}
 
-	return err
+	return result.LastInsertId()
 }
 
 // DeleteByDate removes the daily log for the given date.

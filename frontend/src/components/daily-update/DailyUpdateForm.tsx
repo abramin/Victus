@@ -1,26 +1,12 @@
 import { useState } from 'react';
-import type { CreateDailyLogRequest, TrainingType, DayType } from '../../api/types';
+import type { CreateDailyLogRequest, DayType } from '../../api/types';
+import { TrainingSessionList } from '../daily-input/TrainingSessionList';
 
 interface DailyUpdateFormProps {
   onSubmit: (log: CreateDailyLogRequest) => Promise<unknown>;
   saving: boolean;
   error: string | null;
 }
-
-const TRAINING_TYPES: { value: TrainingType; label: string }[] = [
-  { value: 'rest', label: 'Rest Day' },
-  { value: 'qigong', label: 'Qigong' },
-  { value: 'walking', label: 'Walking' },
-  { value: 'gmb', label: 'GMB' },
-  { value: 'run', label: 'Running' },
-  { value: 'row', label: 'Rowing' },
-  { value: 'cycle', label: 'Cycling' },
-  { value: 'hiit', label: 'HIIT' },
-  { value: 'strength', label: 'Strength Training' },
-  { value: 'calisthenics', label: 'Calisthenics' },
-  { value: 'mobility', label: 'Mobility' },
-  { value: 'mixed', label: 'Mixed Training' },
-];
 
 const DAY_TYPES: { value: DayType; label: string; description: string }[] = [
   { value: 'performance', label: 'Performance', description: 'Higher carbs for workout days' },
@@ -32,7 +18,7 @@ export function DailyUpdateForm({ onSubmit, saving, error }: DailyUpdateFormProp
   const [formData, setFormData] = useState<CreateDailyLogRequest>({
     weightKg: 0,
     sleepQuality: 50,
-    plannedTraining: { type: 'rest', plannedDurationMin: 0 },
+    plannedTrainingSessions: [{ type: 'rest', durationMin: 0 }],
     dayType: 'fatburner',
   });
 
@@ -170,55 +156,12 @@ export function DailyUpdateForm({ onSubmit, saving, error }: DailyUpdateFormProp
           {/* Planned Training */}
           <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
             <h3 className="text-white font-medium mb-4">Today's Training</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm text-gray-400 mb-2">Training Type</label>
-                <select
-                  value={formData.plannedTraining.type}
-                  onChange={(e) =>
-                    updateFormData({
-                      plannedTraining: {
-                        ...formData.plannedTraining,
-                        type: e.target.value as TrainingType,
-                        plannedDurationMin: e.target.value === 'rest' ? 0 : formData.plannedTraining.plannedDurationMin,
-                      },
-                    })
-                  }
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-white/20 appearance-none cursor-pointer"
-                  style={{
-                    backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
-                    backgroundPosition: 'right 0.75rem center',
-                    backgroundRepeat: 'no-repeat',
-                    backgroundSize: '1.25em 1.25em',
-                  }}
-                >
-                  {TRAINING_TYPES.map((t) => (
-                    <option key={t.value} value={t.value}>
-                      {t.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm text-gray-400 mb-2">Duration (minutes)</label>
-                <input
-                  type="number"
-                  value={formData.plannedTraining.plannedDurationMin || ''}
-                  onChange={(e) =>
-                    updateFormData({
-                      plannedTraining: {
-                        ...formData.plannedTraining,
-                        plannedDurationMin: parseInt(e.target.value) || 0,
-                      },
-                    })
-                  }
-                  disabled={formData.plannedTraining.type === 'rest'}
-                  placeholder={formData.plannedTraining.type === 'rest' ? 'N/A' : 'Minutes'}
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/20 disabled:opacity-50"
-                />
-              </div>
-            </div>
+            <TrainingSessionList
+              sessions={formData.plannedTrainingSessions}
+              onSessionsChange={(sessions) =>
+                updateFormData({ plannedTrainingSessions: sessions })
+              }
+            />
           </div>
 
           {/* Day Type Selection */}
@@ -289,8 +232,10 @@ export function DailyUpdateForm({ onSubmit, saving, error }: DailyUpdateFormProp
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-gray-400">Training</span>
-                <span className="text-white font-medium capitalize">
-                  {formData.plannedTraining.type.replace('_', ' ')}
+                <span className="text-white font-medium">
+                  {formData.plannedTrainingSessions.filter((s) => s.type !== 'rest').length === 0
+                    ? 'Rest day'
+                    : `${formData.plannedTrainingSessions.length} session${formData.plannedTrainingSessions.length > 1 ? 's' : ''}`}
                 </span>
               </div>
               <div className="flex justify-between items-center">

@@ -9,10 +9,16 @@ import (
 // RunMigrations applies all database migrations.
 // This function is idempotent - safe to run multiple times.
 func RunMigrations(db *sql.DB) error {
+	// Enable foreign key enforcement (SQLite disables by default)
+	if _, err := db.Exec("PRAGMA foreign_keys = ON"); err != nil {
+		return fmt.Errorf("failed to enable foreign keys: %w", err)
+	}
+
 	migrations := []string{
 		createUserProfileTable,
 		createDailyLogsTable,
 		createTrainingConfigsTable,
+		createTrainingSessionsTable,
 	}
 
 	for i, migration := range migrations {
@@ -36,6 +42,11 @@ func RunMigrations(db *sql.DB) error {
 				return fmt.Errorf("alter migration failed: %w", err)
 			}
 		}
+	}
+
+	// Migrate existing single training data to sessions table (idempotent via INSERT OR IGNORE)
+	if _, err := db.Exec(migrateTrainingToSessions); err != nil {
+		return fmt.Errorf("training sessions data migration failed: %w", err)
 	}
 
 	return nil
@@ -150,3 +161,33 @@ const addBMREquationColumn = `ALTER TABLE user_profile ADD COLUMN bmr_equation T
 const addBodyFatPercentColumn = `ALTER TABLE user_profile ADD COLUMN body_fat_percent REAL`
 const addCurrentWeightColumn = `ALTER TABLE user_profile ADD COLUMN current_weight_kg REAL`
 const addTimeframeWeeksColumn = `ALTER TABLE user_profile ADD COLUMN timeframe_weeks INTEGER DEFAULT 0`
+
+// Training sessions table for multiple sessions per day (Issue #31)
+const createTrainingSessionsTable = `
+CREATE TABLE IF NOT EXISTS training_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    daily_log_id INTEGER NOT NULL,
+    session_order INTEGER NOT NULL,
+    is_planned BOOLEAN NOT NULL DEFAULT 1,
+    training_type TEXT NOT NULL CHECK(training_type IN (
+        'rest', 'qigong', 'walking', 'gmb', 'run', 'row', 'cycle', 'hiit',
+        'strength', 'calisthenics', 'mobility', 'mixed'
+    )),
+    duration_min INTEGER NOT NULL CHECK (duration_min BETWEEN 0 AND 480),
+    perceived_intensity INTEGER CHECK (perceived_intensity IS NULL OR perceived_intensity BETWEEN 1 AND 10),
+    notes TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (daily_log_id) REFERENCES daily_logs(id) ON DELETE CASCADE,
+    UNIQUE(daily_log_id, session_order)
+);
+
+CREATE INDEX IF NOT EXISTS idx_training_sessions_daily_log ON training_sessions(daily_log_id);
+`
+
+// Migrate existing single training data to sessions table
+const migrateTrainingToSessions = `
+INSERT OR IGNORE INTO training_sessions (daily_log_id, session_order, is_planned, training_type, duration_min)
+SELECT id, 1, 1, planned_training_type, planned_duration_min
+FROM daily_logs
+WHERE planned_training_type IS NOT NULL AND planned_training_type != '';
+`

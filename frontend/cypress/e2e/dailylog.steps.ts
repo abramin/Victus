@@ -17,19 +17,23 @@ const validDailyLog = {
   date: today,
   weightKg: 82.5,
   sleepQuality: 80,
-  plannedTraining: {
-    type: "strength",
-    plannedDurationMin: 60,
-  },
+  plannedTrainingSessions: [
+    {
+      type: "strength",
+      durationMin: 60,
+    },
+  ],
   dayType: "performance",
 }
 
 const invalidDailyLog = {
   ...validDailyLog,
-  plannedTraining: {
-    type: "invalid_type",
-    plannedDurationMin: 60,
-  },
+  plannedTrainingSessions: [
+    {
+      type: "invalid_type",
+      durationMin: 60,
+    },
+  ],
 }
 
 When("I create a valid daily log", () => {
@@ -105,9 +109,10 @@ Then("the daily log response should include the submitted log data", () => {
     expect(body.weightKg).to.equal(validDailyLog.weightKg)
     expect(body.sleepQuality).to.equal(validDailyLog.sleepQuality)
 
-    const training = body.plannedTraining as Record<string, unknown>
-    expect(training.type).to.equal(validDailyLog.plannedTraining.type)
-    expect(training.plannedDurationMin).to.equal(validDailyLog.plannedTraining.plannedDurationMin)
+    const sessions = body.plannedTrainingSessions as Array<Record<string, unknown>>
+    expect(sessions).to.have.length(1)
+    expect(sessions[0].type).to.equal(validDailyLog.plannedTrainingSessions[0].type)
+    expect(sessions[0].durationMin).to.equal(validDailyLog.plannedTrainingSessions[0].durationMin)
   })
 })
 

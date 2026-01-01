@@ -29,7 +29,7 @@ var TrainingConfigs = map[TrainingType]TrainingConfig{
 	TrainingTypeMixed:        {MET: 6.0, LoadScore: 4},      // General conditioning
 }
 
-// CalculateExerciseCalories computes calories burned using MET formula.
+// CalculateExerciseCalories computes calories burned using MET formula for a single session.
 // Formula: Calories = (MET - 1) × weight(kg) × duration(hours)
 // We subtract 1 from MET to get "extra" calories above resting (avoids double-counting with BMR).
 func CalculateExerciseCalories(trainingType TrainingType, weightKg float64, durationMin int) float64 {
@@ -43,6 +43,25 @@ func CalculateExerciseCalories(trainingType TrainingType, weightKg float64, dura
 	}
 
 	return netMET * weightKg * durationHours
+}
+
+// CalculateTotalExerciseCalories computes total calories burned across all sessions.
+func CalculateTotalExerciseCalories(sessions []TrainingSession, weightKg float64) float64 {
+	var totalCalories float64
+	for _, session := range sessions {
+		totalCalories += CalculateExerciseCalories(session.Type, weightKg, session.DurationMin)
+	}
+	return totalCalories
+}
+
+// HasNonRestSession returns true if any session is not a rest session.
+func HasNonRestSession(sessions []TrainingSession) bool {
+	for _, s := range sessions {
+		if s.Type != TrainingTypeRest {
+			return true
+		}
+	}
+	return false
 }
 
 // DayTypeMultipliers defines macro multipliers for each day type.
@@ -65,11 +84,8 @@ func CalculateDailyTargets(profile *UserProfile, log *DailyLog, now time.Time) D
 	bmr := CalculateBMR(profile, log.WeightKg, now, bmrEquation)
 
 	// 2. Calculate exercise calories using MET-based formula (weight-adjusted)
-	exerciseCalories := CalculateExerciseCalories(
-		log.PlannedTraining.Type,
-		log.WeightKg,
-		log.PlannedTraining.PlannedDurationMin,
-	)
+	// Sum calories across all planned sessions
+	exerciseCalories := CalculateTotalExerciseCalories(log.PlannedSessions, log.WeightKg)
 
 	// 3. Calculate TDEE = BMR × NEAT multiplier + Exercise Calories
 	neatMultiplier := 1.2 // Sedentary activity factor
@@ -94,7 +110,8 @@ func CalculateDailyTargets(profile *UserProfile, log *DailyLog, now time.Time) D
 	}
 
 	// 5. Calculate macros with protein-first approach
-	isTrainingDay := log.PlannedTraining.Type != TrainingTypeRest
+	// A day is a training day if any session is not rest
+	isTrainingDay := HasNonRestSession(log.PlannedSessions)
 	proteinRec := GetProteinRecommendation(profile.Goal, isTrainingDay, deficitSeverity)
 
 	// Use optimal protein target
@@ -160,14 +177,15 @@ func CalculateDailyTargets(profile *UserProfile, log *DailyLog, now time.Time) D
 }
 
 // CalculateEstimatedTDEE returns the estimated TDEE for the day using MET-based exercise calories.
-func CalculateEstimatedTDEE(profile *UserProfile, weightKg float64, trainingType TrainingType, durationMin int, now time.Time) int {
+// Sums exercise calories across all planned sessions.
+func CalculateEstimatedTDEE(profile *UserProfile, weightKg float64, sessions []TrainingSession, now time.Time) int {
 	// Use configured BMR equation (default: Mifflin-St Jeor)
 	bmrEquation := profile.BMREquation
 	if bmrEquation == "" {
 		bmrEquation = BMREquationMifflinStJeor
 	}
 	bmr := CalculateBMR(profile, weightKg, now, bmrEquation)
-	exerciseCalories := CalculateExerciseCalories(trainingType, weightKg, durationMin)
+	exerciseCalories := CalculateTotalExerciseCalories(sessions, weightKg)
 	tdee := bmr*1.2 + exerciseCalories
 	return int(math.Round(tdee))
 }

@@ -22,11 +22,16 @@ func (s *DailyLogSuite) SetupTest() {
 
 func (s *DailyLogSuite) validLog() *DailyLog {
 	return &DailyLog{
-		Date:            "2025-01-15",
-		WeightKg:        85,
-		SleepQuality:    80,
-		PlannedTraining: PlannedTraining{Type: TrainingTypeStrength, PlannedDurationMin: 60},
-		DayType:         DayTypePerformance,
+		Date:         "2025-01-15",
+		WeightKg:     85,
+		SleepQuality: 80,
+		PlannedSessions: []TrainingSession{{
+			SessionOrder: 1,
+			IsPlanned:    true,
+			Type:         TrainingTypeStrength,
+			DurationMin:  60,
+		}},
+		DayType: DayTypePerformance,
 	}
 }
 
@@ -232,20 +237,20 @@ func (s *DailyLogSuite) TestTrainingTypeValidation() {
 		}
 		for _, tt := range validTypes {
 			log := s.validLog()
-			log.PlannedTraining.Type = tt
+			log.PlannedSessions[0].Type = tt
 			s.Require().NoError(log.Validate(), "Should accept training type: %s", tt)
 		}
 	})
 
 	s.Run("rejects invalid training type", func() {
 		log := s.validLog()
-		log.PlannedTraining.Type = "invalid_type"
+		log.PlannedSessions[0].Type = "invalid_type"
 		s.Require().ErrorIs(log.Validate(), ErrInvalidTrainingType)
 	})
 
 	s.Run("rejects empty training type", func() {
 		log := s.validLog()
-		log.PlannedTraining.Type = ""
+		log.PlannedSessions[0].Type = ""
 		s.Require().ErrorIs(log.Validate(), ErrInvalidTrainingType)
 	})
 }
@@ -253,25 +258,25 @@ func (s *DailyLogSuite) TestTrainingTypeValidation() {
 func (s *DailyLogSuite) TestTrainingDurationValidation() {
 	s.Run("accepts duration at lower boundary", func() {
 		log := s.validLog()
-		log.PlannedTraining.PlannedDurationMin = 0
+		log.PlannedSessions[0].DurationMin = 0
 		s.Require().NoError(log.Validate())
 	})
 
 	s.Run("accepts duration at upper boundary", func() {
 		log := s.validLog()
-		log.PlannedTraining.PlannedDurationMin = 480
+		log.PlannedSessions[0].DurationMin = 480
 		s.Require().NoError(log.Validate())
 	})
 
 	s.Run("rejects negative duration", func() {
 		log := s.validLog()
-		log.PlannedTraining.PlannedDurationMin = -1
+		log.PlannedSessions[0].DurationMin = -1
 		s.Require().ErrorIs(log.Validate(), ErrInvalidTrainingDuration)
 	})
 
 	s.Run("rejects duration above maximum", func() {
 		log := s.validLog()
-		log.PlannedTraining.PlannedDurationMin = 481
+		log.PlannedSessions[0].DurationMin = 481
 		s.Require().ErrorIs(log.Validate(), ErrInvalidTrainingDuration)
 	})
 }
@@ -315,7 +320,8 @@ func (s *DailyLogSuite) TestDefaultsApplication() {
 	s.Run("defaults training type to rest", func() {
 		log := &DailyLog{WeightKg: 85}
 		log.SetDefaultsAt(s.now)
-		s.Equal(TrainingTypeRest, log.PlannedTraining.Type)
+		s.Require().Len(log.PlannedSessions, 1)
+		s.Equal(TrainingTypeRest, log.PlannedSessions[0].Type)
 	})
 
 	s.Run("defaults day type to fatburner", func() {
@@ -326,26 +332,36 @@ func (s *DailyLogSuite) TestDefaultsApplication() {
 
 	s.Run("rest training forces duration to zero", func() {
 		log := &DailyLog{
-			WeightKg:        85,
-			PlannedTraining: PlannedTraining{Type: TrainingTypeRest, PlannedDurationMin: 60},
+			WeightKg: 85,
+			PlannedSessions: []TrainingSession{{
+				SessionOrder: 1,
+				IsPlanned:    true,
+				Type:         TrainingTypeRest,
+				DurationMin:  60,
+			}},
 		}
 		log.SetDefaultsAt(s.now)
-		s.Equal(0, log.PlannedTraining.PlannedDurationMin)
+		s.Equal(0, log.PlannedSessions[0].DurationMin)
 	})
 
 	s.Run("does not override explicit values", func() {
 		log := &DailyLog{
-			Date:            "2025-02-20",
-			WeightKg:        85,
-			SleepQuality:    90,
-			PlannedTraining: PlannedTraining{Type: TrainingTypeStrength, PlannedDurationMin: 45},
-			DayType:         DayTypeMetabolize,
+			Date:         "2025-02-20",
+			WeightKg:     85,
+			SleepQuality: 90,
+			PlannedSessions: []TrainingSession{{
+				SessionOrder: 1,
+				IsPlanned:    true,
+				Type:         TrainingTypeStrength,
+				DurationMin:  45,
+			}},
+			DayType: DayTypeMetabolize,
 		}
 		log.SetDefaultsAt(s.now)
 		s.Equal("2025-02-20", log.Date)
 		s.Equal(SleepQuality(90), log.SleepQuality)
-		s.Equal(TrainingTypeStrength, log.PlannedTraining.Type)
-		s.Equal(45, log.PlannedTraining.PlannedDurationMin)
+		s.Equal(TrainingTypeStrength, log.PlannedSessions[0].Type)
+		s.Equal(45, log.PlannedSessions[0].DurationMin)
 		s.Equal(DayTypeMetabolize, log.DayType)
 	})
 }
@@ -356,7 +372,12 @@ func (s *DailyLogSuite) TestNewDailyLog() {
 			"2025-01-15",
 			85,
 			80,
-			PlannedTraining{Type: TrainingTypeStrength, PlannedDurationMin: 60},
+			[]TrainingSession{{
+				SessionOrder: 1,
+				IsPlanned:    true,
+				Type:         TrainingTypeStrength,
+				DurationMin:  60,
+			}},
 			DayTypePerformance,
 			s.now,
 		)
@@ -371,7 +392,12 @@ func (s *DailyLogSuite) TestNewDailyLog() {
 			"invalid-date",
 			85,
 			80,
-			PlannedTraining{Type: TrainingTypeStrength, PlannedDurationMin: 60},
+			[]TrainingSession{{
+				SessionOrder: 1,
+				IsPlanned:    true,
+				Type:         TrainingTypeStrength,
+				DurationMin:  60,
+			}},
 			DayTypePerformance,
 			s.now,
 		)
@@ -385,7 +411,12 @@ func (s *DailyLogSuite) TestDailyLogBuilder() {
 			"2025-01-15",
 			85,
 			80,
-			PlannedTraining{Type: TrainingTypeStrength, PlannedDurationMin: 60},
+			[]TrainingSession{{
+				SessionOrder: 1,
+				IsPlanned:    true,
+				Type:         TrainingTypeStrength,
+				DurationMin:  60,
+			}},
 			DayTypePerformance,
 		).
 			WithBodyFat(15.5).
@@ -407,7 +438,12 @@ func (s *DailyLogSuite) TestDailyLogBuilder() {
 			"2025-01-15",
 			25, // Invalid weight
 			80,
-			PlannedTraining{Type: TrainingTypeStrength, PlannedDurationMin: 60},
+			[]TrainingSession{{
+				SessionOrder: 1,
+				IsPlanned:    true,
+				Type:         TrainingTypeStrength,
+				DurationMin:  60,
+			}},
 			DayTypePerformance,
 		).Build(s.now)
 

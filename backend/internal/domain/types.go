@@ -103,9 +103,22 @@ type PointsConfig struct {
 }
 
 // PlannedTraining represents the training plan for the day.
+// Deprecated: Use TrainingSession slice instead for multi-session support.
 type PlannedTraining struct {
 	Type               TrainingType
 	PlannedDurationMin int
+}
+
+// TrainingSession represents a single training session within a day.
+// A day can have multiple sessions (e.g., morning Qigong + afternoon strength).
+type TrainingSession struct {
+	ID                 int64        // Database ID (0 for new sessions)
+	SessionOrder       int          // 1-based order within the day
+	IsPlanned          bool         // true for planned, false for actual
+	Type               TrainingType // Type of training activity
+	DurationMin        int          // Duration in minutes
+	PerceivedIntensity *int         // Optional RPE 1-10
+	Notes              string       // Optional notes
 }
 
 // TrainingTypeConfig represents the database-stored configuration for a training type.
