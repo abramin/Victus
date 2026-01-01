@@ -102,6 +102,20 @@ type PointsConfig struct {
 	FatMultiplier     float64
 }
 
+// SupplementConfig holds the daily supplement intake for points calculation.
+// Fixed contribution assumptions from the spreadsheet:
+// - Maltodextrin: 96% carbs (intra-workout)
+// - Whey: 88% protein
+// - Collagen: 90% protein
+// - EAA: 100% protein (both morning and evening)
+type SupplementConfig struct {
+	MaltodextrinG float64 // Intra-workout carb supplement (grams)
+	WheyG         float64 // Whey protein powder (grams)
+	CollagenG     float64 // Collagen peptides (grams)
+	EAAMorningG   float64 // Morning EAA supplement (grams)
+	EAAEveningG   float64 // Evening EAA supplement (grams)
+}
+
 // PlannedTraining represents the training plan for the day.
 // Deprecated: Use TrainingSession slice instead for multi-session support.
 type PlannedTraining struct {

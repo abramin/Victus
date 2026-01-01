@@ -20,25 +20,35 @@ type PointsConfigRequest struct {
 	FatMultiplier     float64 `json:"fatMultiplier"`
 }
 
+// SupplementConfigRequest represents daily supplement intake in API requests.
+type SupplementConfigRequest struct {
+	MaltodextrinG float64 `json:"maltodextrinG"` // Intra-workout carb supplement (grams)
+	WheyG         float64 `json:"wheyG"`         // Whey protein powder (grams)
+	CollagenG     float64 `json:"collagenG"`     // Collagen peptides (grams)
+	EAAMorningG   float64 `json:"eaaMorningG"`   // Morning EAA supplement (grams)
+	EAAEveningG   float64 `json:"eaaEveningG"`   // Evening EAA supplement (grams)
+}
+
 // CreateProfileRequest is the request body for PUT /api/profile.
 type CreateProfileRequest struct {
-	HeightCM             float64             `json:"height_cm"`
-	BirthDate            string              `json:"birthDate"`
-	Sex                  string              `json:"sex"`
-	Goal                 string              `json:"goal"`
-	CurrentWeightKg      *float64            `json:"currentWeightKg,omitempty"` // Current weight for calculations
-	TargetWeightKg       float64             `json:"targetWeightKg"`
-	TimeframeWeeks       *int                `json:"timeframeWeeks,omitempty"` // Weeks to reach target weight
-	TargetWeeklyChangeKg float64             `json:"targetWeeklyChangeKg"`
-	CarbRatio            float64             `json:"carbRatio"`
-	ProteinRatio         float64             `json:"proteinRatio"`
-	FatRatio             float64             `json:"fatRatio"`
-	MealRatios           MealRatiosRequest   `json:"mealRatios"`
-	PointsConfig         PointsConfigRequest `json:"pointsConfig"`
-	FruitTargetG         float64             `json:"fruitTargetG"`
-	VeggieTargetG        float64             `json:"veggieTargetG"`
-	BMREquation          string              `json:"bmrEquation,omitempty"`    // mifflin_st_jeor (default), katch_mcardle, oxford_henry, harris_benedict
-	BodyFatPercent       *float64            `json:"bodyFatPercent,omitempty"` // For Katch-McArdle equation
+	HeightCM             float64                 `json:"height_cm"`
+	BirthDate            string                  `json:"birthDate"`
+	Sex                  string                  `json:"sex"`
+	Goal                 string                  `json:"goal"`
+	CurrentWeightKg      *float64                `json:"currentWeightKg,omitempty"` // Current weight for calculations
+	TargetWeightKg       float64                 `json:"targetWeightKg"`
+	TimeframeWeeks       *int                    `json:"timeframeWeeks,omitempty"` // Weeks to reach target weight
+	TargetWeeklyChangeKg float64                 `json:"targetWeeklyChangeKg"`
+	CarbRatio            float64                 `json:"carbRatio"`
+	ProteinRatio         float64                 `json:"proteinRatio"`
+	FatRatio             float64                 `json:"fatRatio"`
+	MealRatios           MealRatiosRequest       `json:"mealRatios"`
+	PointsConfig         PointsConfigRequest     `json:"pointsConfig"`
+	SupplementConfig     SupplementConfigRequest `json:"supplementConfig,omitempty"` // Daily supplement intake
+	FruitTargetG         float64                 `json:"fruitTargetG"`
+	VeggieTargetG        float64                 `json:"veggieTargetG"`
+	BMREquation          string                  `json:"bmrEquation,omitempty"`    // mifflin_st_jeor (default), katch_mcardle, oxford_henry, harris_benedict
+	BodyFatPercent       *float64                `json:"bodyFatPercent,omitempty"` // For Katch-McArdle equation
 }
 
 // MealRatiosResponse represents meal distribution ratios in API responses.
@@ -55,27 +65,37 @@ type PointsConfigResponse struct {
 	FatMultiplier     float64 `json:"fatMultiplier"`
 }
 
+// SupplementConfigResponse represents daily supplement intake in API responses.
+type SupplementConfigResponse struct {
+	MaltodextrinG float64 `json:"maltodextrinG"`
+	WheyG         float64 `json:"wheyG"`
+	CollagenG     float64 `json:"collagenG"`
+	EAAMorningG   float64 `json:"eaaMorningG"`
+	EAAEveningG   float64 `json:"eaaEveningG"`
+}
+
 // ProfileResponse is the response body for profile endpoints.
 type ProfileResponse struct {
-	HeightCM             float64              `json:"height_cm"`
-	BirthDate            string               `json:"birthDate"`
-	Sex                  string               `json:"sex"`
-	Goal                 string               `json:"goal"`
-	CurrentWeightKg      *float64             `json:"currentWeightKg,omitempty"`
-	TargetWeightKg       float64              `json:"targetWeightKg"`
-	TimeframeWeeks       *int                 `json:"timeframeWeeks,omitempty"`
-	TargetWeeklyChangeKg float64              `json:"targetWeeklyChangeKg"`
-	CarbRatio            float64              `json:"carbRatio"`
-	ProteinRatio         float64              `json:"proteinRatio"`
-	FatRatio             float64              `json:"fatRatio"`
-	MealRatios           MealRatiosResponse   `json:"mealRatios"`
-	PointsConfig         PointsConfigResponse `json:"pointsConfig"`
-	FruitTargetG         float64              `json:"fruitTargetG"`
-	VeggieTargetG        float64              `json:"veggieTargetG"`
-	BMREquation          string               `json:"bmrEquation"`
-	BodyFatPercent       *float64             `json:"bodyFatPercent,omitempty"`
-	CreatedAt            string               `json:"createdAt,omitempty"`
-	UpdatedAt            string               `json:"updatedAt,omitempty"`
+	HeightCM             float64                  `json:"height_cm"`
+	BirthDate            string                   `json:"birthDate"`
+	Sex                  string                   `json:"sex"`
+	Goal                 string                   `json:"goal"`
+	CurrentWeightKg      *float64                 `json:"currentWeightKg,omitempty"`
+	TargetWeightKg       float64                  `json:"targetWeightKg"`
+	TimeframeWeeks       *int                     `json:"timeframeWeeks,omitempty"`
+	TargetWeeklyChangeKg float64                  `json:"targetWeeklyChangeKg"`
+	CarbRatio            float64                  `json:"carbRatio"`
+	ProteinRatio         float64                  `json:"proteinRatio"`
+	FatRatio             float64                  `json:"fatRatio"`
+	MealRatios           MealRatiosResponse       `json:"mealRatios"`
+	PointsConfig         PointsConfigResponse     `json:"pointsConfig"`
+	SupplementConfig     SupplementConfigResponse `json:"supplementConfig"`
+	FruitTargetG         float64                  `json:"fruitTargetG"`
+	VeggieTargetG        float64                  `json:"veggieTargetG"`
+	BMREquation          string                   `json:"bmrEquation"`
+	BodyFatPercent       *float64                 `json:"bodyFatPercent,omitempty"`
+	CreatedAt            string                   `json:"createdAt,omitempty"`
+	UpdatedAt            string                   `json:"updatedAt,omitempty"`
 }
 
 // ProfileFromRequest converts a CreateProfileRequest to a UserProfile model.
@@ -104,6 +124,13 @@ func ProfileFromRequest(req CreateProfileRequest) (*domain.UserProfile, error) {
 			CarbMultiplier:    req.PointsConfig.CarbMultiplier,
 			ProteinMultiplier: req.PointsConfig.ProteinMultiplier,
 			FatMultiplier:     req.PointsConfig.FatMultiplier,
+		},
+		SupplementConfig: domain.SupplementConfig{
+			MaltodextrinG: req.SupplementConfig.MaltodextrinG,
+			WheyG:         req.SupplementConfig.WheyG,
+			CollagenG:     req.SupplementConfig.CollagenG,
+			EAAMorningG:   req.SupplementConfig.EAAMorningG,
+			EAAEveningG:   req.SupplementConfig.EAAEveningG,
 		},
 		FruitTargetG:  req.FruitTargetG,
 		VeggieTargetG: req.VeggieTargetG,
@@ -145,6 +172,13 @@ func ProfileToResponse(p *domain.UserProfile) ProfileResponse {
 			CarbMultiplier:    p.PointsConfig.CarbMultiplier,
 			ProteinMultiplier: p.PointsConfig.ProteinMultiplier,
 			FatMultiplier:     p.PointsConfig.FatMultiplier,
+		},
+		SupplementConfig: SupplementConfigResponse{
+			MaltodextrinG: p.SupplementConfig.MaltodextrinG,
+			WheyG:         p.SupplementConfig.WheyG,
+			CollagenG:     p.SupplementConfig.CollagenG,
+			EAAMorningG:   p.SupplementConfig.EAAMorningG,
+			EAAEveningG:   p.SupplementConfig.EAAEveningG,
 		},
 		FruitTargetG:  p.FruitTargetG,
 		VeggieTargetG: p.VeggieTargetG,

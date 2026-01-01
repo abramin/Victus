@@ -33,6 +33,12 @@ func RunMigrations(db *sql.DB) error {
 		addBodyFatPercentColumn,
 		addCurrentWeightColumn,
 		addTimeframeWeeksColumn,
+		// Supplement columns (Issue #32)
+		addMaltodextrinColumn,
+		addWheyColumn,
+		addCollagenColumn,
+		addEAAMorningColumn,
+		addEAAEveningColumn,
 	}
 
 	for _, migration := range alterMigrations {
@@ -161,6 +167,13 @@ const addBMREquationColumn = `ALTER TABLE user_profile ADD COLUMN bmr_equation T
 const addBodyFatPercentColumn = `ALTER TABLE user_profile ADD COLUMN body_fat_percent REAL`
 const addCurrentWeightColumn = `ALTER TABLE user_profile ADD COLUMN current_weight_kg REAL`
 const addTimeframeWeeksColumn = `ALTER TABLE user_profile ADD COLUMN timeframe_weeks INTEGER DEFAULT 0`
+
+// Supplement configuration columns (Issue #32)
+const addMaltodextrinColumn = `ALTER TABLE user_profile ADD COLUMN maltodextrin_g REAL DEFAULT 0`
+const addWheyColumn = `ALTER TABLE user_profile ADD COLUMN whey_g REAL DEFAULT 0`
+const addCollagenColumn = `ALTER TABLE user_profile ADD COLUMN collagen_g REAL DEFAULT 0`
+const addEAAMorningColumn = `ALTER TABLE user_profile ADD COLUMN eaa_morning_g REAL DEFAULT 0`
+const addEAAEveningColumn = `ALTER TABLE user_profile ADD COLUMN eaa_evening_g REAL DEFAULT 0`
 
 // Training sessions table for multiple sessions per day (Issue #31)
 const createTrainingSessionsTable = `

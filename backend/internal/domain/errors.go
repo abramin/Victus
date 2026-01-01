@@ -41,6 +41,7 @@ var (
 	ErrInvalidPointsMultiplier = newValidationError("points multipliers must be positive")
 	ErrInvalidBMREquation      = newValidationError("invalid BMR equation")
 	ErrInvalidBodyFatPercent   = newValidationError("body fat percent must be 0 or between 3 and 70%")
+	ErrInvalidSupplement       = newValidationError("supplement amounts must be between 0 and 500 g")
 )
 
 // DailyLog validation errors
