@@ -20,6 +20,7 @@ type UserProfile struct {
 	FatRatio             float64
 	MealRatios           MealRatios
 	PointsConfig         PointsConfig
+	SupplementConfig     SupplementConfig // Daily supplement intake for points calculation
 	FruitTargetG         float64
 	VeggieTargetG        float64
 	BMREquation          BMREquation // Which BMR equation to use (default: mifflin_st_jeor)
@@ -148,6 +149,15 @@ func (p *UserProfile) ValidateAt(now time.Time) error {
 	// Body fat percent validation (0 means not provided, otherwise must be 3-70%)
 	if p.BodyFatPercent != 0 && (p.BodyFatPercent < 3 || p.BodyFatPercent > 70) {
 		return ErrInvalidBodyFatPercent
+	}
+
+	// Supplement config validation (all values must be 0-500g)
+	if p.SupplementConfig.MaltodextrinG < 0 || p.SupplementConfig.MaltodextrinG > 500 ||
+		p.SupplementConfig.WheyG < 0 || p.SupplementConfig.WheyG > 500 ||
+		p.SupplementConfig.CollagenG < 0 || p.SupplementConfig.CollagenG > 500 ||
+		p.SupplementConfig.EAAMorningG < 0 || p.SupplementConfig.EAAMorningG > 500 ||
+		p.SupplementConfig.EAAEveningG < 0 || p.SupplementConfig.EAAEveningG > 500 {
+		return ErrInvalidSupplement
 	}
 
 	return nil

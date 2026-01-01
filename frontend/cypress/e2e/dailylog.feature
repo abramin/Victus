@@ -51,3 +51,17 @@ Feature: Daily log management
     And I have created a valid daily log for today
     When I delete today's daily log
     Then the response status should be 204
+
+  Scenario: Daily log with supplement configuration reflects deductions
+    Given the profile API is running
+    And I have upserted a profile with supplements configured
+    When I create a performance day log
+    Then the response status should be 201
+    And the meal points should reflect supplement deductions
+
+  Scenario: Fatburner day only deducts collagen and EAA supplements
+    Given the profile API is running
+    And I have upserted a profile with supplements configured
+    When I create a fatburner day log
+    Then the response status should be 201
+    And the meal points should not deduct maltodextrin or whey

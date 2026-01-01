@@ -157,6 +157,7 @@ func CalculateDailyTargets(profile *UserProfile, log *DailyLog, now time.Time) D
 		finalCarbsG, finalProteinG, finalFatsG,
 		float64(fruitG), float64(veggiesG),
 		profile.MealRatios, profile.PointsConfig,
+		dayType, profile.SupplementConfig,
 	)
 
 	// 12. Calculate water target (0.04 L per kg body weight)
@@ -420,43 +421,75 @@ func calculateVeggies(carbsG, targetG float64) int {
 }
 
 // calculateMealPoints converts macro grams to meal points using profile config.
+// The calculation varies by day type for supplement contributions:
+// - Performance days: subtract maltodextrin (carbs) and whey (protein)
+// - All days: subtract fruit/veggie carbs, collagen, and EAA (protein)
 func calculateMealPoints(
 	carbsG, proteinG, fatsG float64,
 	fruitG, veggiesG float64,
 	mealRatios MealRatios,
 	pointsConfig PointsConfig,
+	dayType DayType,
+	supplements SupplementConfig,
 ) MealTargets {
-	// Subtract fruit/veggie carbs from total carbs
-	// Fruit: ~10g carbs per 100g, Veggies: ~3g carbs per 100g
+	// Fixed contribution assumptions from spreadsheet:
+	// - Fruit: 10% carbs by weight
+	// - Vegetables: 3% carbs by weight
+	// - Maltodextrin: 96% carbs by weight (performance days only)
+	// - Collagen: 90% protein by weight
+	// - Whey: 88% protein by weight (performance days only)
+	// - EAA: 100% protein by weight
+
+	// Calculate available carbs (subtract fixed contributions)
 	fruitCarbs := fruitG * 0.10
 	veggieCarbs := veggiesG * 0.03
-	adjustedCarbsG := carbsG - fruitCarbs - veggieCarbs
+	availableCarbsG := carbsG - veggieCarbs - fruitCarbs
 
-	if adjustedCarbsG < 0 {
-		adjustedCarbsG = 0
+	// On performance days, also subtract maltodextrin carbs
+	if dayType == DayTypePerformance {
+		maltodextrinCarbs := supplements.MaltodextrinG * 0.96
+		availableCarbsG -= maltodextrinCarbs
 	}
 
-	// Convert grams to points
-	carbPoints := adjustedCarbsG / pointsConfig.CarbMultiplier
-	proteinPoints := proteinG / pointsConfig.ProteinMultiplier
-	fatPoints := fatsG / pointsConfig.FatMultiplier
+	if availableCarbsG < 0 {
+		availableCarbsG = 0
+	}
+
+	// Calculate available protein (subtract fixed contributions)
+	collagenProtein := supplements.CollagenG * 0.90
+	eaaProtein := supplements.EAAMorningG + supplements.EAAEveningG // 100% protein
+	availableProteinG := proteinG - collagenProtein - eaaProtein
+
+	// On performance days, also subtract whey protein
+	if dayType == DayTypePerformance {
+		wheyProtein := supplements.WheyG * 0.88
+		availableProteinG -= wheyProtein
+	}
+
+	if availableProteinG < 0 {
+		availableProteinG = 0
+	}
+
+	// Convert grams to points using multipliers
+	// Formula: points = availableGrams * multiplier * mealRatio
+	// (rounded to nearest 5 using MROUND)
 
 	// Distribute across meals according to ratios
 	return MealTargets{
 		Breakfast: MacroPoints{
-			Carbs:   roundToNearest5(carbPoints * mealRatios.Breakfast),
-			Protein: roundToNearest5(proteinPoints * mealRatios.Breakfast),
-			Fats:    roundToNearest5(fatPoints * mealRatios.Breakfast),
+			Carbs:   roundToNearest5(availableCarbsG * pointsConfig.CarbMultiplier * mealRatios.Breakfast),
+			Protein: roundToNearest5(availableProteinG * pointsConfig.ProteinMultiplier * mealRatios.Breakfast),
+			Fats:    roundToNearest5(fatsG * pointsConfig.FatMultiplier * mealRatios.Breakfast),
 		},
 		Lunch: MacroPoints{
-			Carbs:   roundToNearest5(carbPoints * mealRatios.Lunch),
-			Protein: roundToNearest5(proteinPoints * mealRatios.Lunch),
-			Fats:    roundToNearest5(fatPoints * mealRatios.Lunch),
+			Carbs:   roundToNearest5(availableCarbsG * pointsConfig.CarbMultiplier * mealRatios.Lunch),
+			Protein: roundToNearest5(availableProteinG * pointsConfig.ProteinMultiplier * mealRatios.Lunch),
+			Fats:    roundToNearest5(fatsG * pointsConfig.FatMultiplier * mealRatios.Lunch),
 		},
 		Dinner: MacroPoints{
-			Carbs:   roundToNearest5(carbPoints * mealRatios.Dinner),
-			Protein: roundToNearest5(proteinPoints * mealRatios.Dinner),
-			Fats:    roundToNearest5(fatPoints * mealRatios.Dinner),
+			Carbs:   roundToNearest5(availableCarbsG * pointsConfig.CarbMultiplier * mealRatios.Dinner),
+			Protein: roundToNearest5(availableProteinG * pointsConfig.ProteinMultiplier * mealRatios.Dinner),
+			Fats:    roundToNearest5(fatsG * pointsConfig.FatMultiplier * mealRatios.Dinner),
 		},
 	}
 }

@@ -545,3 +545,241 @@ func (s *TargetsSuite) TestCalculateDailyTargetsIntegration() {
 			"Different BMR equation should produce different TDEE")
 	})
 }
+
+// =============================================================================
+// TESTS FOR CORRECTED POINTS CALCULATION WITH SUPPLEMENTS (Issue #32)
+// =============================================================================
+
+func (s *TargetsSuite) TestCalculateMealPointsWithSupplements() {
+	// Default test config
+	mealRatios := MealRatios{Breakfast: 0.30, Lunch: 0.30, Dinner: 0.40}
+	pointsConfig := PointsConfig{CarbMultiplier: 1.15, ProteinMultiplier: 4.35, FatMultiplier: 3.5}
+
+	s.Run("example from issue 32 - performance day", func() {
+		// From issue #32:
+		// Daily macros: 300g carbs, 196g protein, 73g fat
+		// Fruit: 600g, Veggies: 500g
+		// Supplements: maltodextrin 25g, collagen 20g, EAA morning 10g, EAA evening 10g, whey 30g
+		// Expected breakfast (30%): carbs=70, protein=170, fats=75
+
+		supplements := SupplementConfig{
+			MaltodextrinG: 25,
+			WheyG:         30,
+			CollagenG:     20,
+			EAAMorningG:   10,
+			EAAEveningG:   10,
+		}
+
+		meals := calculateMealPoints(
+			300, 196, 73, // macros
+			600, 500, // fruit, veggies
+			mealRatios, pointsConfig,
+			DayTypePerformance, supplements,
+		)
+
+		// Verify breakfast points match issue #32 example
+		s.Equal(70, meals.Breakfast.Carbs, "Breakfast carb points should be 70")
+		s.Equal(170, meals.Breakfast.Protein, "Breakfast protein points should be 170")
+		s.Equal(75, meals.Breakfast.Fats, "Breakfast fat points should be 75")
+	})
+
+	s.Run("performance day subtracts maltodextrin from carbs", func() {
+		supplements := SupplementConfig{MaltodextrinG: 50} // 50g × 0.96 = 48g carbs
+
+		mealsPerf := calculateMealPoints(
+			200, 150, 60,
+			300, 300,
+			mealRatios, pointsConfig,
+			DayTypePerformance, supplements,
+		)
+
+		// Without supplements
+		mealsNoSupp := calculateMealPoints(
+			200, 150, 60,
+			300, 300,
+			mealRatios, pointsConfig,
+			DayTypePerformance, SupplementConfig{},
+		)
+
+		s.Less(mealsPerf.Breakfast.Carbs, mealsNoSupp.Breakfast.Carbs,
+			"Performance day should subtract maltodextrin carbs")
+	})
+
+	s.Run("fatburner day does NOT subtract maltodextrin from carbs", func() {
+		supplements := SupplementConfig{MaltodextrinG: 50}
+
+		mealsFat := calculateMealPoints(
+			200, 150, 60,
+			300, 300,
+			mealRatios, pointsConfig,
+			DayTypeFatburner, supplements,
+		)
+
+		mealsNoSupp := calculateMealPoints(
+			200, 150, 60,
+			300, 300,
+			mealRatios, pointsConfig,
+			DayTypeFatburner, SupplementConfig{},
+		)
+
+		s.Equal(mealsFat.Breakfast.Carbs, mealsNoSupp.Breakfast.Carbs,
+			"Fatburner day should NOT subtract maltodextrin carbs")
+	})
+
+	s.Run("performance day subtracts whey from protein", func() {
+		supplements := SupplementConfig{WheyG: 30} // 30g × 0.88 = 26.4g protein
+
+		mealsPerf := calculateMealPoints(
+			200, 150, 60,
+			300, 300,
+			mealRatios, pointsConfig,
+			DayTypePerformance, supplements,
+		)
+
+		mealsNoSupp := calculateMealPoints(
+			200, 150, 60,
+			300, 300,
+			mealRatios, pointsConfig,
+			DayTypePerformance, SupplementConfig{},
+		)
+
+		s.Less(mealsPerf.Breakfast.Protein, mealsNoSupp.Breakfast.Protein,
+			"Performance day should subtract whey protein")
+	})
+
+	s.Run("fatburner day does NOT subtract whey from protein", func() {
+		supplements := SupplementConfig{WheyG: 30}
+
+		mealsFat := calculateMealPoints(
+			200, 150, 60,
+			300, 300,
+			mealRatios, pointsConfig,
+			DayTypeFatburner, supplements,
+		)
+
+		mealsNoSupp := calculateMealPoints(
+			200, 150, 60,
+			300, 300,
+			mealRatios, pointsConfig,
+			DayTypeFatburner, SupplementConfig{},
+		)
+
+		s.Equal(mealsFat.Breakfast.Protein, mealsNoSupp.Breakfast.Protein,
+			"Fatburner day should NOT subtract whey protein")
+	})
+
+	s.Run("all day types subtract collagen and EAA from protein", func() {
+		supplements := SupplementConfig{
+			CollagenG:   20, // 20g × 0.90 = 18g protein
+			EAAMorningG: 10, // 10g × 1.00 = 10g protein
+			EAAEveningG: 10, // 10g × 1.00 = 10g protein
+		}
+
+		mealsNoSupp := calculateMealPoints(
+			200, 150, 60,
+			300, 300,
+			mealRatios, pointsConfig,
+			DayTypeFatburner, SupplementConfig{},
+		)
+
+		mealsFat := calculateMealPoints(
+			200, 150, 60,
+			300, 300,
+			mealRatios, pointsConfig,
+			DayTypeFatburner, supplements,
+		)
+
+		mealsMeta := calculateMealPoints(
+			200, 150, 60,
+			300, 300,
+			mealRatios, pointsConfig,
+			DayTypeMetabolize, supplements,
+		)
+
+		s.Less(mealsFat.Breakfast.Protein, mealsNoSupp.Breakfast.Protein,
+			"Fatburner should subtract collagen/EAA from protein")
+		s.Less(mealsMeta.Breakfast.Protein, mealsNoSupp.Breakfast.Protein,
+			"Metabolize should subtract collagen/EAA from protein")
+	})
+
+	s.Run("fat points unchanged by supplements", func() {
+		supplements := SupplementConfig{
+			MaltodextrinG: 50,
+			WheyG:         30,
+			CollagenG:     20,
+			EAAMorningG:   10,
+			EAAEveningG:   10,
+		}
+
+		mealsWithSupp := calculateMealPoints(
+			200, 150, 60,
+			300, 300,
+			mealRatios, pointsConfig,
+			DayTypePerformance, supplements,
+		)
+
+		mealsNoSupp := calculateMealPoints(
+			200, 150, 60,
+			300, 300,
+			mealRatios, pointsConfig,
+			DayTypePerformance, SupplementConfig{},
+		)
+
+		s.Equal(mealsWithSupp.Breakfast.Fats, mealsNoSupp.Breakfast.Fats,
+			"Fat points should be unchanged by supplements")
+	})
+
+	s.Run("available carbs cannot go negative", func() {
+		supplements := SupplementConfig{MaltodextrinG: 500} // More than total carbs
+
+		meals := calculateMealPoints(
+			100, 150, 60, // Only 100g carbs
+			300, 300,
+			mealRatios, pointsConfig,
+			DayTypePerformance, supplements,
+		)
+
+		s.GreaterOrEqual(meals.Breakfast.Carbs, 0, "Carb points should not be negative")
+	})
+
+	s.Run("available protein cannot go negative", func() {
+		supplements := SupplementConfig{
+			CollagenG:   100,
+			EAAMorningG: 50,
+			EAAEveningG: 50,
+			WheyG:       100,
+		}
+
+		meals := calculateMealPoints(
+			200, 50, 60, // Only 50g protein
+			300, 300,
+			mealRatios, pointsConfig,
+			DayTypePerformance, supplements,
+		)
+
+		s.GreaterOrEqual(meals.Breakfast.Protein, 0, "Protein points should not be negative")
+	})
+
+	s.Run("points are rounded to nearest 5", func() {
+		supplements := SupplementConfig{
+			MaltodextrinG: 25,
+			WheyG:         30,
+			CollagenG:     20,
+			EAAMorningG:   10,
+			EAAEveningG:   10,
+		}
+
+		meals := calculateMealPoints(
+			300, 196, 73,
+			600, 500,
+			mealRatios, pointsConfig,
+			DayTypePerformance, supplements,
+		)
+
+		s.Equal(0, meals.Breakfast.Carbs%5, "Breakfast carbs should be multiple of 5")
+		s.Equal(0, meals.Breakfast.Protein%5, "Breakfast protein should be multiple of 5")
+		s.Equal(0, meals.Breakfast.Fats%5, "Breakfast fats should be multiple of 5")
+		s.Equal(0, meals.Lunch.Carbs%5, "Lunch carbs should be multiple of 5")
+		s.Equal(0, meals.Dinner.Protein%5, "Dinner protein should be multiple of 5")
+	})
+}

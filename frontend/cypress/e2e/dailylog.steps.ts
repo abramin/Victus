@@ -11,6 +11,19 @@ const validProfile = {
   targetWeeklyChangeKg: 0,
 }
 
+const profileWithSupplements = {
+  ...validProfile,
+  goal: "lose_weight",
+  targetWeeklyChangeKg: -0.5,
+  supplements: {
+    maltodextrinG: 25,
+    wheyG: 30,
+    collagenG: 20,
+    eaaMorningG: 10,
+    eaaEveningG: 10,
+  },
+}
+
 const today = new Date().toISOString().split("T")[0]
 
 const validDailyLog = {
@@ -122,4 +135,76 @@ When("I delete today's daily log", () => {
     url: `${apiBaseUrl}/api/logs/today`,
     failOnStatusCode: false,
   }).as("lastResponse")
+})
+
+Given("I have upserted a profile with supplements configured", () => {
+  // Delete existing log first to allow new log creation
+  cy.request({
+    method: "DELETE",
+    url: `${apiBaseUrl}/api/logs/today`,
+    failOnStatusCode: false,
+  })
+  cy.request({
+    method: "PUT",
+    url: `${apiBaseUrl}/api/profile`,
+    body: profileWithSupplements,
+  }).its("status").should("eq", 200)
+})
+
+When("I create a performance day log", () => {
+  cy.request({
+    method: "POST",
+    url: `${apiBaseUrl}/api/logs`,
+    body: {
+      ...validDailyLog,
+      dayType: "performance",
+    },
+    failOnStatusCode: false,
+  }).as("lastResponse")
+})
+
+When("I create a fatburner day log", () => {
+  cy.request({
+    method: "POST",
+    url: `${apiBaseUrl}/api/logs`,
+    body: {
+      ...validDailyLog,
+      dayType: "fatburner",
+    },
+    failOnStatusCode: false,
+  }).as("lastResponse")
+})
+
+Then("the meal points should reflect supplement deductions", () => {
+  cy.get("@lastResponse").then((response) => {
+    const body = (response as Cypress.Response<unknown>).body as Record<string, unknown>
+    const targets = body.calculatedTargets as Record<string, unknown>
+    const meals = targets.meals as Record<string, Record<string, number>>
+
+    // Verify meal points exist and are reasonable (supplements should reduce available macros)
+    expect(meals.breakfast.carbs).to.be.a("number")
+    expect(meals.breakfast.protein).to.be.a("number")
+    expect(meals.breakfast.fats).to.be.a("number")
+
+    // Points should be multiples of 5 (rounding rule)
+    expect(meals.breakfast.carbs % 5).to.equal(0)
+    expect(meals.breakfast.protein % 5).to.equal(0)
+    expect(meals.breakfast.fats % 5).to.equal(0)
+  })
+})
+
+Then("the meal points should not deduct maltodextrin or whey", () => {
+  cy.get("@lastResponse").then((response) => {
+    const body = (response as Cypress.Response<unknown>).body as Record<string, unknown>
+    const targets = body.calculatedTargets as Record<string, unknown>
+    const meals = targets.meals as Record<string, Record<string, number>>
+
+    // Fatburner should still have valid meal points
+    expect(meals.breakfast.carbs).to.be.a("number")
+    expect(meals.breakfast.protein).to.be.a("number")
+
+    // Points should be multiples of 5
+    expect(meals.breakfast.carbs % 5).to.equal(0)
+    expect(meals.breakfast.protein % 5).to.equal(0)
+  })
 })

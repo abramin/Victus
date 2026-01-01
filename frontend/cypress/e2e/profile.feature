@@ -19,3 +19,9 @@ Feature: User profile management
     When I upsert an invalid user profile
     Then the response status should be 400
     And the error response should include "validation_error"
+
+  Scenario: Profile with BMR equation selection
+    Given the profile API is running
+    When I upsert a profile with Katch-McArdle BMR equation
+    Then the response status should be 200
+    And the profile response should include the selected BMR equation
