@@ -1,0 +1,187 @@
+import { useState } from 'react';
+import type { UserProfile } from '../../api/types';
+import { BasicInfoStep } from './BasicInfoStep';
+import { ActivityGoalsStep } from './ActivityGoalsStep';
+import { NutritionTargetsStep } from './NutritionTargetsStep';
+
+interface OnboardingWizardProps {
+  onComplete: (profile: UserProfile) => Promise<boolean>;
+  saving: boolean;
+  error: string | null;
+}
+
+export interface OnboardingData {
+  // Step 1: Basic Information
+  fullName: string;
+  age: number;
+  gender: 'male' | 'female';
+  weightKg: number;
+  heightCm: number;
+
+  // Step 2: Activity & Goals
+  activityLevel: 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
+  goal: 'lose_weight' | 'maintain' | 'gain_weight';
+
+  // Step 3: Nutrition Targets
+  dailyCalories: number;
+  proteinG: number;
+  carbsG: number;
+  fatG: number;
+}
+
+const DEFAULT_DATA: OnboardingData = {
+  fullName: '',
+  age: 30,
+  gender: 'male',
+  weightKg: 70,
+  heightCm: 170,
+  activityLevel: 'moderate',
+  goal: 'maintain',
+  dailyCalories: 2000,
+  proteinG: 150,
+  carbsG: 200,
+  fatG: 70,
+};
+
+const STEPS = ['Basic Information', 'Activity & Goals', 'Nutrition Targets'];
+
+export function OnboardingWizard({ onComplete, saving, error }: OnboardingWizardProps) {
+  const [currentStep, setCurrentStep] = useState(0);
+  const [data, setData] = useState<OnboardingData>(DEFAULT_DATA);
+
+  const updateData = (updates: Partial<OnboardingData>) => {
+    setData((prev) => ({ ...prev, ...updates }));
+  };
+
+  const handleNext = () => {
+    if (currentStep < STEPS.length - 1) {
+      setCurrentStep((prev) => prev + 1);
+    }
+  };
+
+  const handlePrevious = () => {
+    if (currentStep > 0) {
+      setCurrentStep((prev) => prev - 1);
+    }
+  };
+
+  const handleComplete = async () => {
+    // Convert onboarding data to UserProfile
+    const totalCalories = data.dailyCalories;
+    const carbCalories = data.carbsG * 4.1;
+    const proteinCalories = data.proteinG * 4.3;
+    const fatCalories = data.fatG * 9.3;
+    const totalMacroCalories = carbCalories + proteinCalories + fatCalories;
+
+    // Calculate ratios from gram inputs
+    const carbRatio = totalMacroCalories > 0 ? carbCalories / totalMacroCalories : 0.4;
+    const proteinRatio = totalMacroCalories > 0 ? proteinCalories / totalMacroCalories : 0.3;
+    const fatRatio = totalMacroCalories > 0 ? fatCalories / totalMacroCalories : 0.3;
+
+    // Calculate birth date from age
+    const today = new Date();
+    const birthYear = today.getFullYear() - data.age;
+    const birthDate = `${birthYear}-01-01`;
+
+    const profile: UserProfile = {
+      height_cm: data.heightCm,
+      birthDate,
+      sex: data.gender,
+      goal: data.goal,
+      currentWeightKg: data.weightKg,
+      targetWeightKg: data.weightKg, // Start with current weight as target
+      timeframeWeeks: 12,
+      targetWeeklyChangeKg: 0,
+      carbRatio,
+      proteinRatio,
+      fatRatio,
+      mealRatios: { breakfast: 0.3, lunch: 0.3, dinner: 0.4 },
+      pointsConfig: { carbMultiplier: 1.15, proteinMultiplier: 4.35, fatMultiplier: 3.5 },
+      fruitTargetG: 600,
+      veggieTargetG: 500,
+    };
+
+    await onComplete(profile);
+  };
+
+  const progressPercent = ((currentStep + 1) / STEPS.length) * 100;
+
+  return (
+    <div className="min-h-screen bg-black flex flex-col items-center px-4 py-12">
+      {/* Header */}
+      <div className="text-center mb-8">
+        <h1 className="text-4xl font-bold text-white mb-2">Welcome to Victus</h1>
+        <p className="text-gray-400">Let's set up your nutrition profile to get started</p>
+      </div>
+
+      {/* Progress Indicator */}
+      <div className="w-full max-w-2xl mb-8">
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-sm text-gray-400">Step {currentStep + 1} of {STEPS.length}</span>
+          <span className="text-sm text-gray-400">{Math.round(progressPercent)}% complete</span>
+        </div>
+        <div className="h-1 bg-gray-800 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-white transition-all duration-300 ease-out"
+            style={{ width: `${progressPercent}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Step Content */}
+      <div className="w-full max-w-2xl bg-gray-900/50 rounded-2xl border border-gray-800 p-8">
+        {currentStep === 0 && (
+          <BasicInfoStep data={data} onChange={updateData} />
+        )}
+        {currentStep === 1 && (
+          <ActivityGoalsStep data={data} onChange={updateData} />
+        )}
+        {currentStep === 2 && (
+          <NutritionTargetsStep data={data} onChange={updateData} />
+        )}
+
+        {/* Error Display */}
+        {error && (
+          <div className="mt-6 p-4 bg-red-900/30 border border-red-800 rounded-lg">
+            <p className="text-red-400 text-sm">{error}</p>
+          </div>
+        )}
+
+        {/* Navigation Buttons */}
+        <div className="flex justify-between mt-8 pt-6 border-t border-gray-800">
+          <button
+            type="button"
+            onClick={handlePrevious}
+            disabled={currentStep === 0}
+            className={`px-6 py-3 rounded-lg font-medium transition-colors ${
+              currentStep === 0
+                ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                : 'bg-gray-800 text-white hover:bg-gray-700'
+            }`}
+          >
+            Previous
+          </button>
+
+          {currentStep < STEPS.length - 1 ? (
+            <button
+              type="button"
+              onClick={handleNext}
+              className="px-6 py-3 bg-white text-black rounded-lg font-medium hover:bg-gray-200 transition-colors"
+            >
+              Next
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleComplete}
+              disabled={saving}
+              className="px-6 py-3 bg-white text-black rounded-lg font-medium hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saving ? 'Saving...' : 'Complete Setup'}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
