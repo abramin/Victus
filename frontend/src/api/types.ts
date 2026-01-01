@@ -58,9 +58,27 @@ export type DayType = 'performance' | 'fatburner' | 'metabolize';
 // Sleep quality score (1-100).
 export type SleepQuality = number;
 
+// Deprecated: Use TrainingSession for multi-session support
 export interface PlannedTraining {
   type: TrainingType;
   plannedDurationMin: number;
+}
+
+// TrainingSession represents a single training session within a day.
+// A day can have multiple sessions (e.g., morning Qigong + afternoon strength).
+export interface TrainingSession {
+  sessionOrder?: number;
+  type: TrainingType;
+  durationMin: number;
+  notes?: string;
+}
+
+// TrainingSummary provides aggregate info about training sessions.
+export interface TrainingSummary {
+  sessionCount: number;
+  totalDurationMin: number;
+  totalLoadScore: number;
+  summary: string; // e.g., "3 sessions, 110 min total"
 }
 
 export interface MacroPoints {
@@ -94,7 +112,8 @@ export interface DailyLog {
   restingHeartRate?: number;
   sleepQuality: SleepQuality;
   sleepHours?: number;
-  plannedTraining: PlannedTraining;
+  plannedTrainingSessions: TrainingSession[];
+  trainingSummary: TrainingSummary;
   dayType: DayType;
   calculatedTargets: DailyTargets;
   estimatedTDEE: number;
@@ -109,7 +128,7 @@ export interface CreateDailyLogRequest {
   restingHeartRate?: number;
   sleepQuality: SleepQuality;
   sleepHours?: number;
-  plannedTraining: PlannedTraining;
+  plannedTrainingSessions: TrainingSession[];
   dayType: DayType;
 }
 

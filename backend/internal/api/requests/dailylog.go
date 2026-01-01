@@ -6,28 +6,39 @@ import (
 	"victus/internal/domain"
 )
 
-// PlannedTrainingRequest represents training plan in API requests.
-type PlannedTrainingRequest struct {
-	Type               string `json:"type"`
-	PlannedDurationMin int    `json:"plannedDurationMin"`
+// TrainingSessionRequest represents a single training session in API requests.
+type TrainingSessionRequest struct {
+	Type        string `json:"type"`
+	DurationMin int    `json:"durationMin"`
+	Notes       string `json:"notes,omitempty"`
 }
 
 // CreateDailyLogRequest is the request body for POST /api/logs.
 type CreateDailyLogRequest struct {
-	Date             string                 `json:"date,omitempty"`
-	WeightKg         float64                `json:"weightKg"`
-	BodyFatPercent   *float64               `json:"bodyFatPercent,omitempty"`
-	RestingHeartRate *int                   `json:"restingHeartRate,omitempty"`
-	SleepQuality     int                    `json:"sleepQuality"`
-	SleepHours       *float64               `json:"sleepHours,omitempty"`
-	PlannedTraining  PlannedTrainingRequest `json:"plannedTraining"`
-	DayType          string                 `json:"dayType,omitempty"`
+	Date                    string                   `json:"date,omitempty"`
+	WeightKg                float64                  `json:"weightKg"`
+	BodyFatPercent          *float64                 `json:"bodyFatPercent,omitempty"`
+	RestingHeartRate        *int                     `json:"restingHeartRate,omitempty"`
+	SleepQuality            int                      `json:"sleepQuality"`
+	SleepHours              *float64                 `json:"sleepHours,omitempty"`
+	PlannedTrainingSessions []TrainingSessionRequest `json:"plannedTrainingSessions"`
+	DayType                 string                   `json:"dayType,omitempty"`
 }
 
-// PlannedTrainingResponse represents training plan in API responses.
-type PlannedTrainingResponse struct {
-	Type               string `json:"type"`
-	PlannedDurationMin int    `json:"plannedDurationMin"`
+// TrainingSessionResponse represents a training session in API responses.
+type TrainingSessionResponse struct {
+	SessionOrder int    `json:"sessionOrder"`
+	Type         string `json:"type"`
+	DurationMin  int    `json:"durationMin"`
+	Notes        string `json:"notes,omitempty"`
+}
+
+// TrainingSummaryResponse provides aggregate info about training sessions.
+type TrainingSummaryResponse struct {
+	SessionCount     int     `json:"sessionCount"`
+	TotalDurationMin int     `json:"totalDurationMin"`
+	TotalLoadScore   float64 `json:"totalLoadScore"`
+	Summary          string  `json:"summary"` // e.g., "3 sessions, 110 min total"
 }
 
 // MacroPointsResponse represents macro points for a meal.
@@ -60,22 +71,34 @@ type DailyTargetsResponse struct {
 
 // DailyLogResponse is the response body for daily log endpoints.
 type DailyLogResponse struct {
-	Date              string                  `json:"date"`
-	WeightKg          float64                 `json:"weightKg"`
-	BodyFatPercent    *float64                `json:"bodyFatPercent,omitempty"`
-	RestingHeartRate  *int                    `json:"restingHeartRate,omitempty"`
-	SleepQuality      int                     `json:"sleepQuality"`
-	SleepHours        *float64                `json:"sleepHours,omitempty"`
-	PlannedTraining   PlannedTrainingResponse `json:"plannedTraining"`
-	DayType           string                  `json:"dayType"`
-	CalculatedTargets DailyTargetsResponse    `json:"calculatedTargets"`
-	EstimatedTDEE     int                     `json:"estimatedTDEE"`
-	CreatedAt         string                  `json:"createdAt,omitempty"`
-	UpdatedAt         string                  `json:"updatedAt,omitempty"`
+	Date                    string                    `json:"date"`
+	WeightKg                float64                   `json:"weightKg"`
+	BodyFatPercent          *float64                  `json:"bodyFatPercent,omitempty"`
+	RestingHeartRate        *int                      `json:"restingHeartRate,omitempty"`
+	SleepQuality            int                       `json:"sleepQuality"`
+	SleepHours              *float64                  `json:"sleepHours,omitempty"`
+	PlannedTrainingSessions []TrainingSessionResponse `json:"plannedTrainingSessions"`
+	TrainingSummary         TrainingSummaryResponse   `json:"trainingSummary"`
+	DayType                 string                    `json:"dayType"`
+	CalculatedTargets       DailyTargetsResponse      `json:"calculatedTargets"`
+	EstimatedTDEE           int                       `json:"estimatedTDEE"`
+	CreatedAt               string                    `json:"createdAt,omitempty"`
+	UpdatedAt               string                    `json:"updatedAt,omitempty"`
 }
 
 // DailyLogFromRequest converts a CreateDailyLogRequest to a DailyLog model.
 func DailyLogFromRequest(req CreateDailyLogRequest) *domain.DailyLog {
+	sessions := make([]domain.TrainingSession, len(req.PlannedTrainingSessions))
+	for i, s := range req.PlannedTrainingSessions {
+		sessions[i] = domain.TrainingSession{
+			SessionOrder: i + 1,
+			IsPlanned:    true,
+			Type:         domain.TrainingType(s.Type),
+			DurationMin:  s.DurationMin,
+			Notes:        s.Notes,
+		}
+	}
+
 	return &domain.DailyLog{
 		Date:             req.Date,
 		WeightKg:         req.WeightKg,
@@ -83,26 +106,37 @@ func DailyLogFromRequest(req CreateDailyLogRequest) *domain.DailyLog {
 		RestingHeartRate: req.RestingHeartRate,
 		SleepQuality:     domain.SleepQuality(req.SleepQuality),
 		SleepHours:       req.SleepHours,
-		PlannedTraining: domain.PlannedTraining{
-			Type:               domain.TrainingType(req.PlannedTraining.Type),
-			PlannedDurationMin: req.PlannedTraining.PlannedDurationMin,
-		},
-		DayType: domain.DayType(req.DayType),
+		PlannedSessions:  sessions,
+		DayType:          domain.DayType(req.DayType),
 	}
 }
 
 // DailyLogToResponse converts a DailyLog model to a DailyLogResponse.
 func DailyLogToResponse(d *domain.DailyLog) DailyLogResponse {
+	// Convert sessions to response format
+	sessions := make([]TrainingSessionResponse, len(d.PlannedSessions))
+	for i, s := range d.PlannedSessions {
+		sessions[i] = TrainingSessionResponse{
+			SessionOrder: s.SessionOrder,
+			Type:         string(s.Type),
+			DurationMin:  s.DurationMin,
+			Notes:        s.Notes,
+		}
+	}
+
 	resp := DailyLogResponse{
-		Date:             d.Date,
-		WeightKg:         d.WeightKg,
-		BodyFatPercent:   d.BodyFatPercent,
-		RestingHeartRate: d.RestingHeartRate,
-		SleepQuality:     int(d.SleepQuality),
-		SleepHours:       d.SleepHours,
-		PlannedTraining: PlannedTrainingResponse{
-			Type:               string(d.PlannedTraining.Type),
-			PlannedDurationMin: d.PlannedTraining.PlannedDurationMin,
+		Date:                    d.Date,
+		WeightKg:                d.WeightKg,
+		BodyFatPercent:          d.BodyFatPercent,
+		RestingHeartRate:        d.RestingHeartRate,
+		SleepQuality:            int(d.SleepQuality),
+		SleepHours:              d.SleepHours,
+		PlannedTrainingSessions: sessions,
+		TrainingSummary: TrainingSummaryResponse{
+			SessionCount:     len(d.PlannedSessions),
+			TotalDurationMin: domain.TotalDurationMin(d.PlannedSessions),
+			TotalLoadScore:   domain.TotalLoadScore(d.PlannedSessions),
+			Summary:          domain.SessionSummary(d.PlannedSessions),
 		},
 		DayType: string(d.DayType),
 		CalculatedTargets: DailyTargetsResponse{

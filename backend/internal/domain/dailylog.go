@@ -10,13 +10,14 @@ var dateRegex = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
 
 // DailyLog represents a daily log entry.
 type DailyLog struct {
+	ID                int64 // Database ID
 	Date              string // YYYY-MM-DD format
 	WeightKg          float64
 	BodyFatPercent    *float64
 	RestingHeartRate  *int
 	SleepQuality      SleepQuality
 	SleepHours        *float64
-	PlannedTraining   PlannedTraining
+	PlannedSessions   []TrainingSession // Multiple training sessions per day
 	DayType           DayType
 	CalculatedTargets DailyTargets
 	EstimatedTDEE     int
@@ -31,7 +32,7 @@ func NewDailyLog(
 	date string,
 	weightKg float64,
 	sleepQuality SleepQuality,
-	training PlannedTraining,
+	sessions []TrainingSession,
 	dayType DayType,
 	now time.Time,
 ) (*DailyLog, error) {
@@ -39,7 +40,7 @@ func NewDailyLog(
 		Date:            date,
 		WeightKg:        weightKg,
 		SleepQuality:    sleepQuality,
-		PlannedTraining: training,
+		PlannedSessions: sessions,
 		DayType:         dayType,
 	}
 	d.SetDefaultsAt(now)
@@ -59,7 +60,7 @@ func NewDailyLogBuilder(
 	date string,
 	weightKg float64,
 	sleepQuality SleepQuality,
-	training PlannedTraining,
+	sessions []TrainingSession,
 	dayType DayType,
 ) *DailyLogBuilder {
 	return &DailyLogBuilder{
@@ -67,7 +68,7 @@ func NewDailyLogBuilder(
 			Date:            date,
 			WeightKg:        weightKg,
 			SleepQuality:    sleepQuality,
-			PlannedTraining: training,
+			PlannedSessions: sessions,
 			DayType:         dayType,
 		},
 	}
@@ -144,14 +145,33 @@ func (d *DailyLog) Validate() error {
 		}
 	}
 
-	// Training type validation
-	if !ValidTrainingTypes[d.PlannedTraining.Type] {
-		return ErrInvalidTrainingType
+	// Training sessions validation
+	if len(d.PlannedSessions) > 10 {
+		return ErrTooManySessions
 	}
 
-	// Training duration validation
-	if d.PlannedTraining.PlannedDurationMin < 0 || d.PlannedTraining.PlannedDurationMin > 480 {
-		return ErrInvalidTrainingDuration
+	for i, session := range d.PlannedSessions {
+		// Validate session order is sequential starting at 1
+		if session.SessionOrder != i+1 {
+			return ErrInvalidSessionOrder
+		}
+
+		// Validate training type
+		if !ValidTrainingTypes[session.Type] {
+			return ErrInvalidTrainingType
+		}
+
+		// Validate duration
+		if session.DurationMin < 0 || session.DurationMin > 480 {
+			return ErrInvalidTrainingDuration
+		}
+
+		// Validate perceived intensity if provided
+		if session.PerceivedIntensity != nil {
+			if *session.PerceivedIntensity < 1 || *session.PerceivedIntensity > 10 {
+				return ErrInvalidPerceivedIntensity
+			}
+		}
 	}
 
 	// Day type validation
@@ -179,14 +199,22 @@ func (d *DailyLog) SetDefaultsAt(now time.Time) {
 		d.SleepQuality = 50
 	}
 
-	// Default training type to rest if empty
-	if d.PlannedTraining.Type == "" {
-		d.PlannedTraining.Type = TrainingTypeRest
+	// Default to a single rest session if no sessions provided
+	if len(d.PlannedSessions) == 0 {
+		d.PlannedSessions = []TrainingSession{{
+			SessionOrder: 1,
+			IsPlanned:    true,
+			Type:         TrainingTypeRest,
+			DurationMin:  0,
+		}}
 	}
 
-	// If training type is rest, duration should be 0
-	if d.PlannedTraining.Type == TrainingTypeRest {
-		d.PlannedTraining.PlannedDurationMin = 0
+	// For each session, set IsPlanned to true and ensure rest sessions have 0 duration
+	for i := range d.PlannedSessions {
+		d.PlannedSessions[i].IsPlanned = true
+		if d.PlannedSessions[i].Type == TrainingTypeRest {
+			d.PlannedSessions[i].DurationMin = 0
+		}
 	}
 
 	// Default day type to fatburner if empty

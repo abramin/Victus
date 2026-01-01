@@ -25,13 +25,14 @@ type Server struct {
 func NewServer(db *sql.DB) *Server {
 	profileStore := store.NewProfileStore(db)
 	dailyLogStore := store.NewDailyLogStore(db)
+	trainingSessionStore := store.NewTrainingSessionStore(db)
 	trainingConfigStore := store.NewTrainingConfigStore(db)
 
 	mux := http.NewServeMux()
 	srv := &Server{
 		mux:                   mux,
 		profileService:        service.NewProfileService(profileStore),
-		dailyLogService:       service.NewDailyLogService(dailyLogStore, profileStore),
+		dailyLogService:       service.NewDailyLogService(dailyLogStore, trainingSessionStore, profileStore),
 		trainingConfigService: service.NewTrainingConfigService(trainingConfigStore),
 	}
 

@@ -18,6 +18,7 @@ type StoreSuite struct {
 	db           *sql.DB
 	profileStore *ProfileStore
 	logStore     *DailyLogStore
+	sessionStore *TrainingSessionStore
 	ctx          context.Context
 }
 
@@ -35,6 +36,7 @@ func (s *StoreSuite) SetupTest() {
 
 	s.profileStore = NewProfileStore(s.db)
 	s.logStore = NewDailyLogStore(s.db)
+	s.sessionStore = NewTrainingSessionStore(s.db)
 	s.ctx = context.Background()
 }
 
@@ -142,11 +144,10 @@ func (s *StoreSuite) TestDailyLogNotFoundBeforeCreation() {
 func (s *StoreSuite) TestLogFieldPreservation() {
 	s.Run("all fields including nested structures survive persistence", func() {
 		log := &domain.DailyLog{
-			Date:            "2025-01-15",
-			WeightKg:        85,
-			SleepQuality:    80,
-			PlannedTraining: domain.PlannedTraining{Type: domain.TrainingTypeStrength, PlannedDurationMin: 60},
-			DayType:         domain.DayTypePerformance,
+			Date:         "2025-01-15",
+			WeightKg:     85,
+			SleepQuality: 80,
+			DayType:      domain.DayTypePerformance,
 			CalculatedTargets: domain.DailyTargets{
 				TotalCarbsG:   250,
 				TotalProteinG: 150,
@@ -165,8 +166,9 @@ func (s *StoreSuite) TestLogFieldPreservation() {
 			EstimatedTDEE: 2500,
 		}
 
-		err := s.logStore.Create(s.ctx, log)
+		logID, err := s.logStore.Create(s.ctx, log)
 		s.Require().NoError(err)
+		s.Greater(logID, int64(0))
 
 		loaded, err := s.logStore.GetByDate(s.ctx, "2025-01-15")
 		s.Require().NoError(err)
@@ -174,8 +176,6 @@ func (s *StoreSuite) TestLogFieldPreservation() {
 		s.Equal(log.Date, loaded.Date)
 		s.Equal(log.WeightKg, loaded.WeightKg)
 		s.Equal(log.SleepQuality, loaded.SleepQuality)
-		s.Equal(log.PlannedTraining.Type, loaded.PlannedTraining.Type)
-		s.Equal(log.PlannedTraining.PlannedDurationMin, loaded.PlannedTraining.PlannedDurationMin)
 		s.Equal(log.DayType, loaded.DayType)
 		s.Equal(log.CalculatedTargets.TotalCalories, loaded.CalculatedTargets.TotalCalories)
 		s.Equal(log.CalculatedTargets.Meals.Breakfast.Carbs, loaded.CalculatedTargets.Meals.Breakfast.Carbs)
@@ -192,12 +192,11 @@ func (s *StoreSuite) TestDailyLogNullableFieldRoundTrip() {
 			RestingHeartRate:  nil,
 			SleepQuality:      80,
 			SleepHours:        nil,
-			PlannedTraining:   domain.PlannedTraining{Type: domain.TrainingTypeRest, PlannedDurationMin: 0},
 			DayType:           domain.DayTypeFatburner,
 			CalculatedTargets: domain.DailyTargets{DayType: domain.DayTypeFatburner},
 		}
 
-		err := s.logStore.Create(s.ctx, log)
+		_, err := s.logStore.Create(s.ctx, log)
 		s.Require().NoError(err)
 
 		loaded, err := s.logStore.GetByDate(s.ctx, "2025-01-15")
@@ -220,12 +219,11 @@ func (s *StoreSuite) TestDailyLogNullableFieldRoundTrip() {
 			RestingHeartRate:  &hr,
 			SleepQuality:      80,
 			SleepHours:        &sh,
-			PlannedTraining:   domain.PlannedTraining{Type: domain.TrainingTypeRest, PlannedDurationMin: 0},
 			DayType:           domain.DayTypeFatburner,
 			CalculatedTargets: domain.DailyTargets{DayType: domain.DayTypeFatburner},
 		}
 
-		err := s.logStore.Create(s.ctx, log)
+		_, err := s.logStore.Create(s.ctx, log)
 		s.Require().NoError(err)
 
 		loaded, err := s.logStore.GetByDate(s.ctx, "2025-01-16")
@@ -248,12 +246,11 @@ func (s *StoreSuite) TestDailyLogDateUniqueness() {
 			Date:              "2025-01-15",
 			WeightKg:          85,
 			SleepQuality:      80,
-			PlannedTraining:   domain.PlannedTraining{Type: domain.TrainingTypeRest, PlannedDurationMin: 0},
 			DayType:           domain.DayTypeFatburner,
 			CalculatedTargets: domain.DailyTargets{DayType: domain.DayTypeFatburner},
 		}
 
-		err := s.logStore.Create(s.ctx, log)
+		_, err := s.logStore.Create(s.ctx, log)
 		s.Require().NoError(err)
 
 		// Try to create again with same date
@@ -261,12 +258,11 @@ func (s *StoreSuite) TestDailyLogDateUniqueness() {
 			Date:              "2025-01-15",
 			WeightKg:          90,
 			SleepQuality:      70,
-			PlannedTraining:   domain.PlannedTraining{Type: domain.TrainingTypeStrength, PlannedDurationMin: 60},
 			DayType:           domain.DayTypePerformance,
 			CalculatedTargets: domain.DailyTargets{DayType: domain.DayTypePerformance},
 		}
 
-		err = s.logStore.Create(s.ctx, log2)
+		_, err = s.logStore.Create(s.ctx, log2)
 		s.Require().Error(err, "Should reject duplicate date")
 		s.Contains(err.Error(), "UNIQUE constraint")
 	})
@@ -278,12 +274,11 @@ func (s *StoreSuite) TestDailyLogDelete() {
 			Date:              "2025-01-15",
 			WeightKg:          85,
 			SleepQuality:      80,
-			PlannedTraining:   domain.PlannedTraining{Type: domain.TrainingTypeRest, PlannedDurationMin: 0},
 			DayType:           domain.DayTypeFatburner,
 			CalculatedTargets: domain.DailyTargets{DayType: domain.DayTypeFatburner},
 		}
 
-		err := s.logStore.Create(s.ctx, log)
+		_, err := s.logStore.Create(s.ctx, log)
 		s.Require().NoError(err)
 
 		err = s.logStore.DeleteByDate(s.ctx, "2025-01-15")
@@ -308,11 +303,10 @@ func (s *StoreSuite) TestDailyLogMultipleDates() {
 				Date:              date,
 				WeightKg:          85,
 				SleepQuality:      80,
-				PlannedTraining:   domain.PlannedTraining{Type: domain.TrainingTypeRest, PlannedDurationMin: 0},
 				DayType:           domain.DayTypeFatburner,
 				CalculatedTargets: domain.DailyTargets{DayType: domain.DayTypeFatburner},
 			}
-			err := s.logStore.Create(s.ctx, log)
+			_, err := s.logStore.Create(s.ctx, log)
 			s.Require().NoError(err)
 		}
 
@@ -322,5 +316,71 @@ func (s *StoreSuite) TestDailyLogMultipleDates() {
 			s.Require().NoError(err)
 			s.Equal(date, loaded.Date)
 		}
+	})
+}
+
+// --- Training Session Store Tests ---
+
+func (s *StoreSuite) TestTrainingSessionPersistence() {
+	s.Run("sessions are persisted and retrieved", func() {
+		// First create a daily log
+		log := &domain.DailyLog{
+			Date:              "2025-01-15",
+			WeightKg:          85,
+			SleepQuality:      80,
+			DayType:           domain.DayTypePerformance,
+			CalculatedTargets: domain.DailyTargets{DayType: domain.DayTypePerformance},
+		}
+
+		logID, err := s.logStore.Create(s.ctx, log)
+		s.Require().NoError(err)
+
+		// Create sessions
+		sessions := []domain.TrainingSession{
+			{SessionOrder: 1, IsPlanned: true, Type: domain.TrainingTypeQigong, DurationMin: 20},
+			{SessionOrder: 2, IsPlanned: true, Type: domain.TrainingTypeStrength, DurationMin: 60},
+		}
+
+		err = s.sessionStore.CreateForLog(s.ctx, logID, sessions)
+		s.Require().NoError(err)
+
+		// Retrieve sessions
+		loaded, err := s.sessionStore.GetByLogID(s.ctx, logID)
+		s.Require().NoError(err)
+		s.Require().Len(loaded, 2)
+
+		s.Equal(domain.TrainingTypeQigong, loaded[0].Type)
+		s.Equal(20, loaded[0].DurationMin)
+		s.Equal(domain.TrainingTypeStrength, loaded[1].Type)
+		s.Equal(60, loaded[1].DurationMin)
+	})
+
+	s.Run("sessions are deleted with log via cascade", func() {
+		// Create log with sessions
+		log := &domain.DailyLog{
+			Date:              "2025-01-16",
+			WeightKg:          85,
+			SleepQuality:      80,
+			DayType:           domain.DayTypePerformance,
+			CalculatedTargets: domain.DailyTargets{DayType: domain.DayTypePerformance},
+		}
+
+		logID, err := s.logStore.Create(s.ctx, log)
+		s.Require().NoError(err)
+
+		sessions := []domain.TrainingSession{
+			{SessionOrder: 1, IsPlanned: true, Type: domain.TrainingTypeStrength, DurationMin: 60},
+		}
+		err = s.sessionStore.CreateForLog(s.ctx, logID, sessions)
+		s.Require().NoError(err)
+
+		// Delete log
+		err = s.logStore.DeleteByDate(s.ctx, "2025-01-16")
+		s.Require().NoError(err)
+
+		// Sessions should be gone
+		loaded, err := s.sessionStore.GetByLogID(s.ctx, logID)
+		s.Require().NoError(err)
+		s.Empty(loaded, "Sessions should be deleted with log")
 	})
 }

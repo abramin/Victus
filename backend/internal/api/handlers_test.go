@@ -75,6 +75,7 @@ func (s *HandlerSuite) createProfile() {
 }
 
 // --- Health endpoint tests ---
+// Justification: Health check is infrastructure - not a user-facing contract.
 
 func (s *HandlerSuite) TestHealthEndpoint() {
 	s.Run("returns 200 with status ok", func() {
@@ -89,6 +90,8 @@ func (s *HandlerSuite) TestHealthEndpoint() {
 }
 
 // --- Profile endpoint tests ---
+// Justification: Tests JSON parsing and validation edge cases not covered by feature scenarios.
+// Feature scenarios cover happy path CRUD; these test error mapping at HTTP boundary.
 
 func (s *HandlerSuite) TestProfileValidation() {
 	s.Run("invalid height returns 400", func() {
@@ -173,6 +176,7 @@ func (s *HandlerSuite) TestProfileValidation() {
 	})
 }
 
+// Justification: Tests error response for missing profile - edge case not in feature scenarios.
 func (s *HandlerSuite) TestProfileNotFound() {
 	s.Run("GET profile when none exists returns 404", func() {
 		rec := s.doRequest("GET", "/api/profile", nil)
@@ -184,84 +188,23 @@ func (s *HandlerSuite) TestProfileNotFound() {
 	})
 }
 
-func (s *HandlerSuite) TestProfileCRUD() {
-	s.Run("creates profile and returns with defaults", func() {
-		req := map[string]interface{}{
-			"height_cm":             180,
-			"birthDate":            "1990-06-15",
-			"sex":                  "male",
-			"goal":                 "lose_weight",
-			"targetWeightKg":       80,
-			"targetWeeklyChangeKg": -0.5,
-		}
-		rec := s.doRequest("PUT", "/api/profile", req)
-		s.Equal(http.StatusOK, rec.Code)
-
-		var resp map[string]interface{}
-		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
-		s.Equal(float64(180), resp["height_cm"])
-		// Should have defaults
-		s.Equal(0.45, resp["carbRatio"])
-		s.Equal(0.30, resp["proteinRatio"])
-	})
-
-	s.Run("fetches created profile", func() {
-		s.createProfile()
-		rec := s.doRequest("GET", "/api/profile", nil)
-		s.Equal(http.StatusOK, rec.Code)
-
-		var resp map[string]interface{}
-		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
-		s.Equal(float64(180), resp["height_cm"])
-	})
-}
+// NOTE: TestProfileCRUD removed - redundant with profile.feature scenarios:
+// - "Create or update a user profile with defaults"
+// - "Fetch the current profile"
 
 // --- Daily log endpoint tests ---
+// Justification: Tests validation edge cases and error mapping not fully covered by feature scenarios.
+// Feature covers: invalid training type, missing profile, not found, duplicate, happy paths.
+// These tests cover: invalid day type, weight boundaries, JSON parsing errors.
 
-func (s *HandlerSuite) TestDailyLogRequiresProfile() {
-	s.Run("POST log without profile returns 400 profile_required", func() {
-		today := time.Now().Format("2006-01-02")
-		req := map[string]interface{}{
-			"date":         today,
-			"weightKg":     85,
-			"sleepQuality": 80,
-			"plannedTraining": map[string]interface{}{
-				"type":               "strength",
-				"plannedDurationMin": 60,
-			},
-			"dayType": "performance",
-		}
-		rec := s.doRequest("POST", "/api/logs", req)
-		s.Equal(http.StatusBadRequest, rec.Code)
-
-		var resp APIError
-		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
-		s.Equal("profile_required", resp.Error)
-	})
-}
+// NOTE: TestDailyLogRequiresProfile removed - redundant with dailylog.feature:
+// - "Reject daily log creation without profile"
 
 func (s *HandlerSuite) TestDailyLogValidation() {
 	s.createProfile()
 
-	s.Run("invalid training type returns 400", func() {
-		today := time.Now().Format("2006-01-02")
-		req := map[string]interface{}{
-			"date":         today,
-			"weightKg":     85,
-			"sleepQuality": 80,
-			"plannedTraining": map[string]interface{}{
-				"type":               "invalid_training",
-				"plannedDurationMin": 60,
-			},
-			"dayType": "performance",
-		}
-		rec := s.doRequest("POST", "/api/logs", req)
-		s.Equal(http.StatusBadRequest, rec.Code)
-
-		var resp APIError
-		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
-		s.Equal("validation_error", resp.Error)
-	})
+	// NOTE: "invalid training type" subtest removed - covered by dailylog.feature:
+	// - "Reject invalid training type"
 
 	s.Run("invalid day type returns 400", func() {
 		today := time.Now().Format("2006-01-02")
@@ -269,9 +212,11 @@ func (s *HandlerSuite) TestDailyLogValidation() {
 			"date":         today,
 			"weightKg":     85,
 			"sleepQuality": 80,
-			"plannedTraining": map[string]interface{}{
-				"type":               "strength",
-				"plannedDurationMin": 60,
+			"plannedTrainingSessions": []map[string]interface{}{
+				{
+					"type":        "strength",
+					"durationMin": 60,
+				},
 			},
 			"dayType": "invalid_day",
 		}
@@ -289,9 +234,11 @@ func (s *HandlerSuite) TestDailyLogValidation() {
 			"date":         today,
 			"weightKg":     25, // Below 30kg minimum
 			"sleepQuality": 80,
-			"plannedTraining": map[string]interface{}{
-				"type":               "strength",
-				"plannedDurationMin": 60,
+			"plannedTrainingSessions": []map[string]interface{}{
+				{
+					"type":        "strength",
+					"durationMin": 60,
+				},
 			},
 			"dayType": "performance",
 		}
@@ -317,134 +264,16 @@ func (s *HandlerSuite) TestDailyLogValidation() {
 	})
 }
 
-func (s *HandlerSuite) TestDailyLogNotFound() {
-	s.Run("GET today's log when none exists returns 404", func() {
-		rec := s.doRequest("GET", "/api/logs/today", nil)
-		s.Equal(http.StatusNotFound, rec.Code)
-
-		var resp APIError
-		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
-		s.Equal("not_found", resp.Error)
-	})
-}
-
-func (s *HandlerSuite) TestDailyLogCreation() {
-	s.createProfile()
-
-	s.Run("returns calculated targets with log data", func() {
-		today := time.Now().Format("2006-01-02")
-		req := map[string]interface{}{
-			"date":         today,
-			"weightKg":     85,
-			"sleepQuality": 80,
-			"plannedTraining": map[string]interface{}{
-				"type":               "strength",
-				"plannedDurationMin": 60,
-			},
-			"dayType": "performance",
-		}
-		rec := s.doRequest("POST", "/api/logs", req)
-		s.Equal(http.StatusCreated, rec.Code)
-
-		var resp map[string]interface{}
-		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
-		s.Equal(today, resp["date"])
-		s.Equal(float64(85), resp["weightKg"])
-
-		// Should have calculated targets
-		targets, ok := resp["calculatedTargets"].(map[string]interface{})
-		s.Require().True(ok, "Response should include calculatedTargets")
-		s.Greater(targets["totalCalories"], float64(0))
-		s.Greater(targets["totalCarbsG"], float64(0))
-	})
-}
-
-func (s *HandlerSuite) TestDailyLogRetrieval() {
-	s.createProfile()
-
-	// Create a log first
-	today := time.Now().Format("2006-01-02")
-	req := map[string]interface{}{
-		"date":         today,
-		"weightKg":     85,
-		"sleepQuality": 80,
-		"plannedTraining": map[string]interface{}{
-			"type":               "strength",
-			"plannedDurationMin": 60,
-		},
-		"dayType": "performance",
-	}
-	rec := s.doRequest("POST", "/api/logs", req)
-	s.Require().Equal(http.StatusCreated, rec.Code)
-
-	s.Run("fetches today's log after creation", func() {
-		rec := s.doRequest("GET", "/api/logs/today", nil)
-		s.Equal(http.StatusOK, rec.Code)
-
-		var resp map[string]interface{}
-		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
-		s.Equal(float64(85), resp["weightKg"])
-	})
-}
-
-func (s *HandlerSuite) TestDailyLogDeletion() {
-	s.createProfile()
-
-	// Create a log first
-	today := time.Now().Format("2006-01-02")
-	req := map[string]interface{}{
-		"date":         today,
-		"weightKg":     85,
-		"sleepQuality": 80,
-		"plannedTraining": map[string]interface{}{
-			"type":               "strength",
-			"plannedDurationMin": 60,
-		},
-		"dayType": "performance",
-	}
-	rec := s.doRequest("POST", "/api/logs", req)
-	s.Require().Equal(http.StatusCreated, rec.Code)
-
-	s.Run("removes log and returns 204", func() {
-		rec := s.doRequest("DELETE", "/api/logs/today", nil)
-		s.Equal(http.StatusNoContent, rec.Code)
-
-		// Verify deleted
-		rec = s.doRequest("GET", "/api/logs/today", nil)
-		s.Equal(http.StatusNotFound, rec.Code)
-	})
-}
-
-func (s *HandlerSuite) TestDuplicateLogReturnsConflict() {
-	s.createProfile()
-
-	today := time.Now().Format("2006-01-02")
-	req := map[string]interface{}{
-		"date":         today,
-		"weightKg":     85,
-		"sleepQuality": 80,
-		"plannedTraining": map[string]interface{}{
-			"type":               "strength",
-			"plannedDurationMin": 60,
-		},
-		"dayType": "performance",
-	}
-
-	// First creation succeeds
-	rec := s.doRequest("POST", "/api/logs", req)
-	s.Require().Equal(http.StatusCreated, rec.Code)
-
-	s.Run("duplicate date returns 409 already_exists", func() {
-		rec := s.doRequest("POST", "/api/logs", req)
-		s.Equal(http.StatusConflict, rec.Code)
-
-		var resp APIError
-		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
-		s.Equal("already_exists", resp.Error)
-	})
-}
+// NOTE: The following tests were removed as redundant with dailylog.feature scenarios:
+// - TestDailyLogNotFound: "Return 404 when no log exists for today"
+// - TestDailyLogCreation: "Create a daily log with calculated targets"
+// - TestDailyLogRetrieval: "Fetch today's log after creation"
+// - TestDailyLogDeletion: "Delete today's log"
+// - TestDuplicateLogReturnsConflict: "Reject duplicate daily log for same date"
 
 // --- Training config endpoint tests ---
+// Justification: Tests specific MET values and load scores from 2024 Compendium.
+// Feature scenario training-configs.feature covers the contract; these verify exact values.
 
 func (s *HandlerSuite) TestTrainingConfigsEndpoint() {
 	s.Run("returns all training configs", func() {

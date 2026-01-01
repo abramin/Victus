@@ -95,8 +95,18 @@ func (s *TargetsSuite) TestAgeCalculation() {
 }
 
 func (s *TargetsSuite) TestEstimatedTDEE() {
+	// Helper to create sessions
+	sessions := func(t TrainingType, dur int) []TrainingSession {
+		return []TrainingSession{{
+			SessionOrder: 1,
+			IsPlanned:    true,
+			Type:         t,
+			DurationMin:  dur,
+		}}
+	}
+
 	s.Run("rest day has no training calories", func() {
-		tdee := CalculateEstimatedTDEE(s.maleProfile, 85, TrainingTypeRest, 0, s.now)
+		tdee := CalculateEstimatedTDEE(s.maleProfile, 85, sessions(TrainingTypeRest, 0), s.now)
 		// BMR = 1780, TDEE = 1780 * 1.2 = 2136
 		s.InDelta(2136, tdee, 5)
 	})
@@ -104,25 +114,25 @@ func (s *TargetsSuite) TestEstimatedTDEE() {
 	s.Run("training adds calories based on type and duration using MET", func() {
 		// HIIT with MET-based calculation: (MET-1) × weight × hours
 		// HIIT MET = 12.8, (12.8-1) × 85 kg × 0.5 hr = 501.5 cal
-		tdeeHIIT := CalculateEstimatedTDEE(s.maleProfile, 85, TrainingTypeHIIT, 30, s.now)
-		tdeeRest := CalculateEstimatedTDEE(s.maleProfile, 85, TrainingTypeRest, 0, s.now)
+		tdeeHIIT := CalculateEstimatedTDEE(s.maleProfile, 85, sessions(TrainingTypeHIIT, 30), s.now)
+		tdeeRest := CalculateEstimatedTDEE(s.maleProfile, 85, sessions(TrainingTypeRest, 0), s.now)
 		s.InDelta(502, tdeeHIIT-tdeeRest, 5, "30 min HIIT should add ~502 cal with MET formula")
 	})
 
 	s.Run("strength training calories with MET", func() {
 		// Strength MET = 5.0, (5.0-1) × 85 kg × 1 hr = 340 cal
-		tdeeStrength := CalculateEstimatedTDEE(s.maleProfile, 85, TrainingTypeStrength, 60, s.now)
-		tdeeRest := CalculateEstimatedTDEE(s.maleProfile, 85, TrainingTypeRest, 0, s.now)
+		tdeeStrength := CalculateEstimatedTDEE(s.maleProfile, 85, sessions(TrainingTypeStrength, 60), s.now)
+		tdeeRest := CalculateEstimatedTDEE(s.maleProfile, 85, sessions(TrainingTypeRest, 0), s.now)
 		s.InDelta(340, tdeeStrength-tdeeRest, 5, "60 min strength should add ~340 cal with MET formula")
 	})
 
 	s.Run("heavier person burns more calories for same activity", func() {
 		// MET-based calculation is weight-adjusted
-		tdee70kg := CalculateEstimatedTDEE(s.maleProfile, 70, TrainingTypeRun, 30, s.now)
-		tdee100kg := CalculateEstimatedTDEE(s.maleProfile, 100, TrainingTypeRun, 30, s.now)
+		tdee70kg := CalculateEstimatedTDEE(s.maleProfile, 70, sessions(TrainingTypeRun, 30), s.now)
+		tdee100kg := CalculateEstimatedTDEE(s.maleProfile, 100, sessions(TrainingTypeRun, 30), s.now)
 
-		rest70kg := CalculateEstimatedTDEE(s.maleProfile, 70, TrainingTypeRest, 0, s.now)
-		rest100kg := CalculateEstimatedTDEE(s.maleProfile, 100, TrainingTypeRest, 0, s.now)
+		rest70kg := CalculateEstimatedTDEE(s.maleProfile, 70, sessions(TrainingTypeRest, 0), s.now)
+		rest100kg := CalculateEstimatedTDEE(s.maleProfile, 100, sessions(TrainingTypeRest, 0), s.now)
 
 		exercise70kg := tdee70kg - rest70kg
 		exercise100kg := tdee100kg - rest100kg
@@ -133,10 +143,15 @@ func (s *TargetsSuite) TestEstimatedTDEE() {
 
 func (s *TargetsSuite) TestDayTypeMultiplierApplication() {
 	baseLog := &DailyLog{
-		Date:            "2025-01-01",
-		WeightKg:        85,
-		SleepQuality:    80,
-		PlannedTraining: PlannedTraining{Type: TrainingTypeStrength, PlannedDurationMin: 60},
+		Date:         "2025-01-01",
+		WeightKg:     85,
+		SleepQuality: 80,
+		PlannedSessions: []TrainingSession{{
+			SessionOrder: 1,
+			IsPlanned:    true,
+			Type:         TrainingTypeStrength,
+			DurationMin:  60,
+		}},
 	}
 
 	s.Run("fatburner reduces macros for lose_weight goal", func() {
@@ -228,11 +243,16 @@ func (s *TargetsSuite) TestVeggieCalculation() {
 
 func (s *TargetsSuite) TestMealPointDistribution() {
 	log := &DailyLog{
-		Date:            "2025-01-01",
-		WeightKg:        85,
-		SleepQuality:    80,
-		PlannedTraining: PlannedTraining{Type: TrainingTypeStrength, PlannedDurationMin: 60},
-		DayType:         DayTypePerformance,
+		Date:         "2025-01-01",
+		WeightKg:     85,
+		SleepQuality: 80,
+		PlannedSessions: []TrainingSession{{
+			SessionOrder: 1,
+			IsPlanned:    true,
+			Type:         TrainingTypeStrength,
+			DurationMin:  60,
+		}},
+		DayType: DayTypePerformance,
 	}
 
 	targets := CalculateDailyTargets(s.maleProfile, log, s.now)
@@ -258,11 +278,16 @@ func (s *TargetsSuite) TestMealPointDistribution() {
 
 func (s *TargetsSuite) TestWaterCalculation() {
 	log := &DailyLog{
-		Date:            "2025-01-01",
-		WeightKg:        85,
-		SleepQuality:    80,
-		PlannedTraining: PlannedTraining{Type: TrainingTypeRest, PlannedDurationMin: 0},
-		DayType:         DayTypeFatburner,
+		Date:         "2025-01-01",
+		WeightKg:     85,
+		SleepQuality: 80,
+		PlannedSessions: []TrainingSession{{
+			SessionOrder: 1,
+			IsPlanned:    true,
+			Type:         TrainingTypeRest,
+			DurationMin:  0,
+		}},
+		DayType: DayTypeFatburner,
 	}
 
 	targets := CalculateDailyTargets(s.maleProfile, log, s.now)
@@ -439,12 +464,26 @@ func (s *TargetsSuite) TestProtectedProteinMultipliers() {
 }
 
 func (s *TargetsSuite) TestCalculateDailyTargetsIntegration() {
+	// Helper for creating sessions
+	strengthSession := []TrainingSession{{
+		SessionOrder: 1,
+		IsPlanned:    true,
+		Type:         TrainingTypeStrength,
+		DurationMin:  60,
+	}}
+	restSession := []TrainingSession{{
+		SessionOrder: 1,
+		IsPlanned:    true,
+		Type:         TrainingTypeRest,
+		DurationMin:  0,
+	}}
+
 	s.Run("EstimatedTDEE is populated", func() {
 		log := &DailyLog{
 			Date:            "2025-01-01",
 			WeightKg:        85,
 			SleepQuality:    80,
-			PlannedTraining: PlannedTraining{Type: TrainingTypeStrength, PlannedDurationMin: 60},
+			PlannedSessions: strengthSession,
 			DayType:         DayTypePerformance,
 		}
 		targets := CalculateDailyTargets(s.maleProfile, log, s.now)
@@ -458,7 +497,7 @@ func (s *TargetsSuite) TestCalculateDailyTargetsIntegration() {
 			Date:            "2025-01-01",
 			WeightKg:        85,
 			SleepQuality:    80,
-			PlannedTraining: PlannedTraining{Type: TrainingTypeStrength, PlannedDurationMin: 60},
+			PlannedSessions: strengthSession,
 			DayType:         DayTypeFatburner,
 		}
 		targets := CalculateDailyTargets(s.maleProfile, log, s.now)
@@ -473,7 +512,7 @@ func (s *TargetsSuite) TestCalculateDailyTargetsIntegration() {
 			Date:            "2025-01-01",
 			WeightKg:        85,
 			SleepQuality:    80,
-			PlannedTraining: PlannedTraining{Type: TrainingTypeStrength, PlannedDurationMin: 60},
+			PlannedSessions: strengthSession,
 			DayType:         DayTypeFatburner,
 		}
 		targets := CalculateDailyTargets(s.maleProfile, log, s.now)
@@ -494,7 +533,7 @@ func (s *TargetsSuite) TestCalculateDailyTargetsIntegration() {
 			Date:            "2025-01-01",
 			WeightKg:        85,
 			SleepQuality:    80,
-			PlannedTraining: PlannedTraining{Type: TrainingTypeRest, PlannedDurationMin: 0},
+			PlannedSessions: restSession,
 			DayType:         DayTypePerformance,
 		}
 
