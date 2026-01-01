@@ -8,7 +8,8 @@ export FRONTEND_PORT
 .PHONY: app-up app-down wait-backend wait-frontend e2e e2e-native test
 
 app-up:
-	docker compose up -d --build
+	docker compose up -d --build backend frontend
+	docker compose logs -f backend frontend
 
 app-down:
 	docker compose down --remove-orphans

@@ -208,14 +208,15 @@ interface DailyLog {
   sleepQuality: number; // 1-100 (Garmin score)
   sleepHours?: number;
   
-  // Planned training
-  plannedTraining: TrainingSession;
+  // Planned training sessions (supports multiple activities per day)
+  // e.g., morning Qigong + GMB, afternoon strength training
+  plannedTrainingSessions: TrainingSession[];
 
   // User-selected day type (determines macro strategy)
   dayType: 'performance' | 'fatburner' | 'metabolize';
 
-  // Actual training (logged later)
-  actualTraining?: TrainingSession;
+  // Actual training sessions (logged later)
+  actualTrainingSessions?: TrainingSession[];
   
   // Calculated outputs (stored for history)
   calculatedTargets: DailyTargets;
@@ -804,23 +805,32 @@ function calculateTrainingLoad(
   const now = new Date();
   const last7Days = history.filter(log => daysBetween(log.date, now) <= 7);
   const last28Days = history.filter(log => daysBetween(log.date, now) <= 28);
-  
-  const getLoad = (log: DailyLog): number => {
-    const training = log.actualTraining || log.plannedTraining;
-    const config = trainingConfigs.find(c => c.type === training.type);
-    const duration = training.actualDurationMin || training.plannedDurationMin;
-    const intensity = training.perceivedIntensity || 3;
-    
+
+  // Calculate load for a single session
+  const getSessionLoad = (session: TrainingSession, config?: TrainingTypeConfig): number => {
+    const duration = session.actualDurationMin || session.plannedDurationMin;
+    const intensity = session.perceivedIntensity || 3;
     return (config?.loadScore || 1) * duration * (intensity / 3);
   };
-  
-  const acuteLoad = last7Days.reduce((sum, log) => sum + getLoad(log), 0) / 7;
-  const chronicLoad = last28Days.reduce((sum, log) => sum + getLoad(log), 0) / 28;
+
+  // Sum load across all training sessions for a day
+  const getDayLoad = (log: DailyLog): number => {
+    const sessions = log.actualTrainingSessions || log.plannedTrainingSessions;
+    return sessions.reduce((sum, session) => {
+      const config = trainingConfigs.find(c => c.type === session.type);
+      return sum + getSessionLoad(session, config);
+    }, 0);
+  };
+
+  const acuteLoad = last7Days.reduce((sum, log) => sum + getDayLoad(log), 0) / 7;
+  const chronicLoad = last28Days.reduce((sum, log) => sum + getDayLoad(log), 0) / 28;
   const acuteChronicRatio = chronicLoad > 0 ? acuteLoad / chronicLoad : 1;
-  
-  const restDaysLast7 = last7Days.filter(log => 
-    (log.actualTraining || log.plannedTraining).type === 'rest'
-  ).length;
+
+  // A day is a rest day only if ALL sessions are rest (or empty array)
+  const restDaysLast7 = last7Days.filter(log => {
+    const sessions = log.actualTrainingSessions || log.plannedTrainingSessions;
+    return sessions.length === 0 || sessions.every(s => s.type === 'rest');
+  }).length;
   
   const recoveryScore = calculateRecoveryScore(restDaysLast7, acuteChronicRatio, last7Days);
   
@@ -861,7 +871,7 @@ function calculateDailyTargets(
     bodyFatPercent?: number;
     sleepQuality: number;
     restingHeartRate?: number;
-    plannedTraining: TrainingSession;
+    plannedTrainingSessions: TrainingSession[];  // Multiple sessions per day
     dayType: 'performance' | 'fatburner' | 'metabolize';
   },
   history: DailyLog[],
@@ -972,9 +982,13 @@ function calculateAdaptiveAdjustments(
   
   const yesterday = history.find(log => daysBetween(log.date, new Date()) === 1);
   if (yesterday) {
-    const yesterdayTraining = yesterday.actualTraining || yesterday.plannedTraining;
-    const config = TRAINING_CONFIGS.find(c => c.type === yesterdayTraining.type);
-    if (config && config.loadScore >= 5) {
+    // Check if any of yesterday's sessions had high load
+    const yesterdaySessions = yesterday.actualTrainingSessions || yesterday.plannedTrainingSessions;
+    const maxLoadScore = yesterdaySessions.reduce((max, session) => {
+      const config = TRAINING_CONFIGS.find(c => c.type === session.type);
+      return Math.max(max, config?.loadScore || 0);
+    }, 0);
+    if (maxLoadScore >= 5) {
       adjustments.yesterdayRecovery = 1.03;
     } else {
       adjustments.yesterdayRecovery = 1.0;
@@ -1557,7 +1571,7 @@ GET    /api/logs
 GET    /api/logs/today
 DELETE /api/logs/today
 GET    /api/logs/:date
-PATCH  /api/logs/:date/actual-training
+PATCH  /api/logs/:date/actual-training    # Update actual sessions array
 
 Calculations
 POST   /api/calculate/daily-targets
@@ -1775,7 +1789,7 @@ CREATE TABLE user_profile (
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- Daily log entries (unchanged from v1)
+-- Daily log entries (UPDATED: training moved to separate table)
 CREATE TABLE daily_logs (
   id INTEGER PRIMARY KEY,
   log_date DATE UNIQUE NOT NULL,
@@ -1784,16 +1798,9 @@ CREATE TABLE daily_logs (
   resting_heart_rate INTEGER,
   sleep_quality INTEGER CHECK(sleep_quality BETWEEN 1 AND 100),
   sleep_hours REAL,
-  
-  planned_training_type TEXT NOT NULL,
-  planned_duration_min INTEGER NOT NULL,
+
   day_type TEXT CHECK(day_type IN ('performance', 'fatburner', 'metabolize')),
-  
-  actual_training_type TEXT,
-  actual_duration_min INTEGER,
-  perceived_intensity INTEGER CHECK(perceived_intensity BETWEEN 1 AND 5),
-  training_notes TEXT,
-  
+
   total_carbs_g REAL,
   total_protein_g REAL,
   total_fats_g REAL,
@@ -1821,6 +1828,27 @@ CREATE TABLE daily_logs (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Training sessions (NEW: supports multiple sessions per day)
+-- e.g., morning Qigong, afternoon strength training
+CREATE TABLE training_sessions (
+  id INTEGER PRIMARY KEY,
+  daily_log_id INTEGER NOT NULL,
+  session_order INTEGER NOT NULL,  -- 1, 2, 3... for ordering within a day
+  is_planned BOOLEAN NOT NULL,     -- true = planned, false = actual
+  training_type TEXT NOT NULL CHECK(training_type IN (
+    'rest', 'qigong', 'walking', 'gmb', 'run', 'row', 'cycle',
+    'hiit', 'strength', 'calisthenics', 'mobility', 'mixed'
+  )),
+  duration_min INTEGER NOT NULL,
+  perceived_intensity INTEGER CHECK(perceived_intensity BETWEEN 1 AND 5),
+  notes TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (daily_log_id) REFERENCES daily_logs(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_training_sessions_log ON training_sessions(daily_log_id);
+CREATE INDEX idx_training_sessions_planned ON training_sessions(daily_log_id, is_planned);
 
 -- Nutrition plans (NEW)
 CREATE TABLE nutrition_plans (
@@ -1901,9 +1929,10 @@ CREATE INDEX idx_recalibrations_plan ON recalibrations(plan_id);
   - Sleep hours (optional, numeric)
   - RHR (optional, numeric)
 - Day type selector (performance/fatburner/metabolize)
-- Training selection
-  - Dropdown for training type
-  - Duration slider/input (minutes)
+- Training sessions (supports multiple per day)
+  - List of planned sessions with add/remove
+  - Each session: training type dropdown + duration input
+  - Example: Qigong 20min, GMB 30min, Strength 60min
 - Submit button → Shows calculated targets
 
 **Today's Targets View**
@@ -1911,7 +1940,7 @@ CREATE INDEX idx_recalibrations_plan ON recalibrations(plan_id);
 - Macros bar chart (C/P/F grams)
 - Meal cards (breakfast/lunch/dinner) with C/P/F points
 - Additional targets (fruit, vegetables, water)
-- "Log Actual Training" button
+- "Log Actual Training" button (update each session's actual duration/intensity)
 
 **Plan Overview View (NEW)**
 - Plan summary card
@@ -1962,7 +1991,7 @@ CREATE INDEX idx_recalibrations_plan ON recalibrations(plan_id);
       WeightInput.tsx
       SleepQualityInput.tsx
       DayTypeSelector.tsx
-      TrainingSelector.tsx
+      TrainingSessionsList.tsx  # Add/remove multiple sessions
       DailyInputForm.tsx
     /targets
       MacroSummaryCard.tsx

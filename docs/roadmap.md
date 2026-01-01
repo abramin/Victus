@@ -27,6 +27,7 @@ Foundation improvements before adding new features.
 |-------|-------|-------|--------------|--------|
 | 1 | #24 | Profile Setup Improvements | Slice 2 | S |
 | 2 | #5 | Day Type System & Training Config | Slice 4 | M |
+| 3 | #31 | Multiple Training Sessions Per Day | Slice 3 | M |
 
 **Key deliverables:**
 - Current weight handling with decimals
@@ -34,6 +35,7 @@ Foundation improvements before adding new features.
 - Aggressive goal warnings
 - Day type multipliers (protected protein)
 - Training type configurations with MET values
+- **Multiple training sessions per day** (e.g., morning Qigong + afternoon strength)
 
 ---
 
@@ -207,6 +209,7 @@ Slice 4 (Targets Display) ──────────────────
 | # | Title | Phase | Status |
 |---|-------|-------|--------|
 | 5 | Day Type System & Training Config | 1 | Open |
+| 31 | Multiple Training Sessions Per Day | 1 | Open |
 | 6 | Weight History & Trend Visualization | 2 | Open |
 | 7 | Actual Training Logging | 2 | Open |
 | 8 | Adaptive TDEE Calculation | 3 | Open |
