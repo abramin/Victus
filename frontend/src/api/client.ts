@@ -1,4 +1,12 @@
-import type { UserProfile, APIError, DailyLog, CreateDailyLogRequest, TrainingConfig } from './types';
+import type {
+  UserProfile,
+  APIError,
+  DailyLog,
+  CreateDailyLogRequest,
+  TrainingConfig,
+  WeightTrendRange,
+  WeightTrendResponse,
+} from './types';
 
 const API_BASE = '/api';
 
@@ -68,4 +76,9 @@ export async function createDailyLog(log: CreateDailyLogRequest): Promise<DailyL
 export async function getTrainingConfigs(): Promise<TrainingConfig[]> {
   const response = await fetch(`${API_BASE}/training-configs`);
   return handleResponse<TrainingConfig[]>(response);
+}
+
+export async function getWeightTrend(range: WeightTrendRange): Promise<WeightTrendResponse> {
+  const response = await fetch(`${API_BASE}/stats/weight-trend?range=${encodeURIComponent(range)}`);
+  return handleResponse<WeightTrendResponse>(response);
 }

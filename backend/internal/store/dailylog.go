@@ -107,7 +107,6 @@ func (s *DailyLogStore) GetIDByDate(ctx context.Context, date string) (int64, er
 	return id, err
 }
 
-
 // Create inserts a new daily log and returns the inserted ID.
 // Returns an error if a log already exists for that date.
 // Note: Training sessions are stored separately via TrainingSessionStore.
@@ -178,4 +177,37 @@ func (s *DailyLogStore) Create(ctx context.Context, log *domain.DailyLog) (int64
 func (s *DailyLogStore) DeleteByDate(ctx context.Context, date string) error {
 	_, err := s.db.ExecContext(ctx, "DELETE FROM daily_logs WHERE log_date = ?", date)
 	return err
+}
+
+// ListWeights returns weight samples ordered by date.
+// If startDate is empty, all samples are returned.
+func (s *DailyLogStore) ListWeights(ctx context.Context, startDate string) ([]domain.WeightSample, error) {
+	query := "SELECT log_date, weight_kg FROM daily_logs"
+	var args []interface{}
+	if startDate != "" {
+		query += " WHERE log_date >= ?"
+		args = append(args, startDate)
+	}
+	query += " ORDER BY log_date ASC"
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var samples []domain.WeightSample
+	for rows.Next() {
+		var sample domain.WeightSample
+		if err := rows.Scan(&sample.Date, &sample.WeightKg); err != nil {
+			return nil, err
+		}
+		samples = append(samples, sample)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return samples, nil
 }
