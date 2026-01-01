@@ -1,4 +1,4 @@
-import type { UserProfile, APIError, DailyLog, CreateDailyLogRequest } from './types';
+import type { UserProfile, APIError, DailyLog, CreateDailyLogRequest, TrainingConfig } from './types';
 
 const API_BASE = '/api';
 
@@ -63,4 +63,9 @@ export async function createDailyLog(log: CreateDailyLogRequest): Promise<DailyL
   });
 
   return handleResponse<DailyLog>(response);
+}
+
+export async function getTrainingConfigs(): Promise<TrainingConfig[]> {
+  const response = await fetch(`${API_BASE}/training-configs`);
+  return handleResponse<TrainingConfig[]>(response);
 }

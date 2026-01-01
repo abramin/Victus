@@ -12,6 +12,7 @@ func RunMigrations(db *sql.DB) error {
 	migrations := []string{
 		createUserProfileTable,
 		createDailyLogsTable,
+		createTrainingConfigsTable,
 	}
 
 	for i, migration := range migrations {
@@ -115,6 +116,33 @@ CREATE TABLE IF NOT EXISTS daily_logs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_daily_logs_date ON daily_logs(log_date);
+`
+
+const createTrainingConfigsTable = `
+CREATE TABLE IF NOT EXISTS training_configs (
+    id INTEGER PRIMARY KEY,
+    type TEXT UNIQUE NOT NULL CHECK(type IN (
+        'rest', 'qigong', 'walking', 'gmb', 'run', 'row', 'cycle', 'hiit',
+        'strength', 'calisthenics', 'mobility', 'mixed'
+    )),
+    met REAL NOT NULL DEFAULT 5.0,
+    load_score REAL NOT NULL DEFAULT 3
+);
+
+-- Seed default training configs with MET values from 2024 Compendium of Physical Activities
+INSERT OR IGNORE INTO training_configs (type, met, load_score) VALUES
+    ('rest', 1.0, 0),
+    ('qigong', 2.5, 0.5),
+    ('walking', 3.5, 1),
+    ('gmb', 4.0, 3),
+    ('run', 9.8, 3),
+    ('row', 7.0, 3),
+    ('cycle', 6.8, 2),
+    ('hiit', 12.8, 5),
+    ('strength', 5.0, 5),
+    ('calisthenics', 4.0, 3),
+    ('mobility', 2.5, 0.5),
+    ('mixed', 6.0, 4);
 `
 
 // ALTER TABLE migrations for existing databases (split for SQLite compatibility)

@@ -45,30 +45,12 @@ func CalculateExerciseCalories(trainingType TrainingType, weightKg float64, dura
 	return netMET * weightKg * durationHours
 }
 
-// DayTypeMultipliers defines macro multipliers for each day type by goal.
+// DayTypeMultipliers defines macro multipliers for each day type.
+// Protein is always protected at 1.0 to preserve muscle mass during deficits.
 type DayTypeMultipliers struct {
 	Carbs   float64
 	Protein float64
 	Fats    float64
-}
-
-// Multipliers maps day types and goals to their macro multipliers.
-var Multipliers = map[DayType]map[Goal]DayTypeMultipliers{
-	DayTypeFatburner: {
-		GoalLoseWeight: {Carbs: 0.80, Protein: 0.80, Fats: 0.80},
-		GoalGainWeight: {Carbs: 0.656, Protein: 0.656, Fats: 0.656},
-		GoalMaintain:   {Carbs: 0.72, Protein: 0.72, Fats: 0.72},
-	},
-	DayTypePerformance: {
-		GoalLoseWeight: {Carbs: 1.15, Protein: 1.15, Fats: 1.15},
-		GoalGainWeight: {Carbs: 1.116, Protein: 1.116, Fats: 1.116},
-		GoalMaintain:   {Carbs: 1.13, Protein: 1.13, Fats: 1.13},
-	},
-	DayTypeMetabolize: {
-		GoalLoseWeight: {Carbs: 1.2, Protein: 1.2, Fats: 1.2},
-		GoalGainWeight: {Carbs: 1.357, Protein: 1.357, Fats: 1.357},
-		GoalMaintain:   {Carbs: 1.28, Protein: 1.28, Fats: 1.28},
-	},
 }
 
 // CalculateDailyTargets computes daily macro targets based on profile and log.

@@ -443,3 +443,36 @@ func (s *HandlerSuite) TestDuplicateLogReturnsConflict() {
 		s.Equal("already_exists", resp.Error)
 	})
 }
+
+// --- Training config endpoint tests ---
+
+func (s *HandlerSuite) TestTrainingConfigsEndpoint() {
+	s.Run("returns all training configs", func() {
+		rec := s.doRequest("GET", "/api/training-configs", nil)
+		s.Equal(http.StatusOK, rec.Code)
+
+		var configs []TrainingConfigResponse
+		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &configs))
+
+		// Should have all 12 training types
+		s.Len(configs, 12)
+
+		// Verify a few expected MET values from 2024 Compendium of Physical Activities
+		configMap := make(map[string]TrainingConfigResponse)
+		for _, c := range configs {
+			configMap[c.Type] = c
+		}
+
+		// Rest should have MET 1.0 and load score 0
+		s.Equal(1.0, configMap["rest"].MET)
+		s.Equal(float64(0), configMap["rest"].LoadScore)
+
+		// HIIT should have highest MET (12.8) and high load score (5)
+		s.Equal(12.8, configMap["hiit"].MET)
+		s.Equal(float64(5), configMap["hiit"].LoadScore)
+
+		// Strength should have MET 5.0 and load score 5
+		s.Equal(5.0, configMap["strength"].MET)
+		s.Equal(float64(5), configMap["strength"].LoadScore)
+	})
+}

@@ -3,18 +3,18 @@ import { Select } from '../common/Select';
 import { NumberInput } from '../common/NumberInput';
 
 const TRAINING_OPTIONS = [
-  { value: 'rest', label: 'Rest Day' },
-  { value: 'qigong', label: 'Qigong' },
-  { value: 'walking', label: 'Walking' },
-  { value: 'gmb', label: 'GMB' },
-  { value: 'run', label: 'Running' },
-  { value: 'row', label: 'Rowing' },
-  { value: 'cycle', label: 'Cycling' },
-  { value: 'hiit', label: 'HIIT' },
-  { value: 'strength', label: 'Strength' },
-  { value: 'calisthenics', label: 'Calisthenics' },
-  { value: 'mobility', label: 'Mobility' },
-  { value: 'mixed', label: 'Mixed' },
+  { value: 'rest', label: 'Rest Day - No training, recovery day' },
+  { value: 'qigong', label: 'Qigong - Tai chi, breathwork, gentle movement' },
+  { value: 'walking', label: 'Walking - Outdoor or treadmill walking' },
+  { value: 'gmb', label: 'GMB - Ground-based movement practice' },
+  { value: 'run', label: 'Running - Jogging or running outdoors/treadmill' },
+  { value: 'row', label: 'Rowing - Ergometer or water rowing' },
+  { value: 'cycle', label: 'Cycling - Indoor or outdoor cycling' },
+  { value: 'hiit', label: 'HIIT - High-intensity interval training' },
+  { value: 'strength', label: 'Strength - Weight training, resistance exercises' },
+  { value: 'calisthenics', label: 'Calisthenics - Bodyweight exercises' },
+  { value: 'mobility', label: 'Mobility - Stretching, yoga, flexibility work' },
+  { value: 'mixed', label: 'Mixed - Combination of different activities' },
 ];
 
 interface TrainingSelectorProps {
