@@ -8,6 +8,7 @@ import type {
   WeightTrendRange,
   WeightTrendResponse,
   HistoryResponse,
+  DailyTargetsRangeResponse,
 } from './types';
 
 const API_BASE = '/api';
@@ -141,4 +142,11 @@ export async function getHistorySummary(range: WeightTrendRange): Promise<Histor
 export async function getLogByDate(date: string): Promise<DailyLog> {
   const response = await fetch(`${API_BASE}/logs/${encodeURIComponent(date)}`);
   return handleResponse<DailyLog>(response);
+}
+
+export async function getDailyTargetsRange(startDate: string, endDate: string): Promise<DailyTargetsRangeResponse> {
+  const response = await fetch(
+    `${API_BASE}/logs?start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}`
+  );
+  return handleResponse<DailyTargetsRangeResponse>(response);
 }

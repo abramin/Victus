@@ -35,6 +35,7 @@ export interface UserProfile {
   bodyFatPercent?: number;      // For Katch-McArdle equation (optional, 3-70%)
   tdeeSource?: TDEESource;      // formula (default), manual, or adaptive
   manualTDEE?: number;          // User-provided TDEE (when tdeeSource is 'manual')
+  recalibrationTolerance?: number; // Plan variance tolerance percentage (1-10%, default 3%)
   createdAt?: string;
   updatedAt?: string;
 }

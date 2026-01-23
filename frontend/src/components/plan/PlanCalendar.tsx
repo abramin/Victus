@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react';
-import type { DayType, MacroPoints, MealTargets, UserProfile } from '../../api/types';
+import { useEffect, useMemo, useState } from 'react';
+import type { DayType, DailyTargets, MealTargets, UserProfile } from '../../api/types';
+import { getDailyTargetsRange } from '../../api/client';
 import { DayTargetsPanel } from '../day-view';
 
 interface PlanCalendarProps {
@@ -8,11 +9,16 @@ interface PlanCalendarProps {
 
 interface DayData {
   date: Date;
-  dayType: DayType;
+  dayType?: DayType;
+  mealTargets?: MealTargets;
   breakfast: number;
   lunch: number;
   dinner: number;
   total: number;
+  hasData: boolean;
+  fruitG?: number;
+  veggiesG?: number;
+  waterL?: number;
 }
 
 const DAY_TYPE_COLORS: Record<DayType, { bg: string; text: string }> = {
@@ -27,38 +33,10 @@ const DAY_TYPE_LABELS: Record<DayType, string> = {
   metabolize: 'Meta',
 };
 
-// Generate placeholder data using profile meal ratios
-function generateMockData(
-  year: number,
-  month: number,
-  mealRatios: { breakfast: number; lunch: number; dinner: number }
-): DayData[] {
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const dayTypes: DayType[] = ['performance', 'fatburner', 'metabolize'];
-  const data: DayData[] = [];
-
-  for (let day = 1; day <= daysInMonth; day++) {
-    const dayType = dayTypes[Math.floor(Math.random() * dayTypes.length)];
-    // Base total points varies by day type
-    const baseTotal = dayType === 'performance' ? 300 : dayType === 'fatburner' ? 270 : 285;
-
-    // Apply actual meal ratios from profile
-    const breakfast = Math.round((baseTotal * mealRatios.breakfast) / 100);
-    const lunch = Math.round((baseTotal * mealRatios.lunch) / 100);
-    const dinner = Math.round((baseTotal * mealRatios.dinner) / 100);
-
-    data.push({
-      date: new Date(year, month, day),
-      dayType,
-      breakfast,
-      lunch,
-      dinner,
-      total: breakfast + lunch + dinner,
-    });
-  }
-
-  return data;
-}
+const toDateKey = (date: Date) => {
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 10);
+};
 
 export function PlanCalendar({ profile }: PlanCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -66,23 +44,90 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
   const [displayMode, setDisplayMode] = useState<'Points' | 'Grams'>('Points');
   const [selectedDay, setSelectedDay] = useState<DayData | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [targetsByDate, setTargetsByDate] = useState<Record<string, DailyTargets>>({});
+  const [rangeLoading, setRangeLoading] = useState(false);
+  const [rangeError, setRangeError] = useState<string | null>(null);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
 
-  // Get meal ratios from profile (convert to percentages)
-  const mealRatioPercents = useMemo(() => ({
-    breakfast: Math.round(profile.mealRatios.breakfast * 100),
-    lunch: Math.round(profile.mealRatios.lunch * 100),
-    dinner: Math.round(profile.mealRatios.dinner * 100),
-  }), [profile.mealRatios]);
+  useEffect(() => {
+    let isActive = true;
+    const startDate = toDateKey(new Date(year, month, 1));
+    const endDate = toDateKey(new Date(year, month + 1, 0));
+
+    setRangeLoading(true);
+    setRangeError(null);
+
+    getDailyTargetsRange(startDate, endDate)
+      .then((response) => {
+        if (!isActive) return;
+        const map: Record<string, DailyTargets> = {};
+        for (const day of response.days) {
+          map[day.date] = day.calculatedTargets;
+        }
+        setTargetsByDate(map);
+      })
+      .catch((err) => {
+        if (!isActive) return;
+        setTargetsByDate({});
+        setRangeError(err instanceof Error ? err.message : 'Failed to load plan data');
+      })
+      .finally(() => {
+        if (!isActive) return;
+        setRangeLoading(false);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [year, month]);
+
+  useEffect(() => {
+    setSelectedDay(null);
+    setIsDialogOpen(false);
+  }, [year, month]);
 
   // Get first day of month and generate calendar grid
   const firstDayOfMonth = new Date(year, month, 1);
   const startingDayOfWeek = firstDayOfMonth.getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-  const monthData = useMemo(() => generateMockData(year, month, mealRatioPercents), [year, month, mealRatioPercents]);
+  const monthData = useMemo(() => {
+    const data: DayData[] = [];
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(year, month, day);
+      const targets = targetsByDate[toDateKey(date)];
+      if (!targets) {
+        data.push({
+          date,
+          breakfast: 0,
+          lunch: 0,
+          dinner: 0,
+          total: 0,
+          hasData: false,
+        });
+        continue;
+      }
+      const breakfast = targets.meals.breakfast.carbs + targets.meals.breakfast.protein + targets.meals.breakfast.fats;
+      const lunch = targets.meals.lunch.carbs + targets.meals.lunch.protein + targets.meals.lunch.fats;
+      const dinner = targets.meals.dinner.carbs + targets.meals.dinner.protein + targets.meals.dinner.fats;
+      data.push({
+        date,
+        dayType: targets.dayType,
+        mealTargets: targets.meals,
+        breakfast,
+        lunch,
+        dinner,
+        total: breakfast + lunch + dinner,
+        hasData: true,
+        fruitG: targets.fruitG,
+        veggiesG: targets.veggiesG,
+        waterL: targets.waterL,
+      });
+    }
+    return data;
+  }, [daysInMonth, month, targetsByDate, year]);
 
   const navigateMonth = (delta: number) => {
     const newDate = new Date(year, month + delta, 1);
@@ -118,26 +163,7 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
            date.getFullYear() === today.getFullYear();
   };
 
-  const macroRatios = useMemo(() => ({
-    carbs: profile.carbRatio,
-    protein: profile.proteinRatio,
-    fats: profile.fatRatio,
-  }), [profile.carbRatio, profile.proteinRatio, profile.fatRatio]);
-
-  const splitMacroPoints = (total: number): MacroPoints => {
-    const carbs = Math.round(total * macroRatios.carbs);
-    const protein = Math.round(total * macroRatios.protein);
-    const fats = Math.max(0, total - carbs - protein);
-    return { carbs, protein, fats };
-  };
-
-  const selectedMealTargets: MealTargets | null = selectedDay
-    ? {
-      breakfast: splitMacroPoints(selectedDay.breakfast),
-      lunch: splitMacroPoints(selectedDay.lunch),
-      dinner: splitMacroPoints(selectedDay.dinner),
-    }
-    : null;
+  const selectedMealTargets: MealTargets | null = selectedDay?.mealTargets ?? null;
 
   const selectedDateLabel = selectedDay
     ? selectedDay.date.toLocaleDateString('en-US', {
@@ -149,6 +175,9 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
     : 'Select a day';
 
   const openDayDialog = (dayData: DayData) => {
+    if (!dayData.hasData) {
+      return;
+    }
     setSelectedDay(dayData);
     setIsDialogOpen(true);
   };
@@ -208,6 +237,12 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
           </select>
         </div>
       </div>
+      {rangeError && (
+        <p className="text-sm text-red-400">Unable to load plan data.</p>
+      )}
+      {rangeLoading && !rangeError && (
+        <p className="text-sm text-gray-500">Loading plan data...</p>
+      )}
 
       {/* Calendar Grid */}
       <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
@@ -235,15 +270,19 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
             const isSelected = selectedDay?.date.getDate() === dayData.date.getDate()
               && selectedDay?.date.getMonth() === dayData.date.getMonth()
               && selectedDay?.date.getFullYear() === dayData.date.getFullYear();
+            const isDisabled = !dayData.hasData;
 
             return (
               <button
-                key={dayData.date.toISOString().split('T')[0]}
+                key={toDateKey(dayData.date)}
                 type="button"
                 onClick={() => openDayDialog(dayData)}
+                disabled={isDisabled}
                 className={`min-h-[120px] p-2 border-t border-r border-gray-800 last:border-r-0 text-left transition ${
                   isToday(dayData.date) ? 'bg-gray-800/30' : 'bg-transparent'
-                } ${isSelected ? 'ring-2 ring-white/20' : 'hover:bg-gray-800/40'}`}
+                } ${isSelected ? 'ring-2 ring-white/20' : ''} ${
+                  isDisabled ? 'cursor-not-allowed opacity-60' : 'hover:bg-gray-800/40'
+                }`}
               >
                 {/* Day Number & Today Indicator */}
                 <div className="flex items-center justify-between mb-2">
@@ -258,29 +297,39 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
                 </div>
 
                 {/* Day Type Badge */}
-                <div className={`inline-block px-2 py-0.5 rounded text-xs font-medium mb-2 ${
-                  DAY_TYPE_COLORS[dayData.dayType].bg
-                } text-white`}>
-                  {DAY_TYPE_LABELS[dayData.dayType]}
-                </div>
+                {dayData.dayType && dayData.hasData && (
+                  <div className={`inline-block px-2 py-0.5 rounded text-xs font-medium mb-2 ${
+                    DAY_TYPE_COLORS[dayData.dayType].bg
+                  } text-white`}>
+                    {DAY_TYPE_LABELS[dayData.dayType]}
+                  </div>
+                )}
 
                 {/* Points Breakdown */}
                 <div className="space-y-0.5 text-xs">
                   <div className="flex justify-between">
                     <span className="text-gray-500">B:</span>
-                    <span className="text-gray-300">{dayData.breakfast}</span>
+                    <span className={dayData.hasData ? 'text-gray-300' : 'text-gray-600'}>
+                      {dayData.hasData ? dayData.breakfast : '--'}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">L:</span>
-                    <span className="text-gray-300">{dayData.lunch}</span>
+                    <span className={dayData.hasData ? 'text-gray-300' : 'text-gray-600'}>
+                      {dayData.hasData ? dayData.lunch : '--'}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">D:</span>
-                    <span className="text-gray-300">{dayData.dinner}</span>
+                    <span className={dayData.hasData ? 'text-gray-300' : 'text-gray-600'}>
+                      {dayData.hasData ? dayData.dinner : '--'}
+                    </span>
                   </div>
                   <div className="flex justify-between pt-1 border-t border-gray-700">
                     <span className="text-gray-500">Tot:</span>
-                    <span className="text-white font-medium">{dayData.total}</span>
+                    <span className={dayData.hasData ? 'text-white font-medium' : 'text-gray-600'}>
+                      {dayData.hasData ? dayData.total : '--'}
+                    </span>
                   </div>
                 </div>
               </button>
@@ -328,12 +377,13 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
               <DayTargetsPanel
                 title="Day View"
                 dateLabel={selectedDateLabel}
-                dayType={selectedDay.dayType}
+                dayType={selectedDay.dayType ?? 'fatburner'}
                 mealTargets={selectedMealTargets}
                 mealRatios={profile.mealRatios}
-                totalFruitG={profile.fruitTargetG}
-                totalVeggiesG={profile.veggieTargetG}
-                helperText="Calendar targets use your profile ratios."
+                totalFruitG={selectedDay.fruitG ?? profile.fruitTargetG}
+                totalVeggiesG={selectedDay.veggiesG ?? profile.veggieTargetG}
+                waterL={selectedDay.waterL}
+                helperText="Targets are from your daily log."
               />
             </div>
           </div>

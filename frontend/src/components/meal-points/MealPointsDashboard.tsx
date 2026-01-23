@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { ApiError, getLogByDate } from '../../api/client';
 import type { DailyLog, DayType, UserProfile } from '../../api/types';
 import { MealCard } from './MealCard';
 import { SupplementsPanel } from './SupplementsPanel';
@@ -26,11 +27,19 @@ const isSameDay = (left: Date, right: Date) =>
   left.getMonth() === right.getMonth() &&
   left.getDate() === right.getDate();
 
+const toDateKey = (date: Date) => {
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 10);
+};
+
 export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPointsDashboardProps) {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedDayType, setSelectedDayType] = useState<DayType>(log?.dayType || 'fatburner');
   const [supplements, setSupplements] = useState(DEFAULT_SUPPLEMENTS);
   const [trendPeriod, setTrendPeriod] = useState<'7d' | '14d' | '30d'>('7d');
+  const [selectedLog, setSelectedLog] = useState<DailyLog | null>(log);
+  const [loadingLog, setLoadingLog] = useState(false);
+  const [logError, setLogError] = useState<string | null>(null);
   const isSelectedToday = isSameDay(selectedDate, new Date());
 
   // Get meal ratios from profile (convert to percentages)
@@ -65,32 +74,75 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
     setSelectedDate(newDate);
   };
 
-  // Get meal data from log - null if no log exists for today
-  const mealData = useMemo(() => {
-    if (!isSelectedToday) {
-      return {
-        breakfast: { carbs: 0, protein: 0, fats: 0 },
-        lunch: { carbs: 0, protein: 0, fats: 0 },
-        dinner: { carbs: 0, protein: 0, fats: 0 },
-        hasData: false,
+  useEffect(() => {
+    let isActive = true;
+    if (isSelectedToday) {
+      setSelectedLog(log);
+      setLoadingLog(false);
+      setLogError(null);
+      return () => {
+        isActive = false;
       };
     }
-    if (log?.calculatedTargets?.meals) {
+
+    setLoadingLog(true);
+    setLogError(null);
+    getLogByDate(toDateKey(selectedDate))
+      .then((data) => {
+        if (!isActive) return;
+        setSelectedLog(data);
+      })
+      .catch((err) => {
+        if (!isActive) return;
+        if (err instanceof ApiError && err.status === 404) {
+          setSelectedLog(null);
+          return;
+        }
+        setSelectedLog(null);
+        setLogError('Failed to load daily log');
+      })
+      .finally(() => {
+        if (!isActive) return;
+        setLoadingLog(false);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [isSelectedToday, log, selectedDate]);
+
+  useEffect(() => {
+    if (selectedLog?.dayType) {
+      setSelectedDayType(selectedLog.dayType);
+    }
+  }, [selectedLog?.dayType]);
+
+  // Get meal data from selected log
+  const mealData = useMemo(() => {
+    if (selectedLog?.calculatedTargets?.meals) {
       return {
-        breakfast: log.calculatedTargets.meals.breakfast,
-        lunch: log.calculatedTargets.meals.lunch,
-        dinner: log.calculatedTargets.meals.dinner,
+        breakfast: selectedLog.calculatedTargets.meals.breakfast,
+        lunch: selectedLog.calculatedTargets.meals.lunch,
+        dinner: selectedLog.calculatedTargets.meals.dinner,
         hasData: true,
       };
     }
-    // No log exists - show placeholder
     return {
       breakfast: { carbs: 0, protein: 0, fats: 0 },
       lunch: { carbs: 0, protein: 0, fats: 0 },
       dinner: { carbs: 0, protein: 0, fats: 0 },
       hasData: false,
     };
-  }, [isSelectedToday, log]);
+  }, [selectedLog]);
+
+  const emptyTitle = loadingLog
+    ? 'Loading daily log...'
+    : logError ?? 'No daily log for this date.';
+  const emptySubtitle = loadingLog
+    ? 'Fetching your meal points.'
+    : logError
+      ? 'Please try again shortly.'
+      : 'Complete your Daily Update to see your meal points.';
 
   return (
     <div className="p-6">
@@ -145,14 +197,10 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
           {!mealData.hasData ? (
             <div className="col-span-3 bg-gray-900 rounded-xl p-8 border border-gray-800 text-center">
               <p className="text-gray-400 mb-4">
-                {isSelectedToday
-                  ? 'No daily log for today yet.'
-                  : 'Meal points are available for today only.'}
+                {emptyTitle}
               </p>
               <p className="text-gray-500 text-sm">
-                {isSelectedToday
-                  ? 'Complete your Daily Update to see your meal points.'
-                  : 'Select today to view your meal points.'}
+                {emptySubtitle}
               </p>
             </div>
           ) : (
