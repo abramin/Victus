@@ -11,3 +11,4 @@ backend/.env
 
 # Editors
 .DS_Store
+.vscode/

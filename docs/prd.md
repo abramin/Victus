@@ -20,7 +20,7 @@ This document rewrites the existing PRD into a more user-journey and acceptance-
   - `metabolize` (refeed/high day)
 - **Training session**: a planned or actual activity with a type, duration, and optional perceived intensity.
 - **TDEE source**:
-  - `formula`: derived from BMR equation * activity multiplier (default 1.5 in current model).
+  - `formula`: derived from BMR equation * 1.2 + exercise calories.
   - `manual`: user-provided TDEE.
   - `adaptive`: estimated from weight trend + intake history when enough data exists.
 
@@ -165,13 +165,15 @@ This section defines the “single source of truth” calculation pipeline. All 
 
 #### 3.4.2 TDEE selection
 **Behavior**
-- If `tdeeSource=manual` and `manualTDEE` exists: use it (confidence=0.8, dataPointsUsed=0). fileciteturn1file14
-- If insufficient history (<14 days): fallback to `manualTDEE` if set, else `BMR * 1.5` (confidence=0.3). fileciteturn1file14
-- Else (>=14 days): use adaptive estimate from 28-day window of weight trend + avg intake. fileciteturn1file14
+- If `tdeeSource=manual` and `manualTDEE` exists: use it (confidence=0.8, dataPointsUsed=0).
+- If insufficient history (<14 samples **and** span <14 days): fallback to `manualTDEE` if set, else formula TDEE (BMR equation * 1.2 + exercise calories) (confidence=0.3).
+- Else: use adaptive estimate from recent history using weight trend (date deltas) + intake proxy (target calories), with an adherence adjustment and confidence penalty when plan vs trend diverges.
+- `estimatedTDEE` is the effective TDEE used for targets; `formulaTDEE` is stored for transparency and fallback diagnostics.
 
 **Acceptance criteria**
 - Given `tdeeSource=manual` and `manualTDEE=2800`, when targets are computed, then `estimatedTDEE=2800` and `tdee_confidence=0.8`.
-- Given `tdeeSource=adaptive` and only 10 days exist, when targets are computed, then fallback method is used and `tdee_confidence=0.3`.
+- Given `tdeeSource=adaptive` and only 10 days exist over a 10-day span, when targets are computed, then fallback method is used and `tdee_confidence=0.3`.
+- Given `tdeeSource=adaptive` and 6 samples exist over a 20-day span, when targets are computed, then adaptive is used with low confidence (<=0.3) and `dataPointsUsed=6`.
 - Given 28 days exist, when targets are computed, then the app uses the adaptive method with `dataPointsUsed=28` and returns a confidence in [0,1].
 
 #### 3.4.3 Day-type multipliers (protected protein)
@@ -300,7 +302,7 @@ This section defines the “single source of truth” calculation pipeline. All 
 
 The canonical data model is the existing PRD model, with these additional determinism notes:
 - `DailyLog.calculatedTargets` is stored as the computed output “as of that day,” so historical views are stable even if algorithms evolve later.
-- `DailyLog.estimatedTDEE` and other adaptive fields are stored alongside targets to preserve the model state at the time of calculation.
+- `DailyLog.estimatedTDEE`, `DailyLog.formulaTDEE`, and other adaptive fields are stored alongside targets to preserve the model state at the time of calculation.
 
 Reference TypeScript interfaces remain as in the base PRD. fileciteturn1file1
 

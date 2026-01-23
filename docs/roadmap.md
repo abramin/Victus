@@ -70,11 +70,13 @@ Core adaptive algorithms that learn from user data.
 
 **Key deliverables:**
 - 4 BMR equation options
-- TDEE source configuration (formula/manual/adaptive)
-- Adaptive TDEE from weight trends
-- Acute/Chronic training load ratio
-- Recovery score calculation
-- Daily adjustment multipliers with breakdown
+- TDEE source configuration (formula/manual/adaptive) with manual TDEE input
+- Formula TDEE = BMR * 1.2 + exercise calories, stored alongside estimated TDEE
+- Adaptive TDEE from weight trend + intake proxy with adherence adjustment (allow sparse samples over >=14-day span with low confidence)
+- Acute/Chronic training load ratio (7d/28d), session load uses actual duration and RPE when present
+- ACR defaults to 1 when chronic load is 0
+- Recovery score uses rest days in last 7, ACR thresholds, and average sleep quality (clamped 0-100)
+- Daily adjustment multipliers (training load, recovery score, sleep quality, yesterday max loadScore >= 5) with UI breakdown
 
 ---
 
@@ -106,16 +108,17 @@ Complete the history view and settings UI.
 
 | Order | Issue | Title | Dependencies | Effort |
 |-------|-------|-------|--------------|--------|
-| 12 | #11 | History Calendar & Log Details | #6, #7 | M |
+| 12 | #11 | History Views & Log Details | #6, #7 | M |
 | 13 | #12 | Settings & Configuration UI | #5, #8 | L |
 
 **Key deliverables:**
-- Calendar heatmap with training type colors
-- Log detail modal
-- TDEE configuration section
+- Weight chart with range toggles and trendline
+- Estimated TDEE + confidence over the same range
+- Planned vs actual training summary
+- Log detail modal with stored targets, inputs, sessions, and calculation details (TDEE + multipliers)
+- TDEE configuration section (source, manual TDEE, BMR equation)
 - Macro input as absolute grams
-- Recalibration tolerance settings
-- Training type editor
+- Recalibration tolerance settings (1-10%)
 
 ---
 
@@ -223,7 +226,7 @@ Slice 4 (Targets Display) ──────────────────
 | 8 | Adaptive TDEE Calculation | 3 | Open |
 | 9 | Training Load Tracking (ACR) | 3 | Open |
 | 10 | Recovery & Adaptive Adjustments | 3 | Open |
-| 11 | History Calendar & Log Details | 5 | Open |
+| 11 | History Views & Log Details | 5 | Open |
 | 12 | Settings & Configuration UI | 5 | Open |
 | 13 | Data Export | 6 | Open |
 | 14 | PWA & Mobile Optimization | 6 | Open |
