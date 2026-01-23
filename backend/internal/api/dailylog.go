@@ -39,9 +39,16 @@ func (s *Server) createDailyLog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Calculate training load metrics (ACR)
+	trainingLoad, err := s.dailyLogService.GetTrainingLoadMetrics(r.Context(), saved.Date, saved.ActualSessions, saved.PlannedSessions)
+	if err != nil {
+		// Log error but don't fail the request - training load is supplementary
+		trainingLoad = nil
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(requests.DailyLogToResponse(saved))
+	json.NewEncoder(w).Encode(requests.DailyLogToResponseWithTrainingLoad(saved, trainingLoad))
 }
 
 // getTodayLog handles GET /api/logs/today
@@ -59,8 +66,15 @@ func (s *Server) getTodayLog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Calculate training load metrics (ACR)
+	trainingLoad, err := s.dailyLogService.GetTrainingLoadMetrics(r.Context(), log.Date, log.ActualSessions, log.PlannedSessions)
+	if err != nil {
+		// Log error but don't fail the request - training load is supplementary
+		trainingLoad = nil
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(requests.DailyLogToResponse(log))
+	json.NewEncoder(w).Encode(requests.DailyLogToResponseWithTrainingLoad(log, trainingLoad))
 }
 
 // deleteTodayLog handles DELETE /api/logs/today
@@ -103,6 +117,13 @@ func (s *Server) updateActualTraining(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Calculate training load metrics (ACR)
+	trainingLoad, err := s.dailyLogService.GetTrainingLoadMetrics(r.Context(), log.Date, log.ActualSessions, log.PlannedSessions)
+	if err != nil {
+		// Log error but don't fail the request - training load is supplementary
+		trainingLoad = nil
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(requests.DailyLogToResponse(log))
+	json.NewEncoder(w).Encode(requests.DailyLogToResponseWithTrainingLoad(log, trainingLoad))
 }

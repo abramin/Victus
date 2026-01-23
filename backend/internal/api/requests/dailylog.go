@@ -63,6 +63,14 @@ type TrainingSummaryResponse struct {
 	Summary          string  `json:"summary"` // e.g., "3 sessions, 110 min total"
 }
 
+// TrainingLoadResponse contains ACR metrics for training load management.
+type TrainingLoadResponse struct {
+	DailyLoad   float64 `json:"dailyLoad"`   // Session loads summed for the day
+	AcuteLoad   float64 `json:"acuteLoad"`   // 7-day rolling average
+	ChronicLoad float64 `json:"chronicLoad"` // 28-day rolling average
+	ACR         float64 `json:"acr"`         // Acute:Chronic ratio (1.0 default when chronic=0)
+}
+
 // MacroPointsResponse represents macro points for a meal.
 type MacroPointsResponse struct {
 	Carbs   int `json:"carbs"`
@@ -102,6 +110,7 @@ type DailyLogResponse struct {
 	PlannedTrainingSessions []TrainingSessionResponse       `json:"plannedTrainingSessions"`
 	ActualTrainingSessions  []ActualTrainingSessionResponse `json:"actualTrainingSessions,omitempty"`
 	TrainingSummary         TrainingSummaryResponse         `json:"trainingSummary"`
+	TrainingLoad            *TrainingLoadResponse           `json:"trainingLoad,omitempty"` // ACR metrics
 	DayType                 string                          `json:"dayType"`
 	CalculatedTargets       DailyTargetsResponse            `json:"calculatedTargets"`
 	EstimatedTDEE           int                             `json:"estimatedTDEE"`
@@ -154,8 +163,26 @@ func DailyLogInputFromRequest(req CreateDailyLogRequest) domain.DailyLogInput {
 	}
 }
 
+// TrainingLoadToResponse converts a domain TrainingLoadResult to a TrainingLoadResponse.
+func TrainingLoadToResponse(t *domain.TrainingLoadResult) *TrainingLoadResponse {
+	if t == nil {
+		return nil
+	}
+	return &TrainingLoadResponse{
+		DailyLoad:   t.DailyLoad,
+		AcuteLoad:   t.AcuteLoad,
+		ChronicLoad: t.ChronicLoad,
+		ACR:         t.ACR,
+	}
+}
+
 // DailyLogToResponse converts a DailyLog model to a DailyLogResponse.
 func DailyLogToResponse(d *domain.DailyLog) DailyLogResponse {
+	return DailyLogToResponseWithTrainingLoad(d, nil)
+}
+
+// DailyLogToResponseWithTrainingLoad converts a DailyLog model to a DailyLogResponse with optional training load.
+func DailyLogToResponseWithTrainingLoad(d *domain.DailyLog, trainingLoad *domain.TrainingLoadResult) DailyLogResponse {
 	// Convert planned sessions to response format
 	plannedSessions := make([]TrainingSessionResponse, len(d.PlannedSessions))
 	for i, s := range d.PlannedSessions {
@@ -202,7 +229,8 @@ func DailyLogToResponse(d *domain.DailyLog) DailyLogResponse {
 			TotalLoadScore:   domain.TotalLoadScore(summarySessions),
 			Summary:          domain.SessionSummary(summarySessions),
 		},
-		DayType: string(d.DayType),
+		TrainingLoad: TrainingLoadToResponse(trainingLoad),
+		DayType:      string(d.DayType),
 		CalculatedTargets: DailyTargetsResponse{
 			TotalCarbsG:   d.CalculatedTargets.TotalCarbsG,
 			TotalProteinG: d.CalculatedTargets.TotalProteinG,

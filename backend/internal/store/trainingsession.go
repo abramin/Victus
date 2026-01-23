@@ -190,3 +190,101 @@ func (s *TrainingSessionStore) deleteActualByLogID(ctx context.Context, execer s
 	_, err := execer.ExecContext(ctx, "DELETE FROM training_sessions WHERE daily_log_id = ? AND is_planned = 0", logID)
 	return err
 }
+
+// SessionsByDate represents training sessions grouped by date for ACR calculation.
+type SessionsByDate struct {
+	Date            string
+	PlannedSessions []domain.TrainingSession
+	ActualSessions  []domain.TrainingSession
+}
+
+// GetSessionsForDateRange retrieves all training sessions within a date range for ACR calculation.
+// Returns sessions grouped by date, ordered by date (oldest first).
+// endDate is inclusive.
+func (s *TrainingSessionStore) GetSessionsForDateRange(ctx context.Context, startDate, endDate string) ([]SessionsByDate, error) {
+	const query = `
+		SELECT
+			dl.log_date,
+			ts.session_order,
+			ts.is_planned,
+			ts.training_type,
+			ts.duration_min,
+			ts.perceived_intensity,
+			ts.notes
+		FROM daily_logs dl
+		LEFT JOIN training_sessions ts ON dl.id = ts.daily_log_id
+		WHERE dl.log_date >= ? AND dl.log_date <= ?
+		ORDER BY dl.log_date ASC, ts.is_planned DESC, ts.session_order ASC
+	`
+
+	rows, err := s.db.QueryContext(ctx, query, startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	// Group sessions by date
+	byDate := make(map[string]*SessionsByDate)
+	var orderedDates []string
+
+	for rows.Next() {
+		var (
+			date         string
+			sessionOrder sql.NullInt64
+			isPlanned    sql.NullBool
+			trainingType sql.NullString
+			durationMin  sql.NullInt64
+			intensity    sql.NullInt64
+			notes        sql.NullString
+		)
+
+		if err := rows.Scan(&date, &sessionOrder, &isPlanned, &trainingType,
+			&durationMin, &intensity, &notes); err != nil {
+			return nil, err
+		}
+
+		// Initialize date entry if needed
+		if _, exists := byDate[date]; !exists {
+			byDate[date] = &SessionsByDate{Date: date}
+			orderedDates = append(orderedDates, date)
+		}
+
+		// Skip if no session data (LEFT JOIN with no sessions)
+		if !sessionOrder.Valid {
+			continue
+		}
+
+		session := domain.TrainingSession{
+			SessionOrder: int(sessionOrder.Int64),
+			IsPlanned:    isPlanned.Bool,
+			Type:         domain.TrainingType(trainingType.String),
+			DurationMin:  int(durationMin.Int64),
+		}
+
+		if intensity.Valid {
+			i := int(intensity.Int64)
+			session.PerceivedIntensity = &i
+		}
+		if notes.Valid {
+			session.Notes = notes.String
+		}
+
+		if session.IsPlanned {
+			byDate[date].PlannedSessions = append(byDate[date].PlannedSessions, session)
+		} else {
+			byDate[date].ActualSessions = append(byDate[date].ActualSessions, session)
+		}
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	// Convert to ordered slice
+	result := make([]SessionsByDate, len(orderedDates))
+	for i, date := range orderedDates {
+		result[i] = *byDate[date]
+	}
+
+	return result, nil
+}

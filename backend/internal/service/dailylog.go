@@ -172,3 +172,38 @@ func (s *DailyLogService) GetWeightTrend(ctx context.Context, startDate string) 
 	trend := domain.CalculateWeightTrend(samples)
 	return samples, trend, nil
 }
+
+// GetTrainingLoadMetrics calculates ACR metrics for a given date.
+// Uses up to 28 days of historical data for chronic load calculation.
+// The todayLoad is calculated from the provided actual/planned sessions.
+func (s *DailyLogService) GetTrainingLoadMetrics(ctx context.Context, date string, actualSessions, plannedSessions []domain.TrainingSession) (*domain.TrainingLoadResult, error) {
+	// Calculate date range (28 days back from date)
+	targetDate, err := time.Parse("2006-01-02", date)
+	if err != nil {
+		return nil, err
+	}
+	startDate := targetDate.AddDate(0, 0, -27).Format("2006-01-02") // 28 days including target
+
+	// Fetch sessions for date range
+	sessionsData, err := s.sessionStore.GetSessionsForDateRange(ctx, startDate, date)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert to daily load data points
+	dataPoints := make([]domain.DailyLoadDataPoint, len(sessionsData))
+	for i, sd := range sessionsData {
+		dataPoints[i] = domain.DailyLoadDataPoint{
+			Date:      sd.Date,
+			DailyLoad: domain.DailyLoad(sd.ActualSessions, sd.PlannedSessions),
+		}
+	}
+
+	// Calculate today's load from provided sessions (not from historical data)
+	// This allows the API response to reflect current session state accurately
+	todayLoad := domain.DailyLoad(actualSessions, plannedSessions)
+
+	// Calculate ACR metrics
+	result := domain.CalculateTrainingLoadResult(todayLoad, dataPoints)
+	return &result, nil
+}
