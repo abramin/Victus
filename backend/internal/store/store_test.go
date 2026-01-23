@@ -175,6 +175,7 @@ func (s *StoreSuite) TestLogFieldPreservation() {
 				DayType:  domain.DayTypePerformance,
 			},
 			EstimatedTDEE: 2500,
+			FormulaTDEE:   2450,
 		}
 
 		logID, err := s.logStore.Create(s.ctx, log)
@@ -191,6 +192,7 @@ func (s *StoreSuite) TestLogFieldPreservation() {
 		s.Equal(log.CalculatedTargets.TotalCalories, loaded.CalculatedTargets.TotalCalories)
 		s.Equal(log.CalculatedTargets.Meals.Breakfast.Carbs, loaded.CalculatedTargets.Meals.Breakfast.Carbs)
 		s.Equal(log.EstimatedTDEE, loaded.EstimatedTDEE)
+		s.Equal(log.FormulaTDEE, loaded.FormulaTDEE)
 	})
 }
 

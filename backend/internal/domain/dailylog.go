@@ -22,6 +22,7 @@ type DailyLog struct {
 	DayType           DayType
 	CalculatedTargets DailyTargets
 	EstimatedTDEE     int
+	FormulaTDEE       int
 	TDEESourceUsed    TDEESource // Which TDEE source was used for this day's calculations
 	TDEEConfidence    float64    // Confidence level 0-1 for adaptive TDEE (0 means not adaptive)
 	DataPointsUsed    int        // Number of data points used for adaptive calculation

@@ -46,6 +46,7 @@ func RunMigrations(db *sql.DB) error {
 		addTDEESourceUsedColumn,
 		addTDEEConfidenceColumn,
 		addDataPointsUsedColumn,
+		addFormulaTDEEColumn,
 	}
 
 	for _, migration := range alterMigrations {
@@ -136,6 +137,7 @@ CREATE TABLE IF NOT EXISTS daily_logs (
     water_l REAL,
     day_type TEXT,
     estimated_tdee INTEGER,
+    formula_tdee INTEGER,
 
     -- Adaptive TDEE metadata (Issue #8)
     tdee_source_used TEXT DEFAULT 'formula',
@@ -203,6 +205,7 @@ const addManualTDEEColumn = `ALTER TABLE user_profile ADD COLUMN manual_tdee REA
 const addTDEESourceUsedColumn = `ALTER TABLE daily_logs ADD COLUMN tdee_source_used TEXT DEFAULT 'formula'`
 const addTDEEConfidenceColumn = `ALTER TABLE daily_logs ADD COLUMN tdee_confidence REAL DEFAULT 0`
 const addDataPointsUsedColumn = `ALTER TABLE daily_logs ADD COLUMN data_points_used INTEGER DEFAULT 0`
+const addFormulaTDEEColumn = `ALTER TABLE daily_logs ADD COLUMN formula_tdee INTEGER`
 
 // Training sessions table for multiple sessions per day (Issue #31)
 const createTrainingSessionsTable = `

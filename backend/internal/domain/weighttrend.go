@@ -1,5 +1,7 @@
 package domain
 
+import "time"
+
 type WeightSample struct {
 	Date     string
 	WeightKg float64
@@ -79,6 +81,36 @@ func CalculateWeightTrend(samples []WeightSample) *WeightTrend {
 		return nil
 	}
 
+	startDate, err := time.Parse("2006-01-02", samples[0].Date)
+	if err != nil {
+		return calculateWeightTrendByIndex(samples)
+	}
+
+	points := make([]regressionPoint, len(samples))
+	for i, sample := range samples {
+		sampleDate, err := time.Parse("2006-01-02", sample.Date)
+		if err != nil {
+			return calculateWeightTrendByIndex(samples)
+		}
+		daysSinceStart := sampleDate.Sub(startDate).Hours() / 24
+		points[i] = regressionPoint{
+			x: daysSinceStart,
+			y: sample.WeightKg,
+		}
+	}
+
+	regression := calculateLinearRegression(points)
+	lastX := points[len(points)-1].x
+
+	return &WeightTrend{
+		WeeklyChangeKg: regression.slope * 7,
+		RSquared:       regression.rSquared,
+		StartWeightKg:  regression.predict(0),
+		EndWeightKg:    regression.predict(lastX),
+	}
+}
+
+func calculateWeightTrendByIndex(samples []WeightSample) *WeightTrend {
 	points := make([]regressionPoint, len(samples))
 	for i, sample := range samples {
 		points[i] = regressionPoint{

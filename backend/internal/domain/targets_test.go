@@ -239,7 +239,7 @@ func (s *TargetsSuite) TestVeggieCalculation() {
 	s.Run("caps at 10 percent of carbs", func() {
 		// Low carbs: 50g carbs, max veggies = (50 * 0.10) / 0.03 = 167g
 		veggies := calculateVeggies(50, 500)
-		s.Equal(167, veggies, "Should cap at carb-derived limit")
+		s.Equal(165, veggies, "Should cap at carb-derived limit and round to nearest 5g")
 	})
 }
 

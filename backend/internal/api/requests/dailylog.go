@@ -83,7 +83,7 @@ type DailyTargetsResponse struct {
 	TotalProteinG int                 `json:"totalProteinG"`
 	TotalFatsG    int                 `json:"totalFatsG"`
 	TotalCalories int                 `json:"totalCalories"`
-	EstimatedTDEE int                 `json:"estimatedTDEE"` // Pre-adjustment TDEE
+	EstimatedTDEE int                 `json:"estimatedTDEE"` // Effective TDEE used for targets
 	Meals         MealTargetsResponse `json:"meals"`
 	FruitG        int                 `json:"fruitG"`
 	VeggiesG      int                 `json:"veggiesG"`
@@ -105,6 +105,7 @@ type DailyLogResponse struct {
 	DayType                 string                          `json:"dayType"`
 	CalculatedTargets       DailyTargetsResponse            `json:"calculatedTargets"`
 	EstimatedTDEE           int                             `json:"estimatedTDEE"`
+	FormulaTDEE             int                             `json:"formulaTDEE,omitempty"`
 	TDEESourceUsed          string                          `json:"tdeeSourceUsed"`           // formula, manual, or adaptive
 	TDEEConfidence          float64                         `json:"tdeeConfidence,omitempty"` // 0-1 confidence for adaptive TDEE
 	DataPointsUsed          int                             `json:"dataPointsUsed,omitempty"` // Number of data points used for adaptive
@@ -207,7 +208,7 @@ func DailyLogToResponse(d *domain.DailyLog) DailyLogResponse {
 			TotalProteinG: d.CalculatedTargets.TotalProteinG,
 			TotalFatsG:    d.CalculatedTargets.TotalFatsG,
 			TotalCalories: d.CalculatedTargets.TotalCalories,
-			EstimatedTDEE: d.CalculatedTargets.EstimatedTDEE,
+			EstimatedTDEE: d.EstimatedTDEE,
 			Meals: MealTargetsResponse{
 				Breakfast: MacroPointsResponse{
 					Carbs:   d.CalculatedTargets.Meals.Breakfast.Carbs,
@@ -231,6 +232,7 @@ func DailyLogToResponse(d *domain.DailyLog) DailyLogResponse {
 			DayType:  string(d.CalculatedTargets.DayType),
 		},
 		EstimatedTDEE:  d.EstimatedTDEE,
+		FormulaTDEE:    d.FormulaTDEE,
 		TDEESourceUsed: string(d.TDEESourceUsed),
 		TDEEConfidence: d.TDEEConfidence,
 		DataPointsUsed: d.DataPointsUsed,

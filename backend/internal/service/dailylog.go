@@ -46,6 +46,7 @@ func (s *DailyLogService) Create(ctx context.Context, input domain.DailyLogInput
 		log.PlannedSessions,
 		now,
 	)
+	log.FormulaTDEE = formulaTDEE
 
 	// Try to calculate adaptive TDEE if profile uses adaptive source
 	var adaptiveResult *domain.AdaptiveTDEEResult

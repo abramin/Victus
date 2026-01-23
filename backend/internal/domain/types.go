@@ -177,7 +177,7 @@ type DailyTargets struct {
 	TotalProteinG int
 	TotalFatsG    int
 	TotalCalories int
-	EstimatedTDEE int // Pre-adjustment TDEE for adaptive tracking
+	EstimatedTDEE int // Effective TDEE used for target calculations
 	Meals         MealTargets
 	FruitG        int
 	VeggiesG      int

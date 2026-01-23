@@ -87,9 +87,16 @@ func CalculateDailyTargets(profile *UserProfile, log *DailyLog, now time.Time) D
 	// Sum calories across all planned sessions
 	exerciseCalories := CalculateTotalExerciseCalories(log.PlannedSessions, log.WeightKg)
 
-	// 3. Calculate TDEE = BMR × NEAT multiplier + Exercise Calories
+	// 3. Calculate formula TDEE = BMR × NEAT multiplier + Exercise Calories
 	neatMultiplier := 1.2 // Sedentary activity factor
-	estimatedTDEE := bmr*neatMultiplier + exerciseCalories
+	formulaTDEE := bmr*neatMultiplier + exerciseCalories
+	if log.FormulaTDEE > 0 {
+		formulaTDEE = float64(log.FormulaTDEE)
+	}
+	effectiveTDEE := float64(log.EstimatedTDEE)
+	if effectiveTDEE <= 0 {
+		effectiveTDEE = formulaTDEE
+	}
 
 	// 4. Apply goal-based calorie adjustment
 	var targetCalories float64
@@ -98,15 +105,15 @@ func CalculateDailyTargets(profile *UserProfile, log *DailyLog, now time.Time) D
 	switch profile.Goal {
 	case GoalLoseWeight:
 		// Target 500-750 kcal deficit for ~0.5-0.75 kg/week loss
-		deficit := math.Min(estimatedTDEE*0.20, 750) // Max 20% or 750 kcal
-		targetCalories = estimatedTDEE - deficit
-		deficitSeverity = deficit / estimatedTDEE
+		deficit := math.Min(effectiveTDEE*0.20, 750) // Max 20% or 750 kcal
+		targetCalories = effectiveTDEE - deficit
+		deficitSeverity = deficit / effectiveTDEE
 	case GoalGainWeight:
 		// Target 250-500 kcal surplus for lean gains
-		surplus := math.Min(estimatedTDEE*0.10, 500) // Max 10% or 500 kcal
-		targetCalories = estimatedTDEE + surplus
+		surplus := math.Min(effectiveTDEE*0.10, 500) // Max 10% or 500 kcal
+		targetCalories = effectiveTDEE + surplus
 	default: // GoalMaintain
-		targetCalories = estimatedTDEE
+		targetCalories = effectiveTDEE
 	}
 
 	// 5. Calculate macros with protein-first approach
@@ -168,7 +175,7 @@ func CalculateDailyTargets(profile *UserProfile, log *DailyLog, now time.Time) D
 		TotalProteinG: int(math.Round(finalProteinG)),
 		TotalFatsG:    int(math.Round(finalFatsG)),
 		TotalCalories: int(math.Round(totalCalories)),
-		EstimatedTDEE: int(math.Round(estimatedTDEE)),
+		EstimatedTDEE: int(math.Round(effectiveTDEE)),
 		Meals:         meals,
 		FruitG:        fruitG,
 		VeggiesG:      veggiesG,
@@ -400,16 +407,17 @@ func calculateAge(birthDate time.Time, now time.Time) int {
 
 // calculateFruit calculates fruit target respecting carb constraints.
 // Max fruit: 30% of total carbs / 0.10 (fruit is ~10g carbs per 100g)
-// Fatburner days reduce fruit by 30%
+// Fatburner days reduce fruit by 30% before applying the carb cap.
 func calculateFruit(carbsG, targetG float64, dayType DayType) int {
 	maxFruit := (carbsG * 0.30) / 0.10 // 30% of carbs, 10g carbs per 100g fruit
-	result := math.Min(targetG, maxFruit)
-
+	multiplier := 1.0
 	if dayType == DayTypeFatburner {
-		result *= 0.70 // Reduce by 30% on fatburner days
+		multiplier = 0.70 // Reduce by 30% on fatburner days
 	}
+	adjustedTarget := targetG * multiplier
+	result := math.Min(adjustedTarget, maxFruit)
 
-	return int(math.Round(result))
+	return roundToNearest5(result)
 }
 
 // calculateVeggies calculates veggie target respecting carb constraints.
@@ -417,7 +425,7 @@ func calculateFruit(carbsG, targetG float64, dayType DayType) int {
 func calculateVeggies(carbsG, targetG float64) int {
 	maxVeggies := (carbsG * 0.10) / 0.03 // 10% of carbs, 3g carbs per 100g veggies
 	result := math.Min(targetG, maxVeggies)
-	return int(math.Round(result))
+	return roundToNearest5(result)
 }
 
 // calculateMealPoints converts macro grams to meal points using profile config.
@@ -513,7 +521,9 @@ type AdaptiveTDEEResult struct {
 type AdaptiveDataPoint struct {
 	Date           string
 	WeightKg       float64
-	CaloriesInTake int // Calories consumed that day
+	TargetCalories int // Planned intake for the day (used as intake proxy)
+	EstimatedTDEE  int // Effective TDEE used when targets were generated
+	FormulaTDEE    int // Formula-based TDEE for transparency and fallback
 }
 
 // MinDataPointsForAdaptive is the minimum number of days needed for adaptive TDEE.
@@ -522,8 +532,88 @@ const MinDataPointsForAdaptive = 14
 // MaxDataPointsForAdaptive is the maximum lookback period in days.
 const MaxDataPointsForAdaptive = 56
 
+const adherenceAdjustmentFactor = 0.5
+const adherencePenaltyScaleKcal = 600.0
+const adherencePenaltyMax = 0.2
+
+func pointBaselineTDEE(point AdaptiveDataPoint) float64 {
+	if point.EstimatedTDEE > 0 {
+		return float64(point.EstimatedTDEE)
+	}
+	if point.FormulaTDEE > 0 {
+		return float64(point.FormulaTDEE)
+	}
+	return 0
+}
+
+func adjustIntake(avgTarget, avgBaseline, observedDeficit float64) (float64, float64) {
+	if avgTarget <= 0 || avgBaseline <= 0 {
+		return avgTarget, 0
+	}
+	expectedDeficit := avgBaseline - avgTarget
+	adjustment := expectedDeficit - observedDeficit
+	adjustedIntake := avgTarget + adjustment*adherenceAdjustmentFactor
+	if adjustedIntake < 0 {
+		adjustedIntake = 0
+	}
+	return adjustedIntake, math.Abs(adjustment)
+}
+
+func adherencePenalty(avgAdjustment float64) float64 {
+	if avgAdjustment <= 0 {
+		return 0
+	}
+	penalty := (avgAdjustment / adherencePenaltyScaleKcal) * adherencePenaltyMax
+	if penalty > adherencePenaltyMax {
+		return adherencePenaltyMax
+	}
+	if penalty < 0 {
+		return 0
+	}
+	return penalty
+}
+
+func parseDate(dateStr string) (time.Time, bool) {
+	parsed, err := time.Parse("2006-01-02", dateStr)
+	if err != nil {
+		return time.Time{}, false
+	}
+	return parsed, true
+}
+
+func adaptiveSpanDays(dataPoints []AdaptiveDataPoint) (float64, bool) {
+	if len(dataPoints) < 2 {
+		return 0, false
+	}
+	start, ok := parseDate(dataPoints[0].Date)
+	if !ok {
+		return 0, false
+	}
+	end, ok := parseDate(dataPoints[len(dataPoints)-1].Date)
+	if !ok {
+		return 0, false
+	}
+	spanDays := end.Sub(start).Hours() / 24
+	if spanDays <= 0 {
+		return 0, false
+	}
+	return spanDays, true
+}
+
+func daysBetweenDates(startDate, endDate string) float64 {
+	start, ok := parseDate(startDate)
+	if !ok {
+		return 0
+	}
+	end, ok := parseDate(endDate)
+	if !ok {
+		return 0
+	}
+	return end.Sub(start).Hours() / 24
+}
+
 // CalculateAdaptiveTDEE calculates TDEE from historical weight and calorie data.
-// Uses the energy balance equation: TDEE = Calories Eaten + (Weight Loss × 7700 kcal/kg)
+// Uses target calories as an intake proxy with a light adherence adjustment.
 //
 // The algorithm:
 //  1. Calculates weekly weight changes from the data points
@@ -534,7 +624,7 @@ const MaxDataPointsForAdaptive = 56
 //
 // Returns nil if insufficient data (less than MinDataPointsForAdaptive days).
 func CalculateAdaptiveTDEE(dataPoints []AdaptiveDataPoint) *AdaptiveTDEEResult {
-	if len(dataPoints) < MinDataPointsForAdaptive {
+	if len(dataPoints) < 2 {
 		return nil
 	}
 
@@ -543,14 +633,28 @@ func CalculateAdaptiveTDEE(dataPoints []AdaptiveDataPoint) *AdaptiveTDEEResult {
 		dataPoints = dataPoints[len(dataPoints)-MaxDataPointsForAdaptive:]
 	}
 
+	spanDays, spanOK := adaptiveSpanDays(dataPoints)
+	if len(dataPoints) < MinDataPointsForAdaptive && (!spanOK || spanDays < MinDataPointsForAdaptive) {
+		return nil
+	}
+
+	if len(dataPoints) < MinDataPointsForAdaptive {
+		return calculateSparseAdaptiveTDEE(dataPoints, spanDays)
+	}
+
 	// Group data into weeks for more stable calculations
 	numWeeks := len(dataPoints) / 7
 	if numWeeks < 2 {
+		if spanOK && spanDays >= MinDataPointsForAdaptive {
+			return calculateSparseAdaptiveTDEE(dataPoints, spanDays)
+		}
 		return nil
 	}
 
 	var weeklyTDEEEstimates []float64
 	var weights []float64 // For weighted average - recent weeks count more
+	var adherenceErrorSum float64
+	var adherenceSamples int
 
 	for week := 0; week < numWeeks-1; week++ {
 		startIdx := week * 7
@@ -566,28 +670,45 @@ func CalculateAdaptiveTDEE(dataPoints []AdaptiveDataPoint) *AdaptiveTDEEResult {
 		weightChangeKg := startWeight - endWeight // Positive = weight loss
 
 		// Calculate average daily intake for the first week
-		var totalCalories int
+		var totalCalories float64
+		var totalBaseline float64
 		daysInWeek := 0
+		baselineCount := 0
 		for i := startIdx; i < startIdx+7 && i < len(dataPoints); i++ {
-			totalCalories += dataPoints[i].CaloriesInTake
+			totalCalories += float64(dataPoints[i].TargetCalories)
 			daysInWeek++
+			baseline := pointBaselineTDEE(dataPoints[i])
+			if baseline > 0 {
+				totalBaseline += baseline
+				baselineCount++
+			}
 		}
 
 		if daysInWeek == 0 {
 			continue
 		}
 
-		avgDailyIntake := float64(totalCalories) / float64(daysInWeek)
+		avgDailyIntake := totalCalories / float64(daysInWeek)
+		avgBaseline := 0.0
+		if baselineCount > 0 {
+			avgBaseline = totalBaseline / float64(baselineCount)
+		}
 
 		// Calculate TDEE from energy balance
-		// Weight change over 14 days, so daily change = weightChangeKg / 14
 		// Calories per kg of body weight change ≈ 7700 kcal
-		dailyCalorieDeficit := (weightChangeKg / 14.0) * 7700.0
-		estimatedTDEE := avgDailyIntake + dailyCalorieDeficit
+		daysBetween := daysBetweenDates(dataPoints[startIdx].Date, dataPoints[endIdx-1].Date)
+		if daysBetween <= 0 {
+			continue
+		}
+		dailyCalorieDeficit := (weightChangeKg / daysBetween) * 7700.0
+		adjustedIntake, adjustmentAbs := adjustIntake(avgDailyIntake, avgBaseline, dailyCalorieDeficit)
+		estimatedTDEE := adjustedIntake + dailyCalorieDeficit
 
 		// Sanity check - TDEE should be reasonable (800-6000 range)
 		if estimatedTDEE >= 800 && estimatedTDEE <= 6000 {
 			weeklyTDEEEstimates = append(weeklyTDEEEstimates, estimatedTDEE)
+			adherenceErrorSum += adjustmentAbs
+			adherenceSamples++
 			// More recent weeks get higher weight
 			recencyWeight := float64(week+1) / float64(numWeeks)
 			weights = append(weights, recencyWeight)
@@ -628,10 +749,63 @@ func CalculateAdaptiveTDEE(dataPoints []AdaptiveDataPoint) *AdaptiveTDEEResult {
 
 	// Combined confidence (geometric mean of factors)
 	confidence := math.Sqrt(dataPointConfidence * consistencyConfidence)
+	if adherenceSamples > 0 {
+		avgAdherenceError := adherenceErrorSum / float64(adherenceSamples)
+		confidence *= 1 - adherencePenalty(avgAdherenceError)
+	}
 	confidence = math.Round(confidence*100) / 100 // Round to 2 decimal places
 
 	return &AdaptiveTDEEResult{
 		TDEE:           math.Round(adaptiveTDEE),
+		Confidence:     confidence,
+		DataPointsUsed: len(dataPoints),
+		Source:         TDEESourceAdaptive,
+	}
+}
+
+func calculateSparseAdaptiveTDEE(dataPoints []AdaptiveDataPoint, spanDays float64) *AdaptiveTDEEResult {
+	if len(dataPoints) < 2 || spanDays <= 0 {
+		return nil
+	}
+
+	var totalCalories float64
+	var totalBaseline float64
+	baselineCount := 0
+	for _, point := range dataPoints {
+		totalCalories += float64(point.TargetCalories)
+		baseline := pointBaselineTDEE(point)
+		if baseline > 0 {
+			totalBaseline += baseline
+			baselineCount++
+		}
+	}
+	if totalCalories <= 0 {
+		return nil
+	}
+
+	avgDailyIntake := totalCalories / float64(len(dataPoints))
+	avgBaseline := 0.0
+	if baselineCount > 0 {
+		avgBaseline = totalBaseline / float64(baselineCount)
+	}
+
+	startWeight := dataPoints[0].WeightKg
+	endWeight := dataPoints[len(dataPoints)-1].WeightKg
+	weightChangeKg := startWeight - endWeight
+	dailyCalorieDeficit := (weightChangeKg / spanDays) * 7700.0
+	adjustedIntake, adjustmentAbs := adjustIntake(avgDailyIntake, avgBaseline, dailyCalorieDeficit)
+	estimatedTDEE := adjustedIntake + dailyCalorieDeficit
+
+	if estimatedTDEE < 800 || estimatedTDEE > 6000 {
+		return nil
+	}
+
+	confidence := 0.3
+	confidence *= 1 - adherencePenalty(adjustmentAbs)
+	confidence = math.Round(confidence*100) / 100
+
+	return &AdaptiveTDEEResult{
+		TDEE:           math.Round(estimatedTDEE),
 		Confidence:     confidence,
 		DataPointsUsed: len(dataPoints),
 		Source:         TDEESourceAdaptive,
@@ -644,22 +818,27 @@ func CalculateAdaptiveTDEE(dataPoints []AdaptiveDataPoint) *AdaptiveTDEEResult {
 // 2. Adaptive TDEE if source is "adaptive" and we have enough data
 // 3. Formula-based TDEE as fallback
 func GetEffectiveTDEE(profile *UserProfile, formulaTDEE int, adaptiveResult *AdaptiveTDEEResult) (int, TDEESource, float64, int) {
+	const fallbackConfidence = 0.3
+
 	switch profile.TDEESource {
 	case TDEESourceManual:
 		if profile.ManualTDEE > 0 {
-			return int(profile.ManualTDEE), TDEESourceManual, 1.0, 0
+			return int(profile.ManualTDEE), TDEESourceManual, 0.8, 0
 		}
-		// Fall through to formula if manual not set
-		return formulaTDEE, TDEESourceFormula, 0, 0
+		// Fall back to formula if manual not set
+		return formulaTDEE, TDEESourceFormula, fallbackConfidence, 0
 
 	case TDEESourceAdaptive:
-		if adaptiveResult != nil && adaptiveResult.Confidence >= 0.5 {
+		if adaptiveResult != nil && adaptiveResult.Confidence >= 0.3 {
 			return int(adaptiveResult.TDEE), TDEESourceAdaptive, adaptiveResult.Confidence, adaptiveResult.DataPointsUsed
 		}
-		// Fall back to formula if insufficient confidence
-		return formulaTDEE, TDEESourceFormula, 0, 0
+		// Fall back to manual if set, else formula
+		if profile.ManualTDEE > 0 {
+			return int(profile.ManualTDEE), TDEESourceManual, fallbackConfidence, 0
+		}
+		return formulaTDEE, TDEESourceFormula, fallbackConfidence, 0
 
 	default: // TDEESourceFormula
-		return formulaTDEE, TDEESourceFormula, 0, 0
+		return formulaTDEE, TDEESourceFormula, fallbackConfidence, 0
 	}
 }
