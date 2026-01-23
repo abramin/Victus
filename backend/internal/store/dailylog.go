@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strings"
 	"time"
 
 	"victus/internal/domain"
@@ -11,6 +12,9 @@ import (
 
 // ErrDailyLogNotFound is returned when no daily log exists for the given date.
 var ErrDailyLogNotFound = errors.New("daily log not found")
+
+// ErrDailyLogAlreadyExists is returned when a daily log already exists for the date.
+var ErrDailyLogAlreadyExists = errors.New("daily log already exists")
 
 // DailyLogStore handles database operations for daily logs.
 type DailyLogStore struct {
@@ -20,6 +24,26 @@ type DailyLogStore struct {
 // NewDailyLogStore creates a new DailyLogStore.
 func NewDailyLogStore(db *sql.DB) *DailyLogStore {
 	return &DailyLogStore{db: db}
+}
+
+// WithTx executes fn within a transaction.
+func (s *DailyLogStore) WithTx(ctx context.Context, fn func(*sql.Tx) error) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	if err := fn(tx); err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+
+	return nil
 }
 
 // GetByDate retrieves a daily log by date (YYYY-MM-DD format).
@@ -111,6 +135,15 @@ func (s *DailyLogStore) GetIDByDate(ctx context.Context, date string) (int64, er
 // Returns an error if a log already exists for that date.
 // Note: Training sessions are stored separately via TrainingSessionStore.
 func (s *DailyLogStore) Create(ctx context.Context, log *domain.DailyLog) (int64, error) {
+	return s.create(ctx, s.db, log)
+}
+
+// CreateWithTx inserts a new daily log within an existing transaction.
+func (s *DailyLogStore) CreateWithTx(ctx context.Context, tx *sql.Tx, log *domain.DailyLog) (int64, error) {
+	return s.create(ctx, tx, log)
+}
+
+func (s *DailyLogStore) create(ctx context.Context, execer sqlExecer, log *domain.DailyLog) (int64, error) {
 	const query = `
 		INSERT INTO daily_logs (
 			log_date, weight_kg, body_fat_percent, resting_heart_rate,
@@ -149,7 +182,7 @@ func (s *DailyLogStore) Create(ctx context.Context, log *domain.DailyLog) (int64
 		sleepHours = *log.SleepHours
 	}
 
-	result, err := s.db.ExecContext(ctx, query,
+	result, err := execer.ExecContext(ctx, query,
 		log.Date, log.WeightKg, bodyFatPercent, heartRate,
 		log.SleepQuality, sleepHours,
 		// planned_training_type and planned_duration_min use default values ('rest', 0)
@@ -167,6 +200,9 @@ func (s *DailyLogStore) Create(ctx context.Context, log *domain.DailyLog) (int64
 		log.EstimatedTDEE,
 	)
 	if err != nil {
+		if isUniqueConstraint(err) {
+			return 0, ErrDailyLogAlreadyExists
+		}
 		return 0, err
 	}
 
@@ -210,4 +246,8 @@ func (s *DailyLogStore) ListWeights(ctx context.Context, startDate string) ([]do
 	}
 
 	return samples, nil
+}
+
+func isUniqueConstraint(err error) bool {
+	return strings.Contains(err.Error(), "UNIQUE constraint")
 }

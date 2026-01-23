@@ -38,7 +38,7 @@ export function NumberInput({
     if (value !== currentParsed) {
       setDisplayValue(value === 0 ? '' : String(value));
     }
-  }, [value]);
+  }, [value, displayValue]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value;

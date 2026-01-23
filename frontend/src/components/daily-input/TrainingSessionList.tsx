@@ -1,4 +1,8 @@
+import { useCallback, useMemo } from 'react';
 import type { TrainingSession, TrainingType } from '../../api/types';
+
+// Internal type with stable ID for React keys
+type SessionWithId = TrainingSession & { _id: string };
 
 const TRAINING_OPTIONS = [
   { value: 'rest', label: 'Rest Day' },
@@ -26,21 +30,34 @@ export function TrainingSessionList({
   onSessionsChange,
   maxSessions = 5,
 }: TrainingSessionListProps) {
-  const addSession = () => {
+  // Generate stable IDs for sessions that don't have them
+  const sessionsWithIds = useMemo((): SessionWithId[] => {
+    return sessions.map((s, i) => ({
+      ...s,
+      _id: (s as SessionWithId)._id || `session-${i}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    }));
+  }, [sessions]);
+
+  const addSession = useCallback(() => {
     if (sessions.length >= maxSessions) return;
-    onSessionsChange([...sessions, { type: 'walking', durationMin: 30 }]);
-  };
+    const newSession: SessionWithId = {
+      type: 'walking',
+      durationMin: 30,
+      _id: `session-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    };
+    onSessionsChange([...sessions, newSession]);
+  }, [sessions, maxSessions, onSessionsChange]);
 
-  const removeSession = (index: number) => {
-    if (sessions.length <= 1) return;
-    onSessionsChange(sessions.filter((_, i) => i !== index));
-  };
+  const removeSession = useCallback((id: string) => {
+    if (sessionsWithIds.length <= 1) return;
+    onSessionsChange(sessionsWithIds.filter((s) => s._id !== id));
+  }, [sessionsWithIds, onSessionsChange]);
 
-  const updateSession = (index: number, updates: Partial<TrainingSession>) => {
+  const updateSession = useCallback((id: string, updates: Partial<TrainingSession>) => {
     onSessionsChange(
-      sessions.map((s, i) => (i === index ? { ...s, ...updates } : s))
+      sessionsWithIds.map((s) => (s._id === id ? { ...s, ...updates } : s))
     );
-  };
+  }, [sessionsWithIds, onSessionsChange]);
 
   const totalDuration = sessions.reduce((sum, s) => sum + s.durationMin, 0);
   const nonRestSessions = sessions.filter((s) => s.type !== 'rest');
@@ -70,16 +87,16 @@ export function TrainingSessionList({
 
       {/* Session list */}
       <div className="space-y-3">
-        {sessions.map((session, index) => (
+        {sessionsWithIds.map((session, index) => (
           <div
-            key={index}
+            key={session._id}
             className="bg-gray-800/50 rounded-lg p-4 relative border border-gray-700"
           >
             {/* Delete button */}
-            {sessions.length > 1 && (
+            {sessionsWithIds.length > 1 && (
               <button
                 type="button"
-                onClick={() => removeSession(index)}
+                onClick={() => removeSession(session._id)}
                 className="absolute top-2 right-2 text-gray-500 hover:text-red-400 p-1"
                 title="Remove session"
               >
@@ -101,7 +118,7 @@ export function TrainingSessionList({
                   value={session.type}
                   onChange={(e) => {
                     const newType = e.target.value as TrainingType;
-                    updateSession(index, {
+                    updateSession(session._id, {
                       type: newType,
                       durationMin: newType === 'rest' ? 0 : session.durationMin || 30,
                     });
@@ -129,7 +146,7 @@ export function TrainingSessionList({
                   type="number"
                   value={session.type === 'rest' ? '' : session.durationMin}
                   onChange={(e) =>
-                    updateSession(index, { durationMin: parseInt(e.target.value) || 0 })
+                    updateSession(session._id, { durationMin: parseInt(e.target.value) || 0 })
                   }
                   disabled={session.type === 'rest'}
                   placeholder={session.type === 'rest' ? 'N/A' : 'min'}

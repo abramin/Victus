@@ -21,25 +21,31 @@ export function useDailyLog(): UseDailyLogReturn {
   const [error, setError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     setError(null);
     try {
       const data = await getTodayLog();
+      if (signal?.aborted) return;
       setLog(data);
     } catch (err) {
+      if (signal?.aborted) return;
       if (err instanceof ApiError) {
         setError(err.message);
       } else {
         setError('Failed to load daily log');
       }
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) {
+        setLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
-    refresh();
+    const controller = new AbortController();
+    refresh(controller.signal);
+    return () => controller.abort();
   }, [refresh]);
 
   const create = useCallback(async (newLog: CreateDailyLogRequest): Promise<DailyLog | null> => {

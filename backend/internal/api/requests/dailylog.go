@@ -125,8 +125,8 @@ func ActualTrainingFromRequest(req UpdateActualTrainingRequest) []domain.Trainin
 	return sessions
 }
 
-// DailyLogFromRequest converts a CreateDailyLogRequest to a DailyLog model.
-func DailyLogFromRequest(req CreateDailyLogRequest) *domain.DailyLog {
+// DailyLogInputFromRequest converts a CreateDailyLogRequest to a DailyLogInput.
+func DailyLogInputFromRequest(req CreateDailyLogRequest) domain.DailyLogInput {
 	sessions := make([]domain.TrainingSession, len(req.PlannedTrainingSessions))
 	for i, s := range req.PlannedTrainingSessions {
 		sessions[i] = domain.TrainingSession{
@@ -138,7 +138,7 @@ func DailyLogFromRequest(req CreateDailyLogRequest) *domain.DailyLog {
 		}
 	}
 
-	return &domain.DailyLog{
+	return domain.DailyLogInput{
 		Date:             req.Date,
 		WeightKg:         req.WeightKg,
 		BodyFatPercent:   req.BodyFatPercent,

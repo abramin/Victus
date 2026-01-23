@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"victus/internal/domain"
@@ -26,16 +27,15 @@ func NewDailyLogService(ls *store.DailyLogStore, ss *store.TrainingSessionStore,
 
 // Create creates a new daily log with calculated targets.
 // Returns store.ErrProfileNotFound if no profile exists.
-func (s *DailyLogService) Create(ctx context.Context, log *domain.DailyLog, now time.Time) (*domain.DailyLog, error) {
+func (s *DailyLogService) Create(ctx context.Context, input domain.DailyLogInput, now time.Time) (*domain.DailyLog, error) {
 	// Get profile (required for calculations)
 	profile, err := s.profileStore.Get(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	// Apply defaults and validate
-	log.SetDefaultsAt(now)
-	if err := log.Validate(); err != nil {
+	log, err := domain.NewDailyLogFromInput(input, now)
+	if err != nil {
 		return nil, err
 	}
 
@@ -48,14 +48,16 @@ func (s *DailyLogService) Create(ctx context.Context, log *domain.DailyLog, now 
 		now,
 	)
 
-	// Persist daily log
-	logID, err := s.logStore.Create(ctx, log)
-	if err != nil {
-		return nil, err
-	}
+	if err := s.logStore.WithTx(ctx, func(tx *sql.Tx) error {
+		// Persist daily log
+		logID, err := s.logStore.CreateWithTx(ctx, tx, log)
+		if err != nil {
+			return err
+		}
 
-	// Persist training sessions
-	if err := s.sessionStore.CreateForLog(ctx, logID, log.PlannedSessions); err != nil {
+		// Persist training sessions
+		return s.sessionStore.CreateForLogWithTx(ctx, tx, logID, log.PlannedSessions)
+	}); err != nil {
 		return nil, err
 	}
 
@@ -109,36 +111,19 @@ func (s *DailyLogService) UpdateActualTraining(ctx context.Context, date string,
 		sessions[i].SessionOrder = i + 1
 	}
 
-	// Validate sessions using a temporary DailyLog
-	tempLog := &domain.DailyLog{ActualSessions: sessions}
-	if len(sessions) > 10 {
-		return nil, domain.ErrTooManySessions
-	}
-	for i, session := range sessions {
-		if session.SessionOrder != i+1 {
-			return nil, domain.ErrInvalidSessionOrder
-		}
-		if !domain.ValidTrainingTypes[session.Type] {
-			return nil, domain.ErrInvalidTrainingType
-		}
-		if session.DurationMin < 0 || session.DurationMin > 480 {
-			return nil, domain.ErrInvalidTrainingDuration
-		}
-		if session.PerceivedIntensity != nil {
-			if *session.PerceivedIntensity < 1 || *session.PerceivedIntensity > 10 {
-				return nil, domain.ErrInvalidPerceivedIntensity
-			}
-		}
-	}
-	_ = tempLog // silence unused warning
-
-	// Delete existing actual sessions
-	if err := s.sessionStore.DeleteActualByLogID(ctx, log.ID); err != nil {
+	if err := domain.ValidateTrainingSessions(sessions); err != nil {
 		return nil, err
 	}
 
-	// Insert new actual sessions
-	if err := s.sessionStore.CreateForLog(ctx, log.ID, sessions); err != nil {
+	if err := s.logStore.WithTx(ctx, func(tx *sql.Tx) error {
+		// Delete existing actual sessions
+		if err := s.sessionStore.DeleteActualByLogIDWithTx(ctx, tx, log.ID); err != nil {
+			return err
+		}
+
+		// Insert new actual sessions
+		return s.sessionStore.CreateForLogWithTx(ctx, tx, log.ID, sessions)
+	}); err != nil {
 		return nil, err
 	}
 

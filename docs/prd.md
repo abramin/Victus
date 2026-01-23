@@ -210,7 +210,6 @@ This section defines the “single source of truth” calculation pipeline. All 
   - maltodextrin carbs: 96% by weight (performance days only)
   - collagen protein: 90% by weight
   - whey protein: 88% by weight (performance days only)
-  - EAA: 100% protein (all days)
 - Points multipliers (retained):
   - carbs: 1.15
   - protein: 4.35
@@ -473,7 +472,6 @@ This appendix lists the “must remain identical” constants and formulas.
 - Maltodextrin carbs: 96% by weight (performance only)
 - Collagen protein: 90% by weight
 - Whey protein: 88% by weight (performance only)
-- EAA protein: 100% by weight
 - Multipliers: carbs 1.15, protein 4.35, fat 3.5
 - Rounding: nearest 5
 

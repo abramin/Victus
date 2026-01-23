@@ -2,6 +2,32 @@ package domain
 
 import "fmt"
 
+// ValidateTrainingSessions checks training session invariants for length and field ranges.
+func ValidateTrainingSessions(sessions []TrainingSession) error {
+	if len(sessions) > 10 {
+		return ErrTooManySessions
+	}
+
+	for i, session := range sessions {
+		if session.SessionOrder != i+1 {
+			return ErrInvalidSessionOrder
+		}
+		if !ValidTrainingTypes[session.Type] {
+			return ErrInvalidTrainingType
+		}
+		if session.DurationMin < 0 || session.DurationMin > 480 {
+			return ErrInvalidTrainingDuration
+		}
+		if session.PerceivedIntensity != nil {
+			if *session.PerceivedIntensity < 1 || *session.PerceivedIntensity > 10 {
+				return ErrInvalidPerceivedIntensity
+			}
+		}
+	}
+
+	return nil
+}
+
 // TotalDurationMin returns the sum of all session durations in minutes.
 func TotalDurationMin(sessions []TrainingSession) int {
 	total := 0

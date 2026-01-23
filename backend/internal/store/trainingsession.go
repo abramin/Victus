@@ -19,6 +19,15 @@ func NewTrainingSessionStore(db *sql.DB) *TrainingSessionStore {
 
 // CreateForLog inserts all sessions for a daily log.
 func (s *TrainingSessionStore) CreateForLog(ctx context.Context, logID int64, sessions []domain.TrainingSession) error {
+	return s.createForLog(ctx, s.db, logID, sessions)
+}
+
+// CreateForLogWithTx inserts all sessions for a daily log within an existing transaction.
+func (s *TrainingSessionStore) CreateForLogWithTx(ctx context.Context, tx *sql.Tx, logID int64, sessions []domain.TrainingSession) error {
+	return s.createForLog(ctx, tx, logID, sessions)
+}
+
+func (s *TrainingSessionStore) createForLog(ctx context.Context, execer sqlExecer, logID int64, sessions []domain.TrainingSession) error {
 	const query = `
 		INSERT INTO training_sessions (
 			daily_log_id, session_order, is_planned, training_type,
@@ -37,7 +46,7 @@ func (s *TrainingSessionStore) CreateForLog(ctx context.Context, logID int64, se
 			notes = session.Notes
 		}
 
-		_, err := s.db.ExecContext(ctx, query,
+		_, err := execer.ExecContext(ctx, query,
 			logID,
 			session.SessionOrder,
 			session.IsPlanned,
@@ -169,6 +178,15 @@ func (s *TrainingSessionStore) getSessionsByLogIDAndType(ctx context.Context, lo
 
 // DeleteActualByLogID removes only actual sessions for a daily log.
 func (s *TrainingSessionStore) DeleteActualByLogID(ctx context.Context, logID int64) error {
-	_, err := s.db.ExecContext(ctx, "DELETE FROM training_sessions WHERE daily_log_id = ? AND is_planned = 0", logID)
+	return s.deleteActualByLogID(ctx, s.db, logID)
+}
+
+// DeleteActualByLogIDWithTx removes only actual sessions for a daily log within a transaction.
+func (s *TrainingSessionStore) DeleteActualByLogIDWithTx(ctx context.Context, tx *sql.Tx, logID int64) error {
+	return s.deleteActualByLogID(ctx, tx, logID)
+}
+
+func (s *TrainingSessionStore) deleteActualByLogID(ctx context.Context, execer sqlExecer, logID int64) error {
+	_, err := execer.ExecContext(ctx, "DELETE FROM training_sessions WHERE daily_log_id = ? AND is_planned = 0", logID)
 	return err
 }

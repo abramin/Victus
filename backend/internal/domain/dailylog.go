@@ -26,6 +26,41 @@ type DailyLog struct {
 	UpdatedAt         time.Time
 }
 
+// DailyLogInput represents the inputs needed to create a daily log.
+type DailyLogInput struct {
+	Date             string
+	WeightKg         float64
+	BodyFatPercent   *float64
+	RestingHeartRate *int
+	SleepQuality     SleepQuality
+	SleepHours       *float64
+	PlannedSessions  []TrainingSession
+	DayType          DayType
+}
+
+// NewDailyLogFromInput creates a DailyLog from the input using the builder.
+func NewDailyLogFromInput(input DailyLogInput, now time.Time) (*DailyLog, error) {
+	builder := NewDailyLogBuilder(
+		input.Date,
+		input.WeightKg,
+		input.SleepQuality,
+		input.PlannedSessions,
+		input.DayType,
+	)
+
+	if input.BodyFatPercent != nil {
+		builder.WithBodyFat(*input.BodyFatPercent)
+	}
+	if input.SleepHours != nil {
+		builder.WithSleepHours(*input.SleepHours)
+	}
+	if input.RestingHeartRate != nil {
+		builder.WithRestingHeartRate(*input.RestingHeartRate)
+	}
+
+	return builder.Build(now)
+}
+
 // NewDailyLog creates a new DailyLog with the given required fields.
 // It applies defaults and validates the log.
 // Returns an error if validation fails.
@@ -147,54 +182,11 @@ func (d *DailyLog) Validate() error {
 	}
 
 	// Training sessions validation
-	if len(d.PlannedSessions) > 10 {
-		return ErrTooManySessions
+	if err := ValidateTrainingSessions(d.PlannedSessions); err != nil {
+		return err
 	}
-
-	for i, session := range d.PlannedSessions {
-		// Validate session order is sequential starting at 1
-		if session.SessionOrder != i+1 {
-			return ErrInvalidSessionOrder
-		}
-
-		// Validate training type
-		if !ValidTrainingTypes[session.Type] {
-			return ErrInvalidTrainingType
-		}
-
-		// Validate duration
-		if session.DurationMin < 0 || session.DurationMin > 480 {
-			return ErrInvalidTrainingDuration
-		}
-
-		// Validate perceived intensity if provided
-		if session.PerceivedIntensity != nil {
-			if *session.PerceivedIntensity < 1 || *session.PerceivedIntensity > 10 {
-				return ErrInvalidPerceivedIntensity
-			}
-		}
-	}
-
-	// Actual sessions validation (same rules as planned)
-	if len(d.ActualSessions) > 10 {
-		return ErrTooManySessions
-	}
-
-	for i, session := range d.ActualSessions {
-		if session.SessionOrder != i+1 {
-			return ErrInvalidSessionOrder
-		}
-		if !ValidTrainingTypes[session.Type] {
-			return ErrInvalidTrainingType
-		}
-		if session.DurationMin < 0 || session.DurationMin > 480 {
-			return ErrInvalidTrainingDuration
-		}
-		if session.PerceivedIntensity != nil {
-			if *session.PerceivedIntensity < 1 || *session.PerceivedIntensity > 10 {
-				return ErrInvalidPerceivedIntensity
-			}
-		}
+	if err := ValidateTrainingSessions(d.ActualSessions); err != nil {
+		return err
 	}
 
 	// Day type validation

@@ -1,7 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Modal } from '../common/Modal';
 import { IntensitySelector } from './IntensitySelector';
 import type { TrainingSession, ActualTrainingSession, TrainingType } from '../../api/types';
+
+// Internal type with stable ID for React keys
+type SessionWithId = Omit<ActualTrainingSession, 'sessionOrder'> & { _id: string };
 
 const TRAINING_OPTIONS = [
   { value: 'rest', label: 'Rest Day' },
@@ -35,7 +38,10 @@ export function ActualTrainingModal({
   onSave,
   saving,
 }: ActualTrainingModalProps) {
-  const [sessions, setSessions] = useState<Omit<ActualTrainingSession, 'sessionOrder'>[]>([]);
+  const [sessions, setSessions] = useState<SessionWithId[]>([]);
+
+  // Generate a unique ID
+  const generateId = () => `session-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
   // Reset when modal opens - pre-fill with actual if exists, otherwise use planned
   useEffect(() => {
@@ -43,6 +49,7 @@ export function ActualTrainingModal({
       if (actualSessions && actualSessions.length > 0) {
         setSessions(
           actualSessions.map((s) => ({
+            _id: generateId(),
             type: s.type,
             durationMin: s.durationMin,
             perceivedIntensity: s.perceivedIntensity,
@@ -52,6 +59,7 @@ export function ActualTrainingModal({
       } else {
         setSessions(
           plannedSessions.map((s) => ({
+            _id: generateId(),
             type: s.type,
             durationMin: s.durationMin,
             perceivedIntensity: undefined,
@@ -62,27 +70,31 @@ export function ActualTrainingModal({
     }
   }, [isOpen, plannedSessions, actualSessions]);
 
-  const updateSession = (index: number, updates: Partial<ActualTrainingSession>) => {
+  const updateSession = useCallback((id: string, updates: Partial<ActualTrainingSession>) => {
     setSessions((prev) =>
-      prev.map((s, i) => (i === index ? { ...s, ...updates } : s))
+      prev.map((s) => (s._id === id ? { ...s, ...updates } : s))
     );
-  };
+  }, []);
 
-  const addSession = () => {
+  const addSession = useCallback(() => {
     if (sessions.length >= 10) return;
     setSessions((prev) => [
       ...prev,
-      { type: 'walking', durationMin: 30, perceivedIntensity: undefined, notes: '' },
+      { _id: generateId(), type: 'walking', durationMin: 30, perceivedIntensity: undefined, notes: '' },
     ]);
-  };
+  }, [sessions.length]);
 
-  const removeSession = (index: number) => {
-    if (sessions.length <= 1) return;
-    setSessions((prev) => prev.filter((_, i) => i !== index));
-  };
+  const removeSession = useCallback((id: string) => {
+    setSessions((prev) => {
+      if (prev.length <= 1) return prev;
+      return prev.filter((s) => s._id !== id);
+    });
+  }, []);
 
   const handleSave = async () => {
-    await onSave(sessions);
+    // Strip _id before saving
+    const sessionsWithoutId = sessions.map(({ _id, ...rest }) => rest);
+    await onSave(sessionsWithoutId);
     onClose();
   };
 
@@ -151,14 +163,14 @@ export function ActualTrainingModal({
         <div className="space-y-4 max-h-[50vh] overflow-y-auto">
           {sessions.map((session, index) => (
             <div
-              key={index}
+              key={session._id}
               className="bg-gray-800/50 rounded-lg p-4 relative border border-gray-700"
             >
               {/* Delete button */}
               {sessions.length > 1 && (
                 <button
                   type="button"
-                  onClick={() => removeSession(index)}
+                  onClick={() => removeSession(session._id)}
                   className="absolute top-2 right-2 text-gray-500 hover:text-red-400 p-1"
                   title="Remove session"
                 >
@@ -184,7 +196,7 @@ export function ActualTrainingModal({
                     value={session.type}
                     onChange={(e) => {
                       const newType = e.target.value as TrainingType;
-                      updateSession(index, {
+                      updateSession(session._id, {
                         type: newType,
                         durationMin: newType === 'rest' ? 0 : session.durationMin || 30,
                       });
@@ -211,7 +223,7 @@ export function ActualTrainingModal({
                     type="number"
                     value={session.type === 'rest' ? '' : session.durationMin}
                     onChange={(e) =>
-                      updateSession(index, { durationMin: parseInt(e.target.value) || 0 })
+                      updateSession(session._id, { durationMin: parseInt(e.target.value) || 0 })
                     }
                     disabled={session.type === 'rest'}
                     placeholder={session.type === 'rest' ? 'N/A' : 'min'}
@@ -228,7 +240,7 @@ export function ActualTrainingModal({
                 <div className="mb-4">
                   <IntensitySelector
                     value={session.perceivedIntensity}
-                    onChange={(val) => updateSession(index, { perceivedIntensity: val })}
+                    onChange={(val) => updateSession(session._id, { perceivedIntensity: val })}
                   />
                 </div>
               )}
@@ -238,7 +250,7 @@ export function ActualTrainingModal({
                 <label className="block text-sm text-gray-400 mb-2">Notes</label>
                 <textarea
                   value={session.notes || ''}
-                  onChange={(e) => updateSession(index, { notes: e.target.value })}
+                  onChange={(e) => updateSession(session._id, { notes: e.target.value })}
                   placeholder="How did it feel? Any observations..."
                   rows={2}
                   className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/20 resize-none"

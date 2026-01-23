@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"strings"
 	"time"
 
 	"victus/internal/api/requests"
@@ -19,10 +18,10 @@ func (s *Server) createDailyLog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log := requests.DailyLogFromRequest(req)
+	input := requests.DailyLogInputFromRequest(req)
 	now := time.Now()
 
-	saved, err := s.dailyLogService.Create(r.Context(), log, now)
+	saved, err := s.dailyLogService.Create(r.Context(), input, now)
 	if err != nil {
 		if errors.Is(err, store.ErrProfileNotFound) {
 			writeError(w, http.StatusBadRequest, "profile_required", "A user profile must be created before logging daily data")
@@ -32,8 +31,7 @@ func (s *Server) createDailyLog(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "validation_error", err.Error())
 			return
 		}
-		// Check for duplicate date (UNIQUE constraint violation)
-		if strings.Contains(err.Error(), "UNIQUE constraint") {
+		if errors.Is(err, store.ErrDailyLogAlreadyExists) {
 			writeError(w, http.StatusConflict, "already_exists", "A daily log already exists for this date")
 			return
 		}
