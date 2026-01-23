@@ -47,6 +47,8 @@ func RunMigrations(db *sql.DB) error {
 		addTDEEConfidenceColumn,
 		addDataPointsUsedColumn,
 		addFormulaTDEEColumn,
+		// Recalibration tolerance (Issue #12 - Settings UI)
+		addRecalibrationToleranceColumn,
 	}
 
 	for _, migration := range alterMigrations {
@@ -96,6 +98,7 @@ CREATE TABLE IF NOT EXISTS user_profile (
     body_fat_percent REAL,
     tdee_source TEXT NOT NULL DEFAULT 'formula',
     manual_tdee REAL DEFAULT 0,
+    recalibration_tolerance REAL NOT NULL DEFAULT 3,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
 
@@ -200,6 +203,9 @@ const addEAAEveningColumn = `ALTER TABLE user_profile ADD COLUMN eaa_evening_g R
 // TDEE source configuration columns (Issue #8 - Adaptive TDEE)
 const addTDEESourceColumn = `ALTER TABLE user_profile ADD COLUMN tdee_source TEXT NOT NULL DEFAULT 'formula'`
 const addManualTDEEColumn = `ALTER TABLE user_profile ADD COLUMN manual_tdee REAL DEFAULT 0`
+
+// Recalibration tolerance (Issue #12 - Settings UI)
+const addRecalibrationToleranceColumn = `ALTER TABLE user_profile ADD COLUMN recalibration_tolerance REAL NOT NULL DEFAULT 3`
 
 // Adaptive TDEE metadata columns for daily_logs (Issue #8)
 const addTDEESourceUsedColumn = `ALTER TABLE daily_logs ADD COLUMN tdee_source_used TEXT DEFAULT 'formula'`

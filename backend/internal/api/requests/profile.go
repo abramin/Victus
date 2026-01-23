@@ -29,26 +29,27 @@ type SupplementConfigRequest struct {
 
 // CreateProfileRequest is the request body for PUT /api/profile.
 type CreateProfileRequest struct {
-	HeightCM             float64                 `json:"height_cm"`
-	BirthDate            string                  `json:"birthDate"`
-	Sex                  string                  `json:"sex"`
-	Goal                 string                  `json:"goal"`
-	CurrentWeightKg      *float64                `json:"currentWeightKg,omitempty"` // Current weight for calculations
-	TargetWeightKg       float64                 `json:"targetWeightKg"`
-	TimeframeWeeks       *int                    `json:"timeframeWeeks,omitempty"` // Weeks to reach target weight
-	TargetWeeklyChangeKg float64                 `json:"targetWeeklyChangeKg"`
-	CarbRatio            float64                 `json:"carbRatio"`
-	ProteinRatio         float64                 `json:"proteinRatio"`
-	FatRatio             float64                 `json:"fatRatio"`
-	MealRatios           MealRatiosRequest       `json:"mealRatios"`
-	PointsConfig         PointsConfigRequest     `json:"pointsConfig"`
-	SupplementConfig     SupplementConfigRequest `json:"supplementConfig,omitempty"` // Daily supplement intake
-	FruitTargetG         float64                 `json:"fruitTargetG"`
-	VeggieTargetG        float64                 `json:"veggieTargetG"`
-	BMREquation          string                  `json:"bmrEquation,omitempty"`    // mifflin_st_jeor (default), katch_mcardle, oxford_henry, harris_benedict
-	BodyFatPercent       *float64                `json:"bodyFatPercent,omitempty"` // For Katch-McArdle equation
-	TDEESource           string                  `json:"tdeeSource,omitempty"`     // formula (default), manual, or adaptive
-	ManualTDEE           *float64                `json:"manualTDEE,omitempty"`     // User-provided TDEE value (used when tdeeSource is "manual")
+	HeightCM               float64                 `json:"height_cm"`
+	BirthDate              string                  `json:"birthDate"`
+	Sex                    string                  `json:"sex"`
+	Goal                   string                  `json:"goal"`
+	CurrentWeightKg        *float64                `json:"currentWeightKg,omitempty"` // Current weight for calculations
+	TargetWeightKg         float64                 `json:"targetWeightKg"`
+	TimeframeWeeks         *int                    `json:"timeframeWeeks,omitempty"` // Weeks to reach target weight
+	TargetWeeklyChangeKg   float64                 `json:"targetWeeklyChangeKg"`
+	CarbRatio              float64                 `json:"carbRatio"`
+	ProteinRatio           float64                 `json:"proteinRatio"`
+	FatRatio               float64                 `json:"fatRatio"`
+	MealRatios             MealRatiosRequest       `json:"mealRatios"`
+	PointsConfig           PointsConfigRequest     `json:"pointsConfig"`
+	SupplementConfig       SupplementConfigRequest `json:"supplementConfig,omitempty"` // Daily supplement intake
+	FruitTargetG           float64                 `json:"fruitTargetG"`
+	VeggieTargetG          float64                 `json:"veggieTargetG"`
+	BMREquation            string                  `json:"bmrEquation,omitempty"`            // mifflin_st_jeor (default), katch_mcardle, oxford_henry, harris_benedict
+	BodyFatPercent         *float64                `json:"bodyFatPercent,omitempty"`         // For Katch-McArdle equation
+	TDEESource             string                  `json:"tdeeSource,omitempty"`             // formula (default), manual, or adaptive
+	ManualTDEE             *float64                `json:"manualTDEE,omitempty"`             // User-provided TDEE value (used when tdeeSource is "manual")
+	RecalibrationTolerance *float64                `json:"recalibrationTolerance,omitempty"` // Plan variance tolerance percentage (1-10%)
 }
 
 // MealRatiosResponse represents meal distribution ratios in API responses.
@@ -74,28 +75,29 @@ type SupplementConfigResponse struct {
 
 // ProfileResponse is the response body for profile endpoints.
 type ProfileResponse struct {
-	HeightCM             float64                  `json:"height_cm"`
-	BirthDate            string                   `json:"birthDate"`
-	Sex                  string                   `json:"sex"`
-	Goal                 string                   `json:"goal"`
-	CurrentWeightKg      *float64                 `json:"currentWeightKg,omitempty"`
-	TargetWeightKg       float64                  `json:"targetWeightKg"`
-	TimeframeWeeks       *int                     `json:"timeframeWeeks,omitempty"`
-	TargetWeeklyChangeKg float64                  `json:"targetWeeklyChangeKg"`
-	CarbRatio            float64                  `json:"carbRatio"`
-	ProteinRatio         float64                  `json:"proteinRatio"`
-	FatRatio             float64                  `json:"fatRatio"`
-	MealRatios           MealRatiosResponse       `json:"mealRatios"`
-	PointsConfig         PointsConfigResponse     `json:"pointsConfig"`
-	SupplementConfig     SupplementConfigResponse `json:"supplementConfig"`
-	FruitTargetG         float64                  `json:"fruitTargetG"`
-	VeggieTargetG        float64                  `json:"veggieTargetG"`
-	BMREquation          string                   `json:"bmrEquation"`
-	BodyFatPercent       *float64                 `json:"bodyFatPercent,omitempty"`
-	TDEESource           string                   `json:"tdeeSource"`           // formula, manual, or adaptive
-	ManualTDEE           *float64                 `json:"manualTDEE,omitempty"` // User-provided TDEE (when tdeeSource is "manual")
-	CreatedAt            string                   `json:"createdAt,omitempty"`
-	UpdatedAt            string                   `json:"updatedAt,omitempty"`
+	HeightCM               float64                  `json:"height_cm"`
+	BirthDate              string                   `json:"birthDate"`
+	Sex                    string                   `json:"sex"`
+	Goal                   string                   `json:"goal"`
+	CurrentWeightKg        *float64                 `json:"currentWeightKg,omitempty"`
+	TargetWeightKg         float64                  `json:"targetWeightKg"`
+	TimeframeWeeks         *int                     `json:"timeframeWeeks,omitempty"`
+	TargetWeeklyChangeKg   float64                  `json:"targetWeeklyChangeKg"`
+	CarbRatio              float64                  `json:"carbRatio"`
+	ProteinRatio           float64                  `json:"proteinRatio"`
+	FatRatio               float64                  `json:"fatRatio"`
+	MealRatios             MealRatiosResponse       `json:"mealRatios"`
+	PointsConfig           PointsConfigResponse     `json:"pointsConfig"`
+	SupplementConfig       SupplementConfigResponse `json:"supplementConfig"`
+	FruitTargetG           float64                  `json:"fruitTargetG"`
+	VeggieTargetG          float64                  `json:"veggieTargetG"`
+	BMREquation            string                   `json:"bmrEquation"`
+	BodyFatPercent         *float64                 `json:"bodyFatPercent,omitempty"`
+	TDEESource             string                   `json:"tdeeSource"`             // formula, manual, or adaptive
+	ManualTDEE             *float64                 `json:"manualTDEE,omitempty"`   // User-provided TDEE (when tdeeSource is "manual")
+	RecalibrationTolerance float64                  `json:"recalibrationTolerance"` // Plan variance tolerance percentage (1-10%, default 3%)
+	CreatedAt              string                   `json:"createdAt,omitempty"`
+	UpdatedAt              string                   `json:"updatedAt,omitempty"`
 }
 
 // ProfileFromRequest converts a CreateProfileRequest to a UserProfile model.
@@ -151,6 +153,9 @@ func ProfileFromRequest(req CreateProfileRequest) (*domain.UserProfile, error) {
 	if req.ManualTDEE != nil {
 		profile.ManualTDEE = *req.ManualTDEE
 	}
+	if req.RecalibrationTolerance != nil {
+		profile.RecalibrationTolerance = *req.RecalibrationTolerance
+	}
 
 	return profile, nil
 }
@@ -182,10 +187,11 @@ func ProfileToResponse(p *domain.UserProfile) ProfileResponse {
 			WheyG:         p.SupplementConfig.WheyG,
 			CollagenG:     p.SupplementConfig.CollagenG,
 		},
-		FruitTargetG:  p.FruitTargetG,
-		VeggieTargetG: p.VeggieTargetG,
-		BMREquation:   string(p.BMREquation),
-		TDEESource:    string(p.TDEESource),
+		FruitTargetG:           p.FruitTargetG,
+		VeggieTargetG:          p.VeggieTargetG,
+		BMREquation:            string(p.BMREquation),
+		TDEESource:             string(p.TDEESource),
+		RecalibrationTolerance: p.RecalibrationTolerance,
 	}
 
 	// Include optional fields only if set

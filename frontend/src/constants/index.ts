@@ -43,6 +43,11 @@ export const TIMEFRAME_MAX_WEEKS = 520;
 export const TDEE_MIN_KCAL = 1000;
 export const TDEE_MAX_KCAL = 6000;
 
+/** Recalibration tolerance limits in percentage */
+export const RECALIBRATION_TOLERANCE_MIN = 1;
+export const RECALIBRATION_TOLERANCE_MAX = 10;
+export const RECALIBRATION_TOLERANCE_DEFAULT = 3;
+
 /** Fruit/veggie target limits in grams */
 export const FRUIT_VEGGIE_MAX_G = 2000;
 

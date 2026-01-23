@@ -5,7 +5,9 @@ import { NumberInput } from '../common/NumberInput';
 import { Select } from '../common/Select';
 import { Button } from '../common/Button';
 import { MacroRatiosInput } from './MacroRatiosInput';
+import { MacroGramsInput } from './MacroGramsInput';
 import { MealRatiosInput } from './MealRatiosInput';
+import { RecalibrationSettings } from './RecalibrationSettings';
 import {
   SEX_OPTIONS,
   GOAL_OPTIONS,
@@ -38,6 +40,9 @@ import {
   MODERATE_ACTIVITY_MULTIPLIER,
   DEFAULT_DEFICIT_KCAL,
   DEFAULT_SURPLUS_KCAL,
+  RECALIBRATION_TOLERANCE_MIN,
+  RECALIBRATION_TOLERANCE_MAX,
+  RECALIBRATION_TOLERANCE_DEFAULT,
 } from '../../constants';
 
 interface ProfileFormProps {
@@ -65,6 +70,7 @@ const DEFAULT_PROFILE: UserProfile = {
   veggieTargetG: DEFAULT_VEGGIE_TARGET_G,
   bmrEquation: 'mifflin_st_jeor',
   tdeeSource: 'formula',
+  recalibrationTolerance: RECALIBRATION_TOLERANCE_DEFAULT,
 };
 
 export function ProfileForm({ initialProfile, onSave, saving, error }: ProfileFormProps) {
@@ -225,6 +231,16 @@ export function ProfileForm({ initialProfile, onSave, saving, error }: ProfileFo
       if (!profile.manualTDEE || profile.manualTDEE < TDEE_MIN_KCAL || profile.manualTDEE > TDEE_MAX_KCAL) {
         errors.manualTDEE = `Manual TDEE must be between ${TDEE_MIN_KCAL} and ${TDEE_MAX_KCAL} kcal`;
       }
+    }
+
+    // Recalibration tolerance validation
+    if (
+      profile.recalibrationTolerance !== undefined &&
+      profile.recalibrationTolerance !== 0 &&
+      (profile.recalibrationTolerance < RECALIBRATION_TOLERANCE_MIN ||
+        profile.recalibrationTolerance > RECALIBRATION_TOLERANCE_MAX)
+    ) {
+      errors.recalibrationTolerance = `Tolerance must be between ${RECALIBRATION_TOLERANCE_MIN}% and ${RECALIBRATION_TOLERANCE_MAX}%`;
     }
 
     setValidationErrors(errors);
@@ -390,7 +406,7 @@ export function ProfileForm({ initialProfile, onSave, saving, error }: ProfileFo
 
       {/* Macro Ratios Section */}
       <Card>
-        <MacroRatiosInput
+        <MacroGramsInput
           carbRatio={profile.carbRatio}
           proteinRatio={profile.proteinRatio}
           fatRatio={profile.fatRatio}
@@ -399,6 +415,7 @@ export function ProfileForm({ initialProfile, onSave, saving, error }: ProfileFo
           }
           error={validationErrors.macroRatios}
           estimatedCalories={estimatedCalories}
+          weightKg={profile.currentWeightKg || profile.targetWeightKg}
         />
       </Card>
 
@@ -516,6 +533,15 @@ export function ProfileForm({ initialProfile, onSave, saving, error }: ProfileFo
             </p>
           </div>
         )}
+      </Card>
+
+      {/* Recalibration Settings Section */}
+      <Card>
+        <RecalibrationSettings
+          tolerance={profile.recalibrationTolerance || RECALIBRATION_TOLERANCE_DEFAULT}
+          onChange={(tolerance) => updateProfile({ recalibrationTolerance: tolerance })}
+          error={validationErrors.recalibrationTolerance}
+        />
       </Card>
 
       {/* Error Display */}

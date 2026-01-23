@@ -36,6 +36,7 @@ func (s *ProfileStore) Get(ctx context.Context) (*domain.UserProfile, error) {
 			bmr_equation, body_fat_percent,
 			COALESCE(maltodextrin_g, 0), COALESCE(whey_g, 0), COALESCE(collagen_g, 0),
 			COALESCE(tdee_source, 'formula'), COALESCE(manual_tdee, 0),
+			COALESCE(recalibration_tolerance, 3),
 			created_at, updated_at
 		FROM user_profile
 		WHERE id = 1
@@ -61,6 +62,7 @@ func (s *ProfileStore) Get(ctx context.Context) (*domain.UserProfile, error) {
 		&p.BMREquation, &bodyFatPercent,
 		&p.SupplementConfig.MaltodextrinG, &p.SupplementConfig.WheyG, &p.SupplementConfig.CollagenG,
 		&p.TDEESource, &p.ManualTDEE,
+		&p.RecalibrationTolerance,
 		&createdAt, &updatedAt,
 	)
 
@@ -103,6 +105,7 @@ func (s *ProfileStore) Upsert(ctx context.Context, p *domain.UserProfile) error 
 			bmr_equation, body_fat_percent,
 			maltodextrin_g, whey_g, collagen_g,
 			tdee_source, manual_tdee,
+			recalibration_tolerance,
 			created_at, updated_at
 		) VALUES (
 			1, ?, ?, ?, ?,
@@ -114,6 +117,7 @@ func (s *ProfileStore) Upsert(ctx context.Context, p *domain.UserProfile) error 
 			?, ?,
 			?, ?, ?,
 			?, ?,
+			?,
 			datetime('now'), datetime('now')
 		)
 		ON CONFLICT(id) DO UPDATE SET
@@ -143,6 +147,7 @@ func (s *ProfileStore) Upsert(ctx context.Context, p *domain.UserProfile) error 
 			collagen_g = excluded.collagen_g,
 			tdee_source = excluded.tdee_source,
 			manual_tdee = excluded.manual_tdee,
+			recalibration_tolerance = excluded.recalibration_tolerance,
 			updated_at = datetime('now')
 	`
 
@@ -166,6 +171,7 @@ func (s *ProfileStore) Upsert(ctx context.Context, p *domain.UserProfile) error 
 		p.BMREquation, bodyFatPercent,
 		p.SupplementConfig.MaltodextrinG, p.SupplementConfig.WheyG, p.SupplementConfig.CollagenG,
 		p.TDEESource, p.ManualTDEE,
+		p.RecalibrationTolerance,
 	)
 
 	return err
