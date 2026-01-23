@@ -6,11 +6,26 @@ import type {
   UserProfile,
   ActualTrainingSession,
   TrainingSession,
-  TrainingType,
 } from '../../api/types';
 import { DayTargetsPanel } from '../day-view';
 import { TrainingSessionList } from '../daily-input/TrainingSessionList';
 import { ActualTrainingModal, ActualVsPlannedComparison } from '../training';
+import { MorningCheckinSection } from './MorningCheckinSection';
+import { DayTypeSelector } from './DayTypeSelector';
+import { DailySummaryPanel } from './DailySummaryPanel';
+import {
+  DAY_TYPE_OPTIONS,
+  TRAINING_LABELS,
+  WEIGHT_MIN_KG,
+  WEIGHT_MAX_KG,
+  BODY_FAT_MIN_PERCENT,
+  BODY_FAT_MAX_PERCENT,
+  HEART_RATE_MIN_BPM,
+  HEART_RATE_MAX_BPM,
+  SLEEP_HOURS_MAX,
+  SLEEP_QUALITY_MIN,
+  SLEEP_QUALITY_MAX,
+} from '../../constants';
 
 interface DailyUpdateFormProps {
   onSubmit: (log: CreateDailyLogRequest) => Promise<DailyLog | null>;
@@ -22,32 +37,11 @@ interface DailyUpdateFormProps {
   log: DailyLog | null;
 }
 
-const DAY_TYPES: { value: DayType; label: string; description: string }[] = [
-  { value: 'performance', label: 'Performance', description: 'Higher carbs for workout days' },
-  { value: 'fatburner', label: 'Fatburner', description: 'Lower carbs for fat burning' },
-  { value: 'metabolize', label: 'Metabolize', description: 'Balanced macros for recovery' },
-];
-
 const INITIAL_FORM_DATA: CreateDailyLogRequest = {
   weightKg: 0,
   sleepQuality: 50,
   plannedTrainingSessions: [{ type: 'rest', durationMin: 0 }],
   dayType: 'fatburner',
-};
-
-const TRAINING_LABELS: Record<TrainingType, string> = {
-  rest: 'Rest',
-  qigong: 'Qigong',
-  walking: 'Walking',
-  gmb: 'GMB',
-  run: 'Running',
-  row: 'Rowing',
-  cycle: 'Cycling',
-  hiit: 'HIIT',
-  strength: 'Strength',
-  calisthenics: 'Calisthenics',
-  mobility: 'Mobility',
-  mixed: 'Mixed',
 };
 
 const stripSessionOrder = (sessions: TrainingSession[]) =>
@@ -100,33 +94,33 @@ export function DailyUpdateForm({
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
 
-    if (!formData.weightKg || formData.weightKg < 30 || formData.weightKg > 300) {
-      errors.weightKg = 'Weight must be between 30 and 300 kg';
+    if (!formData.weightKg || formData.weightKg < WEIGHT_MIN_KG || formData.weightKg > WEIGHT_MAX_KG) {
+      errors.weightKg = `Weight must be between ${WEIGHT_MIN_KG} and ${WEIGHT_MAX_KG} kg`;
     }
 
     if (
       formData.bodyFatPercent !== undefined &&
-      (formData.bodyFatPercent < 3 || formData.bodyFatPercent > 70)
+      (formData.bodyFatPercent < BODY_FAT_MIN_PERCENT || formData.bodyFatPercent > BODY_FAT_MAX_PERCENT)
     ) {
-      errors.bodyFatPercent = 'Body fat must be between 3% and 70%';
+      errors.bodyFatPercent = `Body fat must be between ${BODY_FAT_MIN_PERCENT}% and ${BODY_FAT_MAX_PERCENT}%`;
     }
 
     if (
       formData.restingHeartRate !== undefined &&
-      (formData.restingHeartRate < 30 || formData.restingHeartRate > 200)
+      (formData.restingHeartRate < HEART_RATE_MIN_BPM || formData.restingHeartRate > HEART_RATE_MAX_BPM)
     ) {
-      errors.restingHeartRate = 'Resting heart rate must be between 30 and 200 bpm';
+      errors.restingHeartRate = `Resting heart rate must be between ${HEART_RATE_MIN_BPM} and ${HEART_RATE_MAX_BPM} bpm`;
     }
 
     if (
       formData.sleepHours !== undefined &&
-      (formData.sleepHours < 0 || formData.sleepHours > 24)
+      (formData.sleepHours < 0 || formData.sleepHours > SLEEP_HOURS_MAX)
     ) {
-      errors.sleepHours = 'Sleep duration must be between 0 and 24 hours';
+      errors.sleepHours = `Sleep duration must be between 0 and ${SLEEP_HOURS_MAX} hours`;
     }
 
-    if (formData.sleepQuality < 1 || formData.sleepQuality > 100) {
-      errors.sleepQuality = 'Sleep quality must be between 1 and 100';
+    if (formData.sleepQuality < SLEEP_QUALITY_MIN || formData.sleepQuality > SLEEP_QUALITY_MAX) {
+      errors.sleepQuality = `Sleep quality must be between ${SLEEP_QUALITY_MIN} and ${SLEEP_QUALITY_MAX}`;
     }
 
     if (formData.plannedTrainingSessions.length === 0) {
@@ -211,7 +205,7 @@ export function DailyUpdateForm({
   };
 
   const showForm = !log || isEditing;
-  const dayTypeDetail = log ? DAY_TYPES.find((dt) => dt.value === log.dayType) : null;
+  const dayTypeDetail = log ? DAY_TYPE_OPTIONS.find((dt) => dt.value === log.dayType) : null;
   const summaryWeight = showForm ? formData.weightKg : log?.weightKg;
   const summarySleepQuality = showForm ? formData.sleepQuality : log?.sleepQuality;
   const summaryDayType = showForm ? formData.dayType : log?.dayType;
@@ -425,7 +419,7 @@ export function DailyUpdateForm({
             <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
               <h3 className="text-white font-medium mb-4">Day Type</h3>
               <div className="space-y-3">
-                {DAY_TYPES.map((dt) => (
+                {DAY_TYPE_OPTIONS.map((dt) => (
                   <label
                     key={dt.value}
                     className={`flex items-center gap-3 p-4 rounded-lg cursor-pointer transition-colors ${

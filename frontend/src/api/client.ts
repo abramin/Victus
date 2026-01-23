@@ -7,6 +7,7 @@ import type {
   TrainingConfig,
   WeightTrendRange,
   WeightTrendResponse,
+  HistoryResponse,
 } from './types';
 
 const API_BASE = '/api';
@@ -130,4 +131,14 @@ export async function getTrainingConfigs(): Promise<TrainingConfig[]> {
 export async function getWeightTrend(range: WeightTrendRange): Promise<WeightTrendResponse> {
   const response = await fetch(`${API_BASE}/stats/weight-trend?range=${encodeURIComponent(range)}`);
   return handleResponse<WeightTrendResponse>(response);
+}
+
+export async function getHistorySummary(range: WeightTrendRange): Promise<HistoryResponse> {
+  const response = await fetch(`${API_BASE}/stats/history?range=${encodeURIComponent(range)}`);
+  return handleResponse<HistoryResponse>(response);
+}
+
+export async function getLogByDate(date: string): Promise<DailyLog> {
+  const response = await fetch(`${API_BASE}/logs/${encodeURIComponent(date)}`);
+  return handleResponse<DailyLog>(response);
 }

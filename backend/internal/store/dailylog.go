@@ -255,6 +255,47 @@ func (s *DailyLogStore) ListWeights(ctx context.Context, startDate string) ([]do
 	return samples, nil
 }
 
+// ListHistoryPoints returns history points ordered by date.
+// If startDate is empty, all samples are returned.
+func (s *DailyLogStore) ListHistoryPoints(ctx context.Context, startDate string) ([]domain.HistoryPoint, error) {
+	query := `
+		SELECT log_date, weight_kg, COALESCE(estimated_tdee, 0), COALESCE(tdee_confidence, 0)
+		FROM daily_logs
+	`
+	var args []interface{}
+	if startDate != "" {
+		query += " WHERE log_date >= ?"
+		args = append(args, startDate)
+	}
+	query += " ORDER BY log_date ASC"
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var points []domain.HistoryPoint
+	for rows.Next() {
+		var point domain.HistoryPoint
+		if err := rows.Scan(
+			&point.Date,
+			&point.WeightKg,
+			&point.EstimatedTDEE,
+			&point.TDEEConfidence,
+		); err != nil {
+			return nil, err
+		}
+		points = append(points, point)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return points, nil
+}
+
 // ListAdaptiveDataPoints returns historical data for adaptive TDEE calculation.
 // Returns data points ordered by date (oldest first) for the specified lookback period.
 func (s *DailyLogStore) ListAdaptiveDataPoints(ctx context.Context, endDate string, maxDays int) ([]domain.AdaptiveDataPoint, error) {

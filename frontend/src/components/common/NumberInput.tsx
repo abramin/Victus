@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useId } from 'react';
 
 interface NumberInputProps {
   label: string;
@@ -28,6 +28,7 @@ export function NumberInput({
   error,
   required = false,
 }: NumberInputProps) {
+  const inputId = useId();
   // Track the display string separately to allow typing with either decimal separator
   const [displayValue, setDisplayValue] = useState(() => (value === 0 ? '' : String(value)));
 
@@ -49,13 +50,14 @@ export function NumberInput({
   return (
     <div className="space-y-1">
       {label && (
-        <label className="block text-sm font-medium text-slate-300">
+        <label htmlFor={inputId} className="block text-sm font-medium text-slate-300">
           {label}
           {required && <span className="text-red-400 ml-1">*</span>}
         </label>
       )}
       <div className="relative">
         <input
+          id={inputId}
           type="text"
           inputMode="decimal"
           value={displayValue}

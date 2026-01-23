@@ -77,6 +77,33 @@ func (s *Server) getTodayLog(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(requests.DailyLogToResponseWithTrainingLoad(log, trainingLoad))
 }
 
+// getLogByDate handles GET /api/logs/{date}
+func (s *Server) getLogByDate(w http.ResponseWriter, r *http.Request) {
+	date := r.PathValue("date")
+	if date == "" {
+		writeError(w, http.StatusBadRequest, "missing_date", "Date parameter is required")
+		return
+	}
+
+	log, err := s.dailyLogService.GetByDate(r.Context(), date)
+	if errors.Is(err, store.ErrDailyLogNotFound) {
+		writeError(w, http.StatusNotFound, "not_found", "No log exists for this date")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal_error", "")
+		return
+	}
+
+	trainingLoad, err := s.dailyLogService.GetTrainingLoadMetrics(r.Context(), log.Date, log.ActualSessions, log.PlannedSessions)
+	if err != nil {
+		trainingLoad = nil
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(requests.DailyLogToResponseWithTrainingLoad(log, trainingLoad))
+}
+
 // deleteTodayLog handles DELETE /api/logs/today
 func (s *Server) deleteTodayLog(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()

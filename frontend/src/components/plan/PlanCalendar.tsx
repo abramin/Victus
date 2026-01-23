@@ -226,7 +226,7 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
             if (!dayData) {
               return (
                 <div
-                  key={index}
+                  key={`empty-${index}`}
                   className="min-h-[120px] p-2 border-t border-r border-gray-800 last:border-r-0"
                 />
               );
@@ -238,7 +238,7 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
 
             return (
               <button
-                key={index}
+                key={dayData.date.toISOString().split('T')[0]}
                 type="button"
                 onClick={() => openDayDialog(dayData)}
                 className={`min-h-[120px] p-2 border-t border-r border-gray-800 last:border-r-0 text-left transition ${

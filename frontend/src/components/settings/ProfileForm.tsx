@@ -6,6 +6,39 @@ import { Select } from '../common/Select';
 import { Button } from '../common/Button';
 import { MacroRatiosInput } from './MacroRatiosInput';
 import { MealRatiosInput } from './MealRatiosInput';
+import {
+  SEX_OPTIONS,
+  GOAL_OPTIONS,
+  BMR_EQUATION_OPTIONS,
+  TDEE_SOURCE_OPTIONS,
+  HEIGHT_MIN_CM,
+  HEIGHT_MAX_CM,
+  WEIGHT_MIN_KG,
+  WEIGHT_MAX_KG,
+  WEEKLY_CHANGE_MIN_KG,
+  WEEKLY_CHANGE_MAX_KG,
+  TIMEFRAME_MIN_WEEKS,
+  TIMEFRAME_MAX_WEEKS,
+  BODY_FAT_MIN_PERCENT,
+  BODY_FAT_MAX_PERCENT,
+  TDEE_MIN_KCAL,
+  TDEE_MAX_KCAL,
+  FRUIT_VEGGIE_MAX_G,
+  AGGRESSIVE_LOSS_THRESHOLD_KG,
+  AGGRESSIVE_GAIN_THRESHOLD_KG,
+  DEFAULT_HEIGHT_CM,
+  DEFAULT_WEIGHT_KG,
+  DEFAULT_TIMEFRAME_WEEKS,
+  DEFAULT_BIRTH_DATE,
+  DEFAULT_MACRO_RATIOS,
+  DEFAULT_MEAL_RATIOS,
+  DEFAULT_POINTS_CONFIG,
+  DEFAULT_FRUIT_TARGET_G,
+  DEFAULT_VEGGIE_TARGET_G,
+  MODERATE_ACTIVITY_MULTIPLIER,
+  DEFAULT_DEFICIT_KCAL,
+  DEFAULT_SURPLUS_KCAL,
+} from '../../constants';
 
 interface ProfileFormProps {
   initialProfile: UserProfile | null;
@@ -14,53 +47,25 @@ interface ProfileFormProps {
   error: string | null;
 }
 
-const SEX_OPTIONS = [
-  { value: 'male', label: 'Male' },
-  { value: 'female', label: 'Female' },
-];
-
-const GOAL_OPTIONS = [
-  { value: 'lose_weight', label: 'Lose Weight' },
-  { value: 'maintain', label: 'Maintain Weight' },
-  { value: 'gain_weight', label: 'Gain Weight' },
-];
-
-const BMR_EQUATION_OPTIONS = [
-  { value: 'mifflin_st_jeor', label: 'Mifflin-St Jeor (Default)' },
-  { value: 'katch_mcardle', label: 'Katch-McArdle (Requires Body Fat %)' },
-  { value: 'oxford_henry', label: 'Oxford-Henry' },
-  { value: 'harris_benedict', label: 'Harris-Benedict (Legacy)' },
-];
-
-const TDEE_SOURCE_OPTIONS = [
-  { value: 'formula', label: 'Formula (BMR × Activity Factor)' },
-  { value: 'manual', label: 'Manual (From Wearable/Known Value)' },
-  { value: 'adaptive', label: 'Adaptive (Calculated from Your Data)' },
-];
-
 const DEFAULT_PROFILE: UserProfile = {
-  height_cm: 175,
-  birthDate: '1990-01-01',
+  height_cm: DEFAULT_HEIGHT_CM,
+  birthDate: DEFAULT_BIRTH_DATE,
   sex: 'male',
   goal: 'maintain',
-  currentWeightKg: 75,
-  targetWeightKg: 75,
-  timeframeWeeks: 12,
+  currentWeightKg: DEFAULT_WEIGHT_KG,
+  targetWeightKg: DEFAULT_WEIGHT_KG,
+  timeframeWeeks: DEFAULT_TIMEFRAME_WEEKS,
   targetWeeklyChangeKg: 0,
-  carbRatio: 0.45,
-  proteinRatio: 0.3,
-  fatRatio: 0.25,
-  mealRatios: { breakfast: 0.3, lunch: 0.3, dinner: 0.4 },
-  pointsConfig: { carbMultiplier: 1.15, proteinMultiplier: 4.35, fatMultiplier: 3.5 },
-  fruitTargetG: 600,
-  veggieTargetG: 500,
+  carbRatio: DEFAULT_MACRO_RATIOS.carb,
+  proteinRatio: DEFAULT_MACRO_RATIOS.protein,
+  fatRatio: DEFAULT_MACRO_RATIOS.fat,
+  mealRatios: { breakfast: DEFAULT_MEAL_RATIOS.breakfast, lunch: DEFAULT_MEAL_RATIOS.lunch, dinner: DEFAULT_MEAL_RATIOS.dinner },
+  pointsConfig: { carbMultiplier: DEFAULT_POINTS_CONFIG.carbMultiplier, proteinMultiplier: DEFAULT_POINTS_CONFIG.proteinMultiplier, fatMultiplier: DEFAULT_POINTS_CONFIG.fatMultiplier },
+  fruitTargetG: DEFAULT_FRUIT_TARGET_G,
+  veggieTargetG: DEFAULT_VEGGIE_TARGET_G,
   bmrEquation: 'mifflin_st_jeor',
   tdeeSource: 'formula',
 };
-
-// Aggressive goal thresholds (kg/week)
-const AGGRESSIVE_LOSS_THRESHOLD = 1.0; // > 1 kg/week loss is aggressive
-const AGGRESSIVE_GAIN_THRESHOLD = 0.5; // > 0.5 kg/week gain is aggressive
 
 export function ProfileForm({ initialProfile, onSave, saving, error }: ProfileFormProps) {
   const [profile, setProfile] = useState<UserProfile>(initialProfile || DEFAULT_PROFILE);
@@ -88,11 +93,11 @@ export function ProfileForm({ initialProfile, onSave, saving, error }: ProfileFo
   // Check for aggressive goal warning
   const aggressiveGoalWarning = useMemo(() => {
     const weeklyChange = useManualWeeklyChange ? profile.targetWeeklyChangeKg : derivedWeeklyChange;
-    if (weeklyChange < -AGGRESSIVE_LOSS_THRESHOLD) {
-      return `Losing more than ${AGGRESSIVE_LOSS_THRESHOLD} kg/week may be unsustainable and could lead to muscle loss.`;
+    if (weeklyChange < -AGGRESSIVE_LOSS_THRESHOLD_KG) {
+      return `Losing more than ${AGGRESSIVE_LOSS_THRESHOLD_KG} kg/week may be unsustainable and could lead to muscle loss.`;
     }
-    if (weeklyChange > AGGRESSIVE_GAIN_THRESHOLD) {
-      return `Gaining more than ${AGGRESSIVE_GAIN_THRESHOLD} kg/week may lead to excess fat gain.`;
+    if (weeklyChange > AGGRESSIVE_GAIN_THRESHOLD_KG) {
+      return `Gaining more than ${AGGRESSIVE_GAIN_THRESHOLD_KG} kg/week may lead to excess fat gain.`;
     }
     return null;
   }, [profile.targetWeeklyChangeKg, derivedWeeklyChange, useManualWeeklyChange]);
@@ -112,11 +117,11 @@ export function ProfileForm({ initialProfile, onSave, saving, error }: ProfileFo
 
   // Estimate daily calories for macro gram display (simplified Mifflin-St Jeor + moderate activity)
   const estimatedCalories = useMemo(() => {
-    const weight = profile.currentWeightKg || profile.targetWeightKg || 75;
-    const height = profile.height_cm || 175;
+    const weight = profile.currentWeightKg || profile.targetWeightKg || DEFAULT_WEIGHT_KG;
+    const height = profile.height_cm || DEFAULT_HEIGHT_CM;
 
     // Calculate age from birthDate
-    const birthDate = profile.birthDate ? new Date(profile.birthDate) : new Date('1990-01-01');
+    const birthDate = profile.birthDate ? new Date(profile.birthDate) : new Date(DEFAULT_BIRTH_DATE);
     const today = new Date();
     const age = today.getFullYear() - birthDate.getFullYear();
 
@@ -128,14 +133,14 @@ export function ProfileForm({ initialProfile, onSave, saving, error }: ProfileFo
       bmr = 10 * weight + 6.25 * height - 5 * age - 161;
     }
 
-    // Apply moderate activity multiplier (1.55) and goal adjustment
-    let tdee = bmr * 1.55;
+    // Apply moderate activity multiplier and goal adjustment
+    let tdee = bmr * MODERATE_ACTIVITY_MULTIPLIER;
 
     // Adjust for goal
     if (profile.goal === 'lose_weight') {
-      tdee -= 500; // Moderate deficit
+      tdee -= DEFAULT_DEFICIT_KCAL;
     } else if (profile.goal === 'gain_weight') {
-      tdee += 300; // Moderate surplus
+      tdee += DEFAULT_SURPLUS_KCAL;
     }
 
     return Math.round(tdee);
@@ -151,8 +156,8 @@ export function ProfileForm({ initialProfile, onSave, saving, error }: ProfileFo
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
 
-    if (profile.height_cm < 100 || profile.height_cm > 250) {
-      errors.height = 'Height must be between 100 and 250 cm';
+    if (profile.height_cm < HEIGHT_MIN_CM || profile.height_cm > HEIGHT_MAX_CM) {
+      errors.height = `Height must be between ${HEIGHT_MIN_CM} and ${HEIGHT_MAX_CM} cm`;
     }
 
     if (!profile.birthDate) {
@@ -171,27 +176,27 @@ export function ProfileForm({ initialProfile, onSave, saving, error }: ProfileFo
     if (
       profile.currentWeightKg !== undefined &&
       profile.currentWeightKg !== 0 &&
-      (profile.currentWeightKg < 30 || profile.currentWeightKg > 300)
+      (profile.currentWeightKg < WEIGHT_MIN_KG || profile.currentWeightKg > WEIGHT_MAX_KG)
     ) {
-      errors.currentWeight = 'Current weight must be between 30 and 300 kg';
+      errors.currentWeight = `Current weight must be between ${WEIGHT_MIN_KG} and ${WEIGHT_MAX_KG} kg`;
     }
 
-    if (profile.targetWeightKg < 30 || profile.targetWeightKg > 300) {
-      errors.targetWeight = 'Target weight must be between 30 and 300 kg';
+    if (profile.targetWeightKg < WEIGHT_MIN_KG || profile.targetWeightKg > WEIGHT_MAX_KG) {
+      errors.targetWeight = `Target weight must be between ${WEIGHT_MIN_KG} and ${WEIGHT_MAX_KG} kg`;
     }
 
     // Timeframe validation (optional but if provided must be valid)
     if (
       profile.timeframeWeeks !== undefined &&
       profile.timeframeWeeks !== 0 &&
-      (profile.timeframeWeeks < 1 || profile.timeframeWeeks > 520)
+      (profile.timeframeWeeks < TIMEFRAME_MIN_WEEKS || profile.timeframeWeeks > TIMEFRAME_MAX_WEEKS)
     ) {
-      errors.timeframe = 'Timeframe must be between 1 and 520 weeks';
+      errors.timeframe = `Timeframe must be between ${TIMEFRAME_MIN_WEEKS} and ${TIMEFRAME_MAX_WEEKS} weeks`;
     }
 
     // Weekly change validation (expanded range to support lb users)
-    if (profile.targetWeeklyChangeKg < -2 || profile.targetWeeklyChangeKg > 2) {
-      errors.weeklyChange = 'Weekly change must be between -2.0 and 2.0 kg';
+    if (profile.targetWeeklyChangeKg < WEEKLY_CHANGE_MIN_KG || profile.targetWeeklyChangeKg > WEEKLY_CHANGE_MAX_KG) {
+      errors.weeklyChange = `Weekly change must be between ${WEEKLY_CHANGE_MIN_KG} and ${WEEKLY_CHANGE_MAX_KG} kg`;
     }
 
     const macroSum = profile.carbRatio + profile.proteinRatio + profile.fatRatio;
@@ -210,15 +215,15 @@ export function ProfileForm({ initialProfile, onSave, saving, error }: ProfileFo
       profile.bmrEquation === 'katch_mcardle' &&
       profile.bodyFatPercent !== undefined &&
       profile.bodyFatPercent !== 0 &&
-      (profile.bodyFatPercent < 3 || profile.bodyFatPercent > 70)
+      (profile.bodyFatPercent < BODY_FAT_MIN_PERCENT || profile.bodyFatPercent > BODY_FAT_MAX_PERCENT)
     ) {
-      errors.bodyFatPercent = 'Body fat % must be between 3% and 70%';
+      errors.bodyFatPercent = `Body fat % must be between ${BODY_FAT_MIN_PERCENT}% and ${BODY_FAT_MAX_PERCENT}%`;
     }
 
     // Manual TDEE validation (required when tdeeSource is 'manual')
     if (profile.tdeeSource === 'manual') {
-      if (!profile.manualTDEE || profile.manualTDEE < 1000 || profile.manualTDEE > 6000) {
-        errors.manualTDEE = 'Manual TDEE must be between 1000 and 6000 kcal';
+      if (!profile.manualTDEE || profile.manualTDEE < TDEE_MIN_KCAL || profile.manualTDEE > TDEE_MAX_KCAL) {
+        errors.manualTDEE = `Manual TDEE must be between ${TDEE_MIN_KCAL} and ${TDEE_MAX_KCAL} kcal`;
       }
     }
 

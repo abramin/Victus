@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { getProfile, saveProfile, ApiError } from '../api/client';
 import type { UserProfile } from '../api/types';
 
@@ -18,26 +18,39 @@ export function useProfile(): UseProfileReturn {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const refresh = useCallback(async () => {
+    // Abort any in-flight request
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     setLoading(true);
     setError(null);
     try {
       const data = await getProfile();
+      if (controller.signal.aborted) return;
       setProfile(data);
     } catch (err) {
+      if (controller.signal.aborted) return;
       if (err instanceof ApiError) {
         setError(err.message);
       } else {
         setError('Failed to load profile');
       }
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) {
+        setLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
     refresh();
+    return () => {
+      abortControllerRef.current?.abort();
+    };
   }, [refresh]);
 
   const save = useCallback(async (newProfile: UserProfile): Promise<boolean> => {

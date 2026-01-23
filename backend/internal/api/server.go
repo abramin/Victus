@@ -47,6 +47,7 @@ func NewServer(db *sql.DB) *Server {
 	// Daily log routes
 	mux.HandleFunc("POST /api/logs", srv.createDailyLog)
 	mux.HandleFunc("GET /api/logs/today", srv.getTodayLog)
+	mux.HandleFunc("GET /api/logs/{date}", srv.getLogByDate)
 	mux.HandleFunc("DELETE /api/logs/today", srv.deleteTodayLog)
 	mux.HandleFunc("PATCH /api/logs/{date}/actual-training", srv.updateActualTraining)
 
@@ -55,6 +56,7 @@ func NewServer(db *sql.DB) *Server {
 
 	// Stats routes
 	mux.HandleFunc("GET /api/stats/weight-trend", srv.getWeightTrend)
+	mux.HandleFunc("GET /api/stats/history", srv.getHistorySummary)
 
 	return srv
 }

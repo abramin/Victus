@@ -1,3 +1,5 @@
+import { useId } from 'react';
+
 interface Option {
   value: string;
   label: string;
@@ -20,13 +22,15 @@ export function Select({
   error,
   required = false,
 }: SelectProps) {
+  const selectId = useId();
   return (
     <div className="space-y-1">
-      <label className="block text-sm font-medium text-slate-300">
+      <label htmlFor={selectId} className="block text-sm font-medium text-slate-300">
         {label}
         {required && <span className="text-red-400 ml-1">*</span>}
       </label>
       <select
+        id={selectId}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className={`

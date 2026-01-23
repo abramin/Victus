@@ -200,3 +200,21 @@ export interface WeightTrendResponse {
   points: WeightTrendPoint[];
   trend?: WeightTrendSummary;
 }
+
+export interface HistoryPoint {
+  date: string;
+  weightKg: number;
+  estimatedTDEE: number;
+  tdeeConfidence: number;
+}
+
+export interface TrainingSummaryRange {
+  planned: TrainingSummary;
+  actual: TrainingSummary;
+}
+
+export interface HistoryResponse {
+  points: HistoryPoint[];
+  trend?: WeightTrendSummary;
+  trainingSummary: TrainingSummaryRange;
+}

@@ -185,6 +185,60 @@ func (s *DailyLogService) GetWeightTrend(ctx context.Context, startDate string) 
 	return samples, trend, nil
 }
 
+// GetHistorySummary returns history points, weight trend, and training aggregates for a range.
+func (s *DailyLogService) GetHistorySummary(ctx context.Context, startDate, endDate string) (*domain.HistorySummary, error) {
+	points, err := s.logStore.ListHistoryPoints(ctx, startDate)
+	if err != nil {
+		return nil, err
+	}
+
+	weightSamples := make([]domain.WeightSample, len(points))
+	for i, point := range points {
+		weightSamples[i] = domain.WeightSample{
+			Date:     point.Date,
+			WeightKg: point.WeightKg,
+		}
+	}
+
+	var plannedSummary domain.TrainingSummaryAggregate
+	var actualSummary domain.TrainingSummaryAggregate
+
+	if len(points) > 0 {
+		rangeStart := startDate
+		if rangeStart == "" {
+			rangeStart = points[0].Date
+		}
+		rangeEnd := endDate
+		if rangeEnd == "" {
+			rangeEnd = points[len(points)-1].Date
+		}
+
+		if rangeStart != "" && rangeEnd != "" {
+			sessionsData, err := s.sessionStore.GetSessionsForDateRange(ctx, rangeStart, rangeEnd)
+			if err != nil {
+				return nil, err
+			}
+
+			var plannedSessions []domain.TrainingSession
+			var actualSessions []domain.TrainingSession
+			for _, sd := range sessionsData {
+				plannedSessions = append(plannedSessions, sd.PlannedSessions...)
+				actualSessions = append(actualSessions, sd.ActualSessions...)
+			}
+
+			plannedSummary = aggregateTrainingSummary(plannedSessions)
+			actualSummary = aggregateTrainingSummary(actualSessions)
+		}
+	}
+
+	return &domain.HistorySummary{
+		Points:          points,
+		Trend:           domain.CalculateWeightTrend(weightSamples),
+		PlannedTraining: plannedSummary,
+		ActualTraining:  actualSummary,
+	}, nil
+}
+
 // GetTrainingLoadMetrics calculates ACR metrics for a given date.
 // Uses up to 28 days of historical data for chronic load calculation.
 // The todayLoad is calculated from the provided actual/planned sessions.
@@ -218,6 +272,14 @@ func (s *DailyLogService) GetTrainingLoadMetrics(ctx context.Context, date strin
 	// Calculate ACR metrics
 	result := domain.CalculateTrainingLoadResult(todayLoad, dataPoints)
 	return &result, nil
+}
+
+func aggregateTrainingSummary(sessions []domain.TrainingSession) domain.TrainingSummaryAggregate {
+	return domain.TrainingSummaryAggregate{
+		SessionCount:     len(sessions),
+		TotalDurationMin: domain.TotalDurationMin(sessions),
+		TotalLoadScore:   domain.TotalLoadScore(sessions),
+	}
 }
 
 // calculateRecoveryAndAdjustments computes recovery score and adjustment multipliers
