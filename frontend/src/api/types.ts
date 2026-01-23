@@ -150,6 +150,7 @@ export interface DailyLog {
   dayType: DayType;
   calculatedTargets: DailyTargets;
   estimatedTDEE: number;
+  formulaTDEE?: number;
   tdeeSourceUsed: TDEESource;     // Which TDEE source was used for this day
   tdeeConfidence?: number;        // 0-1 confidence level for adaptive TDEE
   dataPointsUsed?: number;        // Number of data points used for adaptive calculation

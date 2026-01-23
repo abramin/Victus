@@ -83,7 +83,7 @@ function App() {
       )}
 
       {currentNav === 'history' && (
-        <WeightHistory />
+        <WeightHistory profile={profile} />
       )}
 
       {currentNav === 'daily-update' && (

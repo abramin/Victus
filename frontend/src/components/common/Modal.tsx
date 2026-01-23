@@ -5,9 +5,10 @@ interface ModalProps {
   onClose: () => void;
   title: string;
   children: React.ReactNode;
+  className?: string;
 }
 
-export function Modal({ isOpen, onClose, title, children }: ModalProps) {
+export function Modal({ isOpen, onClose, title, children, className = '' }: ModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const previousActiveElement = useRef<HTMLElement | null>(null);
 
@@ -86,7 +87,7 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
-        className="relative bg-gray-900 rounded-xl border border-gray-800 shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto"
+        className={`relative bg-gray-900 rounded-xl border border-gray-800 shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto ${className}`}
       >
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-gray-800">
