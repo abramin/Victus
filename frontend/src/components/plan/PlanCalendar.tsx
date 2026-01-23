@@ -2,6 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import type { DayType, DailyTargets, MealTargets, UserProfile } from '../../api/types';
 import { getDailyTargetsRange } from '../../api/client';
 import { DayTargetsPanel } from '../day-view';
+import { useDisplayMode } from '../../contexts/DisplayModeContext';
+import {
+  CARB_KCAL_PER_G,
+  PROTEIN_KCAL_PER_G,
+  FAT_KCAL_PER_G,
+} from '../../constants';
 
 interface PlanCalendarProps {
   profile: UserProfile;
@@ -26,7 +32,7 @@ interface DayData {
   breakfast: number;
   lunch: number;
   dinner: number;
-  total: number;
+  totalCalories: number;
   // Grams for each meal (proportional based on points ratio)
   breakfastG: number;
   lunchG: number;
@@ -60,7 +66,7 @@ const toDateKey = (date: Date) => {
 export function PlanCalendar({ profile }: PlanCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<'All Days' | 'Performance' | 'Fatburner' | 'Metabolize'>('All Days');
-  const [displayMode, setDisplayMode] = useState<'Points' | 'Grams'>('Points');
+  const { displayMode, setDisplayMode } = useDisplayMode();
   const [selectedDay, setSelectedDay] = useState<DayData | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [targetsByDate, setTargetsByDate] = useState<Record<string, DailyTargets>>({});
@@ -123,7 +129,7 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
           breakfast: 0,
           lunch: 0,
           dinner: 0,
-          total: 0,
+          totalCalories: 0,
           breakfastG: 0,
           lunchG: 0,
           dinnerG: 0,
@@ -166,6 +172,13 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
         },
       };
       
+      // Calculate total calories (the only valid cross-macro aggregate)
+      const totalCalories = Math.round(
+        targets.totalCarbsG * CARB_KCAL_PER_G +
+        targets.totalProteinG * PROTEIN_KCAL_PER_G +
+        targets.totalFatsG * FAT_KCAL_PER_G
+      );
+      
       data.push({
         date,
         dayType: targets.dayType,
@@ -173,7 +186,7 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
         breakfast,
         lunch,
         dinner,
-        total: totalPoints,
+        totalCalories,
         breakfastG,
         lunchG,
         dinnerG,
@@ -300,7 +313,7 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
           </select>
           <select
             value={displayMode}
-            onChange={(e) => setDisplayMode(e.target.value as typeof displayMode)}
+            onChange={(e) => setDisplayMode(e.target.value as 'Points' | 'Grams')}
             className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white"
           >
             <option>Points</option>
@@ -349,7 +362,6 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
             const bValue = showGrams ? dayData.breakfastG : dayData.breakfast;
             const lValue = showGrams ? dayData.lunchG : dayData.lunch;
             const dValue = showGrams ? dayData.dinnerG : dayData.dinner;
-            const totValue = showGrams ? dayData.totalG : dayData.total;
             const unit = showGrams ? 'g' : '';
 
             return (
@@ -406,9 +418,9 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
                     </span>
                   </div>
                   <div className="flex justify-between pt-1 border-t border-gray-700">
-                    <span className="text-gray-500">Tot:</span>
+                    <span className="text-gray-500">Cal:</span>
                     <span className={dayData.hasData ? 'text-white font-medium' : 'text-gray-600'}>
-                      {dayData.hasData ? `${totValue}${unit}` : '--'}
+                      {dayData.hasData ? `${dayData.totalCalories}` : '--'}
                     </span>
                   </div>
                 </div>
@@ -467,6 +479,7 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
                 displayMode={displayMode}
                 mealGrams={selectedDay.mealGrams}
                 totalGrams={selectedDay.totalG}
+                totalCalories={selectedDay.totalCalories}
               />
             </div>
           </div>

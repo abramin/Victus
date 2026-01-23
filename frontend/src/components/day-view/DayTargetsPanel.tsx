@@ -1,4 +1,9 @@
 import type { DayType, MealRatios, MealTargets } from '../../api/types';
+import {
+  CARB_KCAL_PER_G,
+  PROTEIN_KCAL_PER_G,
+  FAT_KCAL_PER_G,
+} from '../../constants';
 
 export type DisplayMode = 'Points' | 'Grams';
 
@@ -28,6 +33,7 @@ interface DayTargetsPanelProps {
   displayMode?: DisplayMode;
   mealGrams?: MealGrams;
   totalGrams?: number;
+  totalCalories?: number;
 }
 
 const DAY_TYPE_BADGE: Record<DayType, { label: string; className: string }> = {
@@ -62,15 +68,26 @@ export function DayTargetsPanel({
   displayMode = 'Points',
   mealGrams,
   totalGrams,
+  totalCalories,
 }: DayTargetsPanelProps) {
   const fruitByMeal = splitTarget(totalFruitG, mealRatios);
   const veggieByMeal = splitTarget(totalVeggiesG, mealRatios);
+  
+  // Per-meal totals (sum within a single meal is valid, just not across meals)
   const mealTotals = {
     breakfast: mealTotal(mealTargets.breakfast),
     lunch: mealTotal(mealTargets.lunch),
     dinner: mealTotal(mealTargets.dinner),
   };
-  const totalPoints = mealTotals.breakfast + mealTotals.lunch + mealTotals.dinner;
+
+  // Calculate total calories from grams if not provided
+  const computedCalories = totalCalories ?? (mealGrams
+    ? Math.round(
+        (mealGrams.breakfast.carbsG + mealGrams.lunch.carbsG + mealGrams.dinner.carbsG) * CARB_KCAL_PER_G +
+        (mealGrams.breakfast.proteinG + mealGrams.lunch.proteinG + mealGrams.dinner.proteinG) * PROTEIN_KCAL_PER_G +
+        (mealGrams.breakfast.fatsG + mealGrams.lunch.fatsG + mealGrams.dinner.fatsG) * FAT_KCAL_PER_G
+      )
+    : 0);
 
   const showGrams = displayMode === 'Grams' && mealGrams;
   const unit = showGrams ? 'g' : '';
@@ -203,9 +220,9 @@ export function DayTargetsPanel({
 
       <div className={`flex flex-wrap gap-3 mt-4 ${statText}`}>
         <div className="bg-gray-950/70 rounded-lg border border-gray-800 px-3 py-2">
-          <span className="text-gray-400">{showGrams ? 'Total Grams' : 'Total Points'}</span>
+          <span className="text-gray-400">Total Calories</span>
           <span className="text-white font-medium ml-2">
-            {showGrams && totalGrams !== undefined ? `${totalGrams}g` : totalPoints}
+            {computedCalories} kcal
           </span>
         </div>
         <div className="bg-gray-950/70 rounded-lg border border-gray-800 px-3 py-2">

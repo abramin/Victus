@@ -25,14 +25,13 @@ const DAY_TYPES: { value: DayType; label: string }[] = [
 
 type TrendPeriod = '7d' | '14d' | '30d';
 
-type TrendMetric = 'total' | 'carbs' | 'protein' | 'fats';
+type TrendMetric = 'carbs' | 'protein' | 'fats';
 
 interface TrendPoint {
   date: string;
   carbs: number;
   protein: number;
   fats: number;
-  total: number;
 }
 
 const TREND_METRICS: { value: TrendMetric; label: string }[] = [
@@ -97,8 +96,6 @@ const getMetricValue = (point: TrendPoint, metric: TrendMetric) => {
       return point.protein;
     case 'fats':
       return point.fats;
-    default:
-      return point.total;
   }
 };
 
@@ -110,8 +107,6 @@ const metricColor = (metric: TrendMetric) => {
       return 'rgba(168, 85, 247, 0.9)';
     case 'fats':
       return 'rgba(148, 163, 184, 0.9)';
-    default:
-      return 'rgba(56, 189, 248, 0.9)';
   }
 };
 
@@ -249,7 +244,7 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
   const [selectedDayType, setSelectedDayType] = useState<DayType>(log?.dayType || 'fatburner');
   const [supplements, setSupplements] = useState<SupplementState[]>(() => buildSupplementsFromProfile(profile));
   const [trendPeriod, setTrendPeriod] = useState<TrendPeriod>('7d');
-  const [trendMetric, setTrendMetric] = useState<TrendMetric>('total');
+  const [trendMetric, setTrendMetric] = useState<TrendMetric>('carbs');
   const [trendPoints, setTrendPoints] = useState<TrendPoint[]>([]);
   const [trendLoading, setTrendLoading] = useState(false);
   const [trendError, setTrendError] = useState<string | null>(null);
@@ -366,7 +361,6 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
               carbs,
               protein,
               fats,
-              total: carbs + protein + fats,
             };
           })
           .sort((left, right) => left.date.localeCompare(right.date));
