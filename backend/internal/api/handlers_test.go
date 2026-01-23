@@ -77,6 +77,24 @@ func (s *HandlerSuite) createProfile() {
 	s.Require().Equal(http.StatusOK, rec.Code, "Setup: profile creation should succeed")
 }
 
+func (s *HandlerSuite) createDailyLogForDate(date string) {
+	logReq := map[string]interface{}{
+		"date":         date,
+		"weightKg":     85,
+		"sleepQuality": 80,
+		"plannedTrainingSessions": []map[string]interface{}{
+			{
+				"type":        "strength",
+				"durationMin": 60,
+			},
+		},
+		"dayType": "performance",
+	}
+
+	rec := s.doRequest("POST", "/api/logs", logReq)
+	s.Require().Equal(http.StatusCreated, rec.Code, "Setup: daily log creation should succeed")
+}
+
 func (s *HandlerSuite) seedDailyLog(date string, weightKg float64) {
 	logStore := store.NewDailyLogStore(s.db)
 	log := &domain.DailyLog{
@@ -322,6 +340,137 @@ func (s *HandlerSuite) TestTrainingConfigsEndpoint() {
 		// Strength should have MET 5.0 and load score 5
 		s.Equal(5.0, configMap["strength"].MET)
 		s.Equal(float64(5), configMap["strength"].LoadScore)
+	})
+}
+
+// --- Actual training endpoint tests ---
+// Justification: Tests PATCH /actual-training behavior not covered by feature scenarios.
+
+func (s *HandlerSuite) TestActualTrainingUpdate() {
+	s.createProfile()
+
+	s.Run("updates actual sessions and uses them for summary", func() {
+		date := "2025-01-15"
+		s.createDailyLogForDate(date)
+
+		req := map[string]interface{}{
+			"actualSessions": []map[string]interface{}{
+				{
+					"type":               "strength",
+					"durationMin":        25,
+					"perceivedIntensity": 7,
+					"notes":              "Felt strong",
+				},
+				{
+					"type":        "walking",
+					"durationMin": 15,
+				},
+			},
+		}
+
+		rec := s.doRequest("PATCH", "/api/logs/"+date+"/actual-training", req)
+		s.Equal(http.StatusOK, rec.Code)
+
+		var resp struct {
+			ActualTrainingSessions []struct {
+				SessionOrder       int     `json:"sessionOrder"`
+				Type               string  `json:"type"`
+				DurationMin        int     `json:"durationMin"`
+				PerceivedIntensity *int    `json:"perceivedIntensity,omitempty"`
+				Notes              string  `json:"notes,omitempty"`
+			} `json:"actualTrainingSessions"`
+			TrainingSummary struct {
+				SessionCount     int     `json:"sessionCount"`
+				TotalDurationMin int     `json:"totalDurationMin"`
+				TotalLoadScore   float64 `json:"totalLoadScore"`
+				Summary          string  `json:"summary"`
+			} `json:"trainingSummary"`
+		}
+
+		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
+		s.Require().Len(resp.ActualTrainingSessions, 2)
+		s.Equal(1, resp.ActualTrainingSessions[0].SessionOrder)
+		s.Equal("strength", resp.ActualTrainingSessions[0].Type)
+		s.Equal(25, resp.ActualTrainingSessions[0].DurationMin)
+		s.Require().NotNil(resp.ActualTrainingSessions[0].PerceivedIntensity)
+		s.Equal(7, *resp.ActualTrainingSessions[0].PerceivedIntensity)
+
+		s.Equal(2, resp.TrainingSummary.SessionCount)
+		s.Equal(40, resp.TrainingSummary.TotalDurationMin)
+		s.Greater(resp.TrainingSummary.TotalLoadScore, float64(0))
+		s.NotEmpty(resp.TrainingSummary.Summary)
+	})
+
+	s.Run("clears actual sessions when empty array sent", func() {
+		date := "2025-01-16"
+		s.createDailyLogForDate(date)
+
+		seedReq := map[string]interface{}{
+			"actualSessions": []map[string]interface{}{
+				{
+					"type":        "strength",
+					"durationMin": 30,
+				},
+			},
+		}
+		seedRec := s.doRequest("PATCH", "/api/logs/"+date+"/actual-training", seedReq)
+		s.Equal(http.StatusOK, seedRec.Code)
+
+		clearReq := map[string]interface{}{
+			"actualSessions": []map[string]interface{}{},
+		}
+		rec := s.doRequest("PATCH", "/api/logs/"+date+"/actual-training", clearReq)
+		s.Equal(http.StatusOK, rec.Code)
+
+		var resp struct {
+			ActualTrainingSessions []struct {
+				SessionOrder int `json:"sessionOrder"`
+			} `json:"actualTrainingSessions,omitempty"`
+			TrainingSummary struct {
+				TotalDurationMin int `json:"totalDurationMin"`
+			} `json:"trainingSummary"`
+		}
+		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
+		s.Nil(resp.ActualTrainingSessions)
+		s.Equal(60, resp.TrainingSummary.TotalDurationMin)
+	})
+
+	s.Run("invalid perceived intensity returns 400", func() {
+		date := "2025-01-17"
+		s.createDailyLogForDate(date)
+
+		req := map[string]interface{}{
+			"actualSessions": []map[string]interface{}{
+				{
+					"type":               "strength",
+					"durationMin":        30,
+					"perceivedIntensity": 11,
+				},
+			},
+		}
+
+		rec := s.doRequest("PATCH", "/api/logs/"+date+"/actual-training", req)
+		s.Equal(http.StatusBadRequest, rec.Code)
+
+		var resp APIError
+		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
+		s.Equal("validation_error", resp.Error)
+	})
+
+	s.Run("missing log returns 404", func() {
+		rec := s.doRequest("PATCH", "/api/logs/2025-01-99/actual-training", map[string]interface{}{
+			"actualSessions": []map[string]interface{}{
+				{
+					"type":        "walking",
+					"durationMin": 20,
+				},
+			},
+		})
+		s.Equal(http.StatusNotFound, rec.Code)
+
+		var resp APIError
+		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
+		s.Equal("not_found", resp.Error)
 	})
 }
 

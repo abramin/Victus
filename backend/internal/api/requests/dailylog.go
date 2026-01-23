@@ -178,6 +178,11 @@ func DailyLogToResponse(d *domain.DailyLog) DailyLogResponse {
 		}
 	}
 
+	summarySessions := d.PlannedSessions
+	if len(d.ActualSessions) > 0 {
+		summarySessions = d.ActualSessions
+	}
+
 	resp := DailyLogResponse{
 		Date:                    d.Date,
 		WeightKg:                d.WeightKg,
@@ -188,10 +193,10 @@ func DailyLogToResponse(d *domain.DailyLog) DailyLogResponse {
 		PlannedTrainingSessions: plannedSessions,
 		ActualTrainingSessions:  actualSessions,
 		TrainingSummary: TrainingSummaryResponse{
-			SessionCount:     len(d.PlannedSessions),
-			TotalDurationMin: domain.TotalDurationMin(d.PlannedSessions),
-			TotalLoadScore:   domain.TotalLoadScore(d.PlannedSessions),
-			Summary:          domain.SessionSummary(d.PlannedSessions),
+			SessionCount:     len(summarySessions),
+			TotalDurationMin: domain.TotalDurationMin(summarySessions),
+			TotalLoadScore:   domain.TotalLoadScore(summarySessions),
+			Summary:          domain.SessionSummary(summarySessions),
 		},
 		DayType: string(d.DayType),
 		CalculatedTargets: DailyTargetsResponse{

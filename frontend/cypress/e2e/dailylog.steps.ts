@@ -15,6 +15,19 @@ const invalidDailyLog = {
   ],
 }
 
+const actualTrainingSessions = [
+  {
+    type: "strength",
+    durationMin: 25,
+    perceivedIntensity: 7,
+    notes: "Felt strong",
+  },
+  {
+    type: "walking",
+    durationMin: 15,
+  },
+]
+
 When("I create a valid daily log", () => {
   cy.request({
     method: "POST",
@@ -83,6 +96,39 @@ When("I delete today's daily log", () => {
   }).as("lastResponse")
 })
 
+When("I update the actual training sessions", () => {
+  cy.request({
+    method: "PATCH",
+    url: `${apiBaseUrl}/api/logs/${validDailyLog.date}/actual-training`,
+    body: {
+      actualSessions: actualTrainingSessions,
+    },
+    failOnStatusCode: false,
+  }).as("lastResponse")
+})
+
+When("I clear the actual training sessions", () => {
+  cy.request({
+    method: "PATCH",
+    url: `${apiBaseUrl}/api/logs/${validDailyLog.date}/actual-training`,
+    body: {
+      actualSessions: [],
+    },
+    failOnStatusCode: false,
+  }).as("lastResponse")
+})
+
+When("I have updated the actual training sessions", () => {
+  cy.request({
+    method: "PATCH",
+    url: `${apiBaseUrl}/api/logs/${validDailyLog.date}/actual-training`,
+    body: {
+      actualSessions: actualTrainingSessions,
+    },
+    failOnStatusCode: false,
+  })
+})
+
 When("I create a performance day log", () => {
   cy.request({
     method: "POST",
@@ -138,5 +184,35 @@ Then("the meal points should not deduct maltodextrin or whey", () => {
     // Points should be multiples of 5
     expect(meals.breakfast.carbs % 5).to.equal(0)
     expect(meals.breakfast.protein % 5).to.equal(0)
+  })
+})
+
+Then("the daily log response should include actual training sessions", () => {
+  cy.get("@lastResponse").then((response) => {
+    const body = (response as Cypress.Response<unknown>).body as Record<string, unknown>
+    const sessions = body.actualTrainingSessions as Array<Record<string, unknown>>
+
+    expect(sessions).to.have.length(actualTrainingSessions.length)
+    expect(sessions[0].type).to.equal(actualTrainingSessions[0].type)
+    expect(sessions[0].durationMin).to.equal(actualTrainingSessions[0].durationMin)
+    expect(sessions[0].perceivedIntensity).to.equal(actualTrainingSessions[0].perceivedIntensity)
+  })
+})
+
+Then("the daily log response should not include actual training sessions", () => {
+  cy.get("@lastResponse").then((response) => {
+    const body = (response as Cypress.Response<unknown>).body as Record<string, unknown>
+    expect(body.actualTrainingSessions).to.be.undefined
+  })
+})
+
+Then("the training summary should reflect actual sessions", () => {
+  cy.get("@lastResponse").then((response) => {
+    const body = (response as Cypress.Response<unknown>).body as Record<string, unknown>
+    const summary = body.trainingSummary as Record<string, unknown>
+    const totalDuration = actualTrainingSessions.reduce((sum, session) => sum + session.durationMin, 0)
+
+    expect(summary.sessionCount).to.equal(actualTrainingSessions.length)
+    expect(summary.totalDurationMin).to.equal(totalDuration)
   })
 })

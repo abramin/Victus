@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import type { CreateDailyLogRequest, DailyLog, DayType, UserProfile, ActualTrainingSession } from '../../api/types';
 import { DayTargetsPanel } from '../day-view';
 import { TrainingSessionList } from '../daily-input/TrainingSessionList';
-import { ActualTrainingModal } from '../training';
+import { ActualTrainingModal, ActualVsPlannedComparison } from '../training';
 
 interface DailyUpdateFormProps {
   onSubmit: (log: CreateDailyLogRequest) => Promise<unknown>;
@@ -225,6 +225,12 @@ export function DailyUpdateForm({ onSubmit, onUpdateActual, saving, error, profi
                     ✓ Logged: {log.actualTrainingSessions.length} session(s), {log.actualTrainingSessions.reduce((sum, s) => sum + s.durationMin, 0)} min total
                   </p>
                 )}
+                <div className="mt-2">
+                  <ActualVsPlannedComparison
+                    planned={log.plannedTrainingSessions}
+                    actual={log.actualTrainingSessions}
+                  />
+                </div>
               </div>
             )}
           </div>

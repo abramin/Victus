@@ -52,6 +52,24 @@ Feature: Daily log management
     When I delete today's daily log
     Then the response status should be 204
 
+  Scenario: Update actual training sessions
+    Given the profile API is running
+    And I have upserted a valid user profile
+    And I have created a valid daily log for today
+    When I update the actual training sessions
+    Then the response status should be 200
+    And the daily log response should include actual training sessions
+    And the training summary should reflect actual sessions
+
+  Scenario: Clear actual training sessions
+    Given the profile API is running
+    And I have upserted a valid user profile
+    And I have created a valid daily log for today
+    And I have updated the actual training sessions
+    When I clear the actual training sessions
+    Then the response status should be 200
+    And the daily log response should not include actual training sessions
+
   Scenario: Daily log with supplement configuration reflects deductions
     Given the profile API is running
     And I have upserted a profile with supplements configured
