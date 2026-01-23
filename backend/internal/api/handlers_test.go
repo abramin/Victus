@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"encoding/json"
 	"io"
@@ -11,6 +12,8 @@ import (
 	"time"
 
 	"victus/internal/db"
+	"victus/internal/domain"
+	"victus/internal/store"
 
 	"github.com/stretchr/testify/suite"
 	_ "modernc.org/sqlite"
@@ -72,6 +75,22 @@ func (s *HandlerSuite) createProfile() {
 	}
 	rec := s.doRequest("PUT", "/api/profile", profileReq)
 	s.Require().Equal(http.StatusOK, rec.Code, "Setup: profile creation should succeed")
+}
+
+func (s *HandlerSuite) seedDailyLog(date string, weightKg float64) {
+	logStore := store.NewDailyLogStore(s.db)
+	log := &domain.DailyLog{
+		Date:         date,
+		WeightKg:     weightKg,
+		SleepQuality: 80,
+		DayType:      domain.DayTypeFatburner,
+		CalculatedTargets: domain.DailyTargets{
+			DayType: domain.DayTypeFatburner,
+		},
+	}
+
+	_, err := logStore.Create(context.Background(), log)
+	s.Require().NoError(err)
 }
 
 // --- Health endpoint tests ---
@@ -304,4 +323,57 @@ func (s *HandlerSuite) TestTrainingConfigsEndpoint() {
 		s.Equal(5.0, configMap["strength"].MET)
 		s.Equal(float64(5), configMap["strength"].LoadScore)
 	})
+}
+
+// --- Weight trend endpoint tests ---
+// Justification: Verifies trend summary presence/absence in JSON response, which
+// is not covered by feature scenarios.
+
+func (s *HandlerSuite) TestWeightTrendReturnsSummaryWithMultipleSamples() {
+	s.seedDailyLog("2025-01-01", 80)
+	s.seedDailyLog("2025-01-02", 79)
+
+	rec := s.doRequest("GET", "/api/stats/weight-trend?range=all", nil)
+	s.Equal(http.StatusOK, rec.Code)
+
+	var resp struct {
+		Points []struct {
+			Date     string  `json:"date"`
+			WeightKg float64 `json:"weightKg"`
+		} `json:"points"`
+		Trend *struct {
+			WeeklyChangeKg float64 `json:"weeklyChangeKg"`
+			RSquared       float64 `json:"rSquared"`
+			StartWeightKg  float64 `json:"startWeightKg"`
+			EndWeightKg    float64 `json:"endWeightKg"`
+		} `json:"trend"`
+	}
+	s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
+	s.Len(resp.Points, 2)
+	s.Require().NotNil(resp.Trend)
+	s.InDelta(80.0, resp.Trend.StartWeightKg, 0.001)
+	s.InDelta(79.0, resp.Trend.EndWeightKg, 0.001)
+}
+
+func (s *HandlerSuite) TestWeightTrendOmitsSummaryWithSingleSample() {
+	s.seedDailyLog("2025-01-01", 80)
+
+	rec := s.doRequest("GET", "/api/stats/weight-trend?range=all", nil)
+	s.Equal(http.StatusOK, rec.Code)
+
+	var resp struct {
+		Points []struct {
+			Date     string  `json:"date"`
+			WeightKg float64 `json:"weightKg"`
+		} `json:"points"`
+		Trend *struct {
+			WeeklyChangeKg float64 `json:"weeklyChangeKg"`
+			RSquared       float64 `json:"rSquared"`
+			StartWeightKg  float64 `json:"startWeightKg"`
+			EndWeightKg    float64 `json:"endWeightKg"`
+		} `json:"trend"`
+	}
+	s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
+	s.Len(resp.Points, 1)
+	s.Nil(resp.Trend)
 }

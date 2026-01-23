@@ -7,6 +7,8 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
+// Justification: Profile validation is a domain invariant; unit tests keep rules
+// stable without relying on HTTP/feature wiring.
 type ProfileSuite struct {
 	suite.Suite
 	now time.Time

@@ -7,6 +7,8 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
+// Justification: Target calculations are numeric invariants; unit tests lock the
+// formulas and rounding behavior without fragile end-to-end dependencies.
 type TargetsSuite struct {
 	suite.Suite
 	now         time.Time

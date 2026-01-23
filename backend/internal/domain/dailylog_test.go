@@ -7,6 +7,8 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
+// Justification: Validation/default rules are pure domain invariants; unit tests guard
+// against regression without relying on feature flows.
 type DailyLogSuite struct {
 	suite.Suite
 	now time.Time

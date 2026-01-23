@@ -77,8 +77,8 @@ func (s *DailyLogServiceSuite) createProfile() {
 }
 
 // --- DailyLogService tests ---
-// Justification: Tests default application and edge cases not covered by feature scenarios.
-// Feature scenarios test full happy paths; these test service-layer behaviors.
+// Justification: Tests default application not covered by feature scenarios.
+// Feature scenarios test full happy paths; this test protects service-layer behavior.
 
 // NOTE: The following tests were removed as redundant with dailylog.feature scenarios:
 // - TestLogCreationCalculatesTargets: "Create a daily log with calculated targets"
@@ -101,18 +101,6 @@ func (s *DailyLogServiceSuite) TestLogCreationAppliesDefaults() {
 	s.Require().Len(result.PlannedSessions, 1, "Should have default rest session")
 	s.Equal(domain.TrainingTypeRest, result.PlannedSessions[0].Type, "Training type should default to rest")
 	s.Equal(domain.DayTypeFatburner, result.DayType, "Day type should default to fatburner")
-}
-
-func (s *DailyLogServiceSuite) TestLogCreationRejectsInvalidInput() {
-	s.createProfile()
-
-	// Invalid weight - should fail validation even with defaults
-	log := &domain.DailyLog{
-		WeightKg: 25, // Below 30kg minimum
-	}
-
-	_, err := s.logService.Create(s.ctx, log, s.now)
-	s.Require().ErrorIs(err, domain.ErrInvalidWeight)
 }
 
 // NOTE: The following tests were removed as redundant with dailylog.feature scenarios:
@@ -174,20 +162,6 @@ func (s *ProfileServiceSuite) TestProfileUpsertFlow() {
 		s.InDelta(0.45, result.CarbRatio, 0.001, "Carb ratio should default to 0.45")
 		s.InDelta(0.30, result.ProteinRatio, 0.001, "Protein ratio should default to 0.30")
 		s.InDelta(0.25, result.FatRatio, 0.001, "Fat ratio should default to 0.25")
-	})
-
-	s.Run("rejects invalid profile", func() {
-		profile := &domain.UserProfile{
-			HeightCM:             50, // Too short
-			BirthDate:            time.Date(1985, 1, 1, 0, 0, 0, 0, time.UTC),
-			Sex:                  domain.SexMale,
-			Goal:                 domain.GoalLoseWeight,
-			TargetWeightKg:       80,
-			TargetWeeklyChangeKg: -0.5,
-		}
-
-		_, err := s.service.Upsert(s.ctx, profile, s.now)
-		s.Require().ErrorIs(err, domain.ErrInvalidHeight)
 	})
 
 	s.Run("updates existing profile", func() {

@@ -13,6 +13,8 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+// Justification: Store tests verify persistence and schema constraints beyond
+// feature-level coverage.
 type StoreSuite struct {
 	suite.Suite
 	db           *sql.DB
@@ -272,8 +274,7 @@ func (s *StoreSuite) TestDailyLogDateUniqueness() {
 		}
 
 		_, err = s.logStore.Create(s.ctx, log2)
-		s.Require().Error(err, "Should reject duplicate date")
-		s.Contains(err.Error(), "UNIQUE constraint")
+		s.Require().ErrorIs(err, ErrDailyLogAlreadyExists)
 	})
 }
 
