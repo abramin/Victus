@@ -30,6 +30,17 @@ async function handleResponse<T>(response: Response): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+type PlannedSessionWithId = CreateDailyLogRequest['plannedTrainingSessions'][number] & { _id?: string };
+
+function sanitizePlannedSessions(
+  sessions: CreateDailyLogRequest['plannedTrainingSessions']
+): CreateDailyLogRequest['plannedTrainingSessions'] {
+  return sessions.map((session) => {
+    const { _id, ...rest } = session as PlannedSessionWithId;
+    return rest;
+  });
+}
+
 export async function getProfile(): Promise<UserProfile | null> {
   const response = await fetch(`${API_BASE}/profile`);
 
@@ -63,12 +74,16 @@ export async function getTodayLog(): Promise<DailyLog | null> {
 }
 
 export async function createDailyLog(log: CreateDailyLogRequest): Promise<DailyLog> {
+  const payload: CreateDailyLogRequest = {
+    ...log,
+    plannedTrainingSessions: sanitizePlannedSessions(log.plannedTrainingSessions),
+  };
   const response = await fetch(`${API_BASE}/logs`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(log),
+    body: JSON.stringify(payload),
   });
 
   return handleResponse<DailyLog>(response);

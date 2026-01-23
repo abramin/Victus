@@ -10,7 +10,15 @@ import { DailyUpdateForm } from '../components/daily-update';
 import { ProfileForm } from '../components/settings/ProfileForm';
 
 function App() {
-  const { profile, loading: profileLoading, saving: profileSaving, saveError, save } = useProfile();
+  const {
+    profile,
+    loading: profileLoading,
+    saving: profileSaving,
+    saveError,
+    save,
+    error: profileError,
+    refresh: refreshProfile,
+  } = useProfile();
   const { log, loading: logLoading, saving: logSaving, saveError: logSaveError, create, updateActual } = useDailyLog();
   const [currentNav, setCurrentNav] = useState<NavItem>('meal-points');
 
@@ -21,6 +29,24 @@ function App() {
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-gray-700 border-t-white rounded-full animate-spin mx-auto mb-4" />
           <p className="text-gray-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (profileError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-black p-6">
+        <div className="text-center max-w-md">
+          <h1 className="text-xl font-semibold text-white mb-2">Unable to load profile</h1>
+          <p className="text-gray-400 mb-4">{profileError}</p>
+          <button
+            type="button"
+            onClick={refreshProfile}
+            className="px-4 py-2 bg-white text-black rounded-lg font-medium hover:bg-gray-200 transition-colors"
+          >
+            Try again
+          </button>
         </div>
       </div>
     );

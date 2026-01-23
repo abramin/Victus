@@ -29,13 +29,61 @@ const INITIAL_FORM_DATA: CreateDailyLogRequest = {
 export function DailyUpdateForm({ onSubmit, onUpdateActual, saving, error, profile, log }: DailyUpdateFormProps) {
   const [formData, setFormData] = useState<CreateDailyLogRequest>(INITIAL_FORM_DATA);
   const [showActualModal, setShowActualModal] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   const hasChanges = useMemo(() => {
     return JSON.stringify(formData) !== JSON.stringify(INITIAL_FORM_DATA);
   }, [formData]);
 
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+
+    if (!formData.weightKg || formData.weightKg < 30 || formData.weightKg > 300) {
+      errors.weightKg = 'Weight must be between 30 and 300 kg';
+    }
+
+    if (
+      formData.bodyFatPercent !== undefined &&
+      (formData.bodyFatPercent < 3 || formData.bodyFatPercent > 70)
+    ) {
+      errors.bodyFatPercent = 'Body fat must be between 3% and 70%';
+    }
+
+    if (
+      formData.restingHeartRate !== undefined &&
+      (formData.restingHeartRate < 30 || formData.restingHeartRate > 200)
+    ) {
+      errors.restingHeartRate = 'Resting heart rate must be between 30 and 200 bpm';
+    }
+
+    if (
+      formData.sleepHours !== undefined &&
+      (formData.sleepHours < 0 || formData.sleepHours > 24)
+    ) {
+      errors.sleepHours = 'Sleep duration must be between 0 and 24 hours';
+    }
+
+    if (formData.sleepQuality < 1 || formData.sleepQuality > 100) {
+      errors.sleepQuality = 'Sleep quality must be between 1 and 100';
+    }
+
+    if (formData.plannedTrainingSessions.length === 0) {
+      errors.training = 'Add at least one training session.';
+    } else if (
+      formData.plannedTrainingSessions.some(
+        (session) => session.type !== 'rest' && session.durationMin <= 0
+      )
+    ) {
+      errors.training = 'Duration is required for non-rest training.';
+    }
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleClear = () => {
     setFormData(INITIAL_FORM_DATA);
+    setValidationErrors({});
   };
 
   const handleSaveActualTraining = async (
@@ -44,7 +92,9 @@ export function DailyUpdateForm({ onSubmit, onUpdateActual, saving, error, profi
     const result = await onUpdateActual(sessions);
     if (result) {
       setShowActualModal(false);
+      return true;
     }
+    return false;
   };
 
   const today = new Date();
@@ -66,6 +116,9 @@ export function DailyUpdateForm({ onSubmit, onUpdateActual, saving, error, profi
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validateForm()) {
+      return;
+    }
     await onSubmit(formData);
   };
 
@@ -136,6 +189,9 @@ export function DailyUpdateForm({ onSubmit, onUpdateActual, saving, error, profi
                   placeholder="Enter weight"
                   className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/20"
                 />
+                {validationErrors.weightKg && (
+                  <p className="text-xs text-red-400 mt-1">{validationErrors.weightKg}</p>
+                )}
               </div>
 
               {/* Body Fat */}
@@ -149,6 +205,9 @@ export function DailyUpdateForm({ onSubmit, onUpdateActual, saving, error, profi
                   placeholder="Optional"
                   className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/20"
                 />
+                {validationErrors.bodyFatPercent && (
+                  <p className="text-xs text-red-400 mt-1">{validationErrors.bodyFatPercent}</p>
+                )}
               </div>
 
               {/* Resting Heart Rate */}
@@ -161,6 +220,9 @@ export function DailyUpdateForm({ onSubmit, onUpdateActual, saving, error, profi
                   placeholder="Optional"
                   className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/20"
                 />
+                {validationErrors.restingHeartRate && (
+                  <p className="text-xs text-red-400 mt-1">{validationErrors.restingHeartRate}</p>
+                )}
               </div>
 
               {/* Sleep Hours */}
@@ -174,6 +236,9 @@ export function DailyUpdateForm({ onSubmit, onUpdateActual, saving, error, profi
                   placeholder="Optional"
                   className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/20"
                 />
+                {validationErrors.sleepHours && (
+                  <p className="text-xs text-red-400 mt-1">{validationErrors.sleepHours}</p>
+                )}
               </div>
             </div>
 
@@ -195,6 +260,9 @@ export function DailyUpdateForm({ onSubmit, onUpdateActual, saving, error, profi
                 <span>Poor</span>
                 <span>Excellent</span>
               </div>
+              {validationErrors.sleepQuality && (
+                <p className="text-xs text-red-400 mt-1">{validationErrors.sleepQuality}</p>
+              )}
             </div>
           </div>
 
@@ -207,6 +275,9 @@ export function DailyUpdateForm({ onSubmit, onUpdateActual, saving, error, profi
                 updateFormData({ plannedTrainingSessions: sessions })
               }
             />
+            {validationErrors.training && (
+              <p className="text-xs text-red-400 mt-2">{validationErrors.training}</p>
+            )}
             {log && (
               <div className="mt-4 pt-4 border-t border-gray-700">
                 <button

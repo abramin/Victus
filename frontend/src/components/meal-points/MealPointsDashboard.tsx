@@ -21,11 +21,17 @@ const DEFAULT_SUPPLEMENTS = [
   { id: 'intra_carbs', label: 'Intra-workout', sublabel: 'Carbs', value: 50, enabled: false },
 ];
 
+const isSameDay = (left: Date, right: Date) =>
+  left.getFullYear() === right.getFullYear() &&
+  left.getMonth() === right.getMonth() &&
+  left.getDate() === right.getDate();
+
 export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPointsDashboardProps) {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedDayType, setSelectedDayType] = useState<DayType>(log?.dayType || 'fatburner');
   const [supplements, setSupplements] = useState(DEFAULT_SUPPLEMENTS);
   const [trendPeriod, setTrendPeriod] = useState<'7d' | '14d' | '30d'>('7d');
+  const isSelectedToday = isSameDay(selectedDate, new Date());
 
   // Get meal ratios from profile (convert to percentages)
   const mealRatios = useMemo(() => ({
@@ -61,6 +67,14 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
 
   // Get meal data from log - null if no log exists for today
   const mealData = useMemo(() => {
+    if (!isSelectedToday) {
+      return {
+        breakfast: { carbs: 0, protein: 0, fats: 0 },
+        lunch: { carbs: 0, protein: 0, fats: 0 },
+        dinner: { carbs: 0, protein: 0, fats: 0 },
+        hasData: false,
+      };
+    }
     if (log?.calculatedTargets?.meals) {
       return {
         breakfast: log.calculatedTargets.meals.breakfast,
@@ -76,7 +90,7 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
       dinner: { carbs: 0, protein: 0, fats: 0 },
       hasData: false,
     };
-  }, [log]);
+  }, [isSelectedToday, log]);
 
   return (
     <div className="p-6">
@@ -130,8 +144,16 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
         <div className="col-span-8 space-y-4">
           {!mealData.hasData ? (
             <div className="col-span-3 bg-gray-900 rounded-xl p-8 border border-gray-800 text-center">
-              <p className="text-gray-400 mb-4">No daily log for today yet.</p>
-              <p className="text-gray-500 text-sm">Complete your Daily Update to see your meal points.</p>
+              <p className="text-gray-400 mb-4">
+                {isSelectedToday
+                  ? 'No daily log for today yet.'
+                  : 'Meal points are available for today only.'}
+              </p>
+              <p className="text-gray-500 text-sm">
+                {isSelectedToday
+                  ? 'Complete your Daily Update to see your meal points.'
+                  : 'Select today to view your meal points.'}
+              </p>
             </div>
           ) : (
             <div className="grid grid-cols-3 gap-4">

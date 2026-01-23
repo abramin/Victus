@@ -26,7 +26,7 @@ interface ActualTrainingModalProps {
   onClose: () => void;
   plannedSessions: TrainingSession[];
   actualSessions?: ActualTrainingSession[];
-  onSave: (sessions: Omit<ActualTrainingSession, 'sessionOrder'>[]) => Promise<void>;
+  onSave: (sessions: Omit<ActualTrainingSession, 'sessionOrder'>[]) => Promise<boolean>;
   saving: boolean;
 }
 
@@ -94,8 +94,10 @@ export function ActualTrainingModal({
   const handleSave = async () => {
     // Strip _id before saving
     const sessionsWithoutId = sessions.map(({ _id, ...rest }) => rest);
-    await onSave(sessionsWithoutId);
-    onClose();
+    const didSave = await onSave(sessionsWithoutId);
+    if (didSave) {
+      onClose();
+    }
   };
 
   const getPlannedComparison = (index: number) => {
