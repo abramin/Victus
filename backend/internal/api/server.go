@@ -46,6 +46,7 @@ func NewServer(db *sql.DB) *Server {
 
 	// Daily log routes
 	mux.HandleFunc("POST /api/logs", srv.createDailyLog)
+	mux.HandleFunc("GET /api/logs", srv.getLogsRange)
 	mux.HandleFunc("GET /api/logs/today", srv.getTodayLog)
 	mux.HandleFunc("GET /api/logs/{date}", srv.getLogByDate)
 	mux.HandleFunc("DELETE /api/logs/today", srv.deleteTodayLog)

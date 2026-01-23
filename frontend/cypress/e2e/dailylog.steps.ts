@@ -1,7 +1,8 @@
-import { When, Then } from "@badeball/cypress-cucumber-preprocessor"
+import { Given, When, Then } from "@badeball/cypress-cucumber-preprocessor"
 
 // Import shared data from shared-steps (step definitions are auto-loaded)
 import { validDailyLog } from "../support/shared-steps"
+import { DAILY_LOGS, ACTUAL_SESSIONS, BOUNDARIES, getDateOffset } from "../support/fixtures"
 
 const apiBaseUrl = Cypress.env("apiBaseUrl") as string
 
@@ -214,5 +215,399 @@ Then("the training summary should reflect actual sessions", () => {
 
     expect(summary.sessionCount).to.equal(actualTrainingSessions.length)
     expect(summary.totalDurationMin).to.equal(totalDuration)
+  })
+})
+
+// =============================================================================
+// UI STATE STEPS
+// =============================================================================
+
+Given("no daily log exists for today", () => {
+  cy.request({
+    method: "DELETE",
+    url: `${apiBaseUrl}/api/logs/today`,
+    failOnStatusCode: false,
+  })
+})
+
+When("I complete the daily update form", () => {
+  cy.get('input[type="number"]').first().clear().type("82.5")
+  cy.get('[data-testid="sleep-quality-input"], input[name="sleepQuality"]').first().then(($el) => {
+    if ($el.length) {
+      cy.wrap($el).clear().type("80")
+    }
+  })
+})
+
+When("I update the weight to a new value", () => {
+  cy.get('[data-testid="weight-input"], input[name="weightKg"], input[type="number"]')
+    .first()
+    .clear()
+    .type("85.0")
+})
+
+Then("the weight should be updated in the log", () => {
+  cy.request({
+    method: "GET",
+    url: `${apiBaseUrl}/api/logs/today`,
+  }).then((response) => {
+    expect(response.body.weightKg).to.equal(85)
+  })
+})
+
+// =============================================================================
+// BOUNDARY CONDITION STEPS
+// =============================================================================
+
+When("I create a daily log with minimum weight", () => {
+  cy.request({
+    method: "POST",
+    url: `${apiBaseUrl}/api/logs`,
+    body: { ...DAILY_LOGS.minWeight },
+    failOnStatusCode: false,
+  }).as("lastResponse")
+})
+
+When("I create a daily log with maximum weight", () => {
+  cy.request({
+    method: "POST",
+    url: `${apiBaseUrl}/api/logs`,
+    body: { ...DAILY_LOGS.maxWeight },
+    failOnStatusCode: false,
+  }).as("lastResponse")
+})
+
+When("I create a daily log with weight below minimum", () => {
+  cy.request({
+    method: "POST",
+    url: `${apiBaseUrl}/api/logs`,
+    body: { ...DAILY_LOGS.weightBelowMin },
+    failOnStatusCode: false,
+  }).as("lastResponse")
+})
+
+When("I create a daily log with weight above maximum", () => {
+  cy.request({
+    method: "POST",
+    url: `${apiBaseUrl}/api/logs`,
+    body: { ...DAILY_LOGS.weightAboveMax },
+    failOnStatusCode: false,
+  }).as("lastResponse")
+})
+
+When("I create a daily log with minimum sleep quality", () => {
+  cy.request({
+    method: "POST",
+    url: `${apiBaseUrl}/api/logs`,
+    body: { ...DAILY_LOGS.minSleepQuality },
+    failOnStatusCode: false,
+  }).as("lastResponse")
+})
+
+When("I create a daily log with maximum sleep quality", () => {
+  cy.request({
+    method: "POST",
+    url: `${apiBaseUrl}/api/logs`,
+    body: { ...DAILY_LOGS.maxSleepQuality },
+    failOnStatusCode: false,
+  }).as("lastResponse")
+})
+
+When("I create a daily log with sleep quality below minimum", () => {
+  cy.request({
+    method: "POST",
+    url: `${apiBaseUrl}/api/logs`,
+    body: { ...DAILY_LOGS.sleepQualityBelowMin },
+    failOnStatusCode: false,
+  }).as("lastResponse")
+})
+
+When("I create a daily log with all boundary values", () => {
+  cy.request({
+    method: "POST",
+    url: `${apiBaseUrl}/api/logs`,
+    body: {
+      ...validDailyLog,
+      bodyFatPercent: BOUNDARIES.bodyFat.min,
+      restingHeartRate: BOUNDARIES.heartRate.min,
+      sleepHours: BOUNDARIES.sleepHours.max,
+    },
+    failOnStatusCode: false,
+  }).as("lastResponse")
+})
+
+Then("the daily log response should include all optional fields", () => {
+  cy.get("@lastResponse").then((response) => {
+    const body = (response as Cypress.Response<unknown>).body as Record<string, unknown>
+    expect(body.bodyFatPercent).to.exist
+    expect(body.restingHeartRate).to.exist
+    expect(body.sleepHours).to.exist
+  })
+})
+
+// =============================================================================
+// TRAINING SESSION VARIATION STEPS
+// =============================================================================
+
+When("I create a rest day log", () => {
+  cy.request({
+    method: "POST",
+    url: `${apiBaseUrl}/api/logs`,
+    body: { ...DAILY_LOGS.restDay },
+    failOnStatusCode: false,
+  }).as("lastResponse")
+})
+
+When("I have created a rest day log", () => {
+  cy.request({
+    method: "POST",
+    url: `${apiBaseUrl}/api/logs`,
+    body: { ...DAILY_LOGS.restDay },
+    failOnStatusCode: false,
+  })
+})
+
+Then("the training summary should show rest day", () => {
+  cy.get("@lastResponse").then((response) => {
+    const body = (response as Cypress.Response<unknown>).body as Record<string, unknown>
+    const summary = body.trainingSummary as Record<string, unknown>
+    expect(summary.sessionCount).to.equal(1)
+    expect(summary.totalDurationMin).to.equal(0)
+  })
+})
+
+When("I create a daily log with multiple training sessions", () => {
+  cy.request({
+    method: "POST",
+    url: `${apiBaseUrl}/api/logs`,
+    body: { ...DAILY_LOGS.multipleTraining },
+    failOnStatusCode: false,
+  }).as("lastResponse")
+})
+
+Then("the training summary should reflect multiple sessions", () => {
+  cy.get("@lastResponse").then((response) => {
+    const body = (response as Cypress.Response<unknown>).body as Record<string, unknown>
+    const summary = body.trainingSummary as Record<string, unknown>
+    expect(summary.sessionCount).to.equal(DAILY_LOGS.multipleTraining.plannedTrainingSessions.length)
+  })
+})
+
+When("I create a daily log with all training types", () => {
+  cy.request({
+    method: "POST",
+    url: `${apiBaseUrl}/api/logs`,
+    body: { ...DAILY_LOGS.allTrainingTypes },
+    failOnStatusCode: false,
+  }).as("lastResponse")
+})
+
+Then("the training summary should include all session types", () => {
+  cy.get("@lastResponse").then((response) => {
+    const body = (response as Cypress.Response<unknown>).body as Record<string, unknown>
+    const summary = body.trainingSummary as Record<string, unknown>
+    expect(summary.sessionCount).to.equal(DAILY_LOGS.allTrainingTypes.plannedTrainingSessions.length)
+  })
+})
+
+When("I update the actual training with minimum RPE", () => {
+  cy.request({
+    method: "PATCH",
+    url: `${apiBaseUrl}/api/logs/${validDailyLog.date}/actual-training`,
+    body: { actualSessions: ACTUAL_SESSIONS.minRpe },
+    failOnStatusCode: false,
+  }).as("lastResponse")
+})
+
+When("I update the actual training with maximum RPE", () => {
+  cy.request({
+    method: "PATCH",
+    url: `${apiBaseUrl}/api/logs/${validDailyLog.date}/actual-training`,
+    body: { actualSessions: ACTUAL_SESSIONS.maxRpe },
+    failOnStatusCode: false,
+  }).as("lastResponse")
+})
+
+Then("the actual sessions should have minimum RPE", () => {
+  cy.get("@lastResponse").then((response) => {
+    const body = (response as Cypress.Response<unknown>).body as Record<string, unknown>
+    const sessions = body.actualTrainingSessions as Array<Record<string, unknown>>
+    expect(sessions[0].perceivedIntensity).to.equal(BOUNDARIES.rpe.min)
+  })
+})
+
+Then("the actual sessions should have maximum RPE", () => {
+  cy.get("@lastResponse").then((response) => {
+    const body = (response as Cypress.Response<unknown>).body as Record<string, unknown>
+    const sessions = body.actualTrainingSessions as Array<Record<string, unknown>>
+    expect(sessions[0].perceivedIntensity).to.equal(BOUNDARIES.rpe.max)
+  })
+})
+
+// =============================================================================
+// DAY TYPE VARIATION STEPS
+// =============================================================================
+
+When("I create a metabolize day log", () => {
+  cy.request({
+    method: "POST",
+    url: `${apiBaseUrl}/api/logs`,
+    body: { ...DAILY_LOGS.metabolize },
+    failOnStatusCode: false,
+  }).as("lastResponse")
+})
+
+Then("the calculated targets should reflect metabolize day", () => {
+  cy.get("@lastResponse").then((response) => {
+    const body = (response as Cypress.Response<unknown>).body as Record<string, unknown>
+    const targets = body.calculatedTargets as Record<string, unknown>
+    expect(targets.dayType).to.equal("metabolize")
+  })
+})
+
+When("I create logs for all day types", () => {
+  // Store targets for comparison
+  const targetsMap: Record<string, Record<string, unknown>> = {}
+
+  // Create performance log
+  cy.request({
+    method: "DELETE",
+    url: `${apiBaseUrl}/api/logs/today`,
+    failOnStatusCode: false,
+  }).then(() => {
+    cy.request({
+      method: "POST",
+      url: `${apiBaseUrl}/api/logs`,
+      body: { ...DAILY_LOGS.performance },
+    }).then((response) => {
+      targetsMap.performance = (response.body as Record<string, unknown>).calculatedTargets as Record<string, unknown>
+
+      // Create fatburner log
+      cy.request({
+        method: "DELETE",
+        url: `${apiBaseUrl}/api/logs/today`,
+        failOnStatusCode: false,
+      }).then(() => {
+        cy.request({
+          method: "POST",
+          url: `${apiBaseUrl}/api/logs`,
+          body: { ...DAILY_LOGS.fatburner },
+        }).then((response) => {
+          targetsMap.fatburner = (response.body as Record<string, unknown>).calculatedTargets as Record<string, unknown>
+          cy.wrap(targetsMap).as("dayTypeTargets")
+        })
+      })
+    })
+  })
+})
+
+Then("the performance day should have highest carbs", () => {
+  cy.get("@dayTypeTargets").then((targetsMap) => {
+    const targets = targetsMap as Record<string, Record<string, unknown>>
+    expect(targets.performance.totalCarbsG).to.be.greaterThan(targets.fatburner.totalCarbsG as number)
+  })
+})
+
+Then("the fatburner day should have lowest carbs", () => {
+  cy.get("@dayTypeTargets").then((targetsMap) => {
+    const targets = targetsMap as Record<string, Record<string, unknown>>
+    expect(targets.fatburner.totalCarbsG).to.be.lessThan(targets.performance.totalCarbsG as number)
+  })
+})
+
+// =============================================================================
+// SAVE/UPDATE FLOW STEPS
+// =============================================================================
+
+When("I update the log to a different day type", () => {
+  cy.request({
+    method: "PUT",
+    url: `${apiBaseUrl}/api/logs/${validDailyLog.date}`,
+    body: { ...validDailyLog, dayType: "metabolize" },
+    failOnStatusCode: false,
+  }).as("lastResponse")
+})
+
+Then("the calculated targets should reflect the new day type", () => {
+  cy.get("@lastResponse").then((response) => {
+    const body = (response as Cypress.Response<unknown>).body as Record<string, unknown>
+    const targets = body.calculatedTargets as Record<string, unknown>
+    expect(targets.dayType).to.equal("metabolize")
+  })
+})
+
+When("I update the log with additional training sessions", () => {
+  cy.request({
+    method: "PUT",
+    url: `${apiBaseUrl}/api/logs/${DAILY_LOGS.restDay.date}`,
+    body: { ...DAILY_LOGS.multipleTraining },
+    failOnStatusCode: false,
+  }).as("lastResponse")
+})
+
+Then("the training summary should reflect added sessions", () => {
+  cy.get("@lastResponse").then((response) => {
+    const body = (response as Cypress.Response<unknown>).body as Record<string, unknown>
+    const summary = body.trainingSummary as Record<string, unknown>
+    expect(summary.sessionCount).to.be.greaterThan(1)
+  })
+})
+
+Then("the actual sessions should differ from planned", () => {
+  cy.get("@lastResponse").then((response) => {
+    const body = (response as Cypress.Response<unknown>).body as Record<string, unknown>
+    const planned = body.plannedTrainingSessions as Array<Record<string, unknown>>
+    const actual = body.actualTrainingSessions as Array<Record<string, unknown>>
+    expect(actual).to.not.deep.equal(planned)
+  })
+})
+
+Then("the training load should use actual sessions", () => {
+  cy.get("@lastResponse").then((response) => {
+    const body = (response as Cypress.Response<unknown>).body as Record<string, unknown>
+    const trainingLoad = body.trainingLoad as Record<string, unknown>
+    expect(trainingLoad.dailyLoad).to.be.a("number")
+  })
+})
+
+// =============================================================================
+// EDGE CASE STEPS
+// =============================================================================
+
+When("I create a daily log for yesterday", () => {
+  cy.request({
+    method: "POST",
+    url: `${apiBaseUrl}/api/logs`,
+    body: { ...validDailyLog, date: getDateOffset(-1) },
+    failOnStatusCode: false,
+  }).as("lastResponse")
+})
+
+When("I create a daily log for tomorrow", () => {
+  cy.request({
+    method: "POST",
+    url: `${apiBaseUrl}/api/logs`,
+    body: { ...validDailyLog, date: getDateOffset(1) },
+    failOnStatusCode: false,
+  }).as("lastResponse")
+})
+
+When("I create a daily log with maximum duration session", () => {
+  cy.request({
+    method: "POST",
+    url: `${apiBaseUrl}/api/logs`,
+    body: {
+      ...validDailyLog,
+      plannedTrainingSessions: [{ type: "cycle", durationMin: BOUNDARIES.duration.max }],
+    },
+    failOnStatusCode: false,
+  }).as("lastResponse")
+})
+
+Then("the training summary should reflect long duration", () => {
+  cy.get("@lastResponse").then((response) => {
+    const body = (response as Cypress.Response<unknown>).body as Record<string, unknown>
+    const summary = body.trainingSummary as Record<string, unknown>
+    expect(summary.totalDurationMin).to.equal(BOUNDARIES.duration.max)
   })
 })

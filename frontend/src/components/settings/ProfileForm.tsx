@@ -246,7 +246,7 @@ export function ProfileForm({ initialProfile, onSave, saving, error }: ProfileFo
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-6" data-testid="profile-form">
       {/* Biometrics Section */}
       <Card title="Biometrics">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -259,6 +259,7 @@ export function ProfileForm({ initialProfile, onSave, saving, error }: ProfileFo
             unit="cm"
             error={validationErrors.height}
             required
+            testId="height-input"
           />
 
           <div className="space-y-1">
@@ -269,10 +270,11 @@ export function ProfileForm({ initialProfile, onSave, saving, error }: ProfileFo
               type="date"
               value={profile.birthDate.split('T')[0]}
               onChange={(e) => updateProfile({ birthDate: e.target.value })}
+              data-testid="birthDate-input"
               className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-md text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             {validationErrors.birthDate && (
-              <p className="text-sm text-red-400">{validationErrors.birthDate}</p>
+              <p className="text-sm text-red-400" data-testid="birthDate-error">{validationErrors.birthDate}</p>
             )}
           </div>
 
@@ -283,6 +285,7 @@ export function ProfileForm({ initialProfile, onSave, saving, error }: ProfileFo
             options={SEX_OPTIONS}
             error={validationErrors.sex}
             required
+            testId="sex-select"
           />
         </div>
       </Card>
@@ -297,6 +300,7 @@ export function ProfileForm({ initialProfile, onSave, saving, error }: ProfileFo
             options={GOAL_OPTIONS}
             error={validationErrors.goal}
             required
+            testId="goal-select"
           />
 
           <NumberInput
@@ -309,6 +313,7 @@ export function ProfileForm({ initialProfile, onSave, saving, error }: ProfileFo
             unit="kg"
             error={validationErrors.currentWeight}
             required
+            testId="currentWeight-input"
           />
 
           <NumberInput
@@ -321,6 +326,7 @@ export function ProfileForm({ initialProfile, onSave, saving, error }: ProfileFo
             unit="kg"
             error={validationErrors.targetWeight}
             required
+            testId="targetWeight-input"
           />
 
           <NumberInput
@@ -332,6 +338,7 @@ export function ProfileForm({ initialProfile, onSave, saving, error }: ProfileFo
             step={1}
             unit="weeks"
             error={validationErrors.timeframe}
+            testId="timeframe-input"
           />
         </div>
 
@@ -369,12 +376,13 @@ export function ProfileForm({ initialProfile, onSave, saving, error }: ProfileFo
             step={0.5}
             unit="kg/week"
             error={validationErrors.weeklyChange}
+            testId="weeklyChange-input"
           />
         </div>
 
         {/* Aggressive Goal Warning */}
         {aggressiveGoalWarning && (
-          <div className="mt-4 p-3 bg-amber-900/50 border border-amber-700 rounded-md">
+          <div className="mt-4 p-3 bg-amber-900/50 border border-amber-700 rounded-md" data-testid="aggressive-goal-warning">
             <p className="text-sm text-amber-300">{aggressiveGoalWarning}</p>
           </div>
         )}
@@ -441,6 +449,7 @@ export function ProfileForm({ initialProfile, onSave, saving, error }: ProfileFo
             value={profile.bmrEquation || 'mifflin_st_jeor'}
             onChange={(v) => updateProfile({ bmrEquation: v as BMREquation })}
             options={BMR_EQUATION_OPTIONS}
+            testId="bmrEquation-select"
           />
 
           {/* Body Fat % - Only shown when Katch-McArdle is selected */}
@@ -454,6 +463,7 @@ export function ProfileForm({ initialProfile, onSave, saving, error }: ProfileFo
               step={0.5}
               unit="%"
               error={validationErrors.bodyFatPercent}
+              testId="bodyFat-input"
             />
           )}
 
@@ -462,6 +472,7 @@ export function ProfileForm({ initialProfile, onSave, saving, error }: ProfileFo
             value={profile.tdeeSource || 'formula'}
             onChange={(v) => updateProfile({ tdeeSource: v as TDEESource })}
             options={TDEE_SOURCE_OPTIONS}
+            testId="tdeeSource-select"
           />
 
           {/* Manual TDEE - Only shown when Manual is selected */}
@@ -475,6 +486,7 @@ export function ProfileForm({ initialProfile, onSave, saving, error }: ProfileFo
               step={50}
               unit="kcal"
               error={validationErrors.manualTDEE}
+              testId="manualTDEE-input"
             />
           )}
         </div>
@@ -508,14 +520,14 @@ export function ProfileForm({ initialProfile, onSave, saving, error }: ProfileFo
 
       {/* Error Display */}
       {error && (
-        <div className="p-4 bg-red-900/50 border border-red-700 rounded-md">
+        <div className="p-4 bg-red-900/50 border border-red-700 rounded-md" data-testid="profile-error">
           <p className="text-red-300">{error}</p>
         </div>
       )}
 
       {/* Submit Button */}
       <div className="flex justify-end">
-        <Button type="submit" loading={saving} disabled={!hasChanges}>
+        <Button type="submit" loading={saving} disabled={!hasChanges} testId="save-profile-button">
           Save Profile
         </Button>
       </div>

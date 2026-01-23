@@ -137,6 +137,15 @@ export interface DailyTargets {
   dayType: DayType;
 }
 
+export interface DailyTargetsRangePoint {
+  date: string;
+  calculatedTargets: DailyTargets;
+}
+
+export interface DailyTargetsRangeResponse {
+  days: DailyTargetsRangePoint[];
+}
+
 export interface DailyLog {
   date: string;
   weightKg: number;

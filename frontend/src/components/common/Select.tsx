@@ -12,6 +12,7 @@ interface SelectProps {
   options: Option[];
   error?: string;
   required?: boolean;
+  testId?: string;
 }
 
 export function Select({
@@ -21,6 +22,7 @@ export function Select({
   options,
   error,
   required = false,
+  testId,
 }: SelectProps) {
   const selectId = useId();
   return (
@@ -33,6 +35,7 @@ export function Select({
         id={selectId}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        data-testid={testId}
         className={`
           w-full px-3 py-2 bg-slate-900/50 border rounded-md
           text-slate-100
@@ -47,7 +50,7 @@ export function Select({
           </option>
         ))}
       </select>
-      {error && <p className="text-sm text-red-400">{error}</p>}
+      {error && <p className="text-sm text-red-400" data-testid={testId ? `${testId}-error` : undefined}>{error}</p>}
     </div>
   );
 }

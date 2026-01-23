@@ -104,6 +104,40 @@ func (s *Server) getLogByDate(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(requests.DailyLogToResponseWithTrainingLoad(log, trainingLoad))
 }
 
+// getLogsRange handles GET /api/logs?start=YYYY-MM-DD&end=YYYY-MM-DD
+func (s *Server) getLogsRange(w http.ResponseWriter, r *http.Request) {
+	startDate := r.URL.Query().Get("start")
+	endDate := r.URL.Query().Get("end")
+	if startDate == "" || endDate == "" {
+		writeError(w, http.StatusBadRequest, "missing_range", "start and end parameters are required")
+		return
+	}
+
+	start, err := time.Parse("2006-01-02", startDate)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_start_date", "start must be in YYYY-MM-DD format")
+		return
+	}
+	end, err := time.Parse("2006-01-02", endDate)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_end_date", "end must be in YYYY-MM-DD format")
+		return
+	}
+	if end.Before(start) {
+		writeError(w, http.StatusBadRequest, "invalid_range", "end must be on or after start")
+		return
+	}
+
+	points, err := s.dailyLogService.GetDailyTargetsRange(r.Context(), startDate, endDate)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal_error", "")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(requests.DailyTargetsRangeToResponse(points))
+}
+
 // deleteTodayLog handles DELETE /api/logs/today
 func (s *Server) deleteTodayLog(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()

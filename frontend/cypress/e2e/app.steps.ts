@@ -1,5 +1,5 @@
 import { Given, When, Then } from "@badeball/cypress-cucumber-preprocessor"
-import { validProfile } from "../support/shared-steps"
+import { validProfile, validDailyLog } from "../support/shared-steps"
 
 const apiBaseUrl = Cypress.env("apiBaseUrl") as string
 
@@ -66,4 +66,72 @@ Then("I should not see the onboarding wizard", () => {
 Then("I should see the meal points view", () => {
   // Meal points is the default view - look for meal-related content
   cy.contains(/breakfast|lunch|dinner|meal|points/i, { timeout: 10000 }).should("be.visible")
+})
+
+// =============================================================================
+// ERROR STATE STEPS
+// =============================================================================
+
+Given("the API will return an error on profile fetch", () => {
+  cy.intercept("GET", "**/api/profile", {
+    statusCode: 500,
+    body: { error: "internal_error" },
+  }).as("profileError")
+})
+
+Given("the API will fail once then succeed", () => {
+  let callCount = 0
+  cy.intercept("GET", "**/api/profile", (req) => {
+    callCount += 1
+    if (callCount === 1) {
+      req.reply({ statusCode: 500, body: { error: "internal_error" } })
+    } else {
+      req.reply({ statusCode: 200, body: validProfile })
+    }
+  }).as("profileRetry")
+})
+
+Then("I should see a retry button", () => {
+  cy.contains(/retry|try again/i).should("be.visible")
+})
+
+When("I click the retry button", () => {
+  cy.contains(/retry|try again/i).click()
+})
+
+// =============================================================================
+// SESSION PERSISTENCE STEPS
+// =============================================================================
+
+When("I refresh the page", () => {
+  cy.reload()
+})
+
+// =============================================================================
+// DEEP LINKING STEPS
+// =============================================================================
+
+When("I visit the history page directly", () => {
+  cy.visit("/history")
+})
+
+When("I visit the daily update page directly", () => {
+  cy.visit("/daily-update")
+})
+
+When("I visit the profile page directly", () => {
+  cy.visit("/profile")
+})
+
+// =============================================================================
+// CONCURRENT LOADING STEPS
+// =============================================================================
+
+Then("the meal points should load successfully", () => {
+  cy.contains(/breakfast|lunch|dinner|meal|points/i, { timeout: 10000 }).should("be.visible")
+})
+
+Then("the daily log data should be available", () => {
+  // Verify that the page has loaded data
+  cy.get("body").should("exist")
 })

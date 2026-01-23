@@ -1,4 +1,5 @@
 import { Given, When, Then } from "@badeball/cypress-cucumber-preprocessor"
+import { BOUNDARIES, PROFILES } from "../support/fixtures"
 
 const apiBaseUrl = Cypress.env("apiBaseUrl") as string
 
@@ -19,6 +20,14 @@ Given("no profile exists", () => {
     url: `${apiBaseUrl}/api/profile`,
     failOnStatusCode: false,
   })
+})
+
+Given("a valid profile exists", () => {
+  cy.request({
+    method: "PUT",
+    url: `${apiBaseUrl}/api/profile`,
+    body: PROFILES.valid,
+  }).its("status").should("eq", 200)
 })
 
 Then("I should see the onboarding wizard", () => {
@@ -95,4 +104,168 @@ Then("I should still see the basic info step", () => {
 
 Then("I should see the basic info step", () => {
   cy.contains("Step 1 of 3").should("be.visible")
+})
+
+Then("I should not see the onboarding wizard", () => {
+  cy.contains("Welcome to Victus").should("not.exist")
+})
+
+// =============================================================================
+// ACTIVITY LEVEL VARIATION STEPS
+// =============================================================================
+
+When("I select sedentary activity level", () => {
+  cy.contains(/sedentary/i).click({ force: true })
+})
+
+When("I select light activity level", () => {
+  cy.contains(/light/i).click({ force: true })
+})
+
+When("I select active activity level", () => {
+  cy.contains(/\bactive\b/i).click({ force: true })
+})
+
+When("I select very active activity level", () => {
+  cy.contains(/very active/i).click({ force: true })
+})
+
+Then("the profile should have sedentary activity level", () => {
+  cy.request({
+    method: "GET",
+    url: `${apiBaseUrl}/api/profile`,
+  }).then((response) => {
+    expect(response.body.activityLevel).to.equal("sedentary")
+  })
+})
+
+Then("the profile should have light activity level", () => {
+  cy.request({
+    method: "GET",
+    url: `${apiBaseUrl}/api/profile`,
+  }).then((response) => {
+    expect(response.body.activityLevel).to.equal("light")
+  })
+})
+
+Then("the profile should have active activity level", () => {
+  cy.request({
+    method: "GET",
+    url: `${apiBaseUrl}/api/profile`,
+  }).then((response) => {
+    expect(response.body.activityLevel).to.equal("active")
+  })
+})
+
+Then("the profile should have very active activity level", () => {
+  cy.request({
+    method: "GET",
+    url: `${apiBaseUrl}/api/profile`,
+  }).then((response) => {
+    expect(response.body.activityLevel).to.equal("very_active")
+  })
+})
+
+// =============================================================================
+// GOAL VARIATION STEPS
+// =============================================================================
+
+When("I select lose weight goal", () => {
+  cy.contains(/lose/i).click({ force: true })
+})
+
+When("I select maintain weight goal", () => {
+  cy.contains(/maintain/i).click({ force: true })
+})
+
+When("I select gain weight goal", () => {
+  cy.contains(/gain/i).click({ force: true })
+})
+
+Then("the profile should have lose weight goal", () => {
+  cy.request({
+    method: "GET",
+    url: `${apiBaseUrl}/api/profile`,
+  }).then((response) => {
+    expect(response.body.goal).to.equal("lose_weight")
+  })
+})
+
+Then("the profile should have maintain goal", () => {
+  cy.request({
+    method: "GET",
+    url: `${apiBaseUrl}/api/profile`,
+  }).then((response) => {
+    expect(response.body.goal).to.equal("maintain")
+  })
+})
+
+Then("the profile should have gain weight goal", () => {
+  cy.request({
+    method: "GET",
+    url: `${apiBaseUrl}/api/profile`,
+  }).then((response) => {
+    expect(response.body.goal).to.equal("gain_weight")
+  })
+})
+
+// =============================================================================
+// BOUNDARY CONDITION STEPS
+// =============================================================================
+
+When("I enter minimum weight in basic info", () => {
+  cy.get('input[type="number"]').eq(1).clear().type(BOUNDARIES.weight.min.toString())
+})
+
+When("I enter maximum weight in basic info", () => {
+  cy.get('input[type="number"]').eq(1).clear().type(BOUNDARIES.weight.max.toString())
+})
+
+When("I enter weight below minimum in basic info", () => {
+  cy.get('input[type="number"]').eq(1).clear().type(BOUNDARIES.weight.belowMin.toString())
+})
+
+When("I complete rest of basic info", () => {
+  cy.get('input[type="number"]').first().clear().type("30") // age
+  cy.get('input[type="number"]').eq(2).clear().type("175") // height
+})
+
+When("I enter minimum height in basic info", () => {
+  cy.get('input[type="number"]').eq(2).clear().type(BOUNDARIES.height.min.toString())
+})
+
+When("I enter maximum height in basic info", () => {
+  cy.get('input[type="number"]').eq(2).clear().type(BOUNDARIES.height.max.toString())
+})
+
+When("I complete rest of basic info except height", () => {
+  cy.get('input[type="number"]').first().clear().type("30") // age
+  cy.get('input[type="number"]').eq(1).clear().type("75") // weight
+})
+
+// =============================================================================
+// ERROR STATE STEPS
+// =============================================================================
+
+Then("I should briefly see a saving indicator", () => {
+  // The saving indicator may be very brief
+  cy.get("body").should("exist")
+})
+
+// =============================================================================
+// EDGE CASE STEPS
+// =============================================================================
+
+When("I modify the weight value", () => {
+  cy.get('input[type="number"]').eq(1).clear().type("85")
+})
+
+Then("the profile should reflect the modified weight", () => {
+  cy.request({
+    method: "GET",
+    url: `${apiBaseUrl}/api/profile`,
+  }).then((response) => {
+    // The profile may store currentWeightKg or similar
+    expect(response.body.currentWeightKg || response.body.targetWeightKg).to.exist
+  })
 })

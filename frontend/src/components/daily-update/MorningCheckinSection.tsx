@@ -41,10 +41,11 @@ export function MorningCheckinSection({
             min={WEIGHT_MIN_KG}
             max={WEIGHT_MAX_KG}
             placeholder="Enter weight"
+            data-testid="weight-input"
             className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/20"
           />
           {validationErrors.weightKg && (
-            <p className="text-xs text-red-400 mt-1">{validationErrors.weightKg}</p>
+            <p className="text-xs text-red-400 mt-1" data-testid="weight-error">{validationErrors.weightKg}</p>
           )}
         </div>
 
@@ -59,10 +60,11 @@ export function MorningCheckinSection({
             min={BODY_FAT_MIN_PERCENT}
             max={BODY_FAT_MAX_PERCENT}
             placeholder="Optional"
+            data-testid="bodyFat-input"
             className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/20"
           />
           {validationErrors.bodyFatPercent && (
-            <p className="text-xs text-red-400 mt-1">{validationErrors.bodyFatPercent}</p>
+            <p className="text-xs text-red-400 mt-1" data-testid="bodyFat-error">{validationErrors.bodyFatPercent}</p>
           )}
         </div>
 
@@ -76,10 +78,11 @@ export function MorningCheckinSection({
             min={HEART_RATE_MIN_BPM}
             max={HEART_RATE_MAX_BPM}
             placeholder="Optional"
+            data-testid="heartRate-input"
             className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/20"
           />
           {validationErrors.restingHeartRate && (
-            <p className="text-xs text-red-400 mt-1">{validationErrors.restingHeartRate}</p>
+            <p className="text-xs text-red-400 mt-1" data-testid="heartRate-error">{validationErrors.restingHeartRate}</p>
           )}
         </div>
 
@@ -94,10 +97,11 @@ export function MorningCheckinSection({
             min={SLEEP_HOURS_MIN}
             max={SLEEP_HOURS_MAX}
             placeholder="Optional"
+            data-testid="sleepHours-input"
             className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/20"
           />
           {validationErrors.sleepHours && (
-            <p className="text-xs text-red-400 mt-1">{validationErrors.sleepHours}</p>
+            <p className="text-xs text-red-400 mt-1" data-testid="sleepHours-error">{validationErrors.sleepHours}</p>
           )}
         </div>
       </div>
@@ -118,6 +122,7 @@ export function MorningCheckinSection({
           aria-valuemin={SLEEP_QUALITY_MIN}
           aria-valuemax={SLEEP_QUALITY_MAX}
           aria-valuenow={formData.sleepQuality}
+          data-testid="sleepQuality-input"
           className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-white"
         />
         <div className="flex justify-between text-xs text-gray-500 mt-1">
@@ -125,7 +130,7 @@ export function MorningCheckinSection({
           <span>Excellent</span>
         </div>
         {validationErrors.sleepQuality && (
-          <p className="text-xs text-red-400 mt-1">{validationErrors.sleepQuality}</p>
+          <p className="text-xs text-red-400 mt-1" data-testid="sleepQuality-error">{validationErrors.sleepQuality}</p>
         )}
       </div>
     </div>

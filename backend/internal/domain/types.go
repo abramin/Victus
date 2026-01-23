@@ -184,3 +184,9 @@ type DailyTargets struct {
 	WaterL        float64
 	DayType       DayType
 }
+
+// DailyTargetsPoint represents calculated targets for a specific date.
+type DailyTargetsPoint struct {
+	Date    string
+	Targets DailyTargets
+}

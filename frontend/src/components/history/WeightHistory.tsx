@@ -325,17 +325,18 @@ export function WeightHistory({ profile }: { profile: UserProfile }) {
   const recentPoints = points.slice(-RECENT_LOG_LIMIT);
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6" data-testid="weight-history">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-white">History</h1>
           <p className="text-sm text-slate-500">Weight, TDEE, and training summaries over time.</p>
         </div>
-        <div className="flex items-center gap-1 bg-slate-900 rounded-lg p-1 border border-slate-800">
+        <div className="flex items-center gap-1 bg-slate-900 rounded-lg p-1 border border-slate-800" data-testid="range-selector">
           {RANGE_OPTIONS.map((option) => (
             <button
               key={option.value}
               onClick={() => setRange(option.value)}
+              data-testid={`range-${option.value}`}
               className={`px-3 py-1.5 rounded text-sm transition-colors ${
                 range === option.value
                   ? 'bg-slate-700 text-white'
@@ -373,17 +374,17 @@ export function WeightHistory({ profile }: { profile: UserProfile }) {
         </div>
 
         {loading && (
-          <div className="h-56 bg-slate-900/60 rounded-lg border border-slate-800 flex items-center justify-center text-slate-500 text-sm">
+          <div className="h-56 bg-slate-900/60 rounded-lg border border-slate-800 flex items-center justify-center text-slate-500 text-sm" data-testid="loading-indicator">
             Loading trend...
           </div>
         )}
         {!loading && error && (
-          <div className="h-56 bg-slate-900/60 rounded-lg border border-slate-800 flex items-center justify-center text-rose-400 text-sm">
+          <div className="h-56 bg-slate-900/60 rounded-lg border border-slate-800 flex items-center justify-center text-rose-400 text-sm" data-testid="error-message">
             {error}
           </div>
         )}
         {!loading && !error && (
-          <>
+          <div data-testid="weight-chart">
             <WeightTrendChart
               points={points}
               trend={trend}
@@ -410,7 +411,7 @@ export function WeightHistory({ profile }: { profile: UserProfile }) {
                 </div>
               </div>
             )}
-          </>
+          </div>
         )}
       </Card>
 

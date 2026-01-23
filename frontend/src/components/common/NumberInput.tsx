@@ -10,6 +10,7 @@ interface NumberInputProps {
   unit?: string;
   error?: string;
   required?: boolean;
+  testId?: string;
 }
 
 // Parse a string that may use comma or period as decimal separator
@@ -27,6 +28,7 @@ export function NumberInput({
   unit,
   error,
   required = false,
+  testId,
 }: NumberInputProps) {
   const inputId = useId();
   // Track the display string separately to allow typing with either decimal separator
@@ -62,6 +64,7 @@ export function NumberInput({
           inputMode="decimal"
           value={displayValue}
           onChange={handleChange}
+          data-testid={testId}
           className={`
             w-full px-3 py-2 bg-slate-900/50 border rounded-md
             text-slate-100 placeholder-slate-500
@@ -76,7 +79,7 @@ export function NumberInput({
           </span>
         )}
       </div>
-      {error && <p className="text-sm text-red-400">{error}</p>}
+      {error && <p className="text-sm text-red-400" data-testid={testId ? `${testId}-error` : undefined}>{error}</p>}
     </div>
   );
 }

@@ -239,6 +239,11 @@ func (s *DailyLogService) GetHistorySummary(ctx context.Context, startDate, endD
 	}, nil
 }
 
+// GetDailyTargetsRange returns calculated targets for logs in the date range.
+func (s *DailyLogService) GetDailyTargetsRange(ctx context.Context, startDate, endDate string) ([]domain.DailyTargetsPoint, error) {
+	return s.logStore.ListDailyTargets(ctx, startDate, endDate)
+}
+
 // GetTrainingLoadMetrics calculates ACR metrics for a given date.
 // Uses up to 28 days of historical data for chronic load calculation.
 // The todayLoad is calculated from the provided actual/planned sessions.

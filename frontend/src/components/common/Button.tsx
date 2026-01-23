@@ -4,6 +4,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode;
   loading?: boolean;
   variant?: 'primary' | 'secondary';
+  testId?: string;
 }
 
 export function Button({
@@ -12,6 +13,7 @@ export function Button({
   variant = 'primary',
   disabled,
   className = '',
+  testId,
   ...props
 }: ButtonProps) {
   const baseClasses =
@@ -28,6 +30,7 @@ export function Button({
     <button
       disabled={disabled || loading}
       className={`${baseClasses} ${variantClasses[variant]} ${className}`}
+      data-testid={testId}
       {...props}
     >
       {loading ? (

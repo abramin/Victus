@@ -2,45 +2,19 @@
  * Shared step definitions for Cypress/Cucumber tests.
  * Centralizes common setup steps to avoid duplication across feature files.
  */
-import { Given, Then } from "@badeball/cypress-cucumber-preprocessor"
+import { Given, Then, When } from "@badeball/cypress-cucumber-preprocessor"
+import { PROFILES, DAILY_LOGS, BOUNDARIES, OPTIONS, ERROR_CODES } from "./fixtures"
 
 const apiBaseUrl = Cypress.env("apiBaseUrl") as string
 
-// Shared test data
-export const validProfile = {
-  height_cm: 180,
-  birthDate: "1990-01-01",
-  sex: "male",
-  goal: "maintain",
-  targetWeightKg: 82,
-  targetWeeklyChangeKg: 0,
-}
+// =============================================================================
+// RE-EXPORT FIXTURES FOR BACKWARDS COMPATIBILITY
+// =============================================================================
 
-export const profileWithSupplements = {
-  ...validProfile,
-  goal: "lose_weight",
-  targetWeeklyChangeKg: -0.5,
-  supplements: {
-    maltodextrinG: 25,
-    wheyG: 30,
-    collagenG: 20,
-  },
-}
-
+export const validProfile = PROFILES.valid
+export const profileWithSupplements = PROFILES.withSupplements
 export const today = new Date().toISOString().split("T")[0]
-
-export const validDailyLog = {
-  date: today,
-  weightKg: 82.5,
-  sleepQuality: 80,
-  plannedTrainingSessions: [
-    {
-      type: "strength",
-      durationMin: 60,
-    },
-  ],
-  dayType: "performance",
-}
+export const validDailyLog = DAILY_LOGS.valid
 
 // Shared step definitions
 
@@ -132,3 +106,277 @@ export const buildDailyLog = (date: string, weightKg: number) => ({
   ],
   dayType: "performance",
 })
+
+// =============================================================================
+// UI INTERACTION STEPS - Form Fields
+// =============================================================================
+
+When("I enter {string} in the {string} field", (value: string, field: string) => {
+  cy.get(`[data-testid="${field}-input"], input[name="${field}"], #${field}`)
+    .first()
+    .clear()
+    .type(value)
+})
+
+When("I clear the {string} field", (field: string) => {
+  cy.get(`[data-testid="${field}-input"], input[name="${field}"], #${field}`)
+    .first()
+    .clear()
+})
+
+When("I select {string} for the {string} field", (value: string, field: string) => {
+  cy.get(`[data-testid="${field}-select"], select[name="${field}"], #${field}`)
+    .first()
+    .select(value)
+})
+
+When("I click the {string} button", (buttonText: string) => {
+  cy.contains("button", new RegExp(buttonText, "i")).click()
+})
+
+When("I click the {string} option", (optionText: string) => {
+  cy.contains(new RegExp(optionText, "i")).click()
+})
+
+When("I submit the form", () => {
+  cy.get('button[type="submit"]').click()
+})
+
+// =============================================================================
+// UI INTERACTION STEPS - Boundary Values
+// =============================================================================
+
+When("I enter a weight below the minimum", () => {
+  cy.get('[data-testid="weight-input"], input[name="weight"]').first().clear().type(BOUNDARIES.weight.belowMin.toString())
+})
+
+When("I enter a weight above the maximum", () => {
+  cy.get('[data-testid="weight-input"], input[name="weight"]').first().clear().type(BOUNDARIES.weight.aboveMax.toString())
+})
+
+When("I enter a weight at the minimum boundary", () => {
+  cy.get('[data-testid="weight-input"], input[name="weight"]').first().clear().type(BOUNDARIES.weight.min.toString())
+})
+
+When("I enter a weight at the maximum boundary", () => {
+  cy.get('[data-testid="weight-input"], input[name="weight"]').first().clear().type(BOUNDARIES.weight.max.toString())
+})
+
+When("I enter a height below the minimum", () => {
+  cy.get('[data-testid="height-input"], input[name="height"]').first().clear().type(BOUNDARIES.height.belowMin.toString())
+})
+
+When("I enter a height above the maximum", () => {
+  cy.get('[data-testid="height-input"], input[name="height"]').first().clear().type(BOUNDARIES.height.aboveMax.toString())
+})
+
+When("I enter a body fat percentage below the minimum", () => {
+  cy.get('[data-testid="bodyFat-input"], input[name="bodyFatPercent"]').first().clear().type(BOUNDARIES.bodyFat.belowMin.toString())
+})
+
+When("I enter a body fat percentage above the maximum", () => {
+  cy.get('[data-testid="bodyFat-input"], input[name="bodyFatPercent"]').first().clear().type(BOUNDARIES.bodyFat.aboveMax.toString())
+})
+
+When("I enter a sleep quality at the minimum", () => {
+  cy.get('[data-testid="sleepQuality-input"], input[name="sleepQuality"]').first().clear().type(BOUNDARIES.sleepQuality.min.toString())
+})
+
+When("I enter a sleep quality at the maximum", () => {
+  cy.get('[data-testid="sleepQuality-input"], input[name="sleepQuality"]').first().clear().type(BOUNDARIES.sleepQuality.max.toString())
+})
+
+// =============================================================================
+// UI STATE STEPS - Validation Errors
+// =============================================================================
+
+Then("I should see a validation error for {string}", (field: string) => {
+  cy.get(`[data-testid="${field}-error"], [aria-describedby*="${field}"]`).should("be.visible")
+})
+
+Then("I should not see a validation error for {string}", (field: string) => {
+  cy.get(`[data-testid="${field}-error"]`).should("not.exist")
+})
+
+Then("I should see the error message {string}", (message: string) => {
+  cy.contains(message).should("be.visible")
+})
+
+Then("the {string} field should show an error", (field: string) => {
+  cy.get(`[data-testid="${field}-input"], input[name="${field}"]`)
+    .first()
+    .should("have.attr", "aria-invalid", "true")
+    .or("have.class", "error")
+    .or("have.class", "border-red")
+})
+
+Then("the form should show validation errors", () => {
+  cy.get('[data-testid*="-error"], .text-red-500, [role="alert"]').should("be.visible")
+})
+
+Then("the form should not show validation errors", () => {
+  cy.get('[data-testid*="-error"]').should("not.exist")
+})
+
+// =============================================================================
+// UI STATE STEPS - Loading & Saving
+// =============================================================================
+
+Then("I should see a loading spinner", () => {
+  cy.get('[data-testid="loading-spinner"], .animate-spin').should("be.visible")
+})
+
+Then("the loading spinner should disappear", () => {
+  cy.get('[data-testid="loading-spinner"], .animate-spin', { timeout: 10000 }).should("not.exist")
+})
+
+Then("I should see a saving indicator", () => {
+  cy.contains(/saving|updating|loading/i).should("be.visible")
+})
+
+Then("the save button should be disabled", () => {
+  cy.get('button[type="submit"]').should("be.disabled")
+})
+
+Then("the save button should be enabled", () => {
+  cy.get('button[type="submit"]').should("not.be.disabled")
+})
+
+Then("the save button should show {string}", (text: string) => {
+  cy.get('button[type="submit"]').should("contain.text", text)
+})
+
+// =============================================================================
+// UI STATE STEPS - Success & Error Messages
+// =============================================================================
+
+Then("I should see a success message", () => {
+  cy.get('[data-testid="success-message"], [role="alert"]')
+    .contains(/saved|success|updated|created/i)
+    .should("be.visible")
+})
+
+Then("I should see a success message containing {string}", (text: string) => {
+  cy.contains(text).should("be.visible")
+})
+
+Then("I should see an error message", () => {
+  cy.get('[data-testid="error-message"], [role="alert"], .text-red-500')
+    .should("be.visible")
+})
+
+Then("I should see an error message containing {string}", (text: string) => {
+  cy.contains(text).should("be.visible")
+})
+
+Then("the success message should disappear", () => {
+  cy.get('[data-testid="success-message"]', { timeout: 6000 }).should("not.exist")
+})
+
+// =============================================================================
+// UI STATE STEPS - Form State
+// =============================================================================
+
+Then("the form should be pre-populated with existing data", () => {
+  cy.get('input[type="number"]').first().should("not.have.value", "0")
+})
+
+Then("the form should show default values", () => {
+  cy.get('input[type="number"]').should("exist")
+})
+
+Then("the {string} field should have value {string}", (field: string, value: string) => {
+  cy.get(`[data-testid="${field}-input"], input[name="${field}"]`)
+    .first()
+    .should("have.value", value)
+})
+
+Then("the form should indicate unsaved changes", () => {
+  cy.get('[data-testid="unsaved-indicator"], button').contains(/save|update/i).should("not.be.disabled")
+})
+
+Then("the form should not indicate unsaved changes", () => {
+  cy.get('[data-testid="unsaved-indicator"]').should("not.exist")
+})
+
+// =============================================================================
+// UI STATE STEPS - Conditional Fields
+// =============================================================================
+
+Then("the body fat field should be visible", () => {
+  cy.get('[data-testid="bodyFat-input"], input[name="bodyFatPercent"]').should("be.visible")
+})
+
+Then("the body fat field should not be visible", () => {
+  cy.get('[data-testid="bodyFat-input"], input[name="bodyFatPercent"]').should("not.exist")
+})
+
+Then("the manual TDEE field should be visible", () => {
+  cy.get('[data-testid="manualTdee-input"], input[name="manualTdee"]').should("be.visible")
+})
+
+Then("the manual TDEE field should not be visible", () => {
+  cy.get('[data-testid="manualTdee-input"], input[name="manualTdee"]').should("not.exist")
+})
+
+Then("I should see an aggressive goal warning", () => {
+  cy.contains(/aggressive|unsustainable|muscle loss|excess fat/i).should("be.visible")
+})
+
+Then("I should not see an aggressive goal warning", () => {
+  cy.contains(/aggressive|unsustainable|muscle loss|excess fat/i).should("not.exist")
+})
+
+// =============================================================================
+// API MOCKING STEPS
+// =============================================================================
+
+Given("the API will return an error on profile save", () => {
+  cy.intercept("PUT", "**/api/profile", {
+    statusCode: 500,
+    body: { error: "internal_error", message: "Server error" },
+  }).as("profileError")
+})
+
+Given("the API will return an error on daily log save", () => {
+  cy.intercept("POST", "**/api/logs", {
+    statusCode: 500,
+    body: { error: "internal_error", message: "Server error" },
+  }).as("logError")
+})
+
+Given("the API will respond slowly", () => {
+  cy.intercept("GET", "**/api/**", (req) => {
+    req.on("response", (res) => {
+      res.setDelay(2000)
+    })
+  }).as("slowResponse")
+})
+
+Given("the API will timeout", () => {
+  cy.intercept("GET", "**/api/profile", {
+    forceNetworkError: true,
+  }).as("networkError")
+})
+
+Given("the weight trend API will return an empty response", () => {
+  cy.intercept("GET", "**/api/stats/weight-trend*", {
+    statusCode: 200,
+    body: { points: [], trend: null },
+  }).as("emptyTrend")
+})
+
+Given("the weight trend API will return a single point", () => {
+  cy.intercept("GET", "**/api/stats/weight-trend*", {
+    statusCode: 200,
+    body: {
+      points: [{ date: new Date().toISOString().split("T")[0], weightKg: 82.0 }],
+      trend: null,
+    },
+  }).as("singlePointTrend")
+})
+
+// =============================================================================
+// EXISTING SHARED STEPS (preserved for backwards compatibility)
+// =============================================================================
+

@@ -20,6 +20,7 @@ export function BasicInfoStep({ data, onChange }: BasicInfoStepProps) {
             value={data.fullName}
             onChange={(e) => onChange({ fullName: e.target.value })}
             placeholder="Enter your name"
+            data-testid="fullName-input"
             className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-transparent"
           />
         </div>
@@ -35,6 +36,7 @@ export function BasicInfoStep({ data, onChange }: BasicInfoStepProps) {
                 onChange={(e) => onChange({ age: parseInt(e.target.value) || 0 })}
                 min={13}
                 max={120}
+                data-testid="age-input"
                 className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-transparent appearance-none"
               />
               <div className="absolute right-3 top-1/2 -translate-y-1/2 flex flex-col">
@@ -65,6 +67,7 @@ export function BasicInfoStep({ data, onChange }: BasicInfoStepProps) {
             <select
               value={data.gender}
               onChange={(e) => onChange({ gender: e.target.value as 'male' | 'female' })}
+              data-testid="gender-select"
               className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-transparent appearance-none cursor-pointer"
               style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 0.75rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.25em 1.25em' }}
             >
@@ -86,6 +89,7 @@ export function BasicInfoStep({ data, onChange }: BasicInfoStepProps) {
                 min={30}
                 max={300}
                 step={0.1}
+                data-testid="weight-input"
                 className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-transparent appearance-none"
               />
               <div className="absolute right-3 top-1/2 -translate-y-1/2 flex flex-col">
@@ -120,6 +124,7 @@ export function BasicInfoStep({ data, onChange }: BasicInfoStepProps) {
                 onChange={(e) => onChange({ heightCm: parseInt(e.target.value) || 0 })}
                 min={100}
                 max={250}
+                data-testid="height-input"
                 className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-transparent appearance-none"
               />
               <div className="absolute right-3 top-1/2 -translate-y-1/2 flex flex-col">

@@ -116,6 +116,17 @@ type DailyTargetsResponse struct {
 	DayType       string              `json:"dayType"`
 }
 
+// DailyTargetsRangePointResponse represents calculated targets for a date.
+type DailyTargetsRangePointResponse struct {
+	Date              string              `json:"date"`
+	CalculatedTargets DailyTargetsResponse `json:"calculatedTargets"`
+}
+
+// DailyTargetsRangeResponse represents calculated targets over a range.
+type DailyTargetsRangeResponse struct {
+	Days []DailyTargetsRangePointResponse `json:"days"`
+}
+
 // DailyLogResponse is the response body for daily log endpoints.
 type DailyLogResponse struct {
 	Date                    string                          `json:"date"`
@@ -222,6 +233,50 @@ func AdjustmentMultipliersToResponse(a *domain.AdjustmentMultipliers) *Adjustmen
 	}
 }
 
+func macroPointsToResponse(points domain.MacroPoints) MacroPointsResponse {
+	return MacroPointsResponse{
+		Carbs:   points.Carbs,
+		Protein: points.Protein,
+		Fats:    points.Fats,
+	}
+}
+
+func mealTargetsToResponse(meals domain.MealTargets) MealTargetsResponse {
+	return MealTargetsResponse{
+		Breakfast: macroPointsToResponse(meals.Breakfast),
+		Lunch:     macroPointsToResponse(meals.Lunch),
+		Dinner:    macroPointsToResponse(meals.Dinner),
+	}
+}
+
+// DailyTargetsToResponse converts DailyTargets to a DailyTargetsResponse.
+func DailyTargetsToResponse(targets domain.DailyTargets) DailyTargetsResponse {
+	return DailyTargetsResponse{
+		TotalCarbsG:   targets.TotalCarbsG,
+		TotalProteinG: targets.TotalProteinG,
+		TotalFatsG:    targets.TotalFatsG,
+		TotalCalories: targets.TotalCalories,
+		EstimatedTDEE: targets.EstimatedTDEE,
+		Meals:         mealTargetsToResponse(targets.Meals),
+		FruitG:        targets.FruitG,
+		VeggiesG:      targets.VeggiesG,
+		WaterL:        targets.WaterL,
+		DayType:       string(targets.DayType),
+	}
+}
+
+// DailyTargetsRangeToResponse converts daily targets points to a response payload.
+func DailyTargetsRangeToResponse(points []domain.DailyTargetsPoint) DailyTargetsRangeResponse {
+	resp := make([]DailyTargetsRangePointResponse, len(points))
+	for i, point := range points {
+		resp[i] = DailyTargetsRangePointResponse{
+			Date:              point.Date,
+			CalculatedTargets: DailyTargetsToResponse(point.Targets),
+		}
+	}
+	return DailyTargetsRangeResponse{Days: resp}
+}
+
 // DailyLogToResponse converts a DailyLog model to a DailyLogResponse.
 func DailyLogToResponse(d *domain.DailyLog) DailyLogResponse {
 	return DailyLogToResponseWithTrainingLoad(d, nil)
@@ -277,34 +332,7 @@ func DailyLogToResponseWithTrainingLoad(d *domain.DailyLog, trainingLoad *domain
 		},
 		TrainingLoad: TrainingLoadToResponse(trainingLoad),
 		DayType:      string(d.DayType),
-		CalculatedTargets: DailyTargetsResponse{
-			TotalCarbsG:   d.CalculatedTargets.TotalCarbsG,
-			TotalProteinG: d.CalculatedTargets.TotalProteinG,
-			TotalFatsG:    d.CalculatedTargets.TotalFatsG,
-			TotalCalories: d.CalculatedTargets.TotalCalories,
-			EstimatedTDEE: d.EstimatedTDEE,
-			Meals: MealTargetsResponse{
-				Breakfast: MacroPointsResponse{
-					Carbs:   d.CalculatedTargets.Meals.Breakfast.Carbs,
-					Protein: d.CalculatedTargets.Meals.Breakfast.Protein,
-					Fats:    d.CalculatedTargets.Meals.Breakfast.Fats,
-				},
-				Lunch: MacroPointsResponse{
-					Carbs:   d.CalculatedTargets.Meals.Lunch.Carbs,
-					Protein: d.CalculatedTargets.Meals.Lunch.Protein,
-					Fats:    d.CalculatedTargets.Meals.Lunch.Fats,
-				},
-				Dinner: MacroPointsResponse{
-					Carbs:   d.CalculatedTargets.Meals.Dinner.Carbs,
-					Protein: d.CalculatedTargets.Meals.Dinner.Protein,
-					Fats:    d.CalculatedTargets.Meals.Dinner.Fats,
-				},
-			},
-			FruitG:   d.CalculatedTargets.FruitG,
-			VeggiesG: d.CalculatedTargets.VeggiesG,
-			WaterL:   d.CalculatedTargets.WaterL,
-			DayType:  string(d.CalculatedTargets.DayType),
-		},
+		CalculatedTargets: DailyTargetsToResponse(d.CalculatedTargets),
 		EstimatedTDEE:  d.EstimatedTDEE,
 		FormulaTDEE:    d.FormulaTDEE,
 		TDEESourceUsed:        string(d.TDEESourceUsed),

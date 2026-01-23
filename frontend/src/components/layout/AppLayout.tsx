@@ -8,7 +8,7 @@ interface AppLayoutProps {
 
 export function AppLayout({ currentNav, onNavChange, children }: AppLayoutProps) {
   return (
-    <div className="flex min-h-screen bg-black">
+    <div className="flex min-h-screen bg-black" data-testid="app-layout">
       <Sidebar currentNav={currentNav} onNavChange={onNavChange} />
       <main className="flex-1 overflow-auto">
         {children}

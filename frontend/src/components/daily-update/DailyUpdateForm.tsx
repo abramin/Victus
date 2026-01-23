@@ -212,7 +212,7 @@ export function DailyUpdateForm({
   const summarySessions = showForm ? formData.plannedTrainingSessions : log?.plannedTrainingSessions ?? [];
 
   return (
-    <div className="p-6 max-w-4xl">
+    <div className="p-6 max-w-4xl" data-testid="daily-update-form">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -247,6 +247,7 @@ export function DailyUpdateForm({
                 type="button"
                 onClick={handleSubmit}
                 disabled={saving || !hasChanges}
+                data-testid="save-log-button"
                 className={`px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center gap-2 ${
                   hasChanges
                     ? 'bg-white text-black hover:bg-gray-200'

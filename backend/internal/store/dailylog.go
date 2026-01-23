@@ -296,6 +296,57 @@ func (s *DailyLogStore) ListHistoryPoints(ctx context.Context, startDate string)
 	return points, nil
 }
 
+// ListDailyTargets returns calculated targets for logs in a date range, ordered by date.
+func (s *DailyLogStore) ListDailyTargets(ctx context.Context, startDate, endDate string) ([]domain.DailyTargetsPoint, error) {
+	const query = `
+		SELECT
+			log_date,
+			total_carbs_g, total_protein_g, total_fats_g, total_calories,
+			breakfast_carb_points, breakfast_protein_points, breakfast_fat_points,
+			lunch_carb_points, lunch_protein_points, lunch_fat_points,
+			dinner_carb_points, dinner_protein_points, dinner_fat_points,
+			fruit_g, veggies_g, water_l, day_type,
+			COALESCE(estimated_tdee, 0)
+		FROM daily_logs
+		WHERE log_date >= ? AND log_date <= ?
+		ORDER BY log_date ASC
+	`
+
+	rows, err := s.db.QueryContext(ctx, query, startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var points []domain.DailyTargetsPoint
+	for rows.Next() {
+		var point domain.DailyTargetsPoint
+		if err := rows.Scan(
+			&point.Date,
+			&point.Targets.TotalCarbsG, &point.Targets.TotalProteinG,
+			&point.Targets.TotalFatsG, &point.Targets.TotalCalories,
+			&point.Targets.Meals.Breakfast.Carbs, &point.Targets.Meals.Breakfast.Protein,
+			&point.Targets.Meals.Breakfast.Fats,
+			&point.Targets.Meals.Lunch.Carbs, &point.Targets.Meals.Lunch.Protein,
+			&point.Targets.Meals.Lunch.Fats,
+			&point.Targets.Meals.Dinner.Carbs, &point.Targets.Meals.Dinner.Protein,
+			&point.Targets.Meals.Dinner.Fats,
+			&point.Targets.FruitG, &point.Targets.VeggiesG, &point.Targets.WaterL,
+			&point.Targets.DayType,
+			&point.Targets.EstimatedTDEE,
+		); err != nil {
+			return nil, err
+		}
+		points = append(points, point)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return points, nil
+}
+
 // ListAdaptiveDataPoints returns historical data for adaptive TDEE calculation.
 // Returns data points ordered by date (oldest first) for the specified lookback period.
 func (s *DailyLogStore) ListAdaptiveDataPoints(ctx context.Context, endDate string, maxDays int) ([]domain.AdaptiveDataPoint, error) {

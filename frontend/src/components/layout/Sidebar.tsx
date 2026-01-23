@@ -70,11 +70,12 @@ export function Sidebar({ currentNav, onNavChange }: SidebarProps) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-3 space-y-1">
+      <nav className="flex-1 p-3 space-y-1" data-testid="sidebar-nav">
         {NAV_ITEMS.map((item) => (
           <button
             key={item.id}
             onClick={() => onNavChange(item.id)}
+            data-testid={`nav-${item.id}`}
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
               currentNav === item.id
                 ? 'bg-gray-800 text-white'
