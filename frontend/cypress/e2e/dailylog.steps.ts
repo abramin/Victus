@@ -1,41 +1,9 @@
-import { Given, When, Then } from "@badeball/cypress-cucumber-preprocessor"
+import { When, Then } from "@badeball/cypress-cucumber-preprocessor"
+
+// Import shared data from shared-steps (step definitions are auto-loaded)
+import { validDailyLog } from "../support/shared-steps"
 
 const apiBaseUrl = Cypress.env("apiBaseUrl") as string
-
-const validProfile = {
-  height_cm: 180,
-  birthDate: "1990-01-01",
-  sex: "male",
-  goal: "maintain",
-  targetWeightKg: 82,
-  targetWeeklyChangeKg: 0,
-}
-
-const profileWithSupplements = {
-  ...validProfile,
-  goal: "lose_weight",
-  targetWeeklyChangeKg: -0.5,
-  supplements: {
-    maltodextrinG: 25,
-    wheyG: 30,
-    collagenG: 20,
-  },
-}
-
-const today = new Date().toISOString().split("T")[0]
-
-const validDailyLog = {
-  date: today,
-  weightKg: 82.5,
-  sleepQuality: 80,
-  plannedTrainingSessions: [
-    {
-      type: "strength",
-      durationMin: 60,
-    },
-  ],
-  dayType: "performance",
-}
 
 const invalidDailyLog = {
   ...validDailyLog,
@@ -71,26 +39,6 @@ When("I fetch today's daily log", () => {
     url: `${apiBaseUrl}/api/logs/today`,
     failOnStatusCode: false,
   }).as("lastResponse")
-})
-
-Given("I have created a valid daily log for today", () => {
-  // First ensure we have a profile
-  cy.request({
-    method: "PUT",
-    url: `${apiBaseUrl}/api/profile`,
-    body: validProfile,
-  }).its("status").should("eq", 200)
-
-  // Then create the daily log
-  cy.request({
-    method: "POST",
-    url: `${apiBaseUrl}/api/logs`,
-    body: validDailyLog,
-    failOnStatusCode: false,
-  }).then((response) => {
-    // Accept both 201 (created) and 409 (already exists)
-    expect([201, 409]).to.include(response.status)
-  })
 })
 
 Then("the daily log response should include calculated targets", () => {
@@ -133,20 +81,6 @@ When("I delete today's daily log", () => {
     url: `${apiBaseUrl}/api/logs/today`,
     failOnStatusCode: false,
   }).as("lastResponse")
-})
-
-Given("I have upserted a profile with supplements configured", () => {
-  // Delete existing log first to allow new log creation
-  cy.request({
-    method: "DELETE",
-    url: `${apiBaseUrl}/api/logs/today`,
-    failOnStatusCode: false,
-  })
-  cy.request({
-    method: "PUT",
-    url: `${apiBaseUrl}/api/profile`,
-    body: profileWithSupplements,
-  }).its("status").should("eq", 200)
 })
 
 When("I create a performance day log", () => {

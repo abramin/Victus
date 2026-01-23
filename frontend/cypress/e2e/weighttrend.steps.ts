@@ -1,21 +1,9 @@
 import { Given, When, Then } from "@badeball/cypress-cucumber-preprocessor"
 
+// Shared step definitions are auto-loaded from shared-steps.ts
+import { formatDate, buildDailyLog } from "../support/shared-steps"
+
 const apiBaseUrl = Cypress.env("apiBaseUrl") as string
-
-const formatDate = (date: Date) => date.toISOString().split("T")[0]
-
-const buildDailyLog = (date: string, weightKg: number) => ({
-  date,
-  weightKg,
-  sleepQuality: 80,
-  plannedTrainingSessions: [
-    {
-      type: "strength",
-      durationMin: 60,
-    },
-  ],
-  dayType: "performance",
-})
 
 Given("I have created daily logs for the last {int} days", (days: number) => {
   const today = new Date()
@@ -54,7 +42,7 @@ When("I fetch the weight trend without a range", () => {
 
 Then("the weight trend response should include points", () => {
   cy.get("@lastResponse").then((response) => {
-    const body = (response as Cypress.Response).body as Record<string, unknown>
+    const body = (response as Cypress.Response<unknown>).body as Record<string, unknown>
     const points = body.points as Array<Record<string, unknown>>
 
     expect(points).to.be.an("array")
@@ -72,7 +60,7 @@ Then("the weight trend response should include points for the last {int} days", 
   }
 
   cy.get("@lastResponse").then((response) => {
-    const body = (response as Cypress.Response).body as Record<string, unknown>
+    const body = (response as Cypress.Response<unknown>).body as Record<string, unknown>
     const points = body.points as Array<Record<string, unknown>>
     const dates = points.map((point) => point.date) as string[]
 
@@ -88,7 +76,7 @@ Then("the weight trend response should include points for the last {int} days", 
 
 Then("the weight trend response should include a trend summary", () => {
   cy.get("@lastResponse").then((response) => {
-    const body = (response as Cypress.Response).body as Record<string, unknown>
+    const body = (response as Cypress.Response<unknown>).body as Record<string, unknown>
     const trend = body.trend as Record<string, unknown> | undefined
 
     expect(trend).to.exist

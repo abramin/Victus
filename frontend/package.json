@@ -6,6 +6,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "e2e:open": "cypress open",
     "e2e:run": "cypress run",
     "e2e:install": "cypress install"
@@ -16,6 +19,8 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.0",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.5.0",
@@ -23,8 +28,10 @@
     "@bahmutov/cypress-esbuild-preprocessor": "^2.2.4",
     "cypress": "^14.2.0",
     "esbuild": "^0.25.9",
+    "jsdom": "^26.1.0",
     "tailwindcss": "^4.1.0",
     "typescript": "^5.9.0",
-    "vite": "^7.3.0"
+    "vite": "^7.3.0",
+    "vitest": "^3.2.4"
   }
 }

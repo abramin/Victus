@@ -22,10 +22,12 @@ interface DailyLogFormProps {
 const DEFAULT_LOG: CreateDailyLogRequest = {
   weightKg: 0,
   sleepQuality: 50,
-  plannedTraining: {
-    type: 'rest',
-    plannedDurationMin: 0,
-  },
+  plannedTrainingSessions: [
+    {
+      type: 'rest',
+      durationMin: 0,
+    },
+  ],
   dayType: 'fatburner',
 };
 
@@ -62,13 +64,14 @@ export function DailyLogForm({ onSubmit, saving, error }: DailyLogFormProps) {
       }
     }
 
-    if (!formData.plannedTraining.type) {
+    const primarySession = formData.plannedTrainingSessions[0];
+    if (!primarySession?.type) {
       errors.trainingType = 'Training type is required';
     }
 
     if (
-      formData.plannedTraining.type !== 'rest' &&
-      formData.plannedTraining.plannedDurationMin <= 0
+      primarySession?.type !== 'rest' &&
+      (primarySession?.durationMin ?? 0) <= 0
     ) {
       errors.trainingDuration = 'Duration is required for non-rest training';
     }
@@ -158,20 +161,24 @@ export function DailyLogForm({ onSubmit, saving, error }: DailyLogFormProps) {
       <Card title="Today's Training">
         <div className="space-y-4">
           <TrainingSelector
-            type={formData.plannedTraining.type}
-            duration={formData.plannedTraining.plannedDurationMin}
+            type={formData.plannedTrainingSessions[0]?.type ?? 'rest'}
+            duration={formData.plannedTrainingSessions[0]?.durationMin ?? 0}
             onTypeChange={(type: TrainingType) =>
               updateFormData({
-                plannedTraining: {
-                  ...formData.plannedTraining,
-                  type,
-                  plannedDurationMin: type === 'rest' ? 0 : formData.plannedTraining.plannedDurationMin,
-                },
+                plannedTrainingSessions: [
+                  {
+                    ...formData.plannedTrainingSessions[0],
+                    type,
+                    durationMin: type === 'rest' ? 0 : (formData.plannedTrainingSessions[0]?.durationMin ?? 0),
+                  },
+                ],
               })
             }
             onDurationChange={(duration: number) =>
               updateFormData({
-                plannedTraining: { ...formData.plannedTraining, plannedDurationMin: duration },
+                plannedTrainingSessions: [
+                  { ...formData.plannedTrainingSessions[0], durationMin: duration },
+                ],
               })
             }
             typeError={validationErrors.trainingType}
