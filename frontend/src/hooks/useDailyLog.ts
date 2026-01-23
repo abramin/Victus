@@ -75,36 +75,80 @@ export function useDailyLog(): UseDailyLogReturn {
       }
       setSaving(true);
       setSaveError(null);
-      const actualSessions = log.actualTrainingSessions?.map(({ sessionOrder, ...rest }) => rest) ?? [];
+
+      // Preserve old log data for potential rollback
+      const oldLog = log;
+      const oldPlannedSessions = oldLog.plannedTrainingSessions?.map(({ sessionOrder, ...rest }) => rest) ?? [];
+      const actualSessions = oldLog.actualTrainingSessions?.map(({ sessionOrder, ...rest }) => rest) ?? [];
+
       try {
         await deleteTodayLog();
-        const saved = await createDailyLog({ ...newLog, date: log.date });
-        setLog(saved);
-        if (actualSessions.length > 0) {
-          try {
-            const restored = await updateActualTraining(saved.date, { actualSessions });
-            setLog(restored);
-            return restored;
-          } catch (err) {
-            if (err instanceof ApiError) {
-              setSaveError(err.message);
-            } else {
-              setSaveError('Updated log, but failed to restore actual training');
-            }
-            return saved;
-          }
-        }
-        return saved;
       } catch (err) {
+        // Delete failed, old log still intact - report error and abort
         if (err instanceof ApiError) {
           setSaveError(err.message);
         } else {
           setSaveError('Failed to update daily log');
         }
-        return null;
-      } finally {
         setSaving(false);
+        return null;
       }
+
+      // Attempt to create the new log
+      let saved: DailyLog;
+      try {
+        saved = await createDailyLog({ ...newLog, date: oldLog.date });
+        setLog(saved);
+      } catch (err) {
+        // Create failed after delete - attempt rollback
+        try {
+          const rollback: CreateDailyLogRequest = {
+            date: oldLog.date,
+            weightKg: oldLog.weightKg,
+            dayType: oldLog.dayType,
+            plannedTrainingSessions: oldPlannedSessions,
+          };
+          const restored = await createDailyLog(rollback);
+          // Restore actual sessions if they existed
+          if (actualSessions.length > 0) {
+            const withActual = await updateActualTraining(restored.date, { actualSessions });
+            setLog(withActual);
+          } else {
+            setLog(restored);
+          }
+        } catch {
+          // Rollback also failed - log is lost, keep local state for reference
+          // but don't overwrite with null so user can retry
+        }
+        if (err instanceof ApiError) {
+          setSaveError(err.message);
+        } else {
+          setSaveError('Failed to update daily log');
+        }
+        setSaving(false);
+        return null;
+      }
+
+      // Restore actual training sessions if they existed
+      if (actualSessions.length > 0) {
+        try {
+          const restored = await updateActualTraining(saved.date, { actualSessions });
+          setLog(restored);
+          setSaving(false);
+          return restored;
+        } catch (err) {
+          if (err instanceof ApiError) {
+            setSaveError(err.message);
+          } else {
+            setSaveError('Updated log, but failed to restore actual training');
+          }
+          setSaving(false);
+          return saved;
+        }
+      }
+
+      setSaving(false);
+      return saved;
     },
     [create, log]
   );

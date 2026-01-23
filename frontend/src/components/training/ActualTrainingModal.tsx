@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Modal } from '../common/Modal';
 import { IntensitySelector } from './IntensitySelector';
 import type { TrainingSession, ActualTrainingSession, TrainingType } from '../../api/types';
@@ -39,13 +39,19 @@ export function ActualTrainingModal({
   saving,
 }: ActualTrainingModalProps) {
   const [sessions, setSessions] = useState<SessionWithId[]>([]);
+  const idCounterRef = useRef(0);
 
-  // Generate a unique ID
-  const generateId = () => `session-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  // Generate a unique ID (stable within component instance)
+  const generateId = useCallback(() => {
+    idCounterRef.current += 1;
+    return `session-${idCounterRef.current}`;
+  }, []);
 
   // Reset when modal opens - pre-fill with actual if exists, otherwise use planned
   useEffect(() => {
     if (isOpen) {
+      // Reset counter when modal opens for clean IDs
+      idCounterRef.current = 0;
       if (actualSessions && actualSessions.length > 0) {
         setSessions(
           actualSessions.map((s) => ({
@@ -68,7 +74,7 @@ export function ActualTrainingModal({
         );
       }
     }
-  }, [isOpen, plannedSessions, actualSessions]);
+  }, [isOpen, plannedSessions, actualSessions, generateId]);
 
   const updateSession = useCallback((id: string, updates: Partial<ActualTrainingSession>) => {
     setSessions((prev) =>
@@ -82,7 +88,7 @@ export function ActualTrainingModal({
       ...prev,
       { _id: generateId(), type: 'walking', durationMin: 30, perceivedIntensity: undefined, notes: '' },
     ]);
-  }, [sessions.length]);
+  }, [sessions.length, generateId]);
 
   const removeSession = useCallback((id: string) => {
     setSessions((prev) => {

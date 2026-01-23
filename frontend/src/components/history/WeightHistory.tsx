@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type {
   DailyLog,
   HistoryPoint,
@@ -244,6 +244,7 @@ export function WeightHistory({ profile }: { profile: UserProfile }) {
   const [selectedLog, setSelectedLog] = useState<DailyLog | null>(null);
   const [logLoading, setLogLoading] = useState(false);
   const [logError, setLogError] = useState<string | null>(null);
+  const activeDateRef = useRef<string | null>(null);
 
   const points = data?.points ?? [];
   const trend = data?.trend;
@@ -300,10 +301,14 @@ export function WeightHistory({ profile }: { profile: UserProfile }) {
     setSelectedDate(date);
     setLogLoading(true);
     setLogError(null);
+    activeDateRef.current = date;
     try {
       const log = await getLogByDate(date);
+      // Ignore response if user selected a different date while loading
+      if (activeDateRef.current !== date) return;
       setSelectedLog(log);
     } catch (err) {
+      if (activeDateRef.current !== date) return;
       if (err instanceof ApiError) {
         setLogError(err.message);
       } else {
@@ -311,7 +316,9 @@ export function WeightHistory({ profile }: { profile: UserProfile }) {
       }
       setSelectedLog(null);
     } finally {
-      setLogLoading(false);
+      if (activeDateRef.current === date) {
+        setLogLoading(false);
+      }
     }
   };
 

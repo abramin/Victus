@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { TrainingSession, TrainingType } from '../../api/types';
 
 // Internal type with stable ID for React keys
@@ -19,6 +19,9 @@ const TRAINING_OPTIONS = [
   { value: 'mixed', label: 'Mixed' },
 ];
 
+let idCounter = 0;
+const generateStableId = () => `session-${++idCounter}`;
+
 interface TrainingSessionListProps {
   sessions: TrainingSession[];
   onSessionsChange: (sessions: TrainingSession[]) => void;
@@ -30,23 +33,43 @@ export function TrainingSessionList({
   onSessionsChange,
   maxSessions = 5,
 }: TrainingSessionListProps) {
-  // Generate stable IDs for sessions that don't have them
-  const sessionsWithIds = useMemo((): SessionWithId[] => {
-    return sessions.map((s, i) => ({
-      ...s,
-      _id: (s as SessionWithId)._id || `session-${i}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    }));
+  // Store stable IDs in state to persist across renders
+  const [sessionsWithIds, setSessionsWithIds] = useState<SessionWithId[]>([]);
+  const prevSessionsRef = useRef<TrainingSession[]>([]);
+
+  // Sync IDs when sessions change from parent
+  useEffect(() => {
+    const prevSessions = prevSessionsRef.current;
+    // Only regenerate if sessions array reference or length changed
+    if (prevSessions === sessions) return;
+    prevSessionsRef.current = sessions;
+
+    setSessionsWithIds((prev) => {
+      // Try to preserve existing IDs by matching on index and type/duration
+      return sessions.map((s, i) => {
+        const existing = prev[i];
+        if (existing && existing.type === s.type && existing.durationMin === s.durationMin) {
+          return { ...s, _id: existing._id };
+        }
+        // Check if session already has an ID
+        const withId = s as SessionWithId;
+        if (withId._id) {
+          return { ...s, _id: withId._id };
+        }
+        return { ...s, _id: generateStableId() };
+      });
+    });
   }, [sessions]);
 
   const addSession = useCallback(() => {
-    if (sessions.length >= maxSessions) return;
+    if (sessionsWithIds.length >= maxSessions) return;
     const newSession: SessionWithId = {
       type: 'walking',
       durationMin: 30,
-      _id: `session-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      _id: generateStableId(),
     };
-    onSessionsChange([...sessions, newSession]);
-  }, [sessions, maxSessions, onSessionsChange]);
+    onSessionsChange([...sessionsWithIds, newSession]);
+  }, [sessionsWithIds, maxSessions, onSessionsChange]);
 
   const removeSession = useCallback((id: string) => {
     if (sessionsWithIds.length <= 1) return;
