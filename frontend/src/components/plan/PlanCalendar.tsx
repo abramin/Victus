@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { DayType, DailyTargets, MealTargets, UserProfile } from '../../api/types';
 import { getDailyTargetsRange } from '../../api/client';
 import { DayTargetsPanel } from '../day-view';
+import { calculateMealTargets } from '../targets/mealTargets';
 import { useDisplayMode } from '../../contexts/DisplayModeContext';
 import {
   CARB_KCAL_PER_G,
@@ -138,10 +139,22 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
         });
         continue;
       }
+      const mealTargets = calculateMealTargets(
+        targets.totalCarbsG,
+        targets.totalProteinG,
+        targets.totalFatsG,
+        targets.fruitG,
+        targets.veggiesG,
+        profile.mealRatios,
+        profile.pointsConfig,
+        targets.dayType,
+        profile.supplementConfig
+      );
+
       // Calculate points per meal
-      const breakfast = targets.meals.breakfast.carbs + targets.meals.breakfast.protein + targets.meals.breakfast.fats;
-      const lunch = targets.meals.lunch.carbs + targets.meals.lunch.protein + targets.meals.lunch.fats;
-      const dinner = targets.meals.dinner.carbs + targets.meals.dinner.protein + targets.meals.dinner.fats;
+      const breakfast = mealTargets.breakfast.carbs + mealTargets.breakfast.protein + mealTargets.breakfast.fats;
+      const lunch = mealTargets.lunch.carbs + mealTargets.lunch.protein + mealTargets.lunch.fats;
+      const dinner = mealTargets.dinner.carbs + mealTargets.dinner.protein + mealTargets.dinner.fats;
       const totalPoints = breakfast + lunch + dinner;
       
       // Calculate total grams and distribute proportionally
@@ -182,7 +195,7 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
       data.push({
         date,
         dayType: targets.dayType,
-        mealTargets: targets.meals,
+        mealTargets,
         breakfast,
         lunch,
         dinner,
@@ -199,7 +212,7 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
       });
     }
     return data;
-  }, [daysInMonth, month, targetsByDate, year]);
+  }, [daysInMonth, month, profile.mealRatios, profile.pointsConfig, profile.supplementConfig, targetsByDate, year]);
 
   const navigateMonth = (delta: number) => {
     const newDate = new Date(year, month + delta, 1);
@@ -475,7 +488,7 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
                 totalFruitG={selectedDay.fruitG ?? profile.fruitTargetG}
                 totalVeggiesG={selectedDay.veggiesG ?? profile.veggieTargetG}
                 waterL={selectedDay.waterL}
-                helperText="Targets are from your daily log."
+                helperText="Adjusted to your current meal distribution."
                 displayMode={displayMode}
                 mealGrams={selectedDay.mealGrams}
                 totalGrams={selectedDay.totalG}

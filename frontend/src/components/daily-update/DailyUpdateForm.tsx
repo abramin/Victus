@@ -8,6 +8,7 @@ import type {
   TrainingSession,
 } from '../../api/types';
 import { DayTargetsPanel } from '../day-view';
+import { calculateMealTargets } from '../targets/mealTargets';
 import { TrainingSessionList } from '../daily-input/TrainingSessionList';
 import { ActualTrainingModal, ActualVsPlannedComparison } from '../training';
 import { MorningCheckinSection } from './MorningCheckinSection';
@@ -186,6 +187,20 @@ export function DailyUpdateForm({
     year: 'numeric',
   });
   const targets = log?.calculatedTargets ?? null;
+  const adjustedMealTargets = useMemo(() => {
+    if (!targets) return null;
+    return calculateMealTargets(
+      targets.totalCarbsG,
+      targets.totalProteinG,
+      targets.totalFatsG,
+      targets.fruitG,
+      targets.veggiesG,
+      profile.mealRatios,
+      profile.pointsConfig,
+      targets.dayType,
+      profile.supplementConfig
+    );
+  }, [profile.mealRatios, profile.pointsConfig, profile.supplementConfig, targets]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -509,13 +524,13 @@ export function DailyUpdateForm({
                 title="Day Targets"
                 dateLabel={targetDateLabel}
                 dayType={targets.dayType}
-                mealTargets={targets.meals}
+                mealTargets={adjustedMealTargets ?? targets.meals}
                 mealRatios={profile.mealRatios}
                 totalFruitG={targets.fruitG}
                 totalVeggiesG={targets.veggiesG}
                 waterL={targets.waterL}
                 compact
-                helperText="Calculated from your daily log."
+                helperText="Adjusted to your current meal distribution."
               />
             ) : (
               <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
@@ -666,13 +681,13 @@ export function DailyUpdateForm({
                 title="Day Targets"
                 dateLabel={targetDateLabel}
                 dayType={targets.dayType}
-                mealTargets={targets.meals}
+                mealTargets={adjustedMealTargets ?? targets.meals}
                 mealRatios={profile.mealRatios}
                 totalFruitG={targets.fruitG}
                 totalVeggiesG={targets.veggiesG}
                 waterL={targets.waterL}
                 compact
-                helperText="Calculated from your daily log."
+                helperText="Adjusted to your current meal distribution."
               />
             ) : (
               <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">

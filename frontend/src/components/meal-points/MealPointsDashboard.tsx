@@ -1,15 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ApiError, getDailyTargetsRange, getLogByDate } from '../../api/client';
-import type { DailyLog, DayType, MealTargets, UserProfile } from '../../api/types';
+import type { DailyLog, DayType, UserProfile } from '../../api/types';
+import { calculateMealTargets } from '../targets/mealTargets';
 import { MealCard } from './MealCard';
 import { SupplementsPanel } from './SupplementsPanel';
-import {
-  FRUIT_CARBS_PERCENT_WEIGHT,
-  VEGGIE_CARBS_PERCENT_WEIGHT,
-  MALTODEXTRIN_CARB_PERCENT,
-  WHEY_PROTEIN_PERCENT,
-  COLLAGEN_PROTEIN_PERCENT,
-} from '../../constants';
 
 interface MealPointsDashboardProps {
   log: DailyLog | null;
@@ -76,8 +70,6 @@ const formatShortDate = (dateString: string): string => {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 };
 
-const roundToNearest5 = (value: number) => Math.round(value / 5) * 5;
-
 const buildTrendPath = (
   points: TrendPoint[],
   toX: (index: number) => number,
@@ -132,55 +124,6 @@ const buildSupplementsFromProfile = (profile: UserProfile): SupplementState[] =>
       enabled: supplementConfig.maltodextrinG > 0,
     },
   ];
-};
-
-const calculateMealTargets = (
-  totalCarbsG: number,
-  totalProteinG: number,
-  totalFatsG: number,
-  fruitG: number,
-  veggiesG: number,
-  mealRatios: UserProfile['mealRatios'],
-  pointsConfig: UserProfile['pointsConfig'],
-  dayType: DayType,
-  supplements: UserProfile['supplementConfig']
-): MealTargets => {
-  const fruitCarbs = fruitG * FRUIT_CARBS_PERCENT_WEIGHT;
-  const veggieCarbs = veggiesG * VEGGIE_CARBS_PERCENT_WEIGHT;
-  let availableCarbs = totalCarbsG - veggieCarbs - fruitCarbs;
-
-  if (dayType === 'performance') {
-    availableCarbs -= supplements.maltodextrinG * MALTODEXTRIN_CARB_PERCENT;
-  }
-  if (availableCarbs < 0) {
-    availableCarbs = 0;
-  }
-
-  let availableProtein = totalProteinG - supplements.collagenG * COLLAGEN_PROTEIN_PERCENT;
-  if (dayType === 'performance') {
-    availableProtein -= supplements.wheyG * WHEY_PROTEIN_PERCENT;
-  }
-  if (availableProtein < 0) {
-    availableProtein = 0;
-  }
-
-  return {
-    breakfast: {
-      carbs: roundToNearest5(availableCarbs * pointsConfig.carbMultiplier * mealRatios.breakfast),
-      protein: roundToNearest5(availableProtein * pointsConfig.proteinMultiplier * mealRatios.breakfast),
-      fats: roundToNearest5(totalFatsG * pointsConfig.fatMultiplier * mealRatios.breakfast),
-    },
-    lunch: {
-      carbs: roundToNearest5(availableCarbs * pointsConfig.carbMultiplier * mealRatios.lunch),
-      protein: roundToNearest5(availableProtein * pointsConfig.proteinMultiplier * mealRatios.lunch),
-      fats: roundToNearest5(totalFatsG * pointsConfig.fatMultiplier * mealRatios.lunch),
-    },
-    dinner: {
-      carbs: roundToNearest5(availableCarbs * pointsConfig.carbMultiplier * mealRatios.dinner),
-      protein: roundToNearest5(availableProtein * pointsConfig.proteinMultiplier * mealRatios.dinner),
-      fats: roundToNearest5(totalFatsG * pointsConfig.fatMultiplier * mealRatios.dinner),
-    },
-  };
 };
 
 function MealPointsTrendChart({ points, metric }: { points: TrendPoint[]; metric: TrendMetric }) {
