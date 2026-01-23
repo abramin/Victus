@@ -20,7 +20,11 @@ Then("I should briefly see a loading indicator", () => {
   // The spinner has animate-spin class
   cy.get("body").should("exist")
   // Page should eventually finish loading
-  cy.get(".animate-spin", { timeout: 100 }).should("exist").or("not.exist")
+  cy.get("body").then(($body) => {
+    if ($body.find(".animate-spin").length) {
+      cy.get(".animate-spin").should("be.visible")
+    }
+  })
 })
 
 Given("no user profile exists", () => {

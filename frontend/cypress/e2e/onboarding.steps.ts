@@ -52,8 +52,13 @@ Then("I should see the activity goals step", () => {
 
 When("I select my activity level and goal", () => {
   // Click on moderate activity if available
-  cy.get("button, [role='button']").contains(/moderate/i).click({ force: true }).then(() => {}).catch(() => {
-    // If not clickable, it might already be selected or use different UI
+  cy.get("body").then(($body) => {
+    const matches = $body
+      .find("button, [role='button']")
+      .filter((_, el) => /moderate/i.test(el.textContent ?? ""))
+    if (matches.length) {
+      cy.wrap(matches.first()).click({ force: true })
+    }
   })
 })
 

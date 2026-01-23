@@ -79,9 +79,17 @@ Then("I should see the profile settings form", () => {
 })
 
 Then("the history nav item should be highlighted", () => {
-  cy.contains(/history/i).should("have.class", /active|selected|current/i).or("have.attr", "aria-current", "page")
+  cy.get("nav, [role='navigation'], aside").contains(/history/i).then(($el) => {
+    const className = $el.attr("class") ?? ""
+    const isHighlighted = /active|selected|current/i.test(className) || $el.attr("aria-current") === "page"
+    expect(isHighlighted).to.equal(true)
+  })
 })
 
 Then("the plan nav item should be highlighted", () => {
-  cy.contains(/plan/i).first().should("have.class", /active|selected|current/i).or("have.attr", "aria-current", "page")
+  cy.get("nav, [role='navigation'], aside").contains(/plan/i).then(($el) => {
+    const className = $el.attr("class") ?? ""
+    const isHighlighted = /active|selected|current/i.test(className) || $el.attr("aria-current") === "page"
+    expect(isHighlighted).to.equal(true)
+  })
 })
