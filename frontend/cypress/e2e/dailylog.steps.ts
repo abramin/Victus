@@ -19,8 +19,6 @@ const profileWithSupplements = {
     maltodextrinG: 25,
     wheyG: 30,
     collagenG: 20,
-    eaaMorningG: 10,
-    eaaEveningG: 10,
   },
 }
 

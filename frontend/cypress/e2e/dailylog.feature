@@ -59,7 +59,7 @@ Feature: Daily log management
     Then the response status should be 201
     And the meal points should reflect supplement deductions
 
-  Scenario: Fatburner day only deducts collagen and EAA supplements
+  Scenario: Fatburner day only deducts collagen supplements
     Given the profile API is running
     And I have upserted a profile with supplements configured
     When I create a fatburner day log

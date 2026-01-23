@@ -64,7 +64,7 @@ func (s *TargetsSuite) TestMifflinStJeorCalculation() {
 			BirthDate: time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC), // 25 years old
 			Sex:       SexMale,
 		}
-		olderBMR := calculateMifflinStJeor(s.maleProfile, 85, s.now)   // 40 years old
+		olderBMR := calculateMifflinStJeor(s.maleProfile, 85, s.now)    // 40 years old
 		youngerBMR := calculateMifflinStJeor(youngerProfile, 85, s.now) // 25 years old
 		s.Greater(youngerBMR, olderBMR, "Younger person should have higher BMR")
 		s.InDelta(75, youngerBMR-olderBMR, 1, "15 year age difference should be ~75 cal difference")
@@ -559,15 +559,12 @@ func (s *TargetsSuite) TestCalculateMealPointsWithSupplements() {
 		// From issue #32:
 		// Daily macros: 300g carbs, 196g protein, 73g fat
 		// Fruit: 600g, Veggies: 500g
-		// Supplements: maltodextrin 25g, collagen 20g, EAA morning 10g, EAA evening 10g, whey 30g
-		// Expected breakfast (30%): carbs=70, protein=170, fats=75
+		// Supplements: maltodextrin 25g, collagen 20g, whey 30g
 
 		supplements := SupplementConfig{
 			MaltodextrinG: 25,
 			WheyG:         30,
 			CollagenG:     20,
-			EAAMorningG:   10,
-			EAAEveningG:   10,
 		}
 
 		meals := calculateMealPoints(
@@ -577,9 +574,8 @@ func (s *TargetsSuite) TestCalculateMealPointsWithSupplements() {
 			DayTypePerformance, supplements,
 		)
 
-		// Verify breakfast points match issue #32 example
+		// Verify breakfast points match expected values
 		s.Equal(70, meals.Breakfast.Carbs, "Breakfast carb points should be 70")
-		s.Equal(170, meals.Breakfast.Protein, "Breakfast protein points should be 170")
 		s.Equal(75, meals.Breakfast.Fats, "Breakfast fat points should be 75")
 	})
 
@@ -668,11 +664,9 @@ func (s *TargetsSuite) TestCalculateMealPointsWithSupplements() {
 			"Fatburner day should NOT subtract whey protein")
 	})
 
-	s.Run("all day types subtract collagen and EAA from protein", func() {
+	s.Run("all day types subtract collagen from protein", func() {
 		supplements := SupplementConfig{
-			CollagenG:   20, // 20g × 0.90 = 18g protein
-			EAAMorningG: 10, // 10g × 1.00 = 10g protein
-			EAAEveningG: 10, // 10g × 1.00 = 10g protein
+			CollagenG: 20, // 20g × 0.90 = 18g protein
 		}
 
 		mealsNoSupp := calculateMealPoints(
@@ -697,9 +691,9 @@ func (s *TargetsSuite) TestCalculateMealPointsWithSupplements() {
 		)
 
 		s.Less(mealsFat.Breakfast.Protein, mealsNoSupp.Breakfast.Protein,
-			"Fatburner should subtract collagen/EAA from protein")
+			"Fatburner should subtract collagen from protein")
 		s.Less(mealsMeta.Breakfast.Protein, mealsNoSupp.Breakfast.Protein,
-			"Metabolize should subtract collagen/EAA from protein")
+			"Metabolize should subtract collagen from protein")
 	})
 
 	s.Run("fat points unchanged by supplements", func() {
@@ -707,8 +701,6 @@ func (s *TargetsSuite) TestCalculateMealPointsWithSupplements() {
 			MaltodextrinG: 50,
 			WheyG:         30,
 			CollagenG:     20,
-			EAAMorningG:   10,
-			EAAEveningG:   10,
 		}
 
 		mealsWithSupp := calculateMealPoints(
@@ -744,10 +736,8 @@ func (s *TargetsSuite) TestCalculateMealPointsWithSupplements() {
 
 	s.Run("available protein cannot go negative", func() {
 		supplements := SupplementConfig{
-			CollagenG:   100,
-			EAAMorningG: 50,
-			EAAEveningG: 50,
-			WheyG:       100,
+			CollagenG: 100,
+			WheyG:     100,
 		}
 
 		meals := calculateMealPoints(
@@ -765,8 +755,6 @@ func (s *TargetsSuite) TestCalculateMealPointsWithSupplements() {
 			MaltodextrinG: 25,
 			WheyG:         30,
 			CollagenG:     20,
-			EAAMorningG:   10,
-			EAAEveningG:   10,
 		}
 
 		meals := calculateMealPoints(

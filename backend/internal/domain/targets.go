@@ -15,18 +15,18 @@ type TrainingConfig struct {
 
 // TrainingConfigs maps training types to their MET-based configuration.
 var TrainingConfigs = map[TrainingType]TrainingConfig{
-	TrainingTypeRest:         {MET: 1.0, LoadScore: 0},      // Resting
-	TrainingTypeQigong:       {MET: 2.5, LoadScore: 0.5},    // Tai chi, qigong (code 15552)
-	TrainingTypeWalking:      {MET: 3.5, LoadScore: 1},      // Walking 3.0 mph (code 17170)
-	TrainingTypeGMB:          {MET: 4.0, LoadScore: 3},      // Calisthenics, light (code 02020)
-	TrainingTypeRun:          {MET: 9.8, LoadScore: 3},      // Running 6 mph (code 12050)
-	TrainingTypeRow:          {MET: 7.0, LoadScore: 3},      // Rowing, moderate (code 15235)
-	TrainingTypeCycle:        {MET: 6.8, LoadScore: 2},      // Cycling 12-14 mph (code 01040)
-	TrainingTypeHIIT:         {MET: 12.8, LoadScore: 5},     // Circuit training, vigorous (code 02040)
-	TrainingTypeStrength:     {MET: 5.0, LoadScore: 5},      // Weight training, vigorous (code 02054)
-	TrainingTypeCalisthenics: {MET: 4.0, LoadScore: 3},      // Calisthenics, moderate (code 02020)
-	TrainingTypeMobility:     {MET: 2.5, LoadScore: 0.5},    // Stretching, yoga (code 02101)
-	TrainingTypeMixed:        {MET: 6.0, LoadScore: 4},      // General conditioning
+	TrainingTypeRest:         {MET: 1.0, LoadScore: 0},   // Resting
+	TrainingTypeQigong:       {MET: 2.5, LoadScore: 0.5}, // Tai chi, qigong (code 15552)
+	TrainingTypeWalking:      {MET: 3.5, LoadScore: 1},   // Walking 3.0 mph (code 17170)
+	TrainingTypeGMB:          {MET: 4.0, LoadScore: 3},   // Calisthenics, light (code 02020)
+	TrainingTypeRun:          {MET: 9.8, LoadScore: 3},   // Running 6 mph (code 12050)
+	TrainingTypeRow:          {MET: 7.0, LoadScore: 3},   // Rowing, moderate (code 15235)
+	TrainingTypeCycle:        {MET: 6.8, LoadScore: 2},   // Cycling 12-14 mph (code 01040)
+	TrainingTypeHIIT:         {MET: 12.8, LoadScore: 5},  // Circuit training, vigorous (code 02040)
+	TrainingTypeStrength:     {MET: 5.0, LoadScore: 5},   // Weight training, vigorous (code 02054)
+	TrainingTypeCalisthenics: {MET: 4.0, LoadScore: 3},   // Calisthenics, moderate (code 02020)
+	TrainingTypeMobility:     {MET: 2.5, LoadScore: 0.5}, // Stretching, yoga (code 02101)
+	TrainingTypeMixed:        {MET: 6.0, LoadScore: 4},   // General conditioning
 }
 
 // CalculateExerciseCalories computes calories burned using MET formula for a single session.
@@ -423,7 +423,7 @@ func calculateVeggies(carbsG, targetG float64) int {
 // calculateMealPoints converts macro grams to meal points using profile config.
 // The calculation varies by day type for supplement contributions:
 // - Performance days: subtract maltodextrin (carbs) and whey (protein)
-// - All days: subtract fruit/veggie carbs, collagen, and EAA (protein)
+// - All days: subtract fruit/veggie carbs and collagen (protein)
 func calculateMealPoints(
 	carbsG, proteinG, fatsG float64,
 	fruitG, veggiesG float64,
@@ -438,7 +438,6 @@ func calculateMealPoints(
 	// - Maltodextrin: 96% carbs by weight (performance days only)
 	// - Collagen: 90% protein by weight
 	// - Whey: 88% protein by weight (performance days only)
-	// - EAA: 100% protein by weight
 
 	// Calculate available carbs (subtract fixed contributions)
 	fruitCarbs := fruitG * 0.10
@@ -457,8 +456,7 @@ func calculateMealPoints(
 
 	// Calculate available protein (subtract fixed contributions)
 	collagenProtein := supplements.CollagenG * 0.90
-	eaaProtein := supplements.EAAMorningG + supplements.EAAEveningG // 100% protein
-	availableProteinG := proteinG - collagenProtein - eaaProtein
+	availableProteinG := proteinG - collagenProtein
 
 	// On performance days, also subtract whey protein
 	if dayType == DayTypePerformance {

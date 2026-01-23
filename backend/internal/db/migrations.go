@@ -37,8 +37,9 @@ func RunMigrations(db *sql.DB) error {
 		addMaltodextrinColumn,
 		addWheyColumn,
 		addCollagenColumn,
-		addEAAMorningColumn,
-		addEAAEveningColumn,
+		// EAA columns deprecated - kept for backward compatibility with existing databases
+		// addEAAMorningColumn,
+		// addEAAEveningColumn,
 	}
 
 	for _, migration := range alterMigrations {

@@ -37,7 +37,7 @@ Foundation improvements before adding new features.
 - Day type multipliers (protected protein)
 - Training type configurations with MET values
 - **Multiple training sessions per day** (e.g., morning Qigong + afternoon strength)
-- **Corrected points calculation** with supplement deductions (maltodextrin, whey, collagen, EAA)
+- **Corrected points calculation** with supplement deductions (maltodextrin, whey, collagen)
 
 ---
 

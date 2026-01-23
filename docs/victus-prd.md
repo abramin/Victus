@@ -139,8 +139,6 @@ interface UserProfile {
 
     // Daily supplements (used on all day types)
     collagenG: number;       // Collagen peptides, e.g., 20g (90% protein)
-    eaaMorningG: number;     // EAA morning dose, e.g., 10g (100% protein)
-    eaaEveningG: number;     // EAA evening dose, e.g., 10g (100% protein)
   };
 }
 
@@ -629,8 +627,6 @@ Meal points are **not** simple grams-to-points conversions. The spreadsheet:
 | Maltodextrin (intra-workout) | Carbs | 96% carbs by weight |
 | Collagen | Protein | 90% protein by weight |
 | Whey | Protein | 88% protein by weight |
-| EAA (morning) | Protein | 100% protein by weight |
-| EAA (evening) | Protein | 100% protein by weight |
 
 #### Points-per-Gram Factors
 - Carbs: **1.15**
@@ -646,8 +642,6 @@ interface SupplementConfig {
 
   // Daily supplements
   collagenG: number;          // Collagen peptides (e.g., 20g)
-  eaaMorningG: number;        // EAA morning dose (e.g., 10g)
-  eaaEveningG: number;        // EAA evening dose (e.g., 10g)
 }
 ```
 
@@ -690,8 +684,6 @@ function calculateProteinPoints(
   mealRatio: number,
   dayType: 'performance' | 'fatburner' | 'metabolize',
   collagenG: number,
-  eaaMorningG: number,
-  eaaEveningG: number,
   wheyG: number,
   config: { proteinMultiplier: number }
 ): number {
@@ -700,12 +692,12 @@ function calculateProteinPoints(
 
   let availableProtein: number;
   if (dayType === 'performance') {
-    // Performance days: subtract collagen, EAAs, AND whey
+    // Performance days: subtract collagen AND whey
     const wheyProtein = wheyG * 0.88;
-    availableProtein = dailyProteinG - collagenProtein - eaaMorningG - eaaEveningG - wheyProtein;
+    availableProtein = dailyProteinG - collagenProtein - wheyProtein;
   } else {
-    // Fatburner/Metabolize days: subtract collagen and EAAs (no whey)
-    availableProtein = dailyProteinG - collagenProtein - eaaMorningG - eaaEveningG;
+    // Fatburner/Metabolize days: subtract collagen only (no whey)
+    availableProtein = dailyProteinG - collagenProtein;
   }
 
   return roundToNearest(availableProtein * config.proteinMultiplier * mealRatio, 5);
@@ -745,8 +737,6 @@ function convertToMealPoints(
       mealRatio,
       dayType,
       supplements.collagenG,
-      supplements.eaaMorningG,
-      supplements.eaaEveningG,
       supplements.wheyG,
       config
     ),
@@ -765,7 +755,7 @@ For a **performance day** with:
 - Daily macros: 300g carbs, 196g protein, 73g fat
 - Breakfast ratio: 30%
 - Fruit: 600g, Veggies: 500g
-- Supplements: maltodextrin 25g, collagen 20g, EAA morning 10g, EAA evening 10g, whey 30g
+- Supplements: maltodextrin 25g, collagen 20g, whey 30g
 
 **Carbs:**
 ```
@@ -776,8 +766,8 @@ carbPoints = MROUND(201 * 1.15 * 0.30, 5) = MROUND(69.35, 5) = 70
 
 **Protein:**
 ```
-availableProtein = 196 - (20 * 0.90) - 10 - 10 - (30 * 0.88)
-                 = 196 - 18 - 10 - 10 - 26.4 = 131.6g
+availableProtein = 196 - (20 * 0.90) - (30 * 0.88)
+                 = 196 - 18 - 26.4 = 151.6g
 proteinPoints = MROUND(131.6 * 4.35 * 0.30, 5) = MROUND(171.74, 5) = 170
 ```
 
@@ -1782,9 +1772,7 @@ GET    /api/plans                    # List all plans (history)
   "supplements": {
     "maltodextrinG": 25,
     "wheyG": 30,
-    "collagenG": 20,
-    "eaaMorningG": 10,
-    "eaaEveningG": 10
+    "collagenG": 20
   }
 }
 
@@ -1959,8 +1947,6 @@ CREATE TABLE user_profile (
   maltodextrin_g REAL DEFAULT 0,    -- Intra-workout carbs (performance days), 96% carbs
   whey_g REAL DEFAULT 0,            -- Whey protein (performance days), 88% protein
   collagen_g REAL DEFAULT 0,        -- Collagen peptides (all days), 90% protein
-  eaa_morning_g REAL DEFAULT 0,     -- EAA morning dose (all days), 100% protein
-  eaa_evening_g REAL DEFAULT 0,     -- EAA evening dose (all days), 100% protein
 
   -- Recalibration settings
   recalibration_tolerance_percent REAL DEFAULT 3.0,

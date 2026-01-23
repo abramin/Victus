@@ -18,8 +18,6 @@ const DAY_TYPES: { value: DayType; label: string }[] = [
 const DEFAULT_SUPPLEMENTS = [
   { id: 'whey', label: 'Whey', sublabel: 'Protein', value: 30, enabled: false },
   { id: 'collagen', label: 'Collagen', sublabel: 'Protein', value: 20, enabled: false },
-  { id: 'eaa_morning', label: 'EAA Morning', sublabel: 'Protein', value: 10, enabled: false },
-  { id: 'eaa_evening', label: 'EAA Evening', sublabel: 'Protein', value: 10, enabled: false },
   { id: 'intra_carbs', label: 'Intra-workout', sublabel: 'Carbs', value: 50, enabled: false },
 ];
 

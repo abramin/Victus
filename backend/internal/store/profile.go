@@ -35,7 +35,6 @@ func (s *ProfileStore) Get(ctx context.Context) (*domain.UserProfile, error) {
 			fruit_target_g, veggie_target_g,
 			bmr_equation, body_fat_percent,
 			COALESCE(maltodextrin_g, 0), COALESCE(whey_g, 0), COALESCE(collagen_g, 0),
-			COALESCE(eaa_morning_g, 0), COALESCE(eaa_evening_g, 0),
 			created_at, updated_at
 		FROM user_profile
 		WHERE id = 1
@@ -60,7 +59,6 @@ func (s *ProfileStore) Get(ctx context.Context) (*domain.UserProfile, error) {
 		&p.FruitTargetG, &p.VeggieTargetG,
 		&p.BMREquation, &bodyFatPercent,
 		&p.SupplementConfig.MaltodextrinG, &p.SupplementConfig.WheyG, &p.SupplementConfig.CollagenG,
-		&p.SupplementConfig.EAAMorningG, &p.SupplementConfig.EAAEveningG,
 		&createdAt, &updatedAt,
 	)
 
@@ -101,7 +99,7 @@ func (s *ProfileStore) Upsert(ctx context.Context, p *domain.UserProfile) error 
 			carb_multiplier, protein_multiplier, fat_multiplier,
 			fruit_target_g, veggie_target_g,
 			bmr_equation, body_fat_percent,
-			maltodextrin_g, whey_g, collagen_g, eaa_morning_g, eaa_evening_g,
+			maltodextrin_g, whey_g, collagen_g,
 			created_at, updated_at
 		) VALUES (
 			1, ?, ?, ?, ?,
@@ -111,7 +109,7 @@ func (s *ProfileStore) Upsert(ctx context.Context, p *domain.UserProfile) error 
 			?, ?, ?,
 			?, ?,
 			?, ?,
-			?, ?, ?, ?, ?,
+			?, ?, ?,
 			datetime('now'), datetime('now')
 		)
 		ON CONFLICT(id) DO UPDATE SET
@@ -139,8 +137,6 @@ func (s *ProfileStore) Upsert(ctx context.Context, p *domain.UserProfile) error 
 			maltodextrin_g = excluded.maltodextrin_g,
 			whey_g = excluded.whey_g,
 			collagen_g = excluded.collagen_g,
-			eaa_morning_g = excluded.eaa_morning_g,
-			eaa_evening_g = excluded.eaa_evening_g,
 			updated_at = datetime('now')
 	`
 
@@ -163,7 +159,6 @@ func (s *ProfileStore) Upsert(ctx context.Context, p *domain.UserProfile) error 
 		p.FruitTargetG, p.VeggieTargetG,
 		p.BMREquation, bodyFatPercent,
 		p.SupplementConfig.MaltodextrinG, p.SupplementConfig.WheyG, p.SupplementConfig.CollagenG,
-		p.SupplementConfig.EAAMorningG, p.SupplementConfig.EAAEveningG,
 	)
 
 	return err

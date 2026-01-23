@@ -108,7 +108,6 @@ export function SupplementsPanel({
           <p>Maltodextrin: 96% carbs</p>
           <p>Collagen: 90% protein</p>
           <p>Whey: 88% protein</p>
-          <p>EAA: 100% protein</p>
         </div>
       )}
     </div>

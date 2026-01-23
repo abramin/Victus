@@ -13,7 +13,7 @@ type UserProfile struct {
 	Goal                 Goal
 	CurrentWeightKg      float64 // Current weight for calculations
 	TargetWeightKg       float64
-	TimeframeWeeks       int     // Weeks to reach target weight (for derived weekly change)
+	TimeframeWeeks       int // Weeks to reach target weight (for derived weekly change)
 	TargetWeeklyChangeKg float64
 	CarbRatio            float64
 	ProteinRatio         float64
@@ -154,9 +154,7 @@ func (p *UserProfile) ValidateAt(now time.Time) error {
 	// Supplement config validation (all values must be 0-500g)
 	if p.SupplementConfig.MaltodextrinG < 0 || p.SupplementConfig.MaltodextrinG > 500 ||
 		p.SupplementConfig.WheyG < 0 || p.SupplementConfig.WheyG > 500 ||
-		p.SupplementConfig.CollagenG < 0 || p.SupplementConfig.CollagenG > 500 ||
-		p.SupplementConfig.EAAMorningG < 0 || p.SupplementConfig.EAAMorningG > 500 ||
-		p.SupplementConfig.EAAEveningG < 0 || p.SupplementConfig.EAAEveningG > 500 {
+		p.SupplementConfig.CollagenG < 0 || p.SupplementConfig.CollagenG > 500 {
 		return ErrInvalidSupplement
 	}
 

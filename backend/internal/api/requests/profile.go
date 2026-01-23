@@ -25,8 +25,6 @@ type SupplementConfigRequest struct {
 	MaltodextrinG float64 `json:"maltodextrinG"` // Intra-workout carb supplement (grams)
 	WheyG         float64 `json:"wheyG"`         // Whey protein powder (grams)
 	CollagenG     float64 `json:"collagenG"`     // Collagen peptides (grams)
-	EAAMorningG   float64 `json:"eaaMorningG"`   // Morning EAA supplement (grams)
-	EAAEveningG   float64 `json:"eaaEveningG"`   // Evening EAA supplement (grams)
 }
 
 // CreateProfileRequest is the request body for PUT /api/profile.
@@ -70,8 +68,6 @@ type SupplementConfigResponse struct {
 	MaltodextrinG float64 `json:"maltodextrinG"`
 	WheyG         float64 `json:"wheyG"`
 	CollagenG     float64 `json:"collagenG"`
-	EAAMorningG   float64 `json:"eaaMorningG"`
-	EAAEveningG   float64 `json:"eaaEveningG"`
 }
 
 // ProfileResponse is the response body for profile endpoints.
@@ -129,8 +125,6 @@ func ProfileFromRequest(req CreateProfileRequest) (*domain.UserProfile, error) {
 			MaltodextrinG: req.SupplementConfig.MaltodextrinG,
 			WheyG:         req.SupplementConfig.WheyG,
 			CollagenG:     req.SupplementConfig.CollagenG,
-			EAAMorningG:   req.SupplementConfig.EAAMorningG,
-			EAAEveningG:   req.SupplementConfig.EAAEveningG,
 		},
 		FruitTargetG:  req.FruitTargetG,
 		VeggieTargetG: req.VeggieTargetG,
@@ -177,8 +171,6 @@ func ProfileToResponse(p *domain.UserProfile) ProfileResponse {
 			MaltodextrinG: p.SupplementConfig.MaltodextrinG,
 			WheyG:         p.SupplementConfig.WheyG,
 			CollagenG:     p.SupplementConfig.CollagenG,
-			EAAMorningG:   p.SupplementConfig.EAAMorningG,
-			EAAEveningG:   p.SupplementConfig.EAAEveningG,
 		},
 		FruitTargetG:  p.FruitTargetG,
 		VeggieTargetG: p.VeggieTargetG,
