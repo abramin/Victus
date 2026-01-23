@@ -7,6 +7,7 @@ vi.mock('../api/client', () => ({
   getTodayLog: vi.fn(),
   createDailyLog: vi.fn(),
   updateActualTraining: vi.fn(),
+  deleteTodayLog: vi.fn(),
   ApiError: class ApiError extends Error {
     constructor(public status: number, public code: string, message?: string) {
       super(message || code)
@@ -15,7 +16,7 @@ vi.mock('../api/client', () => ({
   },
 }))
 
-import { getTodayLog, createDailyLog, updateActualTraining, ApiError } from '../api/client'
+import { getTodayLog, createDailyLog, updateActualTraining, deleteTodayLog, ApiError } from '../api/client'
 import type { DailyLog, CreateDailyLogRequest } from '../api/types'
 
 const mockDailyLog: DailyLog = {
@@ -250,6 +251,57 @@ describe('useDailyLog', () => {
 
       expect(returnedLog).toEqual(updatedLog)
       expect(result.current.log).toEqual(updatedLog)
+    })
+  })
+
+  describe('replace functionality', () => {
+    it('replaces today log when one exists', async () => {
+      const updatedLog = { ...mockDailyLog, weightKg: 81.2 }
+      vi.mocked(getTodayLog).mockResolvedValue(mockDailyLog)
+      vi.mocked(deleteTodayLog).mockResolvedValue()
+      vi.mocked(createDailyLog).mockResolvedValue(updatedLog)
+
+      const { result } = renderHook(() => useDailyLog())
+
+      await waitFor(() => {
+        expect(result.current.log).toEqual(mockDailyLog)
+      })
+
+      let returnedLog: DailyLog | null = null
+      await act(async () => {
+        returnedLog = await result.current.replace({ ...mockCreateRequest, weightKg: 81.2 })
+      })
+
+      expect(deleteTodayLog).toHaveBeenCalled()
+      expect(returnedLog).toEqual(updatedLog)
+      expect(result.current.log).toEqual(updatedLog)
+    })
+
+    it('restores actual sessions after replace', async () => {
+      const logWithActual: DailyLog = {
+        ...mockDailyLog,
+        actualTrainingSessions: [{ type: 'strength', durationMin: 45 }],
+      }
+      const recreatedLog = { ...logWithActual, weightKg: 80.5 }
+      const restoredLog = { ...recreatedLog, actualTrainingSessions: logWithActual.actualTrainingSessions }
+      vi.mocked(getTodayLog).mockResolvedValue(logWithActual)
+      vi.mocked(deleteTodayLog).mockResolvedValue()
+      vi.mocked(createDailyLog).mockResolvedValue(recreatedLog)
+      vi.mocked(updateActualTraining).mockResolvedValue(restoredLog)
+
+      const { result } = renderHook(() => useDailyLog())
+
+      await waitFor(() => {
+        expect(result.current.log).toEqual(logWithActual)
+      })
+
+      let returnedLog: DailyLog | null = null
+      await act(async () => {
+        returnedLog = await result.current.replace({ ...mockCreateRequest, weightKg: 80.5 })
+      })
+
+      expect(updateActualTraining).toHaveBeenCalled()
+      expect(returnedLog).toEqual(restoredLog)
     })
   })
 })

@@ -71,6 +71,23 @@ type TrainingLoadResponse struct {
 	ACR         float64 `json:"acr"`         // Acute:Chronic ratio (1.0 default when chronic=0)
 }
 
+// RecoveryScoreResponse contains recovery score with component breakdown.
+type RecoveryScoreResponse struct {
+	Score          float64 `json:"score"`          // Total score 0-100
+	RestComponent  float64 `json:"restComponent"`  // Rest days component (0-40)
+	ACRComponent   float64 `json:"acrComponent"`   // ACR zone component (0-35)
+	SleepComponent float64 `json:"sleepComponent"` // Sleep quality component (0-25)
+}
+
+// AdjustmentMultipliersResponse contains adjustment factors for daily TDEE.
+type AdjustmentMultipliersResponse struct {
+	TrainingLoad       float64 `json:"trainingLoad"`       // Based on ACR thresholds
+	RecoveryScore      float64 `json:"recoveryScore"`      // Based on recovery score
+	SleepQuality       float64 `json:"sleepQuality"`       // Based on today's sleep quality
+	YesterdayIntensity float64 `json:"yesterdayIntensity"` // Based on yesterday's max load score
+	Total              float64 `json:"total"`              // Product of all multipliers, rounded to 2 decimals
+}
+
 // MacroPointsResponse represents macro points for a meal.
 type MacroPointsResponse struct {
 	Carbs   int `json:"carbs"`
@@ -115,9 +132,11 @@ type DailyLogResponse struct {
 	CalculatedTargets       DailyTargetsResponse            `json:"calculatedTargets"`
 	EstimatedTDEE           int                             `json:"estimatedTDEE"`
 	FormulaTDEE             int                             `json:"formulaTDEE,omitempty"`
-	TDEESourceUsed          string                          `json:"tdeeSourceUsed"`           // formula, manual, or adaptive
-	TDEEConfidence          float64                         `json:"tdeeConfidence,omitempty"` // 0-1 confidence for adaptive TDEE
-	DataPointsUsed          int                             `json:"dataPointsUsed,omitempty"` // Number of data points used for adaptive
+	TDEESourceUsed          string                          `json:"tdeeSourceUsed"`                    // formula, manual, or adaptive
+	TDEEConfidence          float64                         `json:"tdeeConfidence,omitempty"`          // 0-1 confidence for adaptive TDEE
+	DataPointsUsed          int                             `json:"dataPointsUsed,omitempty"`          // Number of data points used for adaptive
+	RecoveryScore           *RecoveryScoreResponse          `json:"recoveryScore,omitempty"`           // Recovery score breakdown
+	AdjustmentMultipliers   *AdjustmentMultipliersResponse  `json:"adjustmentMultipliers,omitempty"`   // Adjustment multipliers breakdown
 	CreatedAt               string                          `json:"createdAt,omitempty"`
 	UpdatedAt               string                          `json:"updatedAt,omitempty"`
 }
@@ -173,6 +192,33 @@ func TrainingLoadToResponse(t *domain.TrainingLoadResult) *TrainingLoadResponse 
 		AcuteLoad:   t.AcuteLoad,
 		ChronicLoad: t.ChronicLoad,
 		ACR:         t.ACR,
+	}
+}
+
+// RecoveryScoreToResponse converts a domain RecoveryScore to a RecoveryScoreResponse.
+func RecoveryScoreToResponse(r *domain.RecoveryScore) *RecoveryScoreResponse {
+	if r == nil {
+		return nil
+	}
+	return &RecoveryScoreResponse{
+		Score:          r.Score,
+		RestComponent:  r.RestComponent,
+		ACRComponent:   r.ACRComponent,
+		SleepComponent: r.SleepComponent,
+	}
+}
+
+// AdjustmentMultipliersToResponse converts a domain AdjustmentMultipliers to a AdjustmentMultipliersResponse.
+func AdjustmentMultipliersToResponse(a *domain.AdjustmentMultipliers) *AdjustmentMultipliersResponse {
+	if a == nil {
+		return nil
+	}
+	return &AdjustmentMultipliersResponse{
+		TrainingLoad:       a.TrainingLoad,
+		RecoveryScore:      a.RecoveryScore,
+		SleepQuality:       a.SleepQuality,
+		YesterdayIntensity: a.YesterdayIntensity,
+		Total:              a.Total,
 	}
 }
 
@@ -261,9 +307,11 @@ func DailyLogToResponseWithTrainingLoad(d *domain.DailyLog, trainingLoad *domain
 		},
 		EstimatedTDEE:  d.EstimatedTDEE,
 		FormulaTDEE:    d.FormulaTDEE,
-		TDEESourceUsed: string(d.TDEESourceUsed),
-		TDEEConfidence: d.TDEEConfidence,
-		DataPointsUsed: d.DataPointsUsed,
+		TDEESourceUsed:        string(d.TDEESourceUsed),
+		TDEEConfidence:        d.TDEEConfidence,
+		DataPointsUsed:        d.DataPointsUsed,
+		RecoveryScore:         RecoveryScoreToResponse(d.RecoveryScore),
+		AdjustmentMultipliers: AdjustmentMultipliersToResponse(d.AdjustmentMultipliers),
 	}
 
 	if !d.CreatedAt.IsZero() {

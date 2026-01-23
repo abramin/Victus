@@ -68,7 +68,19 @@ func (s *DailyLogService) Create(ctx context.Context, input domain.DailyLogInput
 	log.TDEEConfidence = confidence
 	log.DataPointsUsed = dataPointsUsed
 
-	// Calculate targets using the effective TDEE
+	// Calculate recovery score and adjustment multipliers
+	recoveryScore, adjustmentMultipliers := s.calculateRecoveryAndAdjustments(ctx, log.Date, int(log.SleepQuality))
+
+	if recoveryScore != nil {
+		log.RecoveryScore = recoveryScore
+	}
+	if adjustmentMultipliers != nil {
+		log.AdjustmentMultipliers = adjustmentMultipliers
+		// Apply adjustment multiplier to effective TDEE
+		log.EstimatedTDEE = int(float64(effectiveTDEE) * adjustmentMultipliers.Total)
+	}
+
+	// Calculate targets using the adjusted effective TDEE
 	log.CalculatedTargets = domain.CalculateDailyTargets(profile, log, now)
 
 	if err := s.logStore.WithTx(ctx, func(tx *sql.Tx) error {
@@ -206,4 +218,104 @@ func (s *DailyLogService) GetTrainingLoadMetrics(ctx context.Context, date strin
 	// Calculate ACR metrics
 	result := domain.CalculateTrainingLoadResult(todayLoad, dataPoints)
 	return &result, nil
+}
+
+// calculateRecoveryAndAdjustments computes recovery score and adjustment multipliers
+// using historical training and sleep data. Returns nil for both if insufficient data.
+func (s *DailyLogService) calculateRecoveryAndAdjustments(ctx context.Context, date string, todaySleepQuality int) (*domain.RecoveryScore, *domain.AdjustmentMultipliers) {
+	const recoveryLookbackDays = 7
+
+	// Parse target date
+	targetDate, err := time.Parse("2006-01-02", date)
+	if err != nil {
+		return nil, nil
+	}
+
+	// Get yesterday's date for max load score check
+	yesterdayDate := targetDate.AddDate(0, 0, -1).Format("2006-01-02")
+
+	// Calculate date range for 7-day lookback (excluding today for historical data)
+	startDate := targetDate.AddDate(0, 0, -recoveryLookbackDays).Format("2006-01-02")
+
+	// Fetch sleep quality history for last 7 days
+	sleepData, err := s.logStore.GetRecoveryData(ctx, yesterdayDate, recoveryLookbackDays)
+	if err != nil {
+		return nil, nil
+	}
+
+	// Fetch training sessions for the same date range (for ACR and rest days)
+	sessionsData, err := s.sessionStore.GetSessionsForDateRange(ctx, startDate, yesterdayDate)
+	if err != nil {
+		return nil, nil
+	}
+
+	// If no historical data, return nil (first day or insufficient history)
+	if len(sleepData) == 0 && len(sessionsData) == 0 {
+		return nil, nil
+	}
+
+	// Calculate average sleep quality over last 7 days
+	var totalSleepQuality float64
+	for _, dp := range sleepData {
+		totalSleepQuality += float64(dp.SleepQuality)
+	}
+	avgSleepQuality := 50.0 // Default if no data
+	if len(sleepData) > 0 {
+		avgSleepQuality = totalSleepQuality / float64(len(sleepData))
+	}
+
+	// Count rest days and find yesterday's max load score
+	restDays := 0
+	var yesterdayMaxLoad float64
+
+	for _, sd := range sessionsData {
+		// Determine if it's a rest day (no sessions or all sessions are rest type)
+		sessions := sd.ActualSessions
+		if len(sessions) == 0 {
+			sessions = sd.PlannedSessions
+		}
+
+		isRestDay := true
+		for _, sess := range sessions {
+			if sess.Type != domain.TrainingTypeRest {
+				isRestDay = false
+				break
+			}
+		}
+
+		if isRestDay || len(sessions) == 0 {
+			restDays++
+		}
+
+		// Check if this is yesterday to get max load score
+		if sd.Date == yesterdayDate {
+			yesterdayMaxLoad = domain.MaxSessionLoadScore(sessions)
+		}
+	}
+
+	// Get ACR using existing method (uses 28-day lookback for chronic load)
+	trainingLoadResult, err := s.GetTrainingLoadMetrics(ctx, date, nil, nil)
+	if err != nil {
+		// If we can't get ACR, use default of 1.0
+		trainingLoadResult = &domain.TrainingLoadResult{ACR: 1.0}
+	}
+
+	// Calculate recovery score
+	recoveryInput := domain.RecoveryScoreInput{
+		RestDaysLast7:     restDays,
+		ACR:               trainingLoadResult.ACR,
+		AvgSleepQualityL7: avgSleepQuality,
+	}
+	recoveryScore := domain.CalculateRecoveryScore(recoveryInput)
+
+	// Calculate adjustment multipliers
+	adjustmentInput := domain.AdjustmentInput{
+		ACR:               trainingLoadResult.ACR,
+		RecoveryScore:     recoveryScore.Score,
+		TodaySleepQuality: todaySleepQuality,
+		YesterdayMaxLoad:  yesterdayMaxLoad,
+	}
+	adjustmentMultipliers := domain.CalculateAdjustmentMultipliers(adjustmentInput)
+
+	return &recoveryScore, &adjustmentMultipliers
 }

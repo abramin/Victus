@@ -303,3 +303,47 @@ func (s *DailyLogStore) ListAdaptiveDataPoints(ctx context.Context, endDate stri
 func isUniqueConstraint(err error) bool {
 	return strings.Contains(err.Error(), "UNIQUE constraint")
 }
+
+// RecoveryDataPoint contains data needed for recovery score calculation.
+type RecoveryDataPoint struct {
+	Date         string
+	SleepQuality int
+}
+
+// GetRecoveryData returns sleep quality data for the last N days before (and including) endDate.
+// Results are ordered by date ascending (oldest first).
+func (s *DailyLogStore) GetRecoveryData(ctx context.Context, endDate string, days int) ([]RecoveryDataPoint, error) {
+	const query = `
+		SELECT log_date, sleep_quality
+		FROM daily_logs
+		WHERE log_date <= ?
+		ORDER BY log_date DESC
+		LIMIT ?
+	`
+
+	rows, err := s.db.QueryContext(ctx, query, endDate, days)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var points []RecoveryDataPoint
+	for rows.Next() {
+		var point RecoveryDataPoint
+		if err := rows.Scan(&point.Date, &point.SleepQuality); err != nil {
+			return nil, err
+		}
+		points = append(points, point)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	// Reverse to get oldest first
+	for i, j := 0, len(points)-1; i < j; i, j = i+1, j-1 {
+		points[i], points[j] = points[j], points[i]
+	}
+
+	return points, nil
+}

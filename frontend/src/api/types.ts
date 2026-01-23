@@ -96,6 +96,23 @@ export interface TrainingSummary {
   summary: string; // e.g., "3 sessions, 110 min total"
 }
 
+// RecoveryScoreBreakdown contains recovery score with component breakdown.
+export interface RecoveryScoreBreakdown {
+  score: number;          // Total score 0-100
+  restComponent: number;  // Rest days component (0-40)
+  acrComponent: number;   // ACR zone component (0-35)
+  sleepComponent: number; // Sleep quality component (0-25)
+}
+
+// AdjustmentMultipliers contains adjustment factors for daily TDEE.
+export interface AdjustmentMultipliers {
+  trainingLoad: number;       // Based on ACR thresholds
+  recoveryScore: number;      // Based on recovery score
+  sleepQuality: number;       // Based on today's sleep quality
+  yesterdayIntensity: number; // Based on yesterday's max load score
+  total: number;              // Product of all multipliers, rounded to 2 decimals
+}
+
 export interface MacroPoints {
   carbs: number;
   protein: number;
@@ -136,6 +153,8 @@ export interface DailyLog {
   tdeeSourceUsed: TDEESource;     // Which TDEE source was used for this day
   tdeeConfidence?: number;        // 0-1 confidence level for adaptive TDEE
   dataPointsUsed?: number;        // Number of data points used for adaptive calculation
+  recoveryScore?: RecoveryScoreBreakdown;       // Recovery score breakdown
+  adjustmentMultipliers?: AdjustmentMultipliers; // Adjustment multipliers breakdown
   createdAt?: string;
   updatedAt?: string;
 }

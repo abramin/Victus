@@ -19,7 +19,15 @@ function App() {
     error: profileError,
     refresh: refreshProfile,
   } = useProfile();
-  const { log, loading: logLoading, saving: logSaving, saveError: logSaveError, create, updateActual } = useDailyLog();
+  const {
+    log,
+    loading: logLoading,
+    saving: logSaving,
+    saveError: logSaveError,
+    create,
+    replace,
+    updateActual,
+  } = useDailyLog();
   const [currentNav, setCurrentNav] = useState<NavItem>('meal-points');
 
   // Loading state
@@ -81,6 +89,7 @@ function App() {
       {currentNav === 'daily-update' && (
         <DailyUpdateForm
           onSubmit={create}
+          onReplace={replace}
           onUpdateActual={updateActual}
           saving={logSaving}
           error={logSaveError}

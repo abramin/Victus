@@ -477,8 +477,10 @@ func (s *HandlerSuite) TestActualTrainingUpdate() {
 // --- Weight trend endpoint tests ---
 // Justification: Verifies trend summary presence/absence in JSON response, which
 // is not covered by feature scenarios.
+// NOTE: These tests require database isolation, so they remain as separate methods
+// rather than subtests.
 
-func (s *HandlerSuite) TestWeightTrendReturnsSummaryWithMultipleSamples() {
+func (s *HandlerSuite) TestWeightTrendResponse_IncludesTrendWithMultiplePoints() {
 	s.seedDailyLog("2025-01-01", 80)
 	s.seedDailyLog("2025-01-02", 79)
 
@@ -504,7 +506,7 @@ func (s *HandlerSuite) TestWeightTrendReturnsSummaryWithMultipleSamples() {
 	s.InDelta(79.0, resp.Trend.EndWeightKg, 0.001)
 }
 
-func (s *HandlerSuite) TestWeightTrendOmitsSummaryWithSingleSample() {
+func (s *HandlerSuite) TestWeightTrendResponse_OmitsTrendWithSinglePoint() {
 	s.seedDailyLog("2025-01-01", 80)
 
 	rec := s.doRequest("GET", "/api/stats/weight-trend?range=all", nil)

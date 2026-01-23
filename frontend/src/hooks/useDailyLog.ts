@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getTodayLog, createDailyLog, updateActualTraining, ApiError } from '../api/client';
+import { getTodayLog, createDailyLog, updateActualTraining, deleteTodayLog, ApiError } from '../api/client';
 import type { DailyLog, CreateDailyLogRequest, ActualTrainingSession } from '../api/types';
 
 interface UseDailyLogReturn {
@@ -10,6 +10,7 @@ interface UseDailyLogReturn {
   saveError: string | null;
   hasLogToday: boolean;
   create: (log: CreateDailyLogRequest) => Promise<DailyLog | null>;
+  replace: (log: CreateDailyLogRequest) => Promise<DailyLog | null>;
   updateActual: (sessions: Omit<ActualTrainingSession, 'sessionOrder'>[]) => Promise<DailyLog | null>;
   refresh: () => Promise<void>;
 }
@@ -67,6 +68,47 @@ export function useDailyLog(): UseDailyLogReturn {
     }
   }, []);
 
+  const replace = useCallback(
+    async (newLog: CreateDailyLogRequest): Promise<DailyLog | null> => {
+      if (!log?.date) {
+        return create(newLog);
+      }
+      setSaving(true);
+      setSaveError(null);
+      const actualSessions = log.actualTrainingSessions?.map(({ sessionOrder, ...rest }) => rest) ?? [];
+      try {
+        await deleteTodayLog();
+        const saved = await createDailyLog({ ...newLog, date: log.date });
+        setLog(saved);
+        if (actualSessions.length > 0) {
+          try {
+            const restored = await updateActualTraining(saved.date, { actualSessions });
+            setLog(restored);
+            return restored;
+          } catch (err) {
+            if (err instanceof ApiError) {
+              setSaveError(err.message);
+            } else {
+              setSaveError('Updated log, but failed to restore actual training');
+            }
+            return saved;
+          }
+        }
+        return saved;
+      } catch (err) {
+        if (err instanceof ApiError) {
+          setSaveError(err.message);
+        } else {
+          setSaveError('Failed to update daily log');
+        }
+        return null;
+      } finally {
+        setSaving(false);
+      }
+    },
+    [create, log]
+  );
+
   const updateActual = useCallback(
     async (sessions: Omit<ActualTrainingSession, 'sessionOrder'>[]): Promise<DailyLog | null> => {
       if (!log?.date) return null;
@@ -98,6 +140,7 @@ export function useDailyLog(): UseDailyLogReturn {
     saveError,
     hasLogToday: log !== null,
     create,
+    replace,
     updateActual,
     refresh,
   };

@@ -1,10 +1,12 @@
-import type { DailyTargets, MacroPoints, DayType } from '../../api/types';
+import type { DailyTargets, MacroPoints, DayType, RecoveryScoreBreakdown, AdjustmentMultipliers } from '../../api/types';
 import { Card } from '../common/Card';
 
 interface DailyTargetsDisplayProps {
   targets: DailyTargets;
   estimatedTDEE: number;
   date: string;
+  recoveryScore?: RecoveryScoreBreakdown;
+  adjustmentMultipliers?: AdjustmentMultipliers;
 }
 
 function DayTypeBadge({ dayType }: { dayType: DayType }) {
@@ -83,6 +85,108 @@ function MacroProgressBar({
   );
 }
 
+function RecoveryScoreBar({ score, maxScore, label, color }: { score: number; maxScore: number; label: string; color: string }) {
+  const percentage = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
+
+  return (
+    <div className="space-y-1">
+      <div className="flex justify-between text-sm">
+        <span className="text-slate-300">{label}</span>
+        <span className="text-slate-400">{score.toFixed(1)} / {maxScore}</span>
+      </div>
+      <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-all duration-500 ${color}`}
+          style={{ width: `${percentage}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function RecoveryScoreDisplay({ recoveryScore }: { recoveryScore: RecoveryScoreBreakdown }) {
+  // Determine recovery status color based on score
+  const getScoreColor = (score: number) => {
+    if (score >= 80) return 'text-green-400';
+    if (score >= 60) return 'text-emerald-400';
+    if (score >= 40) return 'text-yellow-400';
+    if (score >= 20) return 'text-orange-400';
+    return 'text-red-400';
+  };
+
+  const getScoreLabel = (score: number) => {
+    if (score >= 80) return 'Excellent';
+    if (score >= 60) return 'Good';
+    if (score >= 40) return 'Moderate';
+    if (score >= 20) return 'Low';
+    return 'Poor';
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Total Score */}
+      <div className="text-center">
+        <div className={`text-3xl font-bold ${getScoreColor(recoveryScore.score)}`}>
+          {Math.round(recoveryScore.score)}
+        </div>
+        <div className="text-sm text-slate-400">
+          Recovery Score ({getScoreLabel(recoveryScore.score)})
+        </div>
+      </div>
+
+      {/* Component Breakdown */}
+      <div className="space-y-2">
+        <RecoveryScoreBar
+          label="Rest Days"
+          score={recoveryScore.restComponent}
+          maxScore={40}
+          color="bg-blue-500"
+        />
+        <RecoveryScoreBar
+          label="ACR Zone"
+          score={recoveryScore.acrComponent}
+          maxScore={35}
+          color="bg-purple-500"
+        />
+        <RecoveryScoreBar
+          label="Sleep Quality"
+          score={recoveryScore.sleepComponent}
+          maxScore={25}
+          color="bg-cyan-500"
+        />
+      </div>
+    </div>
+  );
+}
+
+function MultiplierRow({ label, value, isTotal = false }: { label: string; value: number; isTotal?: boolean }) {
+  // Format multiplier as percentage change
+  const percentChange = ((value - 1) * 100).toFixed(0);
+  const sign = value >= 1 ? '+' : '';
+  const color = value > 1 ? 'text-green-400' : value < 1 ? 'text-red-400' : 'text-slate-300';
+
+  return (
+    <div className={`flex justify-between ${isTotal ? 'font-semibold pt-2 border-t border-slate-700' : ''}`}>
+      <span className="text-slate-300">{label}</span>
+      <span className={color}>
+        {value.toFixed(2)} ({sign}{percentChange}%)
+      </span>
+    </div>
+  );
+}
+
+function AdjustmentMultipliersDisplay({ multipliers }: { multipliers: AdjustmentMultipliers }) {
+  return (
+    <div className="space-y-2 text-sm">
+      <MultiplierRow label="Training Load" value={multipliers.trainingLoad} />
+      <MultiplierRow label="Recovery Score" value={multipliers.recoveryScore} />
+      <MultiplierRow label="Sleep Quality" value={multipliers.sleepQuality} />
+      <MultiplierRow label="Yesterday Intensity" value={multipliers.yesterdayIntensity} />
+      <MultiplierRow label="Total Adjustment" value={multipliers.total} isTotal />
+    </div>
+  );
+}
+
 function MacroSummary({ targets }: { targets: DailyTargets }) {
   const carbCalories = targets.totalCarbsG * 4;
   const proteinCalories = targets.totalProteinG * 4;
@@ -140,7 +244,7 @@ function MacroSummary({ targets }: { targets: DailyTargets }) {
   );
 }
 
-export function DailyTargetsDisplay({ targets, estimatedTDEE, date }: DailyTargetsDisplayProps) {
+export function DailyTargetsDisplay({ targets, estimatedTDEE, date, recoveryScore, adjustmentMultipliers }: DailyTargetsDisplayProps) {
   const formattedDate = new Date(date).toLocaleDateString('en-US', {
     weekday: 'long',
     year: 'numeric',
@@ -191,9 +295,34 @@ export function DailyTargetsDisplay({ targets, estimatedTDEE, date }: DailyTarge
         </div>
       </Card>
 
+      {/* Recovery & Adjustments */}
+      {(recoveryScore || adjustmentMultipliers) && (
+        <Card title="Calculation Details">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {recoveryScore && (
+              <div>
+                <h4 className="text-sm font-medium text-slate-400 mb-3">Recovery Score</h4>
+                <RecoveryScoreDisplay recoveryScore={recoveryScore} />
+              </div>
+            )}
+            {adjustmentMultipliers && (
+              <div>
+                <h4 className="text-sm font-medium text-slate-400 mb-3">TDEE Adjustments</h4>
+                <AdjustmentMultipliersDisplay multipliers={adjustmentMultipliers} />
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
+
       {/* TDEE Info */}
       <div className="text-center text-sm text-slate-500">
         Estimated TDEE: {estimatedTDEE} kcal
+        {adjustmentMultipliers && adjustmentMultipliers.total !== 1 && (
+          <span className="ml-2">
+            (adjusted by {((adjustmentMultipliers.total - 1) * 100).toFixed(0)}%)
+          </span>
+        )}
       </div>
     </div>
   );

@@ -260,6 +260,9 @@ func (s *TrainingLoadSuite) TestCalculateTrainingLoadResult() {
 }
 
 // Acceptance criteria tests from Issue #9
+// NOTE: User-visible behavior now also covered by training-load.feature scenarios.
+// These domain tests are retained because they guard the pure calculation invariants
+// that the feature scenarios depend on.
 func (s *TrainingLoadSuite) TestAcceptanceCriteria() {
 	s.Run("week of logs with no actual training uses planned sessions", func() {
 		// Simulate 7 days where we only have planned sessions

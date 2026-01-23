@@ -79,6 +79,16 @@ If unclear, proceed with conservative assumptions and avoid guessing library-spe
 - Add e2e coverage for critical flows when relevant.
 - Avoid snapshot-only tests for interactive UI.
 
+### Modularity / Reusability / Testability
+- Components have a single responsibility and clear public API (props).
+- Business logic is extracted into hooks or pure functions when reusable.
+- Side effects (data fetching, storage, timers) are isolated and mockable.
+- Avoid hard-coded globals; prefer dependency injection via props or hooks.
+- UI components are not tightly coupled to data-fetching or routing.
+- Functions and hooks are testable without rendering the full app.
+- File size and cohesion: split files >200–300 LOC unless justified.
+
+
 ## Output format (be brief but concrete)
 When reviewing, produce:
 

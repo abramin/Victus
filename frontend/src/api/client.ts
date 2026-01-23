@@ -30,6 +30,17 @@ async function handleResponse<T>(response: Response): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+async function handleEmptyResponse(response: Response): Promise<void> {
+  if (response.ok) return;
+  let data: APIError | null = null;
+  try {
+    data = (await response.json()) as APIError;
+  } catch {
+    data = null;
+  }
+  throw new ApiError(response.status, data?.error ?? 'request_failed', data?.message);
+}
+
 type PlannedSessionWithId = CreateDailyLogRequest['plannedTrainingSessions'][number] & { _id?: string };
 
 function sanitizePlannedSessions(
@@ -87,6 +98,13 @@ export async function createDailyLog(log: CreateDailyLogRequest): Promise<DailyL
   });
 
   return handleResponse<DailyLog>(response);
+}
+
+export async function deleteTodayLog(): Promise<void> {
+  const response = await fetch(`${API_BASE}/logs/today`, {
+    method: 'DELETE',
+  });
+  await handleEmptyResponse(response);
 }
 
 export async function updateActualTraining(

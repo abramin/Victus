@@ -24,10 +24,12 @@ type DailyLog struct {
 	EstimatedTDEE     int
 	FormulaTDEE       int
 	TDEESourceUsed    TDEESource // Which TDEE source was used for this day's calculations
-	TDEEConfidence    float64    // Confidence level 0-1 for adaptive TDEE (0 means not adaptive)
-	DataPointsUsed    int        // Number of data points used for adaptive calculation
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
+	TDEEConfidence        float64               // Confidence level 0-1 for adaptive TDEE (0 means not adaptive)
+	DataPointsUsed        int                   // Number of data points used for adaptive calculation
+	RecoveryScore         *RecoveryScore        // Recovery score breakdown (nil if not calculated)
+	AdjustmentMultipliers *AdjustmentMultipliers // Adjustment multipliers breakdown (nil if not calculated)
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
 }
 
 // DailyLogInput represents the inputs needed to create a daily log.

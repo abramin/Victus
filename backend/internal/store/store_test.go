@@ -15,20 +15,21 @@ import (
 
 // Justification: Store tests verify persistence and schema constraints beyond
 // feature-level coverage.
-type StoreSuite struct {
+
+// --- Profile Store Suite ---
+
+type ProfileStoreSuite struct {
 	suite.Suite
-	db           *sql.DB
-	profileStore *ProfileStore
-	logStore     *DailyLogStore
-	sessionStore *TrainingSessionStore
-	ctx          context.Context
+	db    *sql.DB
+	store *ProfileStore
+	ctx   context.Context
 }
 
-func TestStoreSuite(t *testing.T) {
-	suite.Run(t, new(StoreSuite))
+func TestProfileStoreSuite(t *testing.T) {
+	suite.Run(t, new(ProfileStoreSuite))
 }
 
-func (s *StoreSuite) SetupTest() {
+func (s *ProfileStoreSuite) SetupTest() {
 	var err error
 	s.db, err = sql.Open("sqlite", ":memory:")
 	s.Require().NoError(err)
@@ -36,19 +37,17 @@ func (s *StoreSuite) SetupTest() {
 	err = db.RunMigrations(s.db)
 	s.Require().NoError(err)
 
-	s.profileStore = NewProfileStore(s.db)
-	s.logStore = NewDailyLogStore(s.db)
-	s.sessionStore = NewTrainingSessionStore(s.db)
+	s.store = NewProfileStore(s.db)
 	s.ctx = context.Background()
 }
 
-func (s *StoreSuite) TearDownTest() {
+func (s *ProfileStoreSuite) TearDownTest() {
 	if s.db != nil {
 		s.db.Close()
 	}
 }
 
-func (s *StoreSuite) validProfile() *domain.UserProfile {
+func (s *ProfileStoreSuite) validProfile() *domain.UserProfile {
 	return &domain.UserProfile{
 		HeightCM:             180,
 		BirthDate:            time.Date(1990, 6, 15, 0, 0, 0, 0, time.UTC),
@@ -66,27 +65,20 @@ func (s *StoreSuite) validProfile() *domain.UserProfile {
 	}
 }
 
-func (s *StoreSuite) createProfile() {
-	err := s.profileStore.Upsert(s.ctx, s.validProfile())
-	s.Require().NoError(err)
-}
-
-// --- Profile Store Tests ---
-
-func (s *StoreSuite) TestProfileNotFoundBeforeCreation() {
+func (s *ProfileStoreSuite) TestProfileNotFoundBeforeCreation() {
 	s.Run("Get returns ErrProfileNotFound when empty", func() {
-		_, err := s.profileStore.Get(s.ctx)
+		_, err := s.store.Get(s.ctx)
 		s.Require().ErrorIs(err, ErrProfileNotFound)
 	})
 }
 
-func (s *StoreSuite) TestProfileDataIntegrity() {
+func (s *ProfileStoreSuite) TestProfileDataIntegrity() {
 	s.Run("all fields survive serialization", func() {
 		profile := s.validProfile()
-		err := s.profileStore.Upsert(s.ctx, profile)
+		err := s.store.Upsert(s.ctx, profile)
 		s.Require().NoError(err)
 
-		loaded, err := s.profileStore.Get(s.ctx)
+		loaded, err := s.store.Get(s.ctx)
 		s.Require().NoError(err)
 
 		s.Equal(profile.HeightCM, loaded.HeightCM)
@@ -106,53 +98,84 @@ func (s *StoreSuite) TestProfileDataIntegrity() {
 
 	s.Run("upsert updates existing profile", func() {
 		profile := s.validProfile()
-		err := s.profileStore.Upsert(s.ctx, profile)
+		err := s.store.Upsert(s.ctx, profile)
 		s.Require().NoError(err)
 
 		// Update
 		profile.HeightCM = 175
 		profile.Goal = domain.GoalGainWeight
-		err = s.profileStore.Upsert(s.ctx, profile)
+		err = s.store.Upsert(s.ctx, profile)
 		s.Require().NoError(err)
 
-		loaded, err := s.profileStore.Get(s.ctx)
+		loaded, err := s.store.Get(s.ctx)
 		s.Require().NoError(err)
 		s.Equal(175.0, loaded.HeightCM)
 		s.Equal(domain.GoalGainWeight, loaded.Goal)
 	})
 }
 
-func (s *StoreSuite) TestProfileRemoval() {
+func (s *ProfileStoreSuite) TestProfileRemoval() {
 	s.Run("removes profile from store", func() {
-		s.createProfile()
-
-		err := s.profileStore.Delete(s.ctx)
+		profile := s.validProfile()
+		err := s.store.Upsert(s.ctx, profile)
 		s.Require().NoError(err)
 
-		_, err = s.profileStore.Get(s.ctx)
+		err = s.store.Delete(s.ctx)
+		s.Require().NoError(err)
+
+		_, err = s.store.Get(s.ctx)
 		s.Require().ErrorIs(err, ErrProfileNotFound)
 	})
 
 	s.Run("is idempotent on missing profile", func() {
 		// Ensure no profile exists
-		_ = s.profileStore.Delete(s.ctx)
+		_ = s.store.Delete(s.ctx)
 
 		// Deleting again should not error
-		err := s.profileStore.Delete(s.ctx)
+		err := s.store.Delete(s.ctx)
 		s.Require().NoError(err, "Deleting nonexistent profile should not error")
 	})
 }
 
-// --- Daily Log Store Tests ---
+// --- Daily Log Store Suite ---
 
-func (s *StoreSuite) TestDailyLogNotFoundBeforeCreation() {
+type DailyLogStoreSuite struct {
+	suite.Suite
+	db    *sql.DB
+	store *DailyLogStore
+	ctx   context.Context
+}
+
+func TestDailyLogStoreSuite(t *testing.T) {
+	suite.Run(t, new(DailyLogStoreSuite))
+}
+
+func (s *DailyLogStoreSuite) SetupTest() {
+	var err error
+	s.db, err = sql.Open("sqlite", ":memory:")
+	s.Require().NoError(err)
+
+	err = db.RunMigrations(s.db)
+	s.Require().NoError(err)
+
+	s.store = NewDailyLogStore(s.db)
+	s.ctx = context.Background()
+}
+
+func (s *DailyLogStoreSuite) TearDownTest() {
+	if s.db != nil {
+		s.db.Close()
+	}
+}
+
+func (s *DailyLogStoreSuite) TestLogNotFoundBeforeCreation() {
 	s.Run("GetByDate returns ErrDailyLogNotFound when empty", func() {
-		_, err := s.logStore.GetByDate(s.ctx, "2025-01-15")
+		_, err := s.store.GetByDate(s.ctx, "2025-01-15")
 		s.Require().ErrorIs(err, ErrDailyLogNotFound)
 	})
 }
 
-func (s *StoreSuite) TestLogFieldPreservation() {
+func (s *DailyLogStoreSuite) TestLogFieldPreservation() {
 	s.Run("all fields including nested structures survive persistence", func() {
 		log := &domain.DailyLog{
 			Date:         "2025-01-15",
@@ -178,11 +201,11 @@ func (s *StoreSuite) TestLogFieldPreservation() {
 			FormulaTDEE:   2450,
 		}
 
-		logID, err := s.logStore.Create(s.ctx, log)
+		logID, err := s.store.Create(s.ctx, log)
 		s.Require().NoError(err)
 		s.Greater(logID, int64(0))
 
-		loaded, err := s.logStore.GetByDate(s.ctx, "2025-01-15")
+		loaded, err := s.store.GetByDate(s.ctx, "2025-01-15")
 		s.Require().NoError(err)
 
 		s.Equal(log.Date, loaded.Date)
@@ -196,7 +219,7 @@ func (s *StoreSuite) TestLogFieldPreservation() {
 	})
 }
 
-func (s *StoreSuite) TestDailyLogNullableFieldRoundTrip() {
+func (s *DailyLogStoreSuite) TestLogNullableFieldRoundTrip() {
 	s.Run("nil optional fields stay nil", func() {
 		log := &domain.DailyLog{
 			Date:              "2025-01-15",
@@ -209,10 +232,10 @@ func (s *StoreSuite) TestDailyLogNullableFieldRoundTrip() {
 			CalculatedTargets: domain.DailyTargets{DayType: domain.DayTypeFatburner},
 		}
 
-		_, err := s.logStore.Create(s.ctx, log)
+		_, err := s.store.Create(s.ctx, log)
 		s.Require().NoError(err)
 
-		loaded, err := s.logStore.GetByDate(s.ctx, "2025-01-15")
+		loaded, err := s.store.GetByDate(s.ctx, "2025-01-15")
 		s.Require().NoError(err)
 
 		s.Nil(loaded.BodyFatPercent, "BodyFatPercent should be nil")
@@ -236,10 +259,10 @@ func (s *StoreSuite) TestDailyLogNullableFieldRoundTrip() {
 			CalculatedTargets: domain.DailyTargets{DayType: domain.DayTypeFatburner},
 		}
 
-		_, err := s.logStore.Create(s.ctx, log)
+		_, err := s.store.Create(s.ctx, log)
 		s.Require().NoError(err)
 
-		loaded, err := s.logStore.GetByDate(s.ctx, "2025-01-16")
+		loaded, err := s.store.GetByDate(s.ctx, "2025-01-16")
 		s.Require().NoError(err)
 
 		s.Require().NotNil(loaded.BodyFatPercent)
@@ -253,7 +276,7 @@ func (s *StoreSuite) TestDailyLogNullableFieldRoundTrip() {
 	})
 }
 
-func (s *StoreSuite) TestDailyLogDateUniqueness() {
+func (s *DailyLogStoreSuite) TestLogDateUniqueness() {
 	s.Run("duplicate date returns error", func() {
 		log := &domain.DailyLog{
 			Date:              "2025-01-15",
@@ -263,7 +286,7 @@ func (s *StoreSuite) TestDailyLogDateUniqueness() {
 			CalculatedTargets: domain.DailyTargets{DayType: domain.DayTypeFatburner},
 		}
 
-		_, err := s.logStore.Create(s.ctx, log)
+		_, err := s.store.Create(s.ctx, log)
 		s.Require().NoError(err)
 
 		// Try to create again with same date
@@ -275,12 +298,12 @@ func (s *StoreSuite) TestDailyLogDateUniqueness() {
 			CalculatedTargets: domain.DailyTargets{DayType: domain.DayTypePerformance},
 		}
 
-		_, err = s.logStore.Create(s.ctx, log2)
+		_, err = s.store.Create(s.ctx, log2)
 		s.Require().ErrorIs(err, ErrDailyLogAlreadyExists)
 	})
 }
 
-func (s *StoreSuite) TestDailyLogRemoval() {
+func (s *DailyLogStoreSuite) TestLogRemoval() {
 	s.Run("removes log from store", func() {
 		log := &domain.DailyLog{
 			Date:              "2025-01-15",
@@ -290,23 +313,23 @@ func (s *StoreSuite) TestDailyLogRemoval() {
 			CalculatedTargets: domain.DailyTargets{DayType: domain.DayTypeFatburner},
 		}
 
-		_, err := s.logStore.Create(s.ctx, log)
+		_, err := s.store.Create(s.ctx, log)
 		s.Require().NoError(err)
 
-		err = s.logStore.DeleteByDate(s.ctx, "2025-01-15")
+		err = s.store.DeleteByDate(s.ctx, "2025-01-15")
 		s.Require().NoError(err)
 
-		_, err = s.logStore.GetByDate(s.ctx, "2025-01-15")
+		_, err = s.store.GetByDate(s.ctx, "2025-01-15")
 		s.Require().ErrorIs(err, ErrDailyLogNotFound)
 	})
 
 	s.Run("is idempotent on missing log", func() {
-		err := s.logStore.DeleteByDate(s.ctx, "2025-12-31")
+		err := s.store.DeleteByDate(s.ctx, "2025-12-31")
 		s.Require().NoError(err, "Deleting nonexistent log should not error")
 	})
 }
 
-func (s *StoreSuite) TestDailyLogMultipleDates() {
+func (s *DailyLogStoreSuite) TestLogMultipleDates() {
 	s.Run("can store logs for different dates", func() {
 		dates := []string{"2025-01-10", "2025-01-11", "2025-01-12"}
 
@@ -318,45 +341,77 @@ func (s *StoreSuite) TestDailyLogMultipleDates() {
 				DayType:           domain.DayTypeFatburner,
 				CalculatedTargets: domain.DailyTargets{DayType: domain.DayTypeFatburner},
 			}
-			_, err := s.logStore.Create(s.ctx, log)
+			_, err := s.store.Create(s.ctx, log)
 			s.Require().NoError(err)
 		}
 
 		// Verify each can be retrieved
 		for _, date := range dates {
-			loaded, err := s.logStore.GetByDate(s.ctx, date)
+			loaded, err := s.store.GetByDate(s.ctx, date)
 			s.Require().NoError(err)
 			s.Equal(date, loaded.Date)
 		}
 	})
 }
 
-// --- Training Session Store Tests ---
+// --- Training Session Store Suite ---
 
-func (s *StoreSuite) TestTrainingSessionPersistence() {
+type TrainingSessionStoreSuite struct {
+	suite.Suite
+	db           *sql.DB
+	logStore     *DailyLogStore
+	sessionStore *TrainingSessionStore
+	ctx          context.Context
+}
+
+func TestTrainingSessionStoreSuite(t *testing.T) {
+	suite.Run(t, new(TrainingSessionStoreSuite))
+}
+
+func (s *TrainingSessionStoreSuite) SetupTest() {
+	var err error
+	s.db, err = sql.Open("sqlite", ":memory:")
+	s.Require().NoError(err)
+
+	err = db.RunMigrations(s.db)
+	s.Require().NoError(err)
+
+	s.logStore = NewDailyLogStore(s.db)
+	s.sessionStore = NewTrainingSessionStore(s.db)
+	s.ctx = context.Background()
+}
+
+func (s *TrainingSessionStoreSuite) TearDownTest() {
+	if s.db != nil {
+		s.db.Close()
+	}
+}
+
+func (s *TrainingSessionStoreSuite) createDailyLog(date string) int64 {
+	log := &domain.DailyLog{
+		Date:              date,
+		WeightKg:          85,
+		SleepQuality:      80,
+		DayType:           domain.DayTypePerformance,
+		CalculatedTargets: domain.DailyTargets{DayType: domain.DayTypePerformance},
+	}
+	logID, err := s.logStore.Create(s.ctx, log)
+	s.Require().NoError(err)
+	return logID
+}
+
+func (s *TrainingSessionStoreSuite) TestSessionPersistence() {
 	s.Run("sessions are persisted and retrieved", func() {
-		// First create a daily log
-		log := &domain.DailyLog{
-			Date:              "2025-01-15",
-			WeightKg:          85,
-			SleepQuality:      80,
-			DayType:           domain.DayTypePerformance,
-			CalculatedTargets: domain.DailyTargets{DayType: domain.DayTypePerformance},
-		}
+		logID := s.createDailyLog("2025-01-15")
 
-		logID, err := s.logStore.Create(s.ctx, log)
-		s.Require().NoError(err)
-
-		// Create sessions
 		sessions := []domain.TrainingSession{
 			{SessionOrder: 1, IsPlanned: true, Type: domain.TrainingTypeQigong, DurationMin: 20},
 			{SessionOrder: 2, IsPlanned: true, Type: domain.TrainingTypeStrength, DurationMin: 60},
 		}
 
-		err = s.sessionStore.CreateForLog(s.ctx, logID, sessions)
+		err := s.sessionStore.CreateForLog(s.ctx, logID, sessions)
 		s.Require().NoError(err)
 
-		// Retrieve sessions
 		loaded, err := s.sessionStore.GetByLogID(s.ctx, logID)
 		s.Require().NoError(err)
 		s.Require().Len(loaded, 2)
@@ -366,24 +421,16 @@ func (s *StoreSuite) TestTrainingSessionPersistence() {
 		s.Equal(domain.TrainingTypeStrength, loaded[1].Type)
 		s.Equal(60, loaded[1].DurationMin)
 	})
+}
 
+func (s *TrainingSessionStoreSuite) TestSessionCascadeDelete() {
 	s.Run("sessions are deleted with log via cascade", func() {
-		// Create log with sessions
-		log := &domain.DailyLog{
-			Date:              "2025-01-16",
-			WeightKg:          85,
-			SleepQuality:      80,
-			DayType:           domain.DayTypePerformance,
-			CalculatedTargets: domain.DailyTargets{DayType: domain.DayTypePerformance},
-		}
-
-		logID, err := s.logStore.Create(s.ctx, log)
-		s.Require().NoError(err)
+		logID := s.createDailyLog("2025-01-16")
 
 		sessions := []domain.TrainingSession{
 			{SessionOrder: 1, IsPlanned: true, Type: domain.TrainingTypeStrength, DurationMin: 60},
 		}
-		err = s.sessionStore.CreateForLog(s.ctx, logID, sessions)
+		err := s.sessionStore.CreateForLog(s.ctx, logID, sessions)
 		s.Require().NoError(err)
 
 		// Delete log
