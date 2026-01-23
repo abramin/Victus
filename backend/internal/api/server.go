@@ -48,6 +48,7 @@ func NewServer(db *sql.DB) *Server {
 	mux.HandleFunc("POST /api/logs", srv.createDailyLog)
 	mux.HandleFunc("GET /api/logs/today", srv.getTodayLog)
 	mux.HandleFunc("DELETE /api/logs/today", srv.deleteTodayLog)
+	mux.HandleFunc("PATCH /api/logs/{date}/actual-training", srv.updateActualTraining)
 
 	// Training config routes
 	mux.HandleFunc("GET /api/training-configs", srv.getTrainingConfigs)
@@ -91,7 +92,7 @@ func corsMiddleware(next http.Handler) http.Handler {
 
 	allowedMethods := os.Getenv("CORS_ALLOWED_METHODS")
 	if allowedMethods == "" {
-		allowedMethods = "GET,POST,PUT,DELETE,OPTIONS"
+		allowedMethods = "GET,POST,PUT,PATCH,DELETE,OPTIONS"
 	}
 
 	allowedHeaders := os.Getenv("CORS_ALLOWED_HEADERS")

@@ -115,19 +115,15 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
             <button
               key={dt.value}
               onClick={() => handleDayTypeSelect(dt.value)}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                selectedDayType === dt.value
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${selectedDayType === dt.value
                   ? 'bg-gray-700 text-white'
                   : 'text-gray-400 hover:text-white'
-              }`}
+                }`}
             >
               {dt.label}
             </button>
           ))}
         </div>
-
-        {/* Rounding Indicator */}
-        <span className="text-sm text-gray-500">Rounded to nearest 5</span>
       </div>
 
       {/* Main Content Grid */}
@@ -181,11 +177,10 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
                     <button
                       key={period}
                       onClick={() => setTrendPeriod(period)}
-                      className={`px-3 py-1 rounded text-sm transition-colors ${
-                        trendPeriod === period
+                      className={`px-3 py-1 rounded text-sm transition-colors ${trendPeriod === period
                           ? 'bg-gray-700 text-white'
                           : 'text-gray-400 hover:text-white'
-                      }`}
+                        }`}
                     >
                       {period}
                     </button>

@@ -64,7 +64,7 @@ function MealSlider({ label, value, onChange }: MealSliderProps) {
           type="range"
           min="0"
           max="100"
-          step="5"
+          step="1"
           value={value}
           onChange={(e) => onChange(parseInt(e.target.value))}
           className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"

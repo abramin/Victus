@@ -75,3 +75,36 @@ func (s *Server) deleteTodayLog(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusNoContent)
 }
+
+// updateActualTraining handles PATCH /api/logs/{date}/actual-training
+func (s *Server) updateActualTraining(w http.ResponseWriter, r *http.Request) {
+	date := r.PathValue("date")
+	if date == "" {
+		writeError(w, http.StatusBadRequest, "missing_date", "Date parameter is required")
+		return
+	}
+
+	var req requests.UpdateActualTrainingRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json", "Could not parse request body as JSON")
+		return
+	}
+
+	sessions := requests.ActualTrainingFromRequest(req)
+	log, err := s.dailyLogService.UpdateActualTraining(r.Context(), date, sessions)
+	if err != nil {
+		if errors.Is(err, store.ErrDailyLogNotFound) {
+			writeError(w, http.StatusNotFound, "not_found", "No log exists for this date")
+			return
+		}
+		if isValidationError(err) {
+			writeError(w, http.StatusBadRequest, "validation_error", err.Error())
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "internal_error", "")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(requests.DailyLogToResponse(log))
+}

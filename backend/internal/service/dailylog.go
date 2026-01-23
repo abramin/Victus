@@ -70,12 +70,19 @@ func (s *DailyLogService) GetByDate(ctx context.Context, date string) (*domain.D
 		return nil, err
 	}
 
-	// Load training sessions
-	sessions, err := s.sessionStore.GetByLogID(ctx, log.ID)
+	// Load planned training sessions
+	planned, err := s.sessionStore.GetPlannedByLogID(ctx, log.ID)
 	if err != nil {
 		return nil, err
 	}
-	log.PlannedSessions = sessions
+	log.PlannedSessions = planned
+
+	// Load actual training sessions
+	actual, err := s.sessionStore.GetActualByLogID(ctx, log.ID)
+	if err != nil {
+		return nil, err
+	}
+	log.ActualSessions = actual
 
 	return log, nil
 }
@@ -85,6 +92,58 @@ func (s *DailyLogService) GetByDate(ctx context.Context, date string) (*domain.D
 func (s *DailyLogService) GetToday(ctx context.Context, now time.Time) (*domain.DailyLog, error) {
 	today := now.Format("2006-01-02")
 	return s.GetByDate(ctx, today)
+}
+
+// UpdateActualTraining updates the actual training sessions for a given date.
+// Returns store.ErrDailyLogNotFound if no log exists for that date.
+func (s *DailyLogService) UpdateActualTraining(ctx context.Context, date string, sessions []domain.TrainingSession) (*domain.DailyLog, error) {
+	// Get existing log to validate it exists and get ID
+	log, err := s.logStore.GetByDate(ctx, date)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set IsPlanned=false and assign sequential order
+	for i := range sessions {
+		sessions[i].IsPlanned = false
+		sessions[i].SessionOrder = i + 1
+	}
+
+	// Validate sessions using a temporary DailyLog
+	tempLog := &domain.DailyLog{ActualSessions: sessions}
+	if len(sessions) > 10 {
+		return nil, domain.ErrTooManySessions
+	}
+	for i, session := range sessions {
+		if session.SessionOrder != i+1 {
+			return nil, domain.ErrInvalidSessionOrder
+		}
+		if !domain.ValidTrainingTypes[session.Type] {
+			return nil, domain.ErrInvalidTrainingType
+		}
+		if session.DurationMin < 0 || session.DurationMin > 480 {
+			return nil, domain.ErrInvalidTrainingDuration
+		}
+		if session.PerceivedIntensity != nil {
+			if *session.PerceivedIntensity < 1 || *session.PerceivedIntensity > 10 {
+				return nil, domain.ErrInvalidPerceivedIntensity
+			}
+		}
+	}
+	_ = tempLog // silence unused warning
+
+	// Delete existing actual sessions
+	if err := s.sessionStore.DeleteActualByLogID(ctx, log.ID); err != nil {
+		return nil, err
+	}
+
+	// Insert new actual sessions
+	if err := s.sessionStore.CreateForLog(ctx, log.ID, sessions); err != nil {
+		return nil, err
+	}
+
+	// Return updated log with all sessions
+	return s.GetByDate(ctx, date)
 }
 
 // DeleteToday removes today's daily log.

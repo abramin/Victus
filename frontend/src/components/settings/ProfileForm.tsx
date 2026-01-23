@@ -89,6 +89,12 @@ export function ProfileForm({ initialProfile, onSave, saving, error }: ProfileFo
     }
   }, [derivedWeeklyChange, useManualWeeklyChange]);
 
+  // Track if profile has changes compared to initial
+  const hasChanges = useMemo(() => {
+    if (!initialProfile) return true; // New profile always has "changes"
+    return JSON.stringify(profile) !== JSON.stringify(initialProfile);
+  }, [profile, initialProfile]);
+
   // Estimate daily calories for macro gram display (simplified Mifflin-St Jeor + moderate activity)
   const estimatedCalories = useMemo(() => {
     const weight = profile.currentWeightKg || profile.targetWeightKg || 75;
@@ -396,7 +402,7 @@ export function ProfileForm({ initialProfile, onSave, saving, error }: ProfileFo
 
       {/* Submit Button */}
       <div className="flex justify-end">
-        <Button type="submit" loading={saving}>
+        <Button type="submit" loading={saving} disabled={!hasChanges}>
           Save Profile
         </Button>
       </div>

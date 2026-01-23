@@ -11,7 +11,7 @@ import { ProfileForm } from '../components/settings/ProfileForm';
 
 function App() {
   const { profile, loading: profileLoading, saving: profileSaving, saveError, save } = useProfile();
-  const { log, loading: logLoading, saving: logSaving, saveError: logSaveError, create } = useDailyLog();
+  const { log, loading: logLoading, saving: logSaving, saveError: logSaveError, create, updateActual } = useDailyLog();
   const [currentNav, setCurrentNav] = useState<NavItem>('meal-points');
 
   // Loading state
@@ -55,8 +55,11 @@ function App() {
       {currentNav === 'daily-update' && (
         <DailyUpdateForm
           onSubmit={create}
+          onUpdateActual={updateActual}
           saving={logSaving}
           error={logSaveError}
+          profile={profile}
+          log={log}
         />
       )}
 

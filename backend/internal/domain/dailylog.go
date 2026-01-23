@@ -18,6 +18,7 @@ type DailyLog struct {
 	SleepQuality      SleepQuality
 	SleepHours        *float64
 	PlannedSessions   []TrainingSession // Multiple training sessions per day
+	ActualSessions    []TrainingSession // Actual training logged after completion
 	DayType           DayType
 	CalculatedTargets DailyTargets
 	EstimatedTDEE     int
@@ -167,6 +168,28 @@ func (d *DailyLog) Validate() error {
 		}
 
 		// Validate perceived intensity if provided
+		if session.PerceivedIntensity != nil {
+			if *session.PerceivedIntensity < 1 || *session.PerceivedIntensity > 10 {
+				return ErrInvalidPerceivedIntensity
+			}
+		}
+	}
+
+	// Actual sessions validation (same rules as planned)
+	if len(d.ActualSessions) > 10 {
+		return ErrTooManySessions
+	}
+
+	for i, session := range d.ActualSessions {
+		if session.SessionOrder != i+1 {
+			return ErrInvalidSessionOrder
+		}
+		if !ValidTrainingTypes[session.Type] {
+			return ErrInvalidTrainingType
+		}
+		if session.DurationMin < 0 || session.DurationMin > 480 {
+			return ErrInvalidTrainingDuration
+		}
 		if session.PerceivedIntensity != nil {
 			if *session.PerceivedIntensity < 1 || *session.PerceivedIntensity > 10 {
 				return ErrInvalidPerceivedIntensity

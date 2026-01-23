@@ -107,3 +107,68 @@ func (s *TrainingSessionStore) DeleteByLogID(ctx context.Context, logID int64) e
 	_, err := s.db.ExecContext(ctx, "DELETE FROM training_sessions WHERE daily_log_id = ?", logID)
 	return err
 }
+
+// GetPlannedByLogID retrieves only planned sessions for a daily log.
+func (s *TrainingSessionStore) GetPlannedByLogID(ctx context.Context, logID int64) ([]domain.TrainingSession, error) {
+	return s.getSessionsByLogIDAndType(ctx, logID, true)
+}
+
+// GetActualByLogID retrieves only actual sessions for a daily log.
+func (s *TrainingSessionStore) GetActualByLogID(ctx context.Context, logID int64) ([]domain.TrainingSession, error) {
+	return s.getSessionsByLogIDAndType(ctx, logID, false)
+}
+
+// getSessionsByLogIDAndType retrieves sessions filtered by is_planned flag.
+func (s *TrainingSessionStore) getSessionsByLogIDAndType(ctx context.Context, logID int64, isPlanned bool) ([]domain.TrainingSession, error) {
+	const query = `
+		SELECT id, session_order, is_planned, training_type,
+		       duration_min, perceived_intensity, notes
+		FROM training_sessions
+		WHERE daily_log_id = ? AND is_planned = ?
+		ORDER BY session_order
+	`
+
+	rows, err := s.db.QueryContext(ctx, query, logID, isPlanned)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var sessions []domain.TrainingSession
+	for rows.Next() {
+		var session domain.TrainingSession
+		var intensity sql.NullInt64
+		var notes sql.NullString
+
+		err := rows.Scan(
+			&session.ID,
+			&session.SessionOrder,
+			&session.IsPlanned,
+			&session.Type,
+			&session.DurationMin,
+			&intensity,
+			&notes,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if intensity.Valid {
+			i := int(intensity.Int64)
+			session.PerceivedIntensity = &i
+		}
+		if notes.Valid {
+			session.Notes = notes.String
+		}
+
+		sessions = append(sessions, session)
+	}
+
+	return sessions, rows.Err()
+}
+
+// DeleteActualByLogID removes only actual sessions for a daily log.
+func (s *TrainingSessionStore) DeleteActualByLogID(ctx context.Context, logID int64) error {
+	_, err := s.db.ExecContext(ctx, "DELETE FROM training_sessions WHERE daily_log_id = ? AND is_planned = 0", logID)
+	return err
+}

@@ -1,11 +1,16 @@
-import { useState } from 'react';
-import type { CreateDailyLogRequest, DayType } from '../../api/types';
+import { useState, useMemo } from 'react';
+import type { CreateDailyLogRequest, DailyLog, DayType, UserProfile, ActualTrainingSession } from '../../api/types';
+import { DayTargetsPanel } from '../day-view';
 import { TrainingSessionList } from '../daily-input/TrainingSessionList';
+import { ActualTrainingModal } from '../training';
 
 interface DailyUpdateFormProps {
   onSubmit: (log: CreateDailyLogRequest) => Promise<unknown>;
+  onUpdateActual: (sessions: Omit<ActualTrainingSession, 'sessionOrder'>[]) => Promise<DailyLog | null>;
   saving: boolean;
   error: string | null;
+  profile: UserProfile;
+  log: DailyLog | null;
 }
 
 const DAY_TYPES: { value: DayType; label: string; description: string }[] = [
@@ -14,20 +19,50 @@ const DAY_TYPES: { value: DayType; label: string; description: string }[] = [
   { value: 'metabolize', label: 'Metabolize', description: 'Balanced macros for recovery' },
 ];
 
-export function DailyUpdateForm({ onSubmit, saving, error }: DailyUpdateFormProps) {
-  const [formData, setFormData] = useState<CreateDailyLogRequest>({
-    weightKg: 0,
-    sleepQuality: 50,
-    plannedTrainingSessions: [{ type: 'rest', durationMin: 0 }],
-    dayType: 'fatburner',
-  });
+const INITIAL_FORM_DATA: CreateDailyLogRequest = {
+  weightKg: 0,
+  sleepQuality: 50,
+  plannedTrainingSessions: [{ type: 'rest', durationMin: 0 }],
+  dayType: 'fatburner',
+};
 
-  const today = new Date().toLocaleDateString('en-US', {
+export function DailyUpdateForm({ onSubmit, onUpdateActual, saving, error, profile, log }: DailyUpdateFormProps) {
+  const [formData, setFormData] = useState<CreateDailyLogRequest>(INITIAL_FORM_DATA);
+  const [showActualModal, setShowActualModal] = useState(false);
+
+  const hasChanges = useMemo(() => {
+    return JSON.stringify(formData) !== JSON.stringify(INITIAL_FORM_DATA);
+  }, [formData]);
+
+  const handleClear = () => {
+    setFormData(INITIAL_FORM_DATA);
+  };
+
+  const handleSaveActualTraining = async (
+    sessions: Omit<ActualTrainingSession, 'sessionOrder'>[]
+  ) => {
+    const result = await onUpdateActual(sessions);
+    if (result) {
+      setShowActualModal(false);
+    }
+  };
+
+  const today = new Date();
+  const todayLabel = today.toLocaleDateString('en-US', {
     weekday: 'long',
     month: 'long',
     day: 'numeric',
     year: 'numeric',
   });
+
+  const targetDate = log?.date ? new Date(log.date) : today;
+  const targetDateLabel = targetDate.toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
+  const targets = log?.calculatedTargets ?? null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,20 +79,30 @@ export function DailyUpdateForm({ onSubmit, saving, error }: DailyUpdateFormProp
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-semibold text-white">Daily Update</h1>
-          <p className="text-gray-400 text-sm">{today}</p>
+          <p className="text-gray-400 text-sm">{todayLabel}</p>
         </div>
         <div className="flex gap-3">
           <button
             type="button"
-            className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+            onClick={handleClear}
+            disabled={!hasChanges}
+            className={`px-4 py-2 transition-colors ${
+              hasChanges
+                ? 'text-gray-400 hover:text-white'
+                : 'text-gray-600 cursor-not-allowed'
+            }`}
           >
-            Cancel
+            Clear changes
           </button>
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={saving}
-            className="px-4 py-2 bg-white text-black rounded-lg font-medium hover:bg-gray-200 transition-colors disabled:opacity-50 flex items-center gap-2"
+            disabled={saving || !hasChanges}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center gap-2 ${
+              hasChanges
+                ? 'bg-white text-black hover:bg-gray-200'
+                : 'bg-gray-700 text-gray-400'
+            }`}
           >
             {saving ? (
               'Saving...'
@@ -162,6 +207,26 @@ export function DailyUpdateForm({ onSubmit, saving, error }: DailyUpdateFormProp
                 updateFormData({ plannedTrainingSessions: sessions })
               }
             />
+            {log && (
+              <div className="mt-4 pt-4 border-t border-gray-700">
+                <button
+                  type="button"
+                  onClick={() => setShowActualModal(true)}
+                  className="text-sm text-white hover:text-gray-300 flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                  </svg>
+                  {log.actualTrainingSessions?.length ? 'Edit Actual Training' : 'Log Actual Training'}
+                </button>
+                {log.actualTrainingSessions && log.actualTrainingSessions.length > 0 && (
+                  <p className="text-xs text-green-400 mt-1">
+                    ✓ Logged: {log.actualTrainingSessions.length} session(s), {log.actualTrainingSessions.reduce((sum, s) => sum + s.durationMin, 0)} min total
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Day Type Selection */}
@@ -250,6 +315,28 @@ export function DailyUpdateForm({ onSubmit, saving, error }: DailyUpdateFormProp
             </div>
           </div>
 
+          {targets ? (
+            <DayTargetsPanel
+              title="Day Targets"
+              dateLabel={targetDateLabel}
+              dayType={targets.dayType}
+              mealTargets={targets.meals}
+              mealRatios={profile.mealRatios}
+              totalFruitG={targets.fruitG}
+              totalVeggiesG={targets.veggiesG}
+              waterL={targets.waterL}
+              compact
+              helperText="Calculated from your daily log."
+            />
+          ) : (
+            <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
+              <h3 className="text-white font-medium mb-2">Day Targets</h3>
+              <p className="text-sm text-gray-400">
+                Save your Daily Update to generate meal targets and fruit/veg splits.
+              </p>
+            </div>
+          )}
+
           {/* Error Display */}
           {error && (
             <div className="bg-red-900/30 border border-red-800 rounded-lg p-4">
@@ -258,6 +345,18 @@ export function DailyUpdateForm({ onSubmit, saving, error }: DailyUpdateFormProp
           )}
         </div>
       </form>
+
+      {/* Actual Training Modal */}
+      {log && (
+        <ActualTrainingModal
+          isOpen={showActualModal}
+          onClose={() => setShowActualModal(false)}
+          plannedSessions={log.plannedTrainingSessions}
+          actualSessions={log.actualTrainingSessions}
+          onSave={handleSaveActualTraining}
+          saving={saving}
+        />
+      )}
     </div>
   );
 }

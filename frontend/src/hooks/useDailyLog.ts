@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getTodayLog, createDailyLog, ApiError } from '../api/client';
-import type { DailyLog, CreateDailyLogRequest } from '../api/types';
+import { getTodayLog, createDailyLog, updateActualTraining, ApiError } from '../api/client';
+import type { DailyLog, CreateDailyLogRequest, ActualTrainingSession } from '../api/types';
 
 interface UseDailyLogReturn {
   log: DailyLog | null;
@@ -10,6 +10,7 @@ interface UseDailyLogReturn {
   saveError: string | null;
   hasLogToday: boolean;
   create: (log: CreateDailyLogRequest) => Promise<DailyLog | null>;
+  updateActual: (sessions: Omit<ActualTrainingSession, 'sessionOrder'>[]) => Promise<DailyLog | null>;
   refresh: () => Promise<void>;
 }
 
@@ -60,6 +61,29 @@ export function useDailyLog(): UseDailyLogReturn {
     }
   }, []);
 
+  const updateActual = useCallback(
+    async (sessions: Omit<ActualTrainingSession, 'sessionOrder'>[]): Promise<DailyLog | null> => {
+      if (!log?.date) return null;
+      setSaving(true);
+      setSaveError(null);
+      try {
+        const saved = await updateActualTraining(log.date, { actualSessions: sessions });
+        setLog(saved);
+        return saved;
+      } catch (err) {
+        if (err instanceof ApiError) {
+          setSaveError(err.message);
+        } else {
+          setSaveError('Failed to update actual training');
+        }
+        return null;
+      } finally {
+        setSaving(false);
+      }
+    },
+    [log?.date]
+  );
+
   return {
     log,
     loading,
@@ -68,6 +92,7 @@ export function useDailyLog(): UseDailyLogReturn {
     saveError,
     hasLogToday: log !== null,
     create,
+    updateActual,
     refresh,
   };
 }

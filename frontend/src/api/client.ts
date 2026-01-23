@@ -3,6 +3,7 @@ import type {
   APIError,
   DailyLog,
   CreateDailyLogRequest,
+  UpdateActualTrainingRequest,
   TrainingConfig,
   WeightTrendRange,
   WeightTrendResponse,
@@ -68,6 +69,21 @@ export async function createDailyLog(log: CreateDailyLogRequest): Promise<DailyL
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(log),
+  });
+
+  return handleResponse<DailyLog>(response);
+}
+
+export async function updateActualTraining(
+  date: string,
+  request: UpdateActualTrainingRequest
+): Promise<DailyLog> {
+  const response = await fetch(`${API_BASE}/logs/${date}/actual-training`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(request),
   });
 
   return handleResponse<DailyLog>(response);

@@ -105,7 +105,6 @@ Custom Claude commands in `.claude/commands/` for code review:
 - `/complexity-review` - Readability and cognitive complexity
 - `/ddd-review` - Domain-driven design patterns
 - `/testing-review` - Test coverage and quality
-- `/secure-design-agent` - Security review
 - `/qa` - OpenAPI contract completeness
 - `/adaptive-model` - Model and data integrity
 

@@ -13,6 +13,19 @@ type TrainingSessionRequest struct {
 	Notes       string `json:"notes,omitempty"`
 }
 
+// ActualTrainingSessionRequest represents an actual training session in API requests.
+type ActualTrainingSessionRequest struct {
+	Type               string `json:"type"`
+	DurationMin        int    `json:"durationMin"`
+	PerceivedIntensity *int   `json:"perceivedIntensity,omitempty"` // RPE 1-10
+	Notes              string `json:"notes,omitempty"`
+}
+
+// UpdateActualTrainingRequest is the request body for PATCH /api/logs/:date/actual-training.
+type UpdateActualTrainingRequest struct {
+	ActualSessions []ActualTrainingSessionRequest `json:"actualSessions"`
+}
+
 // CreateDailyLogRequest is the request body for POST /api/logs.
 type CreateDailyLogRequest struct {
 	Date                    string                   `json:"date,omitempty"`
@@ -31,6 +44,15 @@ type TrainingSessionResponse struct {
 	Type         string `json:"type"`
 	DurationMin  int    `json:"durationMin"`
 	Notes        string `json:"notes,omitempty"`
+}
+
+// ActualTrainingSessionResponse represents an actual training session in API responses.
+type ActualTrainingSessionResponse struct {
+	SessionOrder       int    `json:"sessionOrder"`
+	Type               string `json:"type"`
+	DurationMin        int    `json:"durationMin"`
+	PerceivedIntensity *int   `json:"perceivedIntensity,omitempty"`
+	Notes              string `json:"notes,omitempty"`
 }
 
 // TrainingSummaryResponse provides aggregate info about training sessions.
@@ -71,19 +93,36 @@ type DailyTargetsResponse struct {
 
 // DailyLogResponse is the response body for daily log endpoints.
 type DailyLogResponse struct {
-	Date                    string                    `json:"date"`
-	WeightKg                float64                   `json:"weightKg"`
-	BodyFatPercent          *float64                  `json:"bodyFatPercent,omitempty"`
-	RestingHeartRate        *int                      `json:"restingHeartRate,omitempty"`
-	SleepQuality            int                       `json:"sleepQuality"`
-	SleepHours              *float64                  `json:"sleepHours,omitempty"`
-	PlannedTrainingSessions []TrainingSessionResponse `json:"plannedTrainingSessions"`
-	TrainingSummary         TrainingSummaryResponse   `json:"trainingSummary"`
-	DayType                 string                    `json:"dayType"`
-	CalculatedTargets       DailyTargetsResponse      `json:"calculatedTargets"`
-	EstimatedTDEE           int                       `json:"estimatedTDEE"`
-	CreatedAt               string                    `json:"createdAt,omitempty"`
-	UpdatedAt               string                    `json:"updatedAt,omitempty"`
+	Date                    string                          `json:"date"`
+	WeightKg                float64                         `json:"weightKg"`
+	BodyFatPercent          *float64                        `json:"bodyFatPercent,omitempty"`
+	RestingHeartRate        *int                            `json:"restingHeartRate,omitempty"`
+	SleepQuality            int                             `json:"sleepQuality"`
+	SleepHours              *float64                        `json:"sleepHours,omitempty"`
+	PlannedTrainingSessions []TrainingSessionResponse       `json:"plannedTrainingSessions"`
+	ActualTrainingSessions  []ActualTrainingSessionResponse `json:"actualTrainingSessions,omitempty"`
+	TrainingSummary         TrainingSummaryResponse         `json:"trainingSummary"`
+	DayType                 string                          `json:"dayType"`
+	CalculatedTargets       DailyTargetsResponse            `json:"calculatedTargets"`
+	EstimatedTDEE           int                             `json:"estimatedTDEE"`
+	CreatedAt               string                          `json:"createdAt,omitempty"`
+	UpdatedAt               string                          `json:"updatedAt,omitempty"`
+}
+
+// ActualTrainingFromRequest converts an UpdateActualTrainingRequest to domain TrainingSessions.
+func ActualTrainingFromRequest(req UpdateActualTrainingRequest) []domain.TrainingSession {
+	sessions := make([]domain.TrainingSession, len(req.ActualSessions))
+	for i, s := range req.ActualSessions {
+		sessions[i] = domain.TrainingSession{
+			SessionOrder:       i + 1,
+			IsPlanned:          false,
+			Type:               domain.TrainingType(s.Type),
+			DurationMin:        s.DurationMin,
+			PerceivedIntensity: s.PerceivedIntensity,
+			Notes:              s.Notes,
+		}
+	}
+	return sessions
 }
 
 // DailyLogFromRequest converts a CreateDailyLogRequest to a DailyLog model.
@@ -113,14 +152,29 @@ func DailyLogFromRequest(req CreateDailyLogRequest) *domain.DailyLog {
 
 // DailyLogToResponse converts a DailyLog model to a DailyLogResponse.
 func DailyLogToResponse(d *domain.DailyLog) DailyLogResponse {
-	// Convert sessions to response format
-	sessions := make([]TrainingSessionResponse, len(d.PlannedSessions))
+	// Convert planned sessions to response format
+	plannedSessions := make([]TrainingSessionResponse, len(d.PlannedSessions))
 	for i, s := range d.PlannedSessions {
-		sessions[i] = TrainingSessionResponse{
+		plannedSessions[i] = TrainingSessionResponse{
 			SessionOrder: s.SessionOrder,
 			Type:         string(s.Type),
 			DurationMin:  s.DurationMin,
 			Notes:        s.Notes,
+		}
+	}
+
+	// Convert actual sessions to response format
+	var actualSessions []ActualTrainingSessionResponse
+	if len(d.ActualSessions) > 0 {
+		actualSessions = make([]ActualTrainingSessionResponse, len(d.ActualSessions))
+		for i, s := range d.ActualSessions {
+			actualSessions[i] = ActualTrainingSessionResponse{
+				SessionOrder:       s.SessionOrder,
+				Type:               string(s.Type),
+				DurationMin:        s.DurationMin,
+				PerceivedIntensity: s.PerceivedIntensity,
+				Notes:              s.Notes,
+			}
 		}
 	}
 
@@ -131,7 +185,8 @@ func DailyLogToResponse(d *domain.DailyLog) DailyLogResponse {
 		RestingHeartRate:        d.RestingHeartRate,
 		SleepQuality:            int(d.SleepQuality),
 		SleepHours:              d.SleepHours,
-		PlannedTrainingSessions: sessions,
+		PlannedTrainingSessions: plannedSessions,
+		ActualTrainingSessions:  actualSessions,
 		TrainingSummary: TrainingSummaryResponse{
 			SessionCount:     len(d.PlannedSessions),
 			TotalDurationMin: domain.TotalDurationMin(d.PlannedSessions),

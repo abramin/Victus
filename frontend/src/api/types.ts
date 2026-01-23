@@ -73,6 +73,15 @@ export interface TrainingSession {
   notes?: string;
 }
 
+// ActualTrainingSession represents an actual training session logged after completion.
+export interface ActualTrainingSession {
+  sessionOrder?: number;
+  type: TrainingType;
+  durationMin: number;
+  perceivedIntensity?: number; // RPE 1-10
+  notes?: string;
+}
+
 // TrainingSummary provides aggregate info about training sessions.
 export interface TrainingSummary {
   sessionCount: number;
@@ -113,6 +122,7 @@ export interface DailyLog {
   sleepQuality: SleepQuality;
   sleepHours?: number;
   plannedTrainingSessions: TrainingSession[];
+  actualTrainingSessions?: ActualTrainingSession[];
   trainingSummary: TrainingSummary;
   dayType: DayType;
   calculatedTargets: DailyTargets;
@@ -130,6 +140,10 @@ export interface CreateDailyLogRequest {
   sleepHours?: number;
   plannedTrainingSessions: TrainingSession[];
   dayType: DayType;
+}
+
+export interface UpdateActualTrainingRequest {
+  actualSessions: Omit<ActualTrainingSession, 'sessionOrder'>[];
 }
 
 // Training Config Types
