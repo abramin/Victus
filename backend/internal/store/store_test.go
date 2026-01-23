@@ -276,6 +276,30 @@ func (s *DailyLogStoreSuite) TestLogNullableFieldRoundTrip() {
 	})
 }
 
+func (s *DailyLogStoreSuite) TestLogTargetsDefaultsForLegacyRows() {
+	s.Run("null calculated targets scan without error", func() {
+		_, err := s.db.ExecContext(
+			s.ctx,
+			`INSERT INTO daily_logs (log_date, weight_kg, sleep_quality, planned_training_type, planned_duration_min)
+			 VALUES (?, ?, ?, ?, ?)`,
+			"2025-02-01", 85, 80, "rest", 0,
+		)
+		s.Require().NoError(err)
+
+		log, err := s.store.GetByDate(s.ctx, "2025-02-01")
+		s.Require().NoError(err)
+		s.Equal(domain.DayTypeFatburner, log.CalculatedTargets.DayType)
+		s.Equal(0, log.CalculatedTargets.TotalCalories)
+		s.Equal(0, log.CalculatedTargets.Meals.Breakfast.Carbs)
+
+		points, err := s.store.ListDailyTargets(s.ctx, "2025-02-01", "2025-02-01")
+		s.Require().NoError(err)
+		s.Require().Len(points, 1)
+		s.Equal(domain.DayTypeFatburner, points[0].Targets.DayType)
+		s.Equal(0, points[0].Targets.TotalCalories)
+	})
+}
+
 func (s *DailyLogStoreSuite) TestLogDateUniqueness() {
 	s.Run("duplicate date returns error", func() {
 		log := &domain.DailyLog{

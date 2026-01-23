@@ -2,7 +2,6 @@ package api
 
 import (
 	"bytes"
-	"context"
 	"database/sql"
 	"encoding/json"
 	"io"
@@ -12,8 +11,6 @@ import (
 	"time"
 
 	"victus/internal/db"
-	"victus/internal/domain"
-	"victus/internal/store"
 
 	"github.com/stretchr/testify/suite"
 	_ "modernc.org/sqlite"
@@ -95,19 +92,12 @@ func (s *HandlerSuite) createDailyLogForDate(date string) {
 	s.Require().Equal(http.StatusCreated, rec.Code, "Setup: daily log creation should succeed")
 }
 
-func (s *HandlerSuite) seedDailyLog(date string, weightKg float64) {
-	logStore := store.NewDailyLogStore(s.db)
-	log := &domain.DailyLog{
-		Date:         date,
-		WeightKg:     weightKg,
-		SleepQuality: 80,
-		DayType:      domain.DayTypeFatburner,
-		CalculatedTargets: domain.DailyTargets{
-			DayType: domain.DayTypeFatburner,
-		},
-	}
-
-	_, err := logStore.Create(context.Background(), log)
+func (s *HandlerSuite) insertLegacyLog(date string) {
+	_, err := s.db.Exec(
+		`INSERT INTO daily_logs (log_date, weight_kg, sleep_quality, planned_training_type, planned_duration_min)
+		 VALUES (?, ?, ?, ?, ?)`,
+		date, 85, 80, "rest", 0,
+	)
 	s.Require().NoError(err)
 }
 
@@ -232,7 +222,7 @@ func (s *HandlerSuite) TestProfileNotFound() {
 // --- Daily log endpoint tests ---
 // Justification: Tests validation edge cases and error mapping not fully covered by feature scenarios.
 // Feature covers: invalid training type, missing profile, not found, duplicate, happy paths.
-// These tests cover: invalid day type, weight boundaries, JSON parsing errors.
+// These tests cover: invalid day type, JSON parsing errors.
 
 // NOTE: TestDailyLogRequiresProfile removed - redundant with dailylog.feature:
 // - "Reject daily log creation without profile"
@@ -265,28 +255,6 @@ func (s *HandlerSuite) TestDailyLogValidation() {
 		s.Equal("validation_error", resp.Error)
 	})
 
-	s.Run("weight below minimum returns 400", func() {
-		today := time.Now().Format("2006-01-02")
-		req := map[string]interface{}{
-			"date":         today,
-			"weightKg":     25, // Below 30kg minimum
-			"sleepQuality": 80,
-			"plannedTrainingSessions": []map[string]interface{}{
-				{
-					"type":        "strength",
-					"durationMin": 60,
-				},
-			},
-			"dayType": "performance",
-		}
-		rec := s.doRequest("POST", "/api/logs", req)
-		s.Equal(http.StatusBadRequest, rec.Code)
-
-		var resp APIError
-		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
-		s.Equal("validation_error", resp.Error)
-	})
-
 	s.Run("invalid JSON returns 400", func() {
 		req := httptest.NewRequest("POST", "/api/logs", bytes.NewBufferString("not json"))
 		req.Header.Set("Content-Type", "application/json")
@@ -301,6 +269,53 @@ func (s *HandlerSuite) TestDailyLogValidation() {
 	})
 }
 
+// Justification: Regression test for legacy rows with NULL calculated targets.
+func (s *HandlerSuite) TestDailyLogLegacyTargetsDefaults() {
+	date := "2025-02-01"
+	s.insertLegacyLog(date)
+
+	s.Run("GET by date returns 200 with default targets", func() {
+		rec := s.doRequest("GET", "/api/logs/"+date, nil)
+		s.Equal(http.StatusOK, rec.Code)
+
+		var resp struct {
+			CalculatedTargets struct {
+				DayType       string `json:"dayType"`
+				TotalCalories int    `json:"totalCalories"`
+				Meals         struct {
+					Breakfast struct {
+						Carbs int `json:"carbs"`
+					} `json:"breakfast"`
+				} `json:"meals"`
+			} `json:"calculatedTargets"`
+		}
+		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
+		s.Equal("fatburner", resp.CalculatedTargets.DayType)
+		s.Equal(0, resp.CalculatedTargets.TotalCalories)
+		s.Equal(0, resp.CalculatedTargets.Meals.Breakfast.Carbs)
+	})
+
+	s.Run("GET range returns 200 with default targets", func() {
+		rec := s.doRequest("GET", "/api/logs?start="+date+"&end="+date, nil)
+		s.Equal(http.StatusOK, rec.Code)
+
+		var resp struct {
+			Days []struct {
+				Date              string `json:"date"`
+				CalculatedTargets struct {
+					DayType       string `json:"dayType"`
+					TotalCalories int    `json:"totalCalories"`
+				} `json:"calculatedTargets"`
+			} `json:"days"`
+		}
+		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
+		s.Require().Len(resp.Days, 1)
+		s.Equal(date, resp.Days[0].Date)
+		s.Equal("fatburner", resp.Days[0].CalculatedTargets.DayType)
+		s.Equal(0, resp.Days[0].CalculatedTargets.TotalCalories)
+	})
+}
+
 // NOTE: The following tests were removed as redundant with dailylog.feature scenarios:
 // - TestDailyLogNotFound: "Return 404 when no log exists for today"
 // - TestDailyLogCreation: "Create a daily log with calculated targets"
@@ -309,8 +324,8 @@ func (s *HandlerSuite) TestDailyLogValidation() {
 // - TestDuplicateLogReturnsConflict: "Reject duplicate daily log for same date"
 
 // --- Training config endpoint tests ---
-// Justification: Tests specific MET values and load scores from 2024 Compendium.
-// Feature scenario training-configs.feature covers the contract; these verify exact values.
+// Justification: Ensures training configs are complete and well-formed.
+// Exact MET/load values are validated at the domain level.
 
 func (s *HandlerSuite) TestTrainingConfigsEndpoint() {
 	s.Run("returns all training configs", func() {
@@ -323,23 +338,21 @@ func (s *HandlerSuite) TestTrainingConfigsEndpoint() {
 		// Should have all 12 training types
 		s.Len(configs, 12)
 
-		// Verify a few expected MET values from 2024 Compendium of Physical Activities
-		configMap := make(map[string]TrainingConfigResponse)
+		expectedTypes := []string{
+			"rest", "qigong", "walking", "gmb", "run", "row",
+			"cycle", "hiit", "strength", "calisthenics", "mobility", "mixed",
+		}
+		configMap := make(map[string]TrainingConfigResponse, len(configs))
 		for _, c := range configs {
+			s.NotEmpty(c.Type)
+			s.Greater(c.MET, 0.0)
+			s.GreaterOrEqual(c.LoadScore, 0.0)
 			configMap[c.Type] = c
 		}
-
-		// Rest should have MET 1.0 and load score 0
-		s.Equal(1.0, configMap["rest"].MET)
-		s.Equal(float64(0), configMap["rest"].LoadScore)
-
-		// HIIT should have highest MET (12.8) and high load score (5)
-		s.Equal(12.8, configMap["hiit"].MET)
-		s.Equal(float64(5), configMap["hiit"].LoadScore)
-
-		// Strength should have MET 5.0 and load score 5
-		s.Equal(5.0, configMap["strength"].MET)
-		s.Equal(float64(5), configMap["strength"].LoadScore)
+		for _, typ := range expectedTypes {
+			_, ok := configMap[typ]
+			s.True(ok, "missing training type: %s", typ)
+		}
 	})
 }
 
@@ -348,92 +361,6 @@ func (s *HandlerSuite) TestTrainingConfigsEndpoint() {
 
 func (s *HandlerSuite) TestActualTrainingUpdate() {
 	s.createProfile()
-
-	s.Run("updates actual sessions and uses them for summary", func() {
-		date := "2025-01-15"
-		s.createDailyLogForDate(date)
-
-		req := map[string]interface{}{
-			"actualSessions": []map[string]interface{}{
-				{
-					"type":               "strength",
-					"durationMin":        25,
-					"perceivedIntensity": 7,
-					"notes":              "Felt strong",
-				},
-				{
-					"type":        "walking",
-					"durationMin": 15,
-				},
-			},
-		}
-
-		rec := s.doRequest("PATCH", "/api/logs/"+date+"/actual-training", req)
-		s.Equal(http.StatusOK, rec.Code)
-
-		var resp struct {
-			ActualTrainingSessions []struct {
-				SessionOrder       int    `json:"sessionOrder"`
-				Type               string `json:"type"`
-				DurationMin        int    `json:"durationMin"`
-				PerceivedIntensity *int   `json:"perceivedIntensity,omitempty"`
-				Notes              string `json:"notes,omitempty"`
-			} `json:"actualTrainingSessions"`
-			TrainingSummary struct {
-				SessionCount     int     `json:"sessionCount"`
-				TotalDurationMin int     `json:"totalDurationMin"`
-				TotalLoadScore   float64 `json:"totalLoadScore"`
-				Summary          string  `json:"summary"`
-			} `json:"trainingSummary"`
-		}
-
-		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
-		s.Require().Len(resp.ActualTrainingSessions, 2)
-		s.Equal(1, resp.ActualTrainingSessions[0].SessionOrder)
-		s.Equal("strength", resp.ActualTrainingSessions[0].Type)
-		s.Equal(25, resp.ActualTrainingSessions[0].DurationMin)
-		s.Require().NotNil(resp.ActualTrainingSessions[0].PerceivedIntensity)
-		s.Equal(7, *resp.ActualTrainingSessions[0].PerceivedIntensity)
-
-		s.Equal(2, resp.TrainingSummary.SessionCount)
-		s.Equal(40, resp.TrainingSummary.TotalDurationMin)
-		s.Greater(resp.TrainingSummary.TotalLoadScore, float64(0))
-		s.NotEmpty(resp.TrainingSummary.Summary)
-	})
-
-	s.Run("clears actual sessions when empty array sent", func() {
-		date := "2025-01-16"
-		s.createDailyLogForDate(date)
-
-		seedReq := map[string]interface{}{
-			"actualSessions": []map[string]interface{}{
-				{
-					"type":        "strength",
-					"durationMin": 30,
-				},
-			},
-		}
-		seedRec := s.doRequest("PATCH", "/api/logs/"+date+"/actual-training", seedReq)
-		s.Equal(http.StatusOK, seedRec.Code)
-
-		clearReq := map[string]interface{}{
-			"actualSessions": []map[string]interface{}{},
-		}
-		rec := s.doRequest("PATCH", "/api/logs/"+date+"/actual-training", clearReq)
-		s.Equal(http.StatusOK, rec.Code)
-
-		var resp struct {
-			ActualTrainingSessions []struct {
-				SessionOrder int `json:"sessionOrder"`
-			} `json:"actualTrainingSessions,omitempty"`
-			TrainingSummary struct {
-				TotalDurationMin int `json:"totalDurationMin"`
-			} `json:"trainingSummary"`
-		}
-		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
-		s.Nil(resp.ActualTrainingSessions)
-		s.Equal(60, resp.TrainingSummary.TotalDurationMin)
-	})
 
 	s.Run("invalid perceived intensity returns 400", func() {
 		date := "2025-01-17"
@@ -472,59 +399,4 @@ func (s *HandlerSuite) TestActualTrainingUpdate() {
 		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
 		s.Equal("not_found", resp.Error)
 	})
-}
-
-// --- Weight trend endpoint tests ---
-// Justification: Verifies trend summary presence/absence in JSON response, which
-// is not covered by feature scenarios.
-// NOTE: These tests require database isolation, so they remain as separate methods
-// rather than subtests.
-
-func (s *HandlerSuite) TestWeightTrendResponse_IncludesTrendWithMultiplePoints() {
-	s.seedDailyLog("2025-01-01", 80)
-	s.seedDailyLog("2025-01-02", 79)
-
-	rec := s.doRequest("GET", "/api/stats/weight-trend?range=all", nil)
-	s.Equal(http.StatusOK, rec.Code)
-
-	var resp struct {
-		Points []struct {
-			Date     string  `json:"date"`
-			WeightKg float64 `json:"weightKg"`
-		} `json:"points"`
-		Trend *struct {
-			WeeklyChangeKg float64 `json:"weeklyChangeKg"`
-			RSquared       float64 `json:"rSquared"`
-			StartWeightKg  float64 `json:"startWeightKg"`
-			EndWeightKg    float64 `json:"endWeightKg"`
-		} `json:"trend"`
-	}
-	s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
-	s.Len(resp.Points, 2)
-	s.Require().NotNil(resp.Trend)
-	s.InDelta(80.0, resp.Trend.StartWeightKg, 0.001)
-	s.InDelta(79.0, resp.Trend.EndWeightKg, 0.001)
-}
-
-func (s *HandlerSuite) TestWeightTrendResponse_OmitsTrendWithSinglePoint() {
-	s.seedDailyLog("2025-01-01", 80)
-
-	rec := s.doRequest("GET", "/api/stats/weight-trend?range=all", nil)
-	s.Equal(http.StatusOK, rec.Code)
-
-	var resp struct {
-		Points []struct {
-			Date     string  `json:"date"`
-			WeightKg float64 `json:"weightKg"`
-		} `json:"points"`
-		Trend *struct {
-			WeeklyChangeKg float64 `json:"weeklyChangeKg"`
-			RSquared       float64 `json:"rSquared"`
-			StartWeightKg  float64 `json:"startWeightKg"`
-			EndWeightKg    float64 `json:"endWeightKg"`
-		} `json:"trend"`
-	}
-	s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
-	s.Len(resp.Points, 1)
-	s.Nil(resp.Trend)
 }

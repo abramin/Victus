@@ -13,8 +13,9 @@ type TrainingConfig struct {
 	LoadScore float64 // For recovery/load tracking
 }
 
-// TrainingConfigs maps training types to their MET-based configuration.
-var TrainingConfigs = map[TrainingType]TrainingConfig{
+// trainingConfigs is the internal immutable map of training type configurations.
+// Access via GetTrainingConfig() function to prevent mutation.
+var trainingConfigs = map[TrainingType]TrainingConfig{
 	TrainingTypeRest:         {MET: 1.0, LoadScore: 0},   // Resting
 	TrainingTypeQigong:       {MET: 2.5, LoadScore: 0.5}, // Tai chi, qigong (code 15552)
 	TrainingTypeWalking:      {MET: 3.5, LoadScore: 1},   // Walking 3.0 mph (code 17170)
@@ -29,11 +30,27 @@ var TrainingConfigs = map[TrainingType]TrainingConfig{
 	TrainingTypeMixed:        {MET: 6.0, LoadScore: 4},   // General conditioning
 }
 
+// GetTrainingConfig returns the configuration for a training type.
+// Returns a zero-value TrainingConfig if the type is not found.
+func GetTrainingConfig(t TrainingType) TrainingConfig {
+	return trainingConfigs[t]
+}
+
+// GetAllTrainingConfigs returns a copy of all training configurations.
+// The returned map is a copy, so modifications won't affect the internal state.
+func GetAllTrainingConfigs() map[TrainingType]TrainingConfig {
+	result := make(map[TrainingType]TrainingConfig, len(trainingConfigs))
+	for k, v := range trainingConfigs {
+		result[k] = v
+	}
+	return result
+}
+
 // CalculateExerciseCalories computes calories burned using MET formula for a single session.
 // Formula: Calories = (MET - 1) × weight(kg) × duration(hours)
 // We subtract 1 from MET to get "extra" calories above resting (avoids double-counting with BMR).
 func CalculateExerciseCalories(trainingType TrainingType, weightKg float64, durationMin int) float64 {
-	config := TrainingConfigs[trainingType]
+	config := GetTrainingConfig(trainingType)
 	durationHours := float64(durationMin) / 60.0
 
 	// MET includes resting metabolism, subtract 1 to get extra calories burned
@@ -88,8 +105,7 @@ func CalculateDailyTargets(profile *UserProfile, log *DailyLog, now time.Time) D
 	exerciseCalories := CalculateTotalExerciseCalories(log.PlannedSessions, log.WeightKg)
 
 	// 3. Calculate formula TDEE = BMR × NEAT multiplier + Exercise Calories
-	neatMultiplier := 1.2 // Sedentary activity factor
-	formulaTDEE := bmr*neatMultiplier + exerciseCalories
+	formulaTDEE := bmr*NEATMultiplier + exerciseCalories
 	if log.FormulaTDEE > 0 {
 		formulaTDEE = float64(log.FormulaTDEE)
 	}
@@ -105,12 +121,12 @@ func CalculateDailyTargets(profile *UserProfile, log *DailyLog, now time.Time) D
 	switch profile.Goal {
 	case GoalLoseWeight:
 		// Target 500-750 kcal deficit for ~0.5-0.75 kg/week loss
-		deficit := math.Min(effectiveTDEE*0.20, 750) // Max 20% or 750 kcal
+		deficit := math.Min(effectiveTDEE*MaxDeficitPercent, MaxDeficitKcal)
 		targetCalories = effectiveTDEE - deficit
 		deficitSeverity = deficit / effectiveTDEE
 	case GoalGainWeight:
 		// Target 250-500 kcal surplus for lean gains
-		surplus := math.Min(effectiveTDEE*0.10, 500) // Max 10% or 500 kcal
+		surplus := math.Min(effectiveTDEE*MaxSurplusPercent, MaxSurplusKcal)
 		targetCalories = effectiveTDEE + surplus
 	default: // GoalMaintain
 		targetCalories = effectiveTDEE
@@ -123,7 +139,7 @@ func CalculateDailyTargets(profile *UserProfile, log *DailyLog, now time.Time) D
 
 	// Use optimal protein target
 	proteinG := log.WeightKg * proteinRec.OptimalGPerKg
-	proteinCalories := proteinG * 4.0 // Standard 4 kcal/g
+	proteinCalories := proteinG * CaloriesPerGramProtein
 
 	// 6. Set fat floor (0.7 g/kg minimum for essential fatty acids)
 	fatMinG := GetFatMinimum(log.WeightKg)
@@ -132,16 +148,16 @@ func CalculateDailyTargets(profile *UserProfile, log *DailyLog, now time.Time) D
 	remainingAfterProtein := targetCalories - proteinCalories
 
 	// Allocate ~35% of remaining to fat (minimum fatMinG)
-	fatCaloriesTarget := remainingAfterProtein * 0.35
-	fatG := math.Max(fatCaloriesTarget/9.0, fatMinG)
-	fatCalories := fatG * 9.0
+	fatCaloriesTarget := remainingAfterProtein * FatCaloriesPercent
+	fatG := math.Max(fatCaloriesTarget/CaloriesPerGramFat, fatMinG)
+	fatCalories := fatG * CaloriesPerGramFat
 
 	// 7. Remaining goes to carbs
 	carbCalories := targetCalories - proteinCalories - fatCalories
 	if carbCalories < 0 {
 		carbCalories = 0
 	}
-	carbG := carbCalories / 4.0
+	carbG := carbCalories / CaloriesPerGramCarb
 
 	// 8. Apply day type modifiers (protecting protein)
 	dayType := log.DayType
@@ -153,7 +169,7 @@ func CalculateDailyTargets(profile *UserProfile, log *DailyLog, now time.Time) D
 	finalFatsG := math.Max(fatG*mult.Fats, fatMinG)
 
 	// 9. Recalculate total calories from final macros
-	totalCalories := (finalCarbsG * 4.0) + (finalProteinG * 4.0) + (finalFatsG * 9.0)
+	totalCalories := (finalCarbsG * CaloriesPerGramCarb) + (finalProteinG * CaloriesPerGramProtein) + (finalFatsG * CaloriesPerGramFat)
 
 	// 10. Calculate fruit/veggies targets
 	fruitG := calculateFruit(finalCarbsG, profile.FruitTargetG, dayType)
@@ -168,7 +184,7 @@ func CalculateDailyTargets(profile *UserProfile, log *DailyLog, now time.Time) D
 	)
 
 	// 12. Calculate water target (0.04 L per kg body weight)
-	waterL := math.Round(log.WeightKg*0.04*10) / 10
+	waterL := math.Round(log.WeightKg*WaterLPerKg*10) / 10
 
 	return DailyTargets{
 		TotalCarbsG:   int(math.Round(finalCarbsG)),
@@ -339,7 +355,7 @@ func GetProteinRecommendation(goal Goal, isTrainingDay bool, deficitSeverity flo
 // GetFatMinimum returns minimum fat intake for essential fatty acids and hormones.
 // Generally 0.5-1.0 g/kg; we use 0.7 g/kg as a reasonable floor.
 func GetFatMinimum(weightKg float64) float64 {
-	return weightKg * 0.7
+	return weightKg * FatMinimumGPerKg
 }
 
 // =============================================================================
@@ -409,10 +425,10 @@ func calculateAge(birthDate time.Time, now time.Time) int {
 // Max fruit: 30% of total carbs / 0.10 (fruit is ~10g carbs per 100g)
 // Fatburner days reduce fruit by 30% before applying the carb cap.
 func calculateFruit(carbsG, targetG float64, dayType DayType) int {
-	maxFruit := (carbsG * 0.30) / 0.10 // 30% of carbs, 10g carbs per 100g fruit
+	maxFruit := (carbsG * FruitMaxCarbPercent) / FruitCarbsPercentWeight
 	multiplier := 1.0
 	if dayType == DayTypeFatburner {
-		multiplier = 0.70 // Reduce by 30% on fatburner days
+		multiplier = FatburnerFruitReduction
 	}
 	adjustedTarget := targetG * multiplier
 	result := math.Min(adjustedTarget, maxFruit)
@@ -423,7 +439,7 @@ func calculateFruit(carbsG, targetG float64, dayType DayType) int {
 // calculateVeggies calculates veggie target respecting carb constraints.
 // Max veggies: 10% of total carbs / 0.03 (veggies are ~3g carbs per 100g)
 func calculateVeggies(carbsG, targetG float64) int {
-	maxVeggies := (carbsG * 0.10) / 0.03 // 10% of carbs, 3g carbs per 100g veggies
+	maxVeggies := (carbsG * VeggieMaxCarbPercent) / VeggieCarbsPercentWeight
 	result := math.Min(targetG, maxVeggies)
 	return roundToNearest5(result)
 }
@@ -440,21 +456,16 @@ func calculateMealPoints(
 	dayType DayType,
 	supplements SupplementConfig,
 ) MealTargets {
-	// Fixed contribution assumptions from spreadsheet:
-	// - Fruit: 10% carbs by weight
-	// - Vegetables: 3% carbs by weight
-	// - Maltodextrin: 96% carbs by weight (performance days only)
-	// - Collagen: 90% protein by weight
-	// - Whey: 88% protein by weight (performance days only)
+	// Fixed contribution assumptions from spreadsheet (see constants.go)
 
 	// Calculate available carbs (subtract fixed contributions)
-	fruitCarbs := fruitG * 0.10
-	veggieCarbs := veggiesG * 0.03
+	fruitCarbs := fruitG * FruitCarbsPercentWeight
+	veggieCarbs := veggiesG * VeggieCarbsPercentWeight
 	availableCarbsG := carbsG - veggieCarbs - fruitCarbs
 
 	// On performance days, also subtract maltodextrin carbs
 	if dayType == DayTypePerformance {
-		maltodextrinCarbs := supplements.MaltodextrinG * 0.96
+		maltodextrinCarbs := supplements.MaltodextrinG * MaltodextrinCarbPercent
 		availableCarbsG -= maltodextrinCarbs
 	}
 
@@ -463,12 +474,12 @@ func calculateMealPoints(
 	}
 
 	// Calculate available protein (subtract fixed contributions)
-	collagenProtein := supplements.CollagenG * 0.90
+	collagenProtein := supplements.CollagenG * CollagenProteinPercent
 	availableProteinG := proteinG - collagenProtein
 
 	// On performance days, also subtract whey protein
 	if dayType == DayTypePerformance {
-		wheyProtein := supplements.WheyG * 0.88
+		wheyProtein := supplements.WheyG * WheyProteinPercent
 		availableProteinG -= wheyProtein
 	}
 

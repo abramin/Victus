@@ -56,7 +56,7 @@ func TotalDurationMin(sessions []TrainingSession) int {
 func TotalLoadScore(sessions []TrainingSession) float64 {
 	var total float64
 	for _, s := range sessions {
-		config := TrainingConfigs[s.Type]
+		config := GetTrainingConfig(s.Type)
 		// Weight load by duration (normalized to 60 min)
 		durationFactor := float64(s.DurationMin) / 60.0
 		total += config.LoadScore * durationFactor
@@ -68,7 +68,7 @@ func TotalLoadScore(sessions []TrainingSession) float64 {
 // Formula: loadScore × (durationMin/60) × (RPE/3)
 // If RPE is nil, defaults to 5 (middle of 1-10 scale).
 func SessionLoad(trainingType TrainingType, durationMin int, rpe *int) float64 {
-	config := TrainingConfigs[trainingType]
+	config := GetTrainingConfig(trainingType)
 	durationFactor := float64(durationMin) / 60.0
 
 	rpeValue := 5 // Default RPE when not specified

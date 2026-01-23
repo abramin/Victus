@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/suite"
@@ -129,7 +130,7 @@ func (s *TrainingLoadSuite) TestCalculateAcuteLoad() {
 	s.Run("exactly 7 days uses all", func() {
 		dataPoints := make([]DailyLoadDataPoint, 7)
 		for i := 0; i < 7; i++ {
-			dataPoints[i] = DailyLoadDataPoint{DailyLoad: float64(i + 1) * 2}
+			dataPoints[i] = DailyLoadDataPoint{DailyLoad: float64(i+1) * 2}
 		}
 		load := CalculateAcuteLoad(dataPoints)
 		// Sum: 2+4+6+8+10+12+14 = 56, Average: 56/7 = 8
@@ -232,7 +233,7 @@ func (s *TrainingLoadSuite) TestCalculateTrainingLoadResult() {
 		dataPoints := make([]DailyLoadDataPoint, 14)
 		for i := 0; i < 14; i++ {
 			dataPoints[i] = DailyLoadDataPoint{
-				Date:      "2025-01-" + string(rune('0'+i/10)) + string(rune('0'+i%10+1)),
+				Date:      fmt.Sprintf("2025-01-%02d", i+1),
 				DailyLoad: 10.0,
 			}
 		}
@@ -240,7 +241,7 @@ func (s *TrainingLoadSuite) TestCalculateTrainingLoadResult() {
 		result := CalculateTrainingLoadResult(15.0, dataPoints)
 
 		s.InDelta(15.0, result.DailyLoad, 0.01)
-		s.InDelta(10.0, result.AcuteLoad, 0.01)  // Last 7 days avg
+		s.InDelta(10.0, result.AcuteLoad, 0.01)   // Last 7 days avg
 		s.InDelta(10.0, result.ChronicLoad, 0.01) // All 14 days avg (since all are 10)
 		s.InDelta(1.0, result.ACR, 0.01)
 	})
@@ -255,7 +256,23 @@ func (s *TrainingLoadSuite) TestCalculateTrainingLoadResult() {
 		s.InDelta(10.0, result.DailyLoad, 0.01)
 		s.InDelta(10.0, result.AcuteLoad, 0.01)
 		s.Equal(0.0, result.ChronicLoad) // Less than 7 days
-		s.Equal(1.0, result.ACR)          // Defaults to 1 when chronic is 0
+		s.Equal(1.0, result.ACR)         // Defaults to 1 when chronic is 0
+	})
+}
+
+func (s *TrainingLoadSuite) TestTrainingConfigValues() {
+	s.Run("MET and load score defaults match compendium values", func() {
+		rest := GetTrainingConfig(TrainingTypeRest)
+		s.Equal(1.0, rest.MET)
+		s.Equal(float64(0), rest.LoadScore)
+
+		hiit := GetTrainingConfig(TrainingTypeHIIT)
+		s.Equal(12.8, hiit.MET)
+		s.Equal(float64(5), hiit.LoadScore)
+
+		strength := GetTrainingConfig(TrainingTypeStrength)
+		s.Equal(5.0, strength.MET)
+		s.Equal(float64(5), strength.LoadScore)
 	})
 }
 

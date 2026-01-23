@@ -101,8 +101,27 @@ type ProfileResponse struct {
 }
 
 // ProfileFromRequest converts a CreateProfileRequest to a UserProfile model.
+// Returns an error if any enum value (sex, goal, bmr equation, tdee source) is invalid.
 func ProfileFromRequest(req CreateProfileRequest) (*domain.UserProfile, error) {
 	birthDate, err := time.Parse("2006-01-02", req.BirthDate)
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse and validate sex
+	sex, err := domain.ParseSex(req.Sex)
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse and validate goal
+	goal, err := domain.ParseGoal(req.Goal)
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse and validate BMR equation (empty string allowed)
+	bmrEquation, err := domain.ParseBMREquation(req.BMREquation)
 	if err != nil {
 		return nil, err
 	}
@@ -110,8 +129,8 @@ func ProfileFromRequest(req CreateProfileRequest) (*domain.UserProfile, error) {
 	profile := &domain.UserProfile{
 		HeightCM:             req.HeightCM,
 		BirthDate:            birthDate,
-		Sex:                  domain.Sex(req.Sex),
-		Goal:                 domain.Goal(req.Goal),
+		Sex:                  sex,
+		Goal:                 goal,
 		TargetWeightKg:       req.TargetWeightKg,
 		TargetWeeklyChangeKg: req.TargetWeeklyChangeKg,
 		CarbRatio:            req.CarbRatio,
@@ -134,7 +153,7 @@ func ProfileFromRequest(req CreateProfileRequest) (*domain.UserProfile, error) {
 		},
 		FruitTargetG:  req.FruitTargetG,
 		VeggieTargetG: req.VeggieTargetG,
-		BMREquation:   domain.BMREquation(req.BMREquation),
+		BMREquation:   bmrEquation,
 	}
 
 	// Handle optional fields
@@ -148,7 +167,11 @@ func ProfileFromRequest(req CreateProfileRequest) (*domain.UserProfile, error) {
 		profile.BodyFatPercent = *req.BodyFatPercent
 	}
 	if req.TDEESource != "" {
-		profile.TDEESource = domain.TDEESource(req.TDEESource)
+		tdeeSource, err := domain.ParseTDEESource(req.TDEESource)
+		if err != nil {
+			return nil, err
+		}
+		profile.TDEESource = tdeeSource
 	}
 	if req.ManualTDEE != nil {
 		profile.ManualTDEE = *req.ManualTDEE

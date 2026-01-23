@@ -18,7 +18,11 @@ func (s *Server) createDailyLog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	input := requests.DailyLogInputFromRequest(req)
+	input, err := requests.DailyLogInputFromRequest(req)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "validation_error", err.Error())
+		return
+	}
 	now := time.Now()
 
 	saved, err := s.dailyLogService.Create(r.Context(), input, now)
@@ -163,7 +167,11 @@ func (s *Server) updateActualTraining(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sessions := requests.ActualTrainingFromRequest(req)
+	sessions, err := requests.ActualTrainingFromRequest(req)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "validation_error", err.Error())
+		return
+	}
 	log, err := s.dailyLogService.UpdateActualTraining(r.Context(), date, sessions)
 	if err != nil {
 		if errors.Is(err, store.ErrDailyLogNotFound) {

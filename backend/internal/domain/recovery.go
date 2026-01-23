@@ -215,7 +215,7 @@ func calculateSleepQualityMultiplier(quality int) float64 {
 func MaxSessionLoadScore(sessions []TrainingSession) float64 {
 	var maxLoad float64
 	for _, s := range sessions {
-		config := TrainingConfigs[s.Type]
+		config := GetTrainingConfig(s.Type)
 		if config.LoadScore > maxLoad {
 			maxLoad = config.LoadScore
 		}

@@ -52,6 +52,12 @@ func (s *Server) upsertProfile(w http.ResponseWriter, r *http.Request) {
 
 	profile, err := requests.ProfileFromRequest(req)
 	if err != nil {
+		// Check if it's a domain validation error (invalid enum values)
+		if isValidationError(err) {
+			writeError(w, http.StatusBadRequest, "validation_error", err.Error())
+			return
+		}
+		// Otherwise it's a date parsing error
 		writeError(w, http.StatusBadRequest, "invalid_date", "birthDate must be in YYYY-MM-DD format")
 		return
 	}

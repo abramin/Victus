@@ -55,11 +55,11 @@ func (s *DailyLogStore) GetByDate(ctx context.Context, date string) (*domain.Dai
 		SELECT
 			id, log_date, weight_kg, body_fat_percent, resting_heart_rate,
 			sleep_quality, sleep_hours,
-			total_carbs_g, total_protein_g, total_fats_g, total_calories,
-			breakfast_carb_points, breakfast_protein_points, breakfast_fat_points,
-			lunch_carb_points, lunch_protein_points, lunch_fat_points,
-			dinner_carb_points, dinner_protein_points, dinner_fat_points,
-			fruit_g, veggies_g, water_l, day_type,
+			COALESCE(total_carbs_g, 0), COALESCE(total_protein_g, 0), COALESCE(total_fats_g, 0), COALESCE(total_calories, 0),
+			COALESCE(breakfast_carb_points, 0), COALESCE(breakfast_protein_points, 0), COALESCE(breakfast_fat_points, 0),
+			COALESCE(lunch_carb_points, 0), COALESCE(lunch_protein_points, 0), COALESCE(lunch_fat_points, 0),
+			COALESCE(dinner_carb_points, 0), COALESCE(dinner_protein_points, 0), COALESCE(dinner_fat_points, 0),
+			COALESCE(fruit_g, 0), COALESCE(veggies_g, 0), COALESCE(water_l, 0), COALESCE(day_type, 'fatburner'),
 			COALESCE(estimated_tdee, 0), COALESCE(formula_tdee, 0),
 			COALESCE(tdee_source_used, 'formula'), COALESCE(tdee_confidence, 0), COALESCE(data_points_used, 0),
 			created_at, updated_at
@@ -301,11 +301,11 @@ func (s *DailyLogStore) ListDailyTargets(ctx context.Context, startDate, endDate
 	const query = `
 		SELECT
 			log_date,
-			total_carbs_g, total_protein_g, total_fats_g, total_calories,
-			breakfast_carb_points, breakfast_protein_points, breakfast_fat_points,
-			lunch_carb_points, lunch_protein_points, lunch_fat_points,
-			dinner_carb_points, dinner_protein_points, dinner_fat_points,
-			fruit_g, veggies_g, water_l, day_type,
+			COALESCE(total_carbs_g, 0), COALESCE(total_protein_g, 0), COALESCE(total_fats_g, 0), COALESCE(total_calories, 0),
+			COALESCE(breakfast_carb_points, 0), COALESCE(breakfast_protein_points, 0), COALESCE(breakfast_fat_points, 0),
+			COALESCE(lunch_carb_points, 0), COALESCE(lunch_protein_points, 0), COALESCE(lunch_fat_points, 0),
+			COALESCE(dinner_carb_points, 0), COALESCE(dinner_protein_points, 0), COALESCE(dinner_fat_points, 0),
+			COALESCE(fruit_g, 0), COALESCE(veggies_g, 0), COALESCE(water_l, 0), COALESCE(day_type, 'fatburner'),
 			COALESCE(estimated_tdee, 0)
 		FROM daily_logs
 		WHERE log_date >= ? AND log_date <= ?

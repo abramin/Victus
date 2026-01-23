@@ -118,7 +118,7 @@ type DailyTargetsResponse struct {
 
 // DailyTargetsRangePointResponse represents calculated targets for a date.
 type DailyTargetsRangePointResponse struct {
-	Date              string              `json:"date"`
+	Date              string               `json:"date"`
 	CalculatedTargets DailyTargetsResponse `json:"calculatedTargets"`
 }
 
@@ -143,42 +143,58 @@ type DailyLogResponse struct {
 	CalculatedTargets       DailyTargetsResponse            `json:"calculatedTargets"`
 	EstimatedTDEE           int                             `json:"estimatedTDEE"`
 	FormulaTDEE             int                             `json:"formulaTDEE,omitempty"`
-	TDEESourceUsed          string                          `json:"tdeeSourceUsed"`                    // formula, manual, or adaptive
-	TDEEConfidence          float64                         `json:"tdeeConfidence,omitempty"`          // 0-1 confidence for adaptive TDEE
-	DataPointsUsed          int                             `json:"dataPointsUsed,omitempty"`          // Number of data points used for adaptive
-	RecoveryScore           *RecoveryScoreResponse          `json:"recoveryScore,omitempty"`           // Recovery score breakdown
-	AdjustmentMultipliers   *AdjustmentMultipliersResponse  `json:"adjustmentMultipliers,omitempty"`   // Adjustment multipliers breakdown
+	TDEESourceUsed          string                          `json:"tdeeSourceUsed"`                  // formula, manual, or adaptive
+	TDEEConfidence          float64                         `json:"tdeeConfidence,omitempty"`        // 0-1 confidence for adaptive TDEE
+	DataPointsUsed          int                             `json:"dataPointsUsed,omitempty"`        // Number of data points used for adaptive
+	RecoveryScore           *RecoveryScoreResponse          `json:"recoveryScore,omitempty"`         // Recovery score breakdown
+	AdjustmentMultipliers   *AdjustmentMultipliersResponse  `json:"adjustmentMultipliers,omitempty"` // Adjustment multipliers breakdown
 	CreatedAt               string                          `json:"createdAt,omitempty"`
 	UpdatedAt               string                          `json:"updatedAt,omitempty"`
 }
 
 // ActualTrainingFromRequest converts an UpdateActualTrainingRequest to domain TrainingSessions.
-func ActualTrainingFromRequest(req UpdateActualTrainingRequest) []domain.TrainingSession {
+// Returns an error if any training type is invalid.
+func ActualTrainingFromRequest(req UpdateActualTrainingRequest) ([]domain.TrainingSession, error) {
 	sessions := make([]domain.TrainingSession, len(req.ActualSessions))
 	for i, s := range req.ActualSessions {
+		trainingType, err := domain.ParseTrainingType(s.Type)
+		if err != nil {
+			return nil, err
+		}
 		sessions[i] = domain.TrainingSession{
 			SessionOrder:       i + 1,
 			IsPlanned:          false,
-			Type:               domain.TrainingType(s.Type),
+			Type:               trainingType,
 			DurationMin:        s.DurationMin,
 			PerceivedIntensity: s.PerceivedIntensity,
 			Notes:              s.Notes,
 		}
 	}
-	return sessions
+	return sessions, nil
 }
 
 // DailyLogInputFromRequest converts a CreateDailyLogRequest to a DailyLogInput.
-func DailyLogInputFromRequest(req CreateDailyLogRequest) domain.DailyLogInput {
+// Returns an error if any training type or day type is invalid.
+func DailyLogInputFromRequest(req CreateDailyLogRequest) (domain.DailyLogInput, error) {
 	sessions := make([]domain.TrainingSession, len(req.PlannedTrainingSessions))
 	for i, s := range req.PlannedTrainingSessions {
+		trainingType, err := domain.ParseTrainingType(s.Type)
+		if err != nil {
+			return domain.DailyLogInput{}, err
+		}
 		sessions[i] = domain.TrainingSession{
 			SessionOrder: i + 1,
 			IsPlanned:    true,
-			Type:         domain.TrainingType(s.Type),
+			Type:         trainingType,
 			DurationMin:  s.DurationMin,
 			Notes:        s.Notes,
 		}
+	}
+
+	// Parse day type (empty string allowed, defaults will apply)
+	dayType, err := domain.ParseDayType(req.DayType)
+	if err != nil && req.DayType != "" {
+		return domain.DailyLogInput{}, err
 	}
 
 	return domain.DailyLogInput{
@@ -189,8 +205,8 @@ func DailyLogInputFromRequest(req CreateDailyLogRequest) domain.DailyLogInput {
 		SleepQuality:     domain.SleepQuality(req.SleepQuality),
 		SleepHours:       req.SleepHours,
 		PlannedSessions:  sessions,
-		DayType:          domain.DayType(req.DayType),
-	}
+		DayType:          dayType,
+	}, nil
 }
 
 // TrainingLoadToResponse converts a domain TrainingLoadResult to a TrainingLoadResponse.
@@ -330,11 +346,11 @@ func DailyLogToResponseWithTrainingLoad(d *domain.DailyLog, trainingLoad *domain
 			TotalLoadScore:   domain.TotalLoadScore(summarySessions),
 			Summary:          domain.SessionSummary(summarySessions),
 		},
-		TrainingLoad: TrainingLoadToResponse(trainingLoad),
-		DayType:      string(d.DayType),
-		CalculatedTargets: DailyTargetsToResponse(d.CalculatedTargets),
-		EstimatedTDEE:  d.EstimatedTDEE,
-		FormulaTDEE:    d.FormulaTDEE,
+		TrainingLoad:          TrainingLoadToResponse(trainingLoad),
+		DayType:               string(d.DayType),
+		CalculatedTargets:     DailyTargetsToResponse(d.CalculatedTargets),
+		EstimatedTDEE:         d.EstimatedTDEE,
+		FormulaTDEE:           d.FormulaTDEE,
 		TDEESourceUsed:        string(d.TDEESourceUsed),
 		TDEEConfidence:        d.TDEEConfidence,
 		DataPointsUsed:        d.DataPointsUsed,

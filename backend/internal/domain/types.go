@@ -8,6 +8,22 @@ const (
 	SexFemale Sex = "female"
 )
 
+// ValidSexValues contains all valid sex values.
+var ValidSexValues = map[Sex]bool{
+	SexMale:   true,
+	SexFemale: true,
+}
+
+// ParseSex safely converts a string to Sex with validation.
+// Returns ErrInvalidSex if the string is not a valid sex value.
+func ParseSex(s string) (Sex, error) {
+	sex := Sex(s)
+	if !ValidSexValues[sex] {
+		return "", ErrInvalidSex
+	}
+	return sex, nil
+}
+
 // Goal represents the user's fitness goal.
 type Goal string
 
@@ -16,6 +32,23 @@ const (
 	GoalMaintain   Goal = "maintain"
 	GoalGainWeight Goal = "gain_weight"
 )
+
+// ValidGoals contains all valid goal values.
+var ValidGoals = map[Goal]bool{
+	GoalLoseWeight: true,
+	GoalMaintain:   true,
+	GoalGainWeight: true,
+}
+
+// ParseGoal safely converts a string to Goal with validation.
+// Returns ErrInvalidGoal if the string is not a valid goal.
+func ParseGoal(s string) (Goal, error) {
+	g := Goal(s)
+	if !ValidGoals[g] {
+		return "", ErrInvalidGoal
+	}
+	return g, nil
+}
 
 // TrainingType represents the type of training activity.
 type TrainingType string
@@ -51,6 +84,16 @@ var ValidTrainingTypes = map[TrainingType]bool{
 	TrainingTypeMixed:        true,
 }
 
+// ParseTrainingType safely converts a string to TrainingType with validation.
+// Returns ErrInvalidTrainingType if the string is not a valid training type.
+func ParseTrainingType(s string) (TrainingType, error) {
+	t := TrainingType(s)
+	if !ValidTrainingTypes[t] {
+		return "", ErrInvalidTrainingType
+	}
+	return t, nil
+}
+
 // DayType represents the macro strategy for the day.
 type DayType string
 
@@ -65,6 +108,16 @@ var ValidDayTypes = map[DayType]bool{
 	DayTypePerformance: true,
 	DayTypeFatburner:   true,
 	DayTypeMetabolize:  true,
+}
+
+// ParseDayType safely converts a string to DayType with validation.
+// Returns ErrInvalidDayType if the string is not a valid day type.
+func ParseDayType(s string) (DayType, error) {
+	d := DayType(s)
+	if !ValidDayTypes[d] {
+		return "", ErrInvalidDayType
+	}
+	return d, nil
 }
 
 // BMREquation represents available BMR calculation methods.
@@ -85,6 +138,20 @@ var ValidBMREquations = map[BMREquation]bool{
 	BMREquationHarrisBenedict: true,
 }
 
+// ParseBMREquation safely converts a string to BMREquation with validation.
+// Returns ErrInvalidBMREquation if the string is not a valid BMR equation.
+// Empty string is allowed and returns empty BMREquation (defaults will apply).
+func ParseBMREquation(s string) (BMREquation, error) {
+	if s == "" {
+		return "", nil
+	}
+	e := BMREquation(s)
+	if !ValidBMREquations[e] {
+		return "", ErrInvalidBMREquation
+	}
+	return e, nil
+}
+
 // TDEESource represents the source of TDEE estimation.
 type TDEESource string
 
@@ -99,6 +166,20 @@ var ValidTDEESources = map[TDEESource]bool{
 	TDEESourceFormula:  true,
 	TDEESourceManual:   true,
 	TDEESourceAdaptive: true,
+}
+
+// ParseTDEESource safely converts a string to TDEESource with validation.
+// Returns ErrInvalidTDEESource if the string is not a valid TDEE source.
+// Empty string is allowed and returns empty TDEESource (defaults will apply).
+func ParseTDEESource(s string) (TDEESource, error) {
+	if s == "" {
+		return "", nil
+	}
+	t := TDEESource(s)
+	if !ValidTDEESources[t] {
+		return "", ErrInvalidTDEESource
+	}
+	return t, nil
 }
 
 // SleepQuality represents sleep quality score (1-100).
@@ -127,13 +208,6 @@ type SupplementConfig struct {
 	MaltodextrinG float64 // Intra-workout carb supplement (grams)
 	WheyG         float64 // Whey protein powder (grams)
 	CollagenG     float64 // Collagen peptides (grams)
-}
-
-// PlannedTraining represents the training plan for the day.
-// Deprecated: Use TrainingSession slice instead for multi-session support.
-type PlannedTraining struct {
-	Type               TrainingType
-	PlannedDurationMin int
 }
 
 // TrainingSession represents a single training session within a day.
