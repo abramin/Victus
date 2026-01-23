@@ -66,6 +66,7 @@ const DEFAULT_PROFILE: UserProfile = {
   fatRatio: DEFAULT_MACRO_RATIOS.fat,
   mealRatios: { breakfast: DEFAULT_MEAL_RATIOS.breakfast, lunch: DEFAULT_MEAL_RATIOS.lunch, dinner: DEFAULT_MEAL_RATIOS.dinner },
   pointsConfig: { carbMultiplier: DEFAULT_POINTS_CONFIG.carbMultiplier, proteinMultiplier: DEFAULT_POINTS_CONFIG.proteinMultiplier, fatMultiplier: DEFAULT_POINTS_CONFIG.fatMultiplier },
+  supplementConfig: { maltodextrinG: 0, wheyG: 0, collagenG: 0 },
   fruitTargetG: DEFAULT_FRUIT_TARGET_G,
   veggieTargetG: DEFAULT_VEGGIE_TARGET_G,
   bmrEquation: 'mifflin_st_jeor',

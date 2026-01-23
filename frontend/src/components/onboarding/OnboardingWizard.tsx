@@ -97,6 +97,7 @@ export function OnboardingWizard({ onComplete, saving, error }: OnboardingWizard
       fatRatio,
       mealRatios: { breakfast: 0.3, lunch: 0.3, dinner: 0.4 },
       pointsConfig: { carbMultiplier: 1.15, proteinMultiplier: 4.35, fatMultiplier: 3.5 },
+      supplementConfig: { maltodextrinG: 0, wheyG: 0, collagenG: 0 },
       fruitTargetG: 600,
       veggieTargetG: 500,
     };

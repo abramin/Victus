@@ -15,6 +15,12 @@ export interface PointsConfig {
   fatMultiplier: number;
 }
 
+export interface SupplementConfig {
+  maltodextrinG: number;
+  wheyG: number;
+  collagenG: number;
+}
+
 export interface UserProfile {
   height_cm: number;
   birthDate: string;
@@ -29,6 +35,7 @@ export interface UserProfile {
   fatRatio: number;
   mealRatios: MealRatios;
   pointsConfig: PointsConfig;
+  supplementConfig: SupplementConfig;
   fruitTargetG: number;
   veggieTargetG: number;
   bmrEquation?: BMREquation;    // mifflin_st_jeor (default), katch_mcardle, oxford_henry, harris_benedict

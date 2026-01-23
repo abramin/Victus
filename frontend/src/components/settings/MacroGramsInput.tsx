@@ -1,5 +1,10 @@
 import { useMemo, useState, useEffect } from 'react';
 import { NumberInput } from '../common/NumberInput';
+import {
+  CARB_KCAL_PER_G,
+  PROTEIN_KCAL_PER_G,
+  FAT_KCAL_PER_G,
+} from '../../constants';
 
 interface MacroGramsInputProps {
   carbRatio: number;
@@ -10,11 +15,6 @@ interface MacroGramsInputProps {
   estimatedCalories?: number;
   weightKg?: number;
 }
-
-// Energy conversion constants from PRD
-const CARB_KCAL_PER_G = 4.1;
-const PROTEIN_KCAL_PER_G = 4.3;
-const FAT_KCAL_PER_G = 9.3;
 
 // Calculate grams from ratios and estimated calories
 function ratiosToGrams(

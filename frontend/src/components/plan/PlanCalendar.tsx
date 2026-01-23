@@ -7,6 +7,18 @@ interface PlanCalendarProps {
   profile: UserProfile;
 }
 
+interface MacroGrams {
+  carbsG: number;
+  proteinG: number;
+  fatsG: number;
+}
+
+interface MealGrams {
+  breakfast: MacroGrams;
+  lunch: MacroGrams;
+  dinner: MacroGrams;
+}
+
 interface DayData {
   date: Date;
   dayType?: DayType;
@@ -15,6 +27,13 @@ interface DayData {
   lunch: number;
   dinner: number;
   total: number;
+  // Grams for each meal (proportional based on points ratio)
+  breakfastG: number;
+  lunchG: number;
+  dinnerG: number;
+  totalG: number;
+  // Per-macro grams for each meal
+  mealGrams?: MealGrams;
   hasData: boolean;
   fruitG?: number;
   veggiesG?: number;
@@ -105,13 +124,48 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
           lunch: 0,
           dinner: 0,
           total: 0,
+          breakfastG: 0,
+          lunchG: 0,
+          dinnerG: 0,
+          totalG: 0,
           hasData: false,
         });
         continue;
       }
+      // Calculate points per meal
       const breakfast = targets.meals.breakfast.carbs + targets.meals.breakfast.protein + targets.meals.breakfast.fats;
       const lunch = targets.meals.lunch.carbs + targets.meals.lunch.protein + targets.meals.lunch.fats;
       const dinner = targets.meals.dinner.carbs + targets.meals.dinner.protein + targets.meals.dinner.fats;
+      const totalPoints = breakfast + lunch + dinner;
+      
+      // Calculate total grams and distribute proportionally
+      const totalGrams = targets.totalCarbsG + targets.totalProteinG + targets.totalFatsG;
+      const breakfastG = totalPoints > 0 ? Math.round((breakfast / totalPoints) * totalGrams) : 0;
+      const lunchG = totalPoints > 0 ? Math.round((lunch / totalPoints) * totalGrams) : 0;
+      const dinnerG = totalPoints > 0 ? Math.round((dinner / totalPoints) * totalGrams) : 0;
+      
+      // Calculate per-macro grams for each meal (proportional based on meal ratio)
+      const bRatio = totalPoints > 0 ? breakfast / totalPoints : 0;
+      const lRatio = totalPoints > 0 ? lunch / totalPoints : 0;
+      const dRatio = totalPoints > 0 ? dinner / totalPoints : 0;
+      const mealGrams: MealGrams = {
+        breakfast: {
+          carbsG: Math.round(targets.totalCarbsG * bRatio),
+          proteinG: Math.round(targets.totalProteinG * bRatio),
+          fatsG: Math.round(targets.totalFatsG * bRatio),
+        },
+        lunch: {
+          carbsG: Math.round(targets.totalCarbsG * lRatio),
+          proteinG: Math.round(targets.totalProteinG * lRatio),
+          fatsG: Math.round(targets.totalFatsG * lRatio),
+        },
+        dinner: {
+          carbsG: Math.round(targets.totalCarbsG * dRatio),
+          proteinG: Math.round(targets.totalProteinG * dRatio),
+          fatsG: Math.round(targets.totalFatsG * dRatio),
+        },
+      };
+      
       data.push({
         date,
         dayType: targets.dayType,
@@ -119,7 +173,12 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
         breakfast,
         lunch,
         dinner,
-        total: breakfast + lunch + dinner,
+        total: totalPoints,
+        breakfastG,
+        lunchG,
+        dinnerG,
+        totalG: Math.round(totalGrams),
+        mealGrams,
         hasData: true,
         fruitG: targets.fruitG,
         veggiesG: targets.veggiesG,
@@ -132,6 +191,18 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
   const navigateMonth = (delta: number) => {
     const newDate = new Date(year, month + delta, 1);
     setCurrentDate(newDate);
+  };
+
+  // Check if a day matches the current viewMode filter
+  const matchesViewFilter = (dayData: DayData): boolean => {
+    if (viewMode === 'All Days') return true;
+    if (!dayData.dayType) return false;
+    const viewToType: Record<string, DayType> = {
+      'Performance': 'performance',
+      'Fatburner': 'fatburner',
+      'Metabolize': 'metabolize',
+    };
+    return dayData.dayType === viewToType[viewMode];
   };
 
   const formatMonth = (date: Date) => {
@@ -271,6 +342,15 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
               && selectedDay?.date.getMonth() === dayData.date.getMonth()
               && selectedDay?.date.getFullYear() === dayData.date.getFullYear();
             const isDisabled = !dayData.hasData;
+            const isFiltered = !matchesViewFilter(dayData);
+
+            // Choose values based on displayMode
+            const showGrams = displayMode === 'Grams';
+            const bValue = showGrams ? dayData.breakfastG : dayData.breakfast;
+            const lValue = showGrams ? dayData.lunchG : dayData.lunch;
+            const dValue = showGrams ? dayData.dinnerG : dayData.dinner;
+            const totValue = showGrams ? dayData.totalG : dayData.total;
+            const unit = showGrams ? 'g' : '';
 
             return (
               <button
@@ -282,7 +362,7 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
                   isToday(dayData.date) ? 'bg-gray-800/30' : 'bg-transparent'
                 } ${isSelected ? 'ring-2 ring-white/20' : ''} ${
                   isDisabled ? 'cursor-not-allowed opacity-60' : 'hover:bg-gray-800/40'
-                }`}
+                } ${isFiltered && dayData.hasData ? 'opacity-30' : ''}`}
               >
                 {/* Day Number & Today Indicator */}
                 <div className="flex items-center justify-between mb-2">
@@ -305,30 +385,30 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
                   </div>
                 )}
 
-                {/* Points Breakdown */}
+                {/* Points/Grams Breakdown */}
                 <div className="space-y-0.5 text-xs">
                   <div className="flex justify-between">
                     <span className="text-gray-500">B:</span>
                     <span className={dayData.hasData ? 'text-gray-300' : 'text-gray-600'}>
-                      {dayData.hasData ? dayData.breakfast : '--'}
+                      {dayData.hasData ? `${bValue}${unit}` : '--'}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">L:</span>
                     <span className={dayData.hasData ? 'text-gray-300' : 'text-gray-600'}>
-                      {dayData.hasData ? dayData.lunch : '--'}
+                      {dayData.hasData ? `${lValue}${unit}` : '--'}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">D:</span>
                     <span className={dayData.hasData ? 'text-gray-300' : 'text-gray-600'}>
-                      {dayData.hasData ? dayData.dinner : '--'}
+                      {dayData.hasData ? `${dValue}${unit}` : '--'}
                     </span>
                   </div>
                   <div className="flex justify-between pt-1 border-t border-gray-700">
                     <span className="text-gray-500">Tot:</span>
                     <span className={dayData.hasData ? 'text-white font-medium' : 'text-gray-600'}>
-                      {dayData.hasData ? dayData.total : '--'}
+                      {dayData.hasData ? `${totValue}${unit}` : '--'}
                     </span>
                   </div>
                 </div>
@@ -384,6 +464,9 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
                 totalVeggiesG={selectedDay.veggiesG ?? profile.veggieTargetG}
                 waterL={selectedDay.waterL}
                 helperText="Targets are from your daily log."
+                displayMode={displayMode}
+                mealGrams={selectedDay.mealGrams}
+                totalGrams={selectedDay.totalG}
               />
             </div>
           </div>

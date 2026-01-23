@@ -4,6 +4,38 @@
  */
 
 // =============================================================================
+// CALORIE CONVERSION CONSTANTS (Standard Atwater Factors)
+// =============================================================================
+
+/** Calories per gram of carbohydrate */
+export const CARB_KCAL_PER_G = 4.0;
+
+/** Calories per gram of protein */
+export const PROTEIN_KCAL_PER_G = 4.0;
+
+/** Calories per gram of fat */
+export const FAT_KCAL_PER_G = 9.0;
+
+// =============================================================================
+// MACRO CALCULATION CONSTANTS (aligned with backend domain/constants.go)
+// =============================================================================
+
+/** Fruit carbohydrate percentage by weight */
+export const FRUIT_CARBS_PERCENT_WEIGHT = 0.10;
+
+/** Vegetable carbohydrate percentage by weight */
+export const VEGGIE_CARBS_PERCENT_WEIGHT = 0.03;
+
+/** Maltodextrin carbohydrate percentage */
+export const MALTODEXTRIN_CARB_PERCENT = 0.96;
+
+/** Whey protein percentage */
+export const WHEY_PROTEIN_PERCENT = 0.88;
+
+/** Collagen protein percentage */
+export const COLLAGEN_PROTEIN_PERCENT = 0.90;
+
+// =============================================================================
 // VALIDATION LIMITS
 // =============================================================================
 

@@ -1,5 +1,19 @@
 import type { DayType, MealRatios, MealTargets } from '../../api/types';
 
+export type DisplayMode = 'Points' | 'Grams';
+
+interface MacroGrams {
+  carbsG: number;
+  proteinG: number;
+  fatsG: number;
+}
+
+interface MealGrams {
+  breakfast: MacroGrams;
+  lunch: MacroGrams;
+  dinner: MacroGrams;
+}
+
 interface DayTargetsPanelProps {
   title: string;
   dateLabel: string;
@@ -11,6 +25,9 @@ interface DayTargetsPanelProps {
   waterL?: number;
   compact?: boolean;
   helperText?: string;
+  displayMode?: DisplayMode;
+  mealGrams?: MealGrams;
+  totalGrams?: number;
 }
 
 const DAY_TYPE_BADGE: Record<DayType, { label: string; className: string }> = {
@@ -42,6 +59,9 @@ export function DayTargetsPanel({
   waterL,
   compact = false,
   helperText,
+  displayMode = 'Points',
+  mealGrams,
+  totalGrams,
 }: DayTargetsPanelProps) {
   const fruitByMeal = splitTarget(totalFruitG, mealRatios);
   const veggieByMeal = splitTarget(totalVeggiesG, mealRatios);
@@ -51,6 +71,10 @@ export function DayTargetsPanel({
     dinner: mealTotal(mealTargets.dinner),
   };
   const totalPoints = mealTotals.breakfast + mealTotals.lunch + mealTotals.dinner;
+
+  const showGrams = displayMode === 'Grams' && mealGrams;
+  const unit = showGrams ? 'g' : '';
+  const unitLabel = showGrams ? 'g' : 'pts';
 
   const headerClass = compact ? 'text-base' : 'text-lg';
   const panelPadding = compact ? 'p-4' : 'p-5';
@@ -74,19 +98,29 @@ export function DayTargetsPanel({
         <div className="bg-gray-950/70 rounded-lg border border-gray-800 p-4">
           <div className="flex items-center justify-between">
             <h4 className="text-sm text-white font-medium">Breakfast</h4>
-            <span className="text-xs text-gray-400">{mealTotals.breakfast} pts</span>
+            <span className="text-xs text-gray-400">
+              {showGrams
+                ? `${mealGrams.breakfast.carbsG + mealGrams.breakfast.proteinG + mealGrams.breakfast.fatsG}g`
+                : `${mealTotals.breakfast} pts`}
+            </span>
           </div>
           <div className="grid grid-cols-3 gap-2 text-center mt-3">
             <div>
-              <div className="text-lg font-semibold text-orange-400">{mealTargets.breakfast.carbs}</div>
+              <div className="text-lg font-semibold text-orange-400">
+                {showGrams ? mealGrams.breakfast.carbsG : mealTargets.breakfast.carbs}{unit}
+              </div>
               <div className="text-[10px] text-gray-500 uppercase">Carb</div>
             </div>
             <div>
-              <div className="text-lg font-semibold text-purple-400">{mealTargets.breakfast.protein}</div>
+              <div className="text-lg font-semibold text-purple-400">
+                {showGrams ? mealGrams.breakfast.proteinG : mealTargets.breakfast.protein}{unit}
+              </div>
               <div className="text-[10px] text-gray-500 uppercase">Protein</div>
             </div>
             <div>
-              <div className="text-lg font-semibold text-slate-300">{mealTargets.breakfast.fats}</div>
+              <div className="text-lg font-semibold text-slate-300">
+                {showGrams ? mealGrams.breakfast.fatsG : mealTargets.breakfast.fats}{unit}
+              </div>
               <div className="text-[10px] text-gray-500 uppercase">Fat</div>
             </div>
           </div>
@@ -99,19 +133,29 @@ export function DayTargetsPanel({
         <div className="bg-gray-950/70 rounded-lg border border-gray-800 p-4">
           <div className="flex items-center justify-between">
             <h4 className="text-sm text-white font-medium">Lunch</h4>
-            <span className="text-xs text-gray-400">{mealTotals.lunch} pts</span>
+            <span className="text-xs text-gray-400">
+              {showGrams
+                ? `${mealGrams.lunch.carbsG + mealGrams.lunch.proteinG + mealGrams.lunch.fatsG}g`
+                : `${mealTotals.lunch} pts`}
+            </span>
           </div>
           <div className="grid grid-cols-3 gap-2 text-center mt-3">
             <div>
-              <div className="text-lg font-semibold text-orange-400">{mealTargets.lunch.carbs}</div>
+              <div className="text-lg font-semibold text-orange-400">
+                {showGrams ? mealGrams.lunch.carbsG : mealTargets.lunch.carbs}{unit}
+              </div>
               <div className="text-[10px] text-gray-500 uppercase">Carb</div>
             </div>
             <div>
-              <div className="text-lg font-semibold text-purple-400">{mealTargets.lunch.protein}</div>
+              <div className="text-lg font-semibold text-purple-400">
+                {showGrams ? mealGrams.lunch.proteinG : mealTargets.lunch.protein}{unit}
+              </div>
               <div className="text-[10px] text-gray-500 uppercase">Protein</div>
             </div>
             <div>
-              <div className="text-lg font-semibold text-slate-300">{mealTargets.lunch.fats}</div>
+              <div className="text-lg font-semibold text-slate-300">
+                {showGrams ? mealGrams.lunch.fatsG : mealTargets.lunch.fats}{unit}
+              </div>
               <div className="text-[10px] text-gray-500 uppercase">Fat</div>
             </div>
           </div>
@@ -124,19 +168,29 @@ export function DayTargetsPanel({
         <div className="bg-gray-950/70 rounded-lg border border-gray-800 p-4">
           <div className="flex items-center justify-between">
             <h4 className="text-sm text-white font-medium">Dinner</h4>
-            <span className="text-xs text-gray-400">{mealTotals.dinner} pts</span>
+            <span className="text-xs text-gray-400">
+              {showGrams
+                ? `${mealGrams.dinner.carbsG + mealGrams.dinner.proteinG + mealGrams.dinner.fatsG}g`
+                : `${mealTotals.dinner} pts`}
+            </span>
           </div>
           <div className="grid grid-cols-3 gap-2 text-center mt-3">
             <div>
-              <div className="text-lg font-semibold text-orange-400">{mealTargets.dinner.carbs}</div>
+              <div className="text-lg font-semibold text-orange-400">
+                {showGrams ? mealGrams.dinner.carbsG : mealTargets.dinner.carbs}{unit}
+              </div>
               <div className="text-[10px] text-gray-500 uppercase">Carb</div>
             </div>
             <div>
-              <div className="text-lg font-semibold text-purple-400">{mealTargets.dinner.protein}</div>
+              <div className="text-lg font-semibold text-purple-400">
+                {showGrams ? mealGrams.dinner.proteinG : mealTargets.dinner.protein}{unit}
+              </div>
               <div className="text-[10px] text-gray-500 uppercase">Protein</div>
             </div>
             <div>
-              <div className="text-lg font-semibold text-slate-300">{mealTargets.dinner.fats}</div>
+              <div className="text-lg font-semibold text-slate-300">
+                {showGrams ? mealGrams.dinner.fatsG : mealTargets.dinner.fats}{unit}
+              </div>
               <div className="text-[10px] text-gray-500 uppercase">Fat</div>
             </div>
           </div>
@@ -149,8 +203,10 @@ export function DayTargetsPanel({
 
       <div className={`flex flex-wrap gap-3 mt-4 ${statText}`}>
         <div className="bg-gray-950/70 rounded-lg border border-gray-800 px-3 py-2">
-          <span className="text-gray-400">Total Points</span>
-          <span className="text-white font-medium ml-2">{totalPoints}</span>
+          <span className="text-gray-400">{showGrams ? 'Total Grams' : 'Total Points'}</span>
+          <span className="text-white font-medium ml-2">
+            {showGrams && totalGrams !== undefined ? `${totalGrams}g` : totalPoints}
+          </span>
         </div>
         <div className="bg-gray-950/70 rounded-lg border border-gray-800 px-3 py-2">
           <span className="text-gray-400">Fruit</span>
