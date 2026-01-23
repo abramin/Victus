@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import type { UserProfile, Sex, Goal } from '../../api/types';
+import type { UserProfile, Sex, Goal, BMREquation, TDEESource } from '../../api/types';
 import { Card } from '../common/Card';
 import { NumberInput } from '../common/NumberInput';
 import { Select } from '../common/Select';
@@ -25,6 +25,19 @@ const GOAL_OPTIONS = [
   { value: 'gain_weight', label: 'Gain Weight' },
 ];
 
+const BMR_EQUATION_OPTIONS = [
+  { value: 'mifflin_st_jeor', label: 'Mifflin-St Jeor (Default)' },
+  { value: 'katch_mcardle', label: 'Katch-McArdle (Requires Body Fat %)' },
+  { value: 'oxford_henry', label: 'Oxford-Henry' },
+  { value: 'harris_benedict', label: 'Harris-Benedict (Legacy)' },
+];
+
+const TDEE_SOURCE_OPTIONS = [
+  { value: 'formula', label: 'Formula (BMR × Activity Factor)' },
+  { value: 'manual', label: 'Manual (From Wearable/Known Value)' },
+  { value: 'adaptive', label: 'Adaptive (Calculated from Your Data)' },
+];
+
 const DEFAULT_PROFILE: UserProfile = {
   height_cm: 175,
   birthDate: '1990-01-01',
@@ -41,6 +54,8 @@ const DEFAULT_PROFILE: UserProfile = {
   pointsConfig: { carbMultiplier: 1.15, proteinMultiplier: 4.35, fatMultiplier: 3.5 },
   fruitTargetG: 600,
   veggieTargetG: 500,
+  bmrEquation: 'mifflin_st_jeor',
+  tdeeSource: 'formula',
 };
 
 // Aggressive goal thresholds (kg/week)
@@ -188,6 +203,23 @@ export function ProfileForm({ initialProfile, onSave, saving, error }: ProfileFo
       profile.mealRatios.breakfast + profile.mealRatios.lunch + profile.mealRatios.dinner;
     if (Math.abs(mealSum - 1.0) > 0.01) {
       errors.mealRatios = 'Meal ratios must sum to 100%';
+    }
+
+    // Body fat percent validation (only required for Katch-McArdle)
+    if (
+      profile.bmrEquation === 'katch_mcardle' &&
+      profile.bodyFatPercent !== undefined &&
+      profile.bodyFatPercent !== 0 &&
+      (profile.bodyFatPercent < 3 || profile.bodyFatPercent > 70)
+    ) {
+      errors.bodyFatPercent = 'Body fat % must be between 3% and 70%';
+    }
+
+    // Manual TDEE validation (required when tdeeSource is 'manual')
+    if (profile.tdeeSource === 'manual') {
+      if (!profile.manualTDEE || profile.manualTDEE < 1000 || profile.manualTDEE > 6000) {
+        errors.manualTDEE = 'Manual TDEE must be between 1000 and 6000 kcal';
+      }
     }
 
     setValidationErrors(errors);
@@ -391,6 +423,82 @@ export function ProfileForm({ initialProfile, onSave, saving, error }: ProfileFo
             unit="g"
           />
         </div>
+      </Card>
+
+      {/* TDEE Configuration Section */}
+      <Card title="TDEE Configuration">
+        <p className="text-sm text-slate-400 mb-4">
+          Configure how your Total Daily Energy Expenditure (TDEE) is calculated. This affects your daily calorie targets.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Select
+            label="BMR Equation"
+            value={profile.bmrEquation || 'mifflin_st_jeor'}
+            onChange={(v) => updateProfile({ bmrEquation: v as BMREquation })}
+            options={BMR_EQUATION_OPTIONS}
+          />
+
+          {/* Body Fat % - Only shown when Katch-McArdle is selected */}
+          {profile.bmrEquation === 'katch_mcardle' && (
+            <NumberInput
+              label="Body Fat %"
+              value={profile.bodyFatPercent || 0}
+              onChange={(v) => updateProfile({ bodyFatPercent: v })}
+              min={3}
+              max={70}
+              step={0.5}
+              unit="%"
+              error={validationErrors.bodyFatPercent}
+            />
+          )}
+
+          <Select
+            label="TDEE Source"
+            value={profile.tdeeSource || 'formula'}
+            onChange={(v) => updateProfile({ tdeeSource: v as TDEESource })}
+            options={TDEE_SOURCE_OPTIONS}
+          />
+
+          {/* Manual TDEE - Only shown when Manual is selected */}
+          {profile.tdeeSource === 'manual' && (
+            <NumberInput
+              label="Manual TDEE"
+              value={profile.manualTDEE || 0}
+              onChange={(v) => updateProfile({ manualTDEE: v })}
+              min={1000}
+              max={6000}
+              step={50}
+              unit="kcal"
+              error={validationErrors.manualTDEE}
+            />
+          )}
+        </div>
+
+        {/* TDEE Source Help Text */}
+        {profile.tdeeSource === 'formula' && (
+          <p className="mt-3 text-sm text-slate-500">
+            Using BMR × activity factor + exercise calories. Good starting point for most users.
+          </p>
+        )}
+        {profile.tdeeSource === 'manual' && (
+          <p className="mt-3 text-sm text-slate-500">
+            Enter your known TDEE from a wearable device or previous measurement. Confidence: 80%.
+          </p>
+        )}
+        {profile.tdeeSource === 'adaptive' && (
+          <p className="mt-3 text-sm text-slate-500">
+            TDEE will be calculated from your weight trend and intake data. Requires 14+ days of logging for accurate results.
+          </p>
+        )}
+
+        {/* Katch-McArdle Warning */}
+        {profile.bmrEquation === 'katch_mcardle' && !profile.bodyFatPercent && (
+          <div className="mt-3 p-3 bg-amber-900/50 border border-amber-700 rounded-md">
+            <p className="text-sm text-amber-300">
+              Katch-McArdle requires body fat %. Without it, Mifflin-St Jeor will be used as fallback.
+            </p>
+          </div>
+        )}
       </Card>
 
       {/* Error Display */}

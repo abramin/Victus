@@ -1,6 +1,7 @@
 export type Sex = 'male' | 'female';
 export type Goal = 'lose_weight' | 'maintain' | 'gain_weight';
 export type TDEESource = 'formula' | 'manual' | 'adaptive';
+export type BMREquation = 'mifflin_st_jeor' | 'katch_mcardle' | 'oxford_henry' | 'harris_benedict';
 
 export interface MealRatios {
   breakfast: number;
@@ -30,6 +31,8 @@ export interface UserProfile {
   pointsConfig: PointsConfig;
   fruitTargetG: number;
   veggieTargetG: number;
+  bmrEquation?: BMREquation;    // mifflin_st_jeor (default), katch_mcardle, oxford_henry, harris_benedict
+  bodyFatPercent?: number;      // For Katch-McArdle equation (optional, 3-70%)
   tdeeSource?: TDEESource;      // formula (default), manual, or adaptive
   manualTDEE?: number;          // User-provided TDEE (when tdeeSource is 'manual')
   createdAt?: string;
