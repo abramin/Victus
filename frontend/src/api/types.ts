@@ -1,5 +1,6 @@
 export type Sex = 'male' | 'female';
 export type Goal = 'lose_weight' | 'maintain' | 'gain_weight';
+export type TDEESource = 'formula' | 'manual' | 'adaptive';
 
 export interface MealRatios {
   breakfast: number;
@@ -29,6 +30,8 @@ export interface UserProfile {
   pointsConfig: PointsConfig;
   fruitTargetG: number;
   veggieTargetG: number;
+  tdeeSource?: TDEESource;      // formula (default), manual, or adaptive
+  manualTDEE?: number;          // User-provided TDEE (when tdeeSource is 'manual')
   createdAt?: string;
   updatedAt?: string;
 }
@@ -127,6 +130,9 @@ export interface DailyLog {
   dayType: DayType;
   calculatedTargets: DailyTargets;
   estimatedTDEE: number;
+  tdeeSourceUsed: TDEESource;     // Which TDEE source was used for this day
+  tdeeConfidence?: number;        // 0-1 confidence level for adaptive TDEE
+  dataPointsUsed?: number;        // Number of data points used for adaptive calculation
   createdAt?: string;
   updatedAt?: string;
 }

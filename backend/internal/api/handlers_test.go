@@ -66,7 +66,7 @@ func (s *HandlerSuite) doRequest(method, path string, body interface{}) *httptes
 
 func (s *HandlerSuite) createProfile() {
 	profileReq := map[string]interface{}{
-		"height_cm":             180,
+		"height_cm":            180,
 		"birthDate":            "1990-06-15",
 		"sex":                  "male",
 		"goal":                 "lose_weight",
@@ -133,7 +133,7 @@ func (s *HandlerSuite) TestHealthEndpoint() {
 func (s *HandlerSuite) TestProfileValidation() {
 	s.Run("invalid height returns 400", func() {
 		req := map[string]interface{}{
-			"height_cm":             50, // Too short
+			"height_cm":            50, // Too short
 			"birthDate":            "1990-06-15",
 			"sex":                  "male",
 			"goal":                 "lose_weight",
@@ -150,7 +150,7 @@ func (s *HandlerSuite) TestProfileValidation() {
 
 	s.Run("invalid birth date format returns 400", func() {
 		req := map[string]interface{}{
-			"height_cm":             180,
+			"height_cm":            180,
 			"birthDate":            "15-06-1990", // Wrong format
 			"sex":                  "male",
 			"goal":                 "lose_weight",
@@ -167,7 +167,7 @@ func (s *HandlerSuite) TestProfileValidation() {
 
 	s.Run("invalid sex returns 400", func() {
 		req := map[string]interface{}{
-			"height_cm":             180,
+			"height_cm":            180,
 			"birthDate":            "1990-06-15",
 			"sex":                  "other",
 			"goal":                 "lose_weight",
@@ -184,7 +184,7 @@ func (s *HandlerSuite) TestProfileValidation() {
 
 	s.Run("invalid goal returns 400", func() {
 		req := map[string]interface{}{
-			"height_cm":             180,
+			"height_cm":            180,
 			"birthDate":            "1990-06-15",
 			"sex":                  "male",
 			"goal":                 "bulk",
@@ -373,11 +373,11 @@ func (s *HandlerSuite) TestActualTrainingUpdate() {
 
 		var resp struct {
 			ActualTrainingSessions []struct {
-				SessionOrder       int     `json:"sessionOrder"`
-				Type               string  `json:"type"`
-				DurationMin        int     `json:"durationMin"`
-				PerceivedIntensity *int    `json:"perceivedIntensity,omitempty"`
-				Notes              string  `json:"notes,omitempty"`
+				SessionOrder       int    `json:"sessionOrder"`
+				Type               string `json:"type"`
+				DurationMin        int    `json:"durationMin"`
+				PerceivedIntensity *int   `json:"perceivedIntensity,omitempty"`
+				Notes              string `json:"notes,omitempty"`
 			} `json:"actualTrainingSessions"`
 			TrainingSummary struct {
 				SessionCount     int     `json:"sessionCount"`

@@ -60,6 +60,7 @@ func (s *DailyLogStore) GetByDate(ctx context.Context, date string) (*domain.Dai
 			lunch_carb_points, lunch_protein_points, lunch_fat_points,
 			dinner_carb_points, dinner_protein_points, dinner_fat_points,
 			fruit_g, veggies_g, water_l, day_type, estimated_tdee,
+			COALESCE(tdee_source_used, 'formula'), COALESCE(tdee_confidence, 0), COALESCE(data_points_used, 0),
 			created_at, updated_at
 		FROM daily_logs
 		WHERE log_date = ?
@@ -88,6 +89,7 @@ func (s *DailyLogStore) GetByDate(ctx context.Context, date string) (*domain.Dai
 		&log.CalculatedTargets.FruitG, &log.CalculatedTargets.VeggiesG,
 		&log.CalculatedTargets.WaterL, &log.CalculatedTargets.DayType,
 		&log.EstimatedTDEE,
+		&log.TDEESourceUsed, &log.TDEEConfidence, &log.DataPointsUsed,
 		&createdAt, &updatedAt,
 	)
 
@@ -154,6 +156,7 @@ func (s *DailyLogStore) create(ctx context.Context, execer sqlExecer, log *domai
 			lunch_carb_points, lunch_protein_points, lunch_fat_points,
 			dinner_carb_points, dinner_protein_points, dinner_fat_points,
 			fruit_g, veggies_g, water_l, day_type, estimated_tdee,
+			tdee_source_used, tdee_confidence, data_points_used,
 			created_at, updated_at
 		) VALUES (
 			?, ?, ?, ?,
@@ -164,6 +167,7 @@ func (s *DailyLogStore) create(ctx context.Context, execer sqlExecer, log *domai
 			?, ?, ?,
 			?, ?, ?,
 			?, ?, ?, ?, ?,
+			?, ?, ?,
 			datetime('now'), datetime('now')
 		)
 	`
@@ -198,6 +202,7 @@ func (s *DailyLogStore) create(ctx context.Context, execer sqlExecer, log *domai
 		log.CalculatedTargets.FruitG, log.CalculatedTargets.VeggiesG,
 		log.CalculatedTargets.WaterL, log.DayType,
 		log.EstimatedTDEE,
+		log.TDEESourceUsed, log.TDEEConfidence, log.DataPointsUsed,
 	)
 	if err != nil {
 		if isUniqueConstraint(err) {
@@ -246,6 +251,45 @@ func (s *DailyLogStore) ListWeights(ctx context.Context, startDate string) ([]do
 	}
 
 	return samples, nil
+}
+
+// ListAdaptiveDataPoints returns historical data for adaptive TDEE calculation.
+// Returns data points ordered by date (oldest first) for the specified lookback period.
+func (s *DailyLogStore) ListAdaptiveDataPoints(ctx context.Context, endDate string, maxDays int) ([]domain.AdaptiveDataPoint, error) {
+	const query = `
+		SELECT log_date, weight_kg, total_calories
+		FROM daily_logs
+		WHERE log_date <= ?
+		  AND total_calories > 0
+		ORDER BY log_date DESC
+		LIMIT ?
+	`
+
+	rows, err := s.db.QueryContext(ctx, query, endDate, maxDays)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var points []domain.AdaptiveDataPoint
+	for rows.Next() {
+		var point domain.AdaptiveDataPoint
+		if err := rows.Scan(&point.Date, &point.WeightKg, &point.CaloriesInTake); err != nil {
+			return nil, err
+		}
+		points = append(points, point)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	// Reverse to get oldest first (needed for adaptive calculation)
+	for i, j := 0, len(points)-1; i < j; i, j = i+1, j-1 {
+		points[i], points[j] = points[j], points[i]
+	}
+
+	return points, nil
 }
 
 func isUniqueConstraint(err error) bool {

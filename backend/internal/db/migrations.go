@@ -40,6 +40,12 @@ func RunMigrations(db *sql.DB) error {
 		// EAA columns deprecated - kept for backward compatibility with existing databases
 		// addEAAMorningColumn,
 		// addEAAEveningColumn,
+		// TDEE source columns (Issue #8 - Adaptive TDEE)
+		addTDEESourceColumn,
+		addManualTDEEColumn,
+		addTDEESourceUsedColumn,
+		addTDEEConfidenceColumn,
+		addDataPointsUsedColumn,
 	}
 
 	for _, migration := range alterMigrations {
@@ -54,6 +60,12 @@ func RunMigrations(db *sql.DB) error {
 	// Migrate existing single training data to sessions table (idempotent via INSERT OR IGNORE)
 	if _, err := db.Exec(migrateTrainingToSessions); err != nil {
 		return fmt.Errorf("training sessions data migration failed: %w", err)
+	}
+
+	// Fix unique constraint on training_sessions to include is_planned (Issue #31 fix)
+	// This is needed for existing databases that have the old constraint
+	if err := migrateTrainingSessionsConstraint(db); err != nil {
+		return fmt.Errorf("training sessions constraint migration failed: %w", err)
 	}
 
 	return nil
@@ -81,6 +93,8 @@ CREATE TABLE IF NOT EXISTS user_profile (
     veggie_target_g REAL NOT NULL DEFAULT 500,
     bmr_equation TEXT NOT NULL DEFAULT 'mifflin_st_jeor',
     body_fat_percent REAL,
+    tdee_source TEXT NOT NULL DEFAULT 'formula',
+    manual_tdee REAL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
 
@@ -122,6 +136,11 @@ CREATE TABLE IF NOT EXISTS daily_logs (
     water_l REAL,
     day_type TEXT,
     estimated_tdee INTEGER,
+
+    -- Adaptive TDEE metadata (Issue #8)
+    tdee_source_used TEXT DEFAULT 'formula',
+    tdee_confidence REAL DEFAULT 0,
+    data_points_used INTEGER DEFAULT 0,
 
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -176,6 +195,15 @@ const addCollagenColumn = `ALTER TABLE user_profile ADD COLUMN collagen_g REAL D
 const addEAAMorningColumn = `ALTER TABLE user_profile ADD COLUMN eaa_morning_g REAL DEFAULT 0`
 const addEAAEveningColumn = `ALTER TABLE user_profile ADD COLUMN eaa_evening_g REAL DEFAULT 0`
 
+// TDEE source configuration columns (Issue #8 - Adaptive TDEE)
+const addTDEESourceColumn = `ALTER TABLE user_profile ADD COLUMN tdee_source TEXT NOT NULL DEFAULT 'formula'`
+const addManualTDEEColumn = `ALTER TABLE user_profile ADD COLUMN manual_tdee REAL DEFAULT 0`
+
+// Adaptive TDEE metadata columns for daily_logs (Issue #8)
+const addTDEESourceUsedColumn = `ALTER TABLE daily_logs ADD COLUMN tdee_source_used TEXT DEFAULT 'formula'`
+const addTDEEConfidenceColumn = `ALTER TABLE daily_logs ADD COLUMN tdee_confidence REAL DEFAULT 0`
+const addDataPointsUsedColumn = `ALTER TABLE daily_logs ADD COLUMN data_points_used INTEGER DEFAULT 0`
+
 // Training sessions table for multiple sessions per day (Issue #31)
 const createTrainingSessionsTable = `
 CREATE TABLE IF NOT EXISTS training_sessions (
@@ -192,7 +220,7 @@ CREATE TABLE IF NOT EXISTS training_sessions (
     notes TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     FOREIGN KEY (daily_log_id) REFERENCES daily_logs(id) ON DELETE CASCADE,
-    UNIQUE(daily_log_id, session_order)
+    UNIQUE(daily_log_id, session_order, is_planned)
 );
 
 CREATE INDEX IF NOT EXISTS idx_training_sessions_daily_log ON training_sessions(daily_log_id);
@@ -205,3 +233,92 @@ SELECT id, 1, 1, planned_training_type, planned_duration_min
 FROM daily_logs
 WHERE planned_training_type IS NOT NULL AND planned_training_type != '';
 `
+
+// migrateTrainingSessionsConstraint fixes the unique constraint on training_sessions
+// to include is_planned, allowing both planned and actual sessions with the same order.
+// This is idempotent - it checks if migration is needed before running.
+func migrateTrainingSessionsConstraint(db *sql.DB) error {
+	// Check if the current unique constraint includes is_planned by looking at the index
+	// SQLite stores constraint info in sqlite_master
+	var sql string
+	err := db.QueryRow(`
+		SELECT sql FROM sqlite_master 
+		WHERE type='table' AND name='training_sessions'
+	`).Scan(&sql)
+	if err != nil {
+		// Table doesn't exist yet, will be created with correct constraint
+		return nil
+	}
+
+	// If the constraint already includes is_planned, no migration needed
+	if strings.Contains(sql, "UNIQUE(daily_log_id, session_order, is_planned)") {
+		return nil
+	}
+
+	// Need to recreate the table with the correct constraint
+	// SQLite doesn't support ALTER CONSTRAINT, so we use the standard migration pattern
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// Disable foreign key checks during migration
+	if _, err := tx.Exec("PRAGMA foreign_keys = OFF"); err != nil {
+		return err
+	}
+
+	// Create new table with correct constraint
+	if _, err := tx.Exec(`
+		CREATE TABLE training_sessions_new (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			daily_log_id INTEGER NOT NULL,
+			session_order INTEGER NOT NULL,
+			is_planned BOOLEAN NOT NULL DEFAULT 1,
+			training_type TEXT NOT NULL CHECK(training_type IN (
+				'rest', 'qigong', 'walking', 'gmb', 'run', 'row', 'cycle', 'hiit',
+				'strength', 'calisthenics', 'mobility', 'mixed'
+			)),
+			duration_min INTEGER NOT NULL CHECK (duration_min BETWEEN 0 AND 480),
+			perceived_intensity INTEGER CHECK (perceived_intensity IS NULL OR perceived_intensity BETWEEN 1 AND 10),
+			notes TEXT,
+			created_at TEXT NOT NULL DEFAULT (datetime('now')),
+			FOREIGN KEY (daily_log_id) REFERENCES daily_logs(id) ON DELETE CASCADE,
+			UNIQUE(daily_log_id, session_order, is_planned)
+		)
+	`); err != nil {
+		return err
+	}
+
+	// Copy data from old table
+	if _, err := tx.Exec(`
+		INSERT INTO training_sessions_new 
+			(id, daily_log_id, session_order, is_planned, training_type, duration_min, perceived_intensity, notes, created_at)
+		SELECT id, daily_log_id, session_order, is_planned, training_type, duration_min, perceived_intensity, notes, created_at
+		FROM training_sessions
+	`); err != nil {
+		return err
+	}
+
+	// Drop old table
+	if _, err := tx.Exec("DROP TABLE training_sessions"); err != nil {
+		return err
+	}
+
+	// Rename new table
+	if _, err := tx.Exec("ALTER TABLE training_sessions_new RENAME TO training_sessions"); err != nil {
+		return err
+	}
+
+	// Recreate index
+	if _, err := tx.Exec("CREATE INDEX IF NOT EXISTS idx_training_sessions_daily_log ON training_sessions(daily_log_id)"); err != nil {
+		return err
+	}
+
+	// Re-enable foreign key checks
+	if _, err := tx.Exec("PRAGMA foreign_keys = ON"); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}

@@ -105,6 +105,9 @@ type DailyLogResponse struct {
 	DayType                 string                          `json:"dayType"`
 	CalculatedTargets       DailyTargetsResponse            `json:"calculatedTargets"`
 	EstimatedTDEE           int                             `json:"estimatedTDEE"`
+	TDEESourceUsed          string                          `json:"tdeeSourceUsed"`           // formula, manual, or adaptive
+	TDEEConfidence          float64                         `json:"tdeeConfidence,omitempty"` // 0-1 confidence for adaptive TDEE
+	DataPointsUsed          int                             `json:"dataPointsUsed,omitempty"` // Number of data points used for adaptive
 	CreatedAt               string                          `json:"createdAt,omitempty"`
 	UpdatedAt               string                          `json:"updatedAt,omitempty"`
 }
@@ -227,7 +230,10 @@ func DailyLogToResponse(d *domain.DailyLog) DailyLogResponse {
 			WaterL:   d.CalculatedTargets.WaterL,
 			DayType:  string(d.CalculatedTargets.DayType),
 		},
-		EstimatedTDEE: d.EstimatedTDEE,
+		EstimatedTDEE:  d.EstimatedTDEE,
+		TDEESourceUsed: string(d.TDEESourceUsed),
+		TDEEConfidence: d.TDEEConfidence,
+		DataPointsUsed: d.DataPointsUsed,
 	}
 
 	if !d.CreatedAt.IsZero() {

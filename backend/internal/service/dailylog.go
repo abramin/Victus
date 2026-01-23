@@ -39,14 +39,36 @@ func (s *DailyLogService) Create(ctx context.Context, input domain.DailyLogInput
 		return nil, err
 	}
 
-	// Calculate targets using all planned sessions
-	log.CalculatedTargets = domain.CalculateDailyTargets(profile, log, now)
-	log.EstimatedTDEE = domain.CalculateEstimatedTDEE(
+	// Calculate formula-based TDEE first
+	formulaTDEE := domain.CalculateEstimatedTDEE(
 		profile,
 		log.WeightKg,
 		log.PlannedSessions,
 		now,
 	)
+
+	// Try to calculate adaptive TDEE if profile uses adaptive source
+	var adaptiveResult *domain.AdaptiveTDEEResult
+	if profile.TDEESource == domain.TDEESourceAdaptive {
+		// Fetch historical data for adaptive calculation
+		dataPoints, err := s.logStore.ListAdaptiveDataPoints(ctx, log.Date, domain.MaxDataPointsForAdaptive)
+		if err == nil && len(dataPoints) >= domain.MinDataPointsForAdaptive {
+			adaptiveResult = domain.CalculateAdaptiveTDEE(dataPoints)
+		}
+	}
+
+	// Get effective TDEE based on profile settings
+	effectiveTDEE, tdeeSource, confidence, dataPointsUsed := domain.GetEffectiveTDEE(
+		profile, formulaTDEE, adaptiveResult,
+	)
+
+	log.EstimatedTDEE = effectiveTDEE
+	log.TDEESourceUsed = tdeeSource
+	log.TDEEConfidence = confidence
+	log.DataPointsUsed = dataPointsUsed
+
+	// Calculate targets using the effective TDEE
+	log.CalculatedTargets = domain.CalculateDailyTargets(profile, log, now)
 
 	if err := s.logStore.WithTx(ctx, func(tx *sql.Tx) error {
 		// Persist daily log

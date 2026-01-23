@@ -47,6 +47,8 @@ type CreateProfileRequest struct {
 	VeggieTargetG        float64                 `json:"veggieTargetG"`
 	BMREquation          string                  `json:"bmrEquation,omitempty"`    // mifflin_st_jeor (default), katch_mcardle, oxford_henry, harris_benedict
 	BodyFatPercent       *float64                `json:"bodyFatPercent,omitempty"` // For Katch-McArdle equation
+	TDEESource           string                  `json:"tdeeSource,omitempty"`     // formula (default), manual, or adaptive
+	ManualTDEE           *float64                `json:"manualTDEE,omitempty"`     // User-provided TDEE value (used when tdeeSource is "manual")
 }
 
 // MealRatiosResponse represents meal distribution ratios in API responses.
@@ -90,6 +92,8 @@ type ProfileResponse struct {
 	VeggieTargetG        float64                  `json:"veggieTargetG"`
 	BMREquation          string                   `json:"bmrEquation"`
 	BodyFatPercent       *float64                 `json:"bodyFatPercent,omitempty"`
+	TDEESource           string                   `json:"tdeeSource"`           // formula, manual, or adaptive
+	ManualTDEE           *float64                 `json:"manualTDEE,omitempty"` // User-provided TDEE (when tdeeSource is "manual")
 	CreatedAt            string                   `json:"createdAt,omitempty"`
 	UpdatedAt            string                   `json:"updatedAt,omitempty"`
 }
@@ -141,6 +145,12 @@ func ProfileFromRequest(req CreateProfileRequest) (*domain.UserProfile, error) {
 	if req.BodyFatPercent != nil {
 		profile.BodyFatPercent = *req.BodyFatPercent
 	}
+	if req.TDEESource != "" {
+		profile.TDEESource = domain.TDEESource(req.TDEESource)
+	}
+	if req.ManualTDEE != nil {
+		profile.ManualTDEE = *req.ManualTDEE
+	}
 
 	return profile, nil
 }
@@ -175,6 +185,7 @@ func ProfileToResponse(p *domain.UserProfile) ProfileResponse {
 		FruitTargetG:  p.FruitTargetG,
 		VeggieTargetG: p.VeggieTargetG,
 		BMREquation:   string(p.BMREquation),
+		TDEESource:    string(p.TDEESource),
 	}
 
 	// Include optional fields only if set
@@ -186,6 +197,9 @@ func ProfileToResponse(p *domain.UserProfile) ProfileResponse {
 	}
 	if p.BodyFatPercent > 0 {
 		resp.BodyFatPercent = &p.BodyFatPercent
+	}
+	if p.ManualTDEE > 0 {
+		resp.ManualTDEE = &p.ManualTDEE
 	}
 
 	if !p.CreatedAt.IsZero() {

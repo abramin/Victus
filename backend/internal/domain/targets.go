@@ -496,3 +496,170 @@ func calculateMealPoints(
 func roundToNearest5(n float64) int {
 	return int(math.Round(n/5) * 5)
 }
+
+// =============================================================================
+// ADAPTIVE TDEE CALCULATION
+// =============================================================================
+
+// AdaptiveTDEEResult contains the result of adaptive TDEE calculation.
+type AdaptiveTDEEResult struct {
+	TDEE           float64    // Calculated adaptive TDEE
+	Confidence     float64    // Confidence level 0-1 (based on data quality and quantity)
+	DataPointsUsed int        // Number of valid data points used
+	Source         TDEESource // Always TDEESourceAdaptive when calculated
+}
+
+// AdaptiveDataPoint represents a single day's data for adaptive TDEE calculation.
+type AdaptiveDataPoint struct {
+	Date           string
+	WeightKg       float64
+	CaloriesInTake int // Calories consumed that day
+}
+
+// MinDataPointsForAdaptive is the minimum number of days needed for adaptive TDEE.
+const MinDataPointsForAdaptive = 14
+
+// MaxDataPointsForAdaptive is the maximum lookback period in days.
+const MaxDataPointsForAdaptive = 56
+
+// CalculateAdaptiveTDEE calculates TDEE from historical weight and calorie data.
+// Uses the energy balance equation: TDEE = Calories Eaten + (Weight Loss × 7700 kcal/kg)
+//
+// The algorithm:
+//  1. Calculates weekly weight changes from the data points
+//  2. Averages daily calorie intake for each week
+//  3. Uses the relationship: TDEE = intake + (weekly_weight_change × 1100 kcal)
+//     where 1100 = 7700 kcal per kg / 7 days
+//  4. Weights recent weeks more heavily than older weeks
+//
+// Returns nil if insufficient data (less than MinDataPointsForAdaptive days).
+func CalculateAdaptiveTDEE(dataPoints []AdaptiveDataPoint) *AdaptiveTDEEResult {
+	if len(dataPoints) < MinDataPointsForAdaptive {
+		return nil
+	}
+
+	// Limit to maximum lookback
+	if len(dataPoints) > MaxDataPointsForAdaptive {
+		dataPoints = dataPoints[len(dataPoints)-MaxDataPointsForAdaptive:]
+	}
+
+	// Group data into weeks for more stable calculations
+	numWeeks := len(dataPoints) / 7
+	if numWeeks < 2 {
+		return nil
+	}
+
+	var weeklyTDEEEstimates []float64
+	var weights []float64 // For weighted average - recent weeks count more
+
+	for week := 0; week < numWeeks-1; week++ {
+		startIdx := week * 7
+		endIdx := (week + 2) * 7 // Two-week window for weight change
+
+		if endIdx > len(dataPoints) {
+			endIdx = len(dataPoints)
+		}
+
+		// Calculate weight change over the two-week period
+		startWeight := dataPoints[startIdx].WeightKg
+		endWeight := dataPoints[endIdx-1].WeightKg
+		weightChangeKg := startWeight - endWeight // Positive = weight loss
+
+		// Calculate average daily intake for the first week
+		var totalCalories int
+		daysInWeek := 0
+		for i := startIdx; i < startIdx+7 && i < len(dataPoints); i++ {
+			totalCalories += dataPoints[i].CaloriesInTake
+			daysInWeek++
+		}
+
+		if daysInWeek == 0 {
+			continue
+		}
+
+		avgDailyIntake := float64(totalCalories) / float64(daysInWeek)
+
+		// Calculate TDEE from energy balance
+		// Weight change over 14 days, so daily change = weightChangeKg / 14
+		// Calories per kg of body weight change ≈ 7700 kcal
+		dailyCalorieDeficit := (weightChangeKg / 14.0) * 7700.0
+		estimatedTDEE := avgDailyIntake + dailyCalorieDeficit
+
+		// Sanity check - TDEE should be reasonable (800-6000 range)
+		if estimatedTDEE >= 800 && estimatedTDEE <= 6000 {
+			weeklyTDEEEstimates = append(weeklyTDEEEstimates, estimatedTDEE)
+			// More recent weeks get higher weight
+			recencyWeight := float64(week+1) / float64(numWeeks)
+			weights = append(weights, recencyWeight)
+		}
+	}
+
+	if len(weeklyTDEEEstimates) == 0 {
+		return nil
+	}
+
+	// Calculate weighted average TDEE
+	var weightedSum float64
+	var totalWeight float64
+	for i, tdee := range weeklyTDEEEstimates {
+		weightedSum += tdee * weights[i]
+		totalWeight += weights[i]
+	}
+	adaptiveTDEE := weightedSum / totalWeight
+
+	// Calculate confidence based on:
+	// 1. Number of data points (more = higher confidence)
+	// 2. Consistency of weekly estimates (lower variance = higher confidence)
+	dataPointConfidence := math.Min(float64(len(dataPoints))/float64(MaxDataPointsForAdaptive), 1.0)
+
+	// Calculate variance in estimates
+	var sumSquaredDiff float64
+	for _, tdee := range weeklyTDEEEstimates {
+		diff := tdee - adaptiveTDEE
+		sumSquaredDiff += diff * diff
+	}
+	variance := sumSquaredDiff / float64(len(weeklyTDEEEstimates))
+	stdDev := math.Sqrt(variance)
+
+	// Lower coefficient of variation = higher consistency confidence
+	// CV > 0.15 (15%) reduces confidence
+	cv := stdDev / adaptiveTDEE
+	consistencyConfidence := math.Max(0, 1.0-(cv/0.15))
+
+	// Combined confidence (geometric mean of factors)
+	confidence := math.Sqrt(dataPointConfidence * consistencyConfidence)
+	confidence = math.Round(confidence*100) / 100 // Round to 2 decimal places
+
+	return &AdaptiveTDEEResult{
+		TDEE:           math.Round(adaptiveTDEE),
+		Confidence:     confidence,
+		DataPointsUsed: len(dataPoints),
+		Source:         TDEESourceAdaptive,
+	}
+}
+
+// GetEffectiveTDEE returns the TDEE to use based on profile settings and available data.
+// Priority:
+// 1. Manual TDEE if source is "manual"
+// 2. Adaptive TDEE if source is "adaptive" and we have enough data
+// 3. Formula-based TDEE as fallback
+func GetEffectiveTDEE(profile *UserProfile, formulaTDEE int, adaptiveResult *AdaptiveTDEEResult) (int, TDEESource, float64, int) {
+	switch profile.TDEESource {
+	case TDEESourceManual:
+		if profile.ManualTDEE > 0 {
+			return int(profile.ManualTDEE), TDEESourceManual, 1.0, 0
+		}
+		// Fall through to formula if manual not set
+		return formulaTDEE, TDEESourceFormula, 0, 0
+
+	case TDEESourceAdaptive:
+		if adaptiveResult != nil && adaptiveResult.Confidence >= 0.5 {
+			return int(adaptiveResult.TDEE), TDEESourceAdaptive, adaptiveResult.Confidence, adaptiveResult.DataPointsUsed
+		}
+		// Fall back to formula if insufficient confidence
+		return formulaTDEE, TDEESourceFormula, 0, 0
+
+	default: // TDEESourceFormula
+		return formulaTDEE, TDEESourceFormula, 0, 0
+	}
+}

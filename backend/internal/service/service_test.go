@@ -88,11 +88,11 @@ func (s *DailyLogServiceSuite) TestLogCreationAppliesDefaults() {
 	s.createProfile()
 
 	// Log with minimal data - should get defaults applied
-	log := &domain.DailyLog{
+	input := domain.DailyLogInput{
 		WeightKg: 85,
 	}
 
-	result, err := s.logService.Create(s.ctx, log, s.now)
+	result, err := s.logService.Create(s.ctx, input, s.now)
 	s.Require().NoError(err)
 
 	// Verify defaults were applied

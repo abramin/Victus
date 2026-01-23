@@ -85,6 +85,22 @@ var ValidBMREquations = map[BMREquation]bool{
 	BMREquationHarrisBenedict: true,
 }
 
+// TDEESource represents the source of TDEE estimation.
+type TDEESource string
+
+const (
+	TDEESourceFormula  TDEESource = "formula"  // Use BMR × activity factor
+	TDEESourceManual   TDEESource = "manual"   // User-provided from wearables
+	TDEESourceAdaptive TDEESource = "adaptive" // Calculated from weight/intake history
+)
+
+// ValidTDEESources contains all valid TDEE source values.
+var ValidTDEESources = map[TDEESource]bool{
+	TDEESourceFormula:  true,
+	TDEESourceManual:   true,
+	TDEESourceAdaptive: true,
+}
+
 // SleepQuality represents sleep quality score (1-100).
 type SleepQuality int
 

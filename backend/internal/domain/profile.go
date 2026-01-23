@@ -25,6 +25,8 @@ type UserProfile struct {
 	VeggieTargetG        float64
 	BMREquation          BMREquation // Which BMR equation to use (default: mifflin_st_jeor)
 	BodyFatPercent       float64     // For Katch-McArdle equation (0 if unknown)
+	TDEESource           TDEESource  // How TDEE is determined: formula, manual, or adaptive
+	ManualTDEE           float64     // User-provided TDEE value (used when TDEESource is "manual")
 	CreatedAt            time.Time
 	UpdatedAt            time.Time
 }
@@ -151,6 +153,16 @@ func (p *UserProfile) ValidateAt(now time.Time) error {
 		return ErrInvalidBodyFatPercent
 	}
 
+	// TDEE source validation (empty is allowed, defaults to formula)
+	if p.TDEESource != "" && !ValidTDEESources[p.TDEESource] {
+		return ErrInvalidTDEESource
+	}
+
+	// Manual TDEE validation (required when source is manual, must be reasonable range)
+	if p.TDEESource == TDEESourceManual && (p.ManualTDEE < 800 || p.ManualTDEE > 10000) {
+		return ErrInvalidManualTDEE
+	}
+
 	// Supplement config validation (all values must be 0-500g)
 	if p.SupplementConfig.MaltodextrinG < 0 || p.SupplementConfig.MaltodextrinG > 500 ||
 		p.SupplementConfig.WheyG < 0 || p.SupplementConfig.WheyG > 500 ||
@@ -199,5 +211,9 @@ func (p *UserProfile) SetDefaults() {
 
 	if p.BMREquation == "" {
 		p.BMREquation = BMREquationMifflinStJeor
+	}
+
+	if p.TDEESource == "" {
+		p.TDEESource = TDEESourceFormula
 	}
 }

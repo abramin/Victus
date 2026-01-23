@@ -10,7 +10,7 @@ var dateRegex = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
 
 // DailyLog represents a daily log entry.
 type DailyLog struct {
-	ID                int64 // Database ID
+	ID                int64  // Database ID
 	Date              string // YYYY-MM-DD format
 	WeightKg          float64
 	BodyFatPercent    *float64
@@ -22,6 +22,9 @@ type DailyLog struct {
 	DayType           DayType
 	CalculatedTargets DailyTargets
 	EstimatedTDEE     int
+	TDEESourceUsed    TDEESource // Which TDEE source was used for this day's calculations
+	TDEEConfidence    float64    // Confidence level 0-1 for adaptive TDEE (0 means not adaptive)
+	DataPointsUsed    int        // Number of data points used for adaptive calculation
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
 }
