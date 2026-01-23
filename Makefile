@@ -5,7 +5,7 @@ FRONTEND_PORT ?= 5173
 export BACKEND_PORT
 export FRONTEND_PORT
 
-.PHONY: app-up app-down wait-backend wait-frontend e2e e2e-native test
+.PHONY: app-up app-down wait-backend wait-frontend e2e e2e-native test seed
 
 app-up:
 	docker compose up -d --build backend frontend
@@ -40,3 +40,7 @@ e2e-native: app-up wait-backend wait-frontend
 # Run backend unit and integration tests
 test:
 	cd backend && go test ./...
+
+# Seed database with 4 weeks of realistic test data
+seed:
+	cd backend && go run ./cmd/seed/main.go
