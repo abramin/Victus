@@ -193,3 +193,37 @@ export const TRAINING_LABELS: Record<TrainingType, string> = {
   mobility: 'Mobility',
   mixed: 'Mixed',
 };
+
+// =============================================================================
+// DAY TYPE DISPLAY CONFIGURATION
+// =============================================================================
+
+/** Day type color configuration for calendar views */
+export const DAY_TYPE_COLORS: Record<DayType, { bg: string; text: string }> = {
+  performance: { bg: 'bg-blue-600', text: 'text-blue-400' },
+  fatburner: { bg: 'bg-orange-600', text: 'text-orange-400' },
+  metabolize: { bg: 'bg-purple-600', text: 'text-purple-400' },
+};
+
+/** Day type badge configuration with full styling for panels */
+export const DAY_TYPE_BADGE: Record<DayType, { label: string; className: string }> = {
+  performance: { 
+    label: 'Performance', 
+    className: 'bg-blue-900/40 text-blue-300 border-blue-800' 
+  },
+  fatburner: { 
+    label: 'Fatburner', 
+    className: 'bg-orange-900/40 text-orange-300 border-orange-800' 
+  },
+  metabolize: { 
+    label: 'Metabolize', 
+    className: 'bg-emerald-900/40 text-emerald-300 border-emerald-800' 
+  },
+};
+
+/** Short labels for compact calendar views */
+export const DAY_TYPE_LABELS: Record<DayType, string> = {
+  performance: 'Perf',
+  fatburner: 'Fatb',
+  metabolize: 'Meta',
+};

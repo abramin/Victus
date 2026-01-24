@@ -8,7 +8,10 @@ import {
   CARB_KCAL_PER_G,
   PROTEIN_KCAL_PER_G,
   FAT_KCAL_PER_G,
+  DAY_TYPE_COLORS,
+  DAY_TYPE_LABELS,
 } from '../../constants';
+import { toDateKey } from '../../utils';
 
 interface PlanCalendarProps {
   profile: UserProfile;
@@ -46,23 +49,6 @@ interface DayData {
   veggiesG?: number;
   waterL?: number;
 }
-
-const DAY_TYPE_COLORS: Record<DayType, { bg: string; text: string }> = {
-  performance: { bg: 'bg-blue-600', text: 'text-blue-400' },
-  fatburner: { bg: 'bg-orange-600', text: 'text-orange-400' },
-  metabolize: { bg: 'bg-purple-600', text: 'text-purple-400' },
-};
-
-const DAY_TYPE_LABELS: Record<DayType, string> = {
-  performance: 'Perf',
-  fatburner: 'Fatb',
-  metabolize: 'Meta',
-};
-
-const toDateKey = (date: Date) => {
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-  return local.toISOString().slice(0, 10);
-};
 
 export function PlanCalendar({ profile }: PlanCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());

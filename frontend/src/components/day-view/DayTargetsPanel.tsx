@@ -3,6 +3,7 @@ import {
   CARB_KCAL_PER_G,
   PROTEIN_KCAL_PER_G,
   FAT_KCAL_PER_G,
+  DAY_TYPE_BADGE,
 } from '../../constants';
 
 export type DisplayMode = 'Points' | 'Grams';
@@ -35,12 +36,6 @@ interface DayTargetsPanelProps {
   totalGrams?: number;
   totalCalories?: number;
 }
-
-const DAY_TYPE_BADGE: Record<DayType, { label: string; className: string }> = {
-  performance: { label: 'Performance', className: 'bg-blue-900/40 text-blue-300 border-blue-800' },
-  fatburner: { label: 'Fatburner', className: 'bg-orange-900/40 text-orange-300 border-orange-800' },
-  metabolize: { label: 'Metabolize', className: 'bg-emerald-900/40 text-emerald-300 border-emerald-800' },
-};
 
 function splitTarget(total: number, ratios: MealRatios) {
   const breakfast = Math.max(0, Math.round(total * ratios.breakfast));

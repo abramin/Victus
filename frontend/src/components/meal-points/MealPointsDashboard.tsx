@@ -4,18 +4,15 @@ import type { DailyLog, DayType, UserProfile } from '../../api/types';
 import { calculateMealTargets } from '../targets/mealTargets';
 import { MealCard } from './MealCard';
 import { SupplementsPanel } from './SupplementsPanel';
+import { toDateKey, formatShortDate, isSameDay } from '../../utils';
+import { buildSvgPath } from '../../utils/math';
+import { DAY_TYPE_OPTIONS } from '../../constants';
 
 interface MealPointsDashboardProps {
   log: DailyLog | null;
   profile: UserProfile;
   onDayTypeChange?: (dayType: DayType) => void;
 }
-
-const DAY_TYPES: { value: DayType; label: string }[] = [
-  { value: 'performance', label: 'Performance' },
-  { value: 'fatburner', label: 'Fatburner' },
-  { value: 'metabolize', label: 'Metabolize' },
-];
 
 type TrendPeriod = '7d' | '14d' | '30d';
 
@@ -54,31 +51,12 @@ const DEFAULT_SUPPLEMENTS: SupplementState[] = [
   { id: 'intra_carbs', label: 'Intra-workout', sublabel: 'Carbs', value: 50, enabled: false },
 ];
 
-const isSameDay = (left: Date, right: Date) =>
-  left.getFullYear() === right.getFullYear() &&
-  left.getMonth() === right.getMonth() &&
-  left.getDate() === right.getDate();
-
-const toDateKey = (date: Date) => {
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-  return local.toISOString().slice(0, 10);
-};
-
-const formatShortDate = (dateString: string): string => {
-  const [year, month, day] = dateString.split('-').map(Number);
-  const date = new Date(year, month - 1, day);
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-};
-
 const buildTrendPath = (
   points: TrendPoint[],
   toX: (index: number) => number,
   toY: (value: number) => number,
   getValue: (point: TrendPoint) => number
-) =>
-  points
-    .map((point, index) => `${index === 0 ? 'M' : 'L'} ${toX(index)} ${toY(getValue(point))}`)
-    .join(' ');
+) => buildSvgPath(points, toX, toY, getValue);
 
 const getMetricValue = (point: TrendPoint, metric: TrendMetric) => {
   switch (metric) {
@@ -428,7 +406,7 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
 
         {/* Day Type Tabs */}
         <div className="flex items-center gap-1 bg-gray-900 rounded-lg p-1">
-          {DAY_TYPES.map((dt) => (
+          {DAY_TYPE_OPTIONS.map((dt) => (
             <button
               key={dt.value}
               onClick={() => handleDayTypeSelect(dt.value)}

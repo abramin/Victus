@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Panel } from '../common/Panel';
 
 interface Supplement {
   id: string;
@@ -24,9 +25,7 @@ export function SupplementsPanel({
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   return (
-    <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
-      <h3 className="text-white font-medium mb-4">Supplements Taken</h3>
-
+    <Panel title="Supplements Taken">
       <div className="space-y-4">
         {supplements.map((supp) => (
           <div key={supp.id} className="flex items-center gap-3">
@@ -110,6 +109,6 @@ export function SupplementsPanel({
           <p>Whey: 88% protein</p>
         </div>
       )}
-    </div>
+    </Panel>
   );
 }

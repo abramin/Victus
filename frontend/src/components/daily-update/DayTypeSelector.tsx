@@ -1,5 +1,6 @@
 import type { DayType, CreateDailyLogRequest } from '../../api/types';
 import { DAY_TYPE_OPTIONS } from '../../constants';
+import { Panel } from '../common/Panel';
 
 interface DayTypeSelectorProps {
   selectedDayType: DayType;
@@ -8,8 +9,7 @@ interface DayTypeSelectorProps {
 
 export function DayTypeSelector({ selectedDayType, onDayTypeChange }: DayTypeSelectorProps) {
   return (
-    <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
-      <h3 className="text-white font-medium mb-4">Day Type</h3>
+    <Panel title="Day Type">
       <div className="space-y-3">
         {DAY_TYPE_OPTIONS.map((dt) => (
           <label
@@ -44,6 +44,6 @@ export function DayTypeSelector({ selectedDayType, onDayTypeChange }: DayTypeSel
           </label>
         ))}
       </div>
-    </div>
+    </Panel>
   );
 }

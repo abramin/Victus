@@ -1,3 +1,5 @@
+import { Panel } from '../common/Panel';
+
 interface MealCardProps {
   meal: 'Breakfast' | 'Lunch' | 'Dinner';
   carbPoints: number;
@@ -8,7 +10,7 @@ interface MealCardProps {
 
 export function MealCard({ meal, carbPoints, proteinPoints, fatPoints, sharePercent }: MealCardProps) {
   return (
-    <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
+    <Panel>
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-white font-medium">{meal}</h3>
@@ -42,6 +44,6 @@ export function MealCard({ meal, carbPoints, proteinPoints, fatPoints, sharePerc
           </svg>
         </button>
       </div>
-    </div>
+    </Panel>
   );
 }

@@ -10,6 +10,8 @@ import { ApiError, getLogByDate } from '../../api/client';
 import { useHistorySummary } from '../../hooks/useHistorySummary';
 import { Card } from '../common/Card';
 import { HistoryLogModal } from './HistoryLogModal';
+import { formatShortDate } from '../../utils';
+import { buildSvgPath } from '../../utils/math';
 
 const RANGE_OPTIONS: { label: string; value: WeightTrendRange }[] = [
   { label: '7d', value: '7d' },
@@ -19,12 +21,6 @@ const RANGE_OPTIONS: { label: string; value: WeightTrendRange }[] = [
 ];
 
 const RECENT_LOG_LIMIT = 8;
-
-function formatShortDate(dateString: string): string {
-  const [year, month, day] = dateString.split('-').map(Number);
-  const date = new Date(year, month - 1, day);
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
 
 function formatWeight(value: number, digits = 1): string {
   return `${value.toFixed(digits)} kg`;
@@ -44,17 +40,6 @@ function formatConfidence(value: number): string {
     return '--';
   }
   return `${Math.round(value * 100)}%`;
-}
-
-function buildPath<T>(
-  points: T[],
-  toX: (index: number) => number,
-  toY: (value: number) => number,
-  getValue: (point: T) => number
-) {
-  return points
-    .map((point, index) => `${index === 0 ? 'M' : 'L'} ${toX(index)} ${toY(getValue(point))}`)
-    .join(' ');
 }
 
 interface WeightTrendChartProps {
@@ -84,7 +69,7 @@ function WeightTrendChart({ points, trend, onSelectDate, selectedDate }: WeightT
   const toX = (index: number) => (points.length === 1 ? 50 : (index / (points.length - 1)) * 100);
   const toY = (value: number) => ((maxY - value) / (maxY - minY)) * 100;
 
-  const weightPath = buildPath(points, toX, toY, (point) => point.weightKg);
+  const weightPath = buildSvgPath(points, toX, toY, (point) => point.weightKg);
   const trendPath =
     trend && points.length > 1
       ? `M ${toX(0)} ${toY(trend.startWeightKg)} L ${toX(points.length - 1)} ${toY(trend.endWeightKg)}`
@@ -174,7 +159,7 @@ function TDEETrendChart({ points }: TDEETrendChartProps) {
   const toX = (index: number) => (points.length === 1 ? 50 : (index / (points.length - 1)) * 100);
   const toY = (value: number) => ((maxY - value) / (maxY - minY)) * 100;
 
-  const tdeePath = buildPath(points, toX, toY, (point) => point.estimatedTDEE);
+  const tdeePath = buildSvgPath(points, toX, toY, (point) => point.estimatedTDEE);
 
   return (
     <div className="space-y-3">

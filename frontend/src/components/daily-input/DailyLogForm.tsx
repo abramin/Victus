@@ -6,12 +6,7 @@ import { Button } from '../common/Button';
 import { Select } from '../common/Select';
 import { TrainingSelector } from './TrainingSelector';
 import { SleepQualityInput } from './SleepQualityInput';
-
-const DAY_TYPE_OPTIONS = [
-  { value: 'fatburner', label: 'Fatburner (Lower Carbs)' },
-  { value: 'performance', label: 'Performance (Higher Carbs)' },
-  { value: 'metabolize', label: 'Metabolize (Maintenance)' },
-];
+import { DAY_TYPE_OPTIONS } from '../../constants';
 
 interface DailyLogFormProps {
   onSubmit: (log: CreateDailyLogRequest) => Promise<unknown>;

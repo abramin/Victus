@@ -12,6 +12,7 @@ import {
   SLEEP_QUALITY_MIN,
   SLEEP_QUALITY_MAX,
 } from '../../constants';
+import { Panel } from '../common/Panel';
 
 interface MorningCheckinSectionProps {
   formData: CreateDailyLogRequest;
@@ -27,8 +28,7 @@ export function MorningCheckinSection({
   const sleepQualityId = useId();
 
   return (
-    <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
-      <h3 className="text-white font-medium mb-4">Morning Check-in</h3>
+    <Panel title="Morning Check-in">
       <div className="grid grid-cols-2 gap-4">
         {/* Weight */}
         <div>
@@ -133,6 +133,6 @@ export function MorningCheckinSection({
           <p className="text-xs text-red-400 mt-1" data-testid="sleepQuality-error">{validationErrors.sleepQuality}</p>
         )}
       </div>
-    </div>
+    </Panel>
   );
 }

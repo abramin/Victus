@@ -1,5 +1,6 @@
 import type { DayType, TrainingSession } from '../../api/types';
 import { TRAINING_LABELS, DAY_TYPE_OPTIONS } from '../../constants';
+import { Panel } from '../common/Panel';
 
 interface DailySummaryPanelProps {
   weightKg: number | undefined;
@@ -30,8 +31,7 @@ export function DailySummaryPanel({
     : '--';
 
   return (
-    <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
-      <h3 className="text-white font-medium mb-4">Today's Summary</h3>
+    <Panel title="Today's Summary">
       <div className="space-y-4">
         <div className="flex justify-between items-center">
           <span className="text-gray-400">Weight</span>
@@ -54,6 +54,6 @@ export function DailySummaryPanel({
           <span className={`font-medium ${dayTypeColor}`}>{dayTypeLabel}</span>
         </div>
       </div>
-    </div>
+    </Panel>
   );
 }
