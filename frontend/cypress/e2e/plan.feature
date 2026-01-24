@@ -108,11 +108,11 @@ Feature: Nutrition plan management
     Then the response status should be 204
     And the plan should no longer be active
 
-  Scenario: Cancel a nutrition plan
+  Scenario: Abandon a nutrition plan
     Given the plan API is running
     And a valid profile exists
     And an active plan exists
-    When I cancel the plan
+    When I abandon the plan
     Then the response status should be 204
     And the plan should no longer be active
 

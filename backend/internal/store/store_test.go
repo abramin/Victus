@@ -651,7 +651,7 @@ func (s *NutritionPlanStoreSuite) TestGetActivePlan() {
 	})
 }
 
-// [OVERLAP] plan.feature: "Complete a nutrition plan", "Cancel a nutrition plan"
+// [OVERLAP] plan.feature: "Complete a nutrition plan", "Abandon a nutrition plan"
 func (s *NutritionPlanStoreSuite) TestUpdateStatus() {
 	s.Run("updates plan status", func() {
 		s.clearPlans()

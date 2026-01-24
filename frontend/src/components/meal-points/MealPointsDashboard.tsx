@@ -2,13 +2,12 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import { ApiError, getLogByDate, getTrainingConfigs, updateActiveCalories } from '../../api/client';
 import type { DailyLog, DayType, UserProfile, TrainingConfig } from '../../api/types';
 import { calculateMealTargets } from '../targets/mealTargets';
-import { ActivityGapCard } from './ActivityGapCard';
-import { ActivityTrendChart } from './ActivityTrendChart';
 import { DateNavigator } from './DateNavigator';
 import { DayTypeSelector } from './DayTypeSelector';
 import { MealBreakdownModal } from './MealBreakdownModal';
 import { MealCard } from './MealCard';
 import { SupplementsPanel } from './SupplementsPanel';
+import { FoodLibrary } from './FoodLibrary';
 import { toDateKey, isSameDay } from '../../utils';
 import {
   CARB_KCAL_PER_G,
@@ -338,11 +337,11 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
       : 'Complete your Daily Update to see your meal points.';
 
   return (
-    <div className="p-6">
+    <div className="p-6 h-full flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-semibold text-white">Meal Points</h1>
+          <h1 className="text-2xl font-semibold text-white">Kitchen</h1>
           <div className="relative group">
             <button
               type="button"
@@ -381,7 +380,7 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
       {/* Main Content Grid */}
       <div className="grid grid-cols-12 gap-6">
         {/* Meal Cards - Left Side */}
-        <div className="col-span-8 space-y-4">
+        <div className="col-span-6 space-y-4">
           {!mealData.hasData ? (
             <div className="col-span-3 bg-gray-900 rounded-xl p-8 border border-gray-800 text-center">
               <p className="text-gray-400 mb-4">
@@ -429,25 +428,7 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
             </div>
           )}
 
-          {/* Activity Gap Card */}
-          {selectedLog && (
-            <ActivityGapCard
-              plannedSessions={selectedLog.plannedTrainingSessions || []}
-              trainingConfigs={trainingConfigs}
-              weightKg={selectedLog.weightKg}
-              activeCaloriesBurned={selectedLog.activeCaloriesBurned}
-              totalCalories={selectedLog.calculatedTargets.totalCalories}
-              onActiveCaloriesChange={handleActiveCaloriesChange}
-              isLoading={activeCaloriesUpdating}
-            />
-          )}
-
-          {/* Activity Trend Chart */}
-          <ActivityTrendChart selectedDate={selectedDate} />
-        </div>
-
-        {/* Supplements Panel - Right Side */}
-        <div className="col-span-4">
+          {/* Supplements Panel */}
           <SupplementsPanel
             supplements={supplements}
             onSupplementChange={handleSupplementChange}
@@ -459,6 +440,15 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
             }}
             isRestDay={trainingContext.isRestDay}
             hasPerformanceWorkout={trainingContext.hasPerformanceWorkout}
+          />
+        </div>
+
+        {/* Food Library - Right Side (Full Height) */}
+        <div className="col-span-6 flex flex-col min-h-[600px]">
+          <FoodLibrary
+            targetPoints={mealData.hasData ? mealData.dinner.protein + mealData.dinner.carbs + mealData.dinner.fats : 350}
+            selectedMeal="dinner"
+            className="flex-1"
           />
         </div>
       </div>

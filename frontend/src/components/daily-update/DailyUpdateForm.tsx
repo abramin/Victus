@@ -8,7 +8,6 @@ import type {
 } from '../../api/types';
 import { DayTargetsPanel } from '../day-view';
 import { calculateMealTargets } from '../targets/mealTargets';
-import { TrainingSessionList } from '../daily-input/TrainingSessionList';
 import { MorningCheckinSection } from './MorningCheckinSection';
 import { DayTypeSelector } from './DayTypeSelector';
 import { DeficitMonitor, WeeklyContextStrip, KitchenCheatSheet } from '../saved-view';
@@ -145,16 +144,6 @@ export function DailyUpdateForm({
       errors.sleepQuality = `Sleep quality must be between ${SLEEP_QUALITY_MIN} and ${SLEEP_QUALITY_MAX}`;
     }
 
-    if (formData.plannedTrainingSessions.length === 0) {
-      errors.training = 'Add at least one training session.';
-    } else if (
-      formData.plannedTrainingSessions.some(
-        (session) => session.type !== 'rest' && session.durationMin <= 0
-      )
-    ) {
-      errors.training = 'Duration is required for non-rest training.';
-    }
-
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -250,7 +239,7 @@ export function DailyUpdateForm({
   const summarySessions = showForm ? formData.plannedTrainingSessions : log?.plannedTrainingSessions ?? [];
 
   return (
-    <div className="p-6 max-w-6xl mx-auto" data-testid="daily-update-form">
+    <div className="p-6" data-testid="daily-update-form">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -328,20 +317,6 @@ export function DailyUpdateForm({
               onUpdate={updateFormData}
               validationErrors={validationErrors}
             />
-
-            {/* Planned Training */}
-            <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
-              <h3 className="text-white font-medium mb-4">Today's Training</h3>
-              <TrainingSessionList
-                sessions={formData.plannedTrainingSessions}
-                onSessionsChange={(sessions) =>
-                  updateFormData({ plannedTrainingSessions: sessions })
-                }
-              />
-              {validationErrors.training && (
-                <p className="text-xs text-red-400 mt-2">{validationErrors.training}</p>
-              )}
-            </div>
 
             <DayTypeSelector
               selectedDayType={formData.dayType}

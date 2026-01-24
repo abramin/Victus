@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import type { DayType, DailyTargets, MealTargets, UserProfile } from '../../api/types';
 import { getDailyTargetsRange } from '../../api/client';
 import { DayTargetsPanel } from '../day-view';
 import { calculateMealTargets } from '../targets/mealTargets';
+import { MacroDonutChart } from '../charts';
 import {
   CARB_KCAL_PER_G,
   PROTEIN_KCAL_PER_G,
@@ -11,6 +13,13 @@ import {
   DAY_TYPE_LABELS,
 } from '../../constants';
 import { toDateKey } from '../../utils';
+
+// Heatmap background colors for day types (faint tints)
+const DAY_TYPE_HEATMAP: Record<DayType, string> = {
+  fatburner: 'bg-orange-500/10',
+  performance: 'bg-blue-500/10',
+  metabolize: 'bg-emerald-500/10',
+};
 
 interface PlanCalendarProps {
   profile: UserProfile;
@@ -285,7 +294,7 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold text-white">Plan</h1>
+        <h1 className="text-2xl font-semibold text-white">Schedule</h1>
 
         {/* Month Navigation */}
         <div className="flex items-center gap-2">
@@ -367,66 +376,54 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
                 onClick={() => openDayDialog(dayData)}
                 disabled={isDisabled}
                 className={`min-h-[120px] p-2 border-t border-r border-gray-800 last:border-r-0 text-left transition ${
-                  isToday(dayData.date) ? 'bg-gray-800/30' : 'bg-transparent'
-                } ${isSelected ? 'ring-2 ring-white/20' : ''} ${
+                  isToday(dayData.date) ? 'ring-2 ring-blue-500/50' : ''
+                } ${isSelected ? 'ring-2 ring-white/30' : ''} ${
                   isDisabled ? 'cursor-not-allowed opacity-60' : 'hover:bg-gray-800/40'
-                } ${isFiltered && dayData.hasData ? 'opacity-30' : ''}`}
+                } ${isFiltered && dayData.hasData ? 'opacity-30' : ''} ${
+                  dayData.dayType ? DAY_TYPE_HEATMAP[dayData.dayType] : 'bg-transparent'
+                }`}
               >
-                {/* Day Number, Training Context Dot & Today Indicator */}
-                <div className="flex items-center justify-between mb-2">
+                {/* Day Number with Macro Donut */}
+                <div className="flex items-center justify-between mb-1">
                   <div className="flex items-center gap-1">
                     <span className={`text-sm font-medium ${
                       isToday(dayData.date) ? 'text-white' : 'text-gray-400'
                     }`}>
                       {dayData.date.getDate()}
                     </span>
-                    {/* Training context dot: blue for training day, grey for rest */}
-                    {dayData.hasData && (
-                      <span className={`w-1.5 h-1.5 rounded-full ${
-                        dayData.hasTraining ? 'bg-blue-500' : 'bg-gray-600'
-                      }`} title={dayData.hasTraining ? 'Training day' : 'Rest day'} />
+                    {isToday(dayData.date) && (
+                      <span className="text-[10px] text-blue-400 font-medium">TODAY</span>
                     )}
                   </div>
-                  {isToday(dayData.date) && (
-                    <span className="w-2 h-2 rounded-full bg-blue-500" />
+                  
+                  {/* Mini Macro Donut Chart */}
+                  {dayData.hasData && dayData.mealGrams && (
+                    <MacroDonutChart
+                      carbs={dayData.mealGrams.dinner.carbsG}
+                      protein={dayData.mealGrams.dinner.proteinG}
+                      fat={dayData.mealGrams.dinner.fatsG}
+                      size={32}
+                    />
                   )}
                 </div>
 
                 {/* Day Type Badge */}
                 {dayData.dayType && dayData.hasData && (
-                  <div className={`inline-block px-2 py-0.5 rounded text-xs font-medium mb-2 ${
+                  <div className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium mb-1 ${
                     DAY_TYPE_COLORS[dayData.dayType].bg
                   } text-white`}>
-                    {DAY_TYPE_LABELS[dayData.dayType]}
+                    {DAY_TYPE_LABELS[dayData.dayType].slice(0, 4)}
                   </div>
                 )}
 
-                {/* Per-Meal Calories Breakdown */}
-                <div className="space-y-0.5 text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">B:</span>
-                    <span className={dayData.hasData ? 'text-gray-300' : 'text-gray-600'}>
-                      {dayData.hasData ? dayData.breakfastCal : '--'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">L:</span>
-                    <span className={dayData.hasData ? 'text-gray-300' : 'text-gray-600'}>
-                      {dayData.hasData ? dayData.lunchCal : '--'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">D:</span>
-                    <span className={dayData.hasData ? 'text-gray-300' : 'text-gray-600'}>
-                      {dayData.hasData ? dayData.dinnerCal : '--'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between pt-1 border-t border-gray-700">
-                    <span className="text-gray-500">Total:</span>
-                    <span className={dayData.hasData ? 'text-white font-bold' : 'text-gray-600'}>
-                      {dayData.hasData ? dayData.totalCalories : '--'}
-                    </span>
-                  </div>
+                {/* Total Calories (simplified) */}
+                <div className="text-center mt-1">
+                  <span className={`text-xs font-medium ${dayData.hasData ? 'text-white' : 'text-gray-600'}`}>
+                    {dayData.hasData ? `${dayData.totalCalories}` : '--'}
+                  </span>
+                  {dayData.hasData && (
+                    <span className="text-[10px] text-gray-500 ml-0.5">kcal</span>
+                  )}
                 </div>
               </button>
             );
@@ -453,7 +450,7 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
             role="dialog"
             aria-modal="true"
             aria-label="Day view"
-            className={`relative z-10 w-full max-w-2xl mx-4 transition-all duration-300 ${
+            className={`relative z-10 w-full max-w-4xl mx-4 transition-all duration-300 ${
               isDialogOpen ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95'
             }`}
           >

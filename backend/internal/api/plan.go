@@ -29,7 +29,7 @@ func (s *Server) createPlan(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if errors.Is(err, store.ErrActivePlanExists) {
-			writeError(w, http.StatusConflict, "active_plan_exists", "An active nutrition plan already exists. Complete or cancel it first.")
+			writeError(w, http.StatusConflict, "active_plan_exists", "An active nutrition plan already exists. Complete or abandon it first.")
 			return
 		}
 		if isValidationError(err) {
@@ -123,8 +123,8 @@ func (s *Server) completePlan(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// cancelPlan handles POST /api/plans/{id}/cancel
-func (s *Server) cancelPlan(w http.ResponseWriter, r *http.Request) {
+// abandonPlan handles POST /api/plans/{id}/abandon
+func (s *Server) abandonPlan(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
@@ -132,7 +132,7 @@ func (s *Server) cancelPlan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.planService.Cancel(r.Context(), id); err != nil {
+	if err := s.planService.Abandon(r.Context(), id); err != nil {
 		if errors.Is(err, store.ErrPlanNotFound) {
 			writeError(w, http.StatusNotFound, "not_found", "Nutrition plan not found")
 			return

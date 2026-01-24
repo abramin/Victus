@@ -6,6 +6,7 @@ import { PlanSummaryCard } from './PlanSummaryCard';
 import { WeeklyTargetsTable } from './WeeklyTargetsTable';
 import { DualTrackChart } from './DualTrackChart';
 import { RecalibrationPrompt } from './RecalibrationPrompt';
+import { PlanProgressTimeline } from './PlanProgressTimeline';
 import type { CreatePlanRequest, RecalibrationOption } from '../../api/types';
 
 export function PlanOverview() {
@@ -73,6 +74,17 @@ export function PlanOverview() {
   // Active plan - show overview
   return (
     <div className="space-y-6">
+      {/* Progress Timeline - Visual at-a-glance progress indicator */}
+      <PlanProgressTimeline
+        startDate={plan.startDate}
+        endDate={plan.endDate}
+        currentWeek={plan.currentWeek}
+        totalWeeks={plan.durationWeeks}
+        startWeightKg={plan.startWeightKg}
+        currentWeightKg={analysis?.actualWeightKg ?? plan.startWeightKg}
+        targetWeightKg={plan.targetWeightKg}
+      />
+
       {/* Recalibration prompt (if needed) */}
       {analysis?.recalibrationNeeded && analysis.options && (
         <RecalibrationPrompt

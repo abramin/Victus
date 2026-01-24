@@ -303,10 +303,10 @@ When("I complete the plan", () => {
   }).as("lastResponse")
 })
 
-When("I cancel the plan", () => {
+When("I abandon the plan", () => {
   cy.request({
     method: "POST",
-    url: `${apiBaseUrl}/api/plans/${currentPlanId}/cancel`,
+    url: `${apiBaseUrl}/api/plans/${currentPlanId}/abandon`,
     failOnStatusCode: false,
   }).as("lastResponse")
 })

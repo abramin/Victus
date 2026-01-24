@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
 import {
-  LineChart,
+  ComposedChart,
   Line,
+  Area,
   XAxis,
   YAxis,
   ResponsiveContainer,
@@ -14,6 +15,8 @@ import { Card } from '../common/Card';
 
 interface DualTrackChartProps {
   analysis: DualTrackAnalysis;
+  /** Tolerance percentage for "Cone of Uncertainty" (default: 0.03 = 3%) */
+  tolerancePercent?: number;
 }
 
 interface ChartDataPoint {
@@ -22,23 +25,31 @@ interface ChartDataPoint {
   planWeight?: number;
   trendWeight?: number;
   actualWeight?: number;
+  /** Upper and lower bounds for cone of uncertainty */
+  toleranceZone?: [number, number];
 }
 
-export function DualTrackChart({ analysis }: DualTrackChartProps) {
+export function DualTrackChart({ analysis, tolerancePercent = 0.03 }: DualTrackChartProps) {
   const chartData = useMemo(() => {
     const data: ChartDataPoint[] = [];
 
     // Add plan projection points
     for (const point of analysis.planProjection) {
       const existing = data.find(d => d.weekNumber === point.weekNumber);
+      // Calculate tolerance zone bounds (±tolerancePercent)
+      const lower = point.weightKg * (1 - tolerancePercent);
+      const upper = point.weightKg * (1 + tolerancePercent);
+      
       if (existing) {
         existing.planWeight = point.weightKg;
         existing.date = formatDate(point.date);
+        existing.toleranceZone = [lower, upper];
       } else {
         data.push({
           weekNumber: point.weekNumber,
           date: formatDate(point.date),
           planWeight: point.weightKg,
+          toleranceZone: [lower, upper],
         });
       }
     }
@@ -69,12 +80,18 @@ export function DualTrackChart({ analysis }: DualTrackChartProps) {
     }
 
     return data;
-  }, [analysis]);
+  }, [analysis, tolerancePercent]);
 
-  // Calculate Y-axis domain
+  // Calculate Y-axis domain - include tolerance zone bounds
   const yDomain = useMemo(() => {
     const allWeights = chartData.flatMap(d =>
-      [d.planWeight, d.trendWeight, d.actualWeight].filter((w): w is number => w !== undefined)
+      [
+        d.planWeight,
+        d.trendWeight,
+        d.actualWeight,
+        d.toleranceZone?.[0],
+        d.toleranceZone?.[1]
+      ].filter((w): w is number => w !== undefined)
     );
     if (allWeights.length === 0) return [60, 100];
 
@@ -86,10 +103,17 @@ export function DualTrackChart({ analysis }: DualTrackChartProps) {
   }, [chartData]);
 
   return (
-    <Card title="Plan vs Trend Projection">
+    <Card title="Plan vs Reality">
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={chartData} margin={{ top: 10, right: 30, left: 10, bottom: 10 }}>
+          <ComposedChart data={chartData} margin={{ top: 10, right: 30, left: 10, bottom: 10 }}>
+            <defs>
+              <linearGradient id="toleranceGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.15} />
+                <stop offset="50%" stopColor="#3b82f6" stopOpacity={0.05} />
+                <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.15} />
+              </linearGradient>
+            </defs>
             <XAxis
               dataKey="weekNumber"
               tickFormatter={(week) => `W${week}`}
@@ -122,29 +146,40 @@ export function DualTrackChart({ analysis }: DualTrackChartProps) {
             <Legend
               formatter={(value) =>
                 value === 'planWeight' ? 'Plan Projection' :
-                value === 'trendWeight' ? 'Current Trend Projection' :
+                value === 'trendWeight' ? 'Current Trend' :
+                value === 'toleranceZone' ? 'Tolerance Zone (±3%)' :
                 'Actual Weight'
               }
             />
 
-            {/* Plan projection line */}
+            {/* Cone of Uncertainty - Tolerance Zone */}
+            <Area
+              type="linear"
+              dataKey="toleranceZone"
+              fill="url(#toleranceGradient)"
+              stroke="none"
+              name="toleranceZone"
+              legendType="square"
+            />
+
+            {/* Plan projection line (grey dashed per UX spec) */}
             <Line
               type="linear"
               dataKey="planWeight"
-              stroke="#3b82f6"
+              stroke="#9ca3af"
               strokeWidth={2}
+              strokeDasharray="4 4"
               dot={false}
               name="planWeight"
             />
 
-            {/* Trend projection line */}
+            {/* Trend projection line (blue solid - actual smoothed weight trend) */}
             {analysis.trendProjection && analysis.trendProjection.length > 0 && (
               <Line
                 type="linear"
                 dataKey="trendWeight"
-                stroke="#f59e0b"
-                strokeWidth={2}
-                strokeDasharray="5 5"
+                stroke="#3b82f6"
+                strokeWidth={2.5}
                 dot={false}
                 name="trendWeight"
               />
@@ -159,19 +194,23 @@ export function DualTrackChart({ analysis }: DualTrackChartProps) {
               stroke="white"
               strokeWidth={2}
             />
-          </LineChart>
+          </ComposedChart>
         </ResponsiveContainer>
       </div>
 
       {/* Legend explanation */}
       <div className="mt-4 flex flex-wrap gap-4 text-sm">
         <div className="flex items-center gap-2">
-          <div className="w-4 h-0.5 bg-blue-500" />
+          <div className="w-4 h-3 bg-blue-100 border border-blue-200 rounded-sm" />
+          <span className="text-gray-600">Tolerance Zone (±3%)</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-0.5 bg-gray-400" style={{ borderTop: '2px dashed #9ca3af' }} />
           <span className="text-gray-600">Plan Projection</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-4 h-0.5 bg-amber-500" style={{ borderTop: '2px dashed #f59e0b' }} />
-          <span className="text-gray-600">Current Trend Projection</span>
+          <div className="w-4 h-0.5 bg-blue-500" />
+          <span className="text-gray-600">Actual Trend</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full bg-green-500" />

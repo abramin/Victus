@@ -67,10 +67,10 @@ func (s *NutritionPlanService) Complete(ctx context.Context, id int64) error {
 	return s.planStore.UpdateStatus(ctx, id, domain.PlanStatusCompleted)
 }
 
-// Cancel marks a plan as cancelled.
+// Abandon marks a plan as abandoned.
 // Returns store.ErrPlanNotFound if plan doesn't exist.
-func (s *NutritionPlanService) Cancel(ctx context.Context, id int64) error {
-	return s.planStore.UpdateStatus(ctx, id, domain.PlanStatusCancelled)
+func (s *NutritionPlanService) Abandon(ctx context.Context, id int64) error {
+	return s.planStore.UpdateStatus(ctx, id, domain.PlanStatusAbandoned)
 }
 
 // Delete removes a nutrition plan.

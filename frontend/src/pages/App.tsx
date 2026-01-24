@@ -78,17 +78,9 @@ function App() {
     <ErrorBoundary>
       <AppLayout>
         <Routes>
-          <Route path="/" element={<MealPointsDashboard log={log} profile={profile} />} />
-          <Route path="/plan" element={
-            <div className="p-6 max-w-6xl mx-auto">
-              <h1 className="text-2xl font-semibold text-white mb-6">Nutrition Plan</h1>
-              <PlanOverview />
-            </div>
-          } />
-          <Route path="/plan-calendar" element={<PlanCalendar profile={profile} />} />
-          <Route path="/history" element={<WeightHistory profile={profile} />} />
+          {/* Today - The Command Center (formerly Daily Update) */}
           <Route
-            path="/daily-update"
+            path="/"
             element={
               <DailyUpdateForm
                 onSubmit={create}
@@ -100,6 +92,18 @@ function App() {
               />
             }
           />
+          {/* Kitchen - The Execution Hub (formerly Meal Points) */}
+          <Route path="/kitchen" element={<MealPointsDashboard log={log} profile={profile} />} />
+          {/* Strategy - The War Room (formerly Plan) */}
+          <Route path="/strategy" element={
+            <div className="p-6 max-w-6xl mx-auto">
+              <h1 className="text-2xl font-semibold text-white mb-6">Strategy</h1>
+              <PlanOverview />
+            </div>
+          } />
+          {/* Schedule - The Tactical Calendar */}
+          <Route path="/schedule" element={<PlanCalendar profile={profile} />} />
+          <Route path="/history" element={<WeightHistory profile={profile} />} />
           <Route
             path="/log-workout"
             element={

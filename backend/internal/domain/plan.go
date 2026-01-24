@@ -11,14 +11,14 @@ type PlanStatus string
 const (
 	PlanStatusActive    PlanStatus = "active"
 	PlanStatusCompleted PlanStatus = "completed"
-	PlanStatusCancelled PlanStatus = "cancelled"
+	PlanStatusAbandoned PlanStatus = "abandoned"
 )
 
 // ValidPlanStatuses contains all valid plan status values.
 var ValidPlanStatuses = map[PlanStatus]bool{
 	PlanStatusActive:    true,
 	PlanStatusCompleted: true,
-	PlanStatusCancelled: true,
+	PlanStatusAbandoned: true,
 }
 
 // ParsePlanStatus safely converts a string to PlanStatus with validation.

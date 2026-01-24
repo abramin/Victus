@@ -116,10 +116,10 @@ export function DayTargetsPanel({
     };
   };
 
-  const headerClass = compact ? 'text-base' : 'text-lg';
-  const panelPadding = compact ? 'p-4' : 'p-5';
-  const gridClass = compact ? 'grid grid-cols-1 gap-3' : 'grid grid-cols-1 md:grid-cols-3 gap-3';
-  const statText = compact ? 'text-xs' : 'text-sm';
+  const headerClass = compact ? 'text-xl' : 'text-2xl';
+  const panelPadding = compact ? 'p-6' : 'p-8';
+  const gridClass = 'grid grid-cols-3 gap-6';
+  const statText = compact ? 'text-base' : 'text-lg';
 
   // Provisional styling: faded opacity, dashed border
   const provisionalClass = isProvisional
@@ -138,192 +138,192 @@ export function DayTargetsPanel({
               </span>
             )}
           </div>
-          <p className="text-gray-400 text-xs">{dateLabel}</p>
+          <p className="text-gray-400 text-base">{dateLabel}</p>
           {trainingContext && (
-            <p className="text-blue-400 text-xs mt-1 font-medium">{trainingContext}</p>
+            <p className="text-blue-400 text-base mt-1 font-medium">{trainingContext}</p>
           )}
-          {helperText && <p className="text-gray-500 text-xs mt-1">{helperText}</p>}
+          {helperText && <p className="text-gray-500 text-base mt-1">{helperText}</p>}
         </div>
-        <span className={`px-2.5 py-1 rounded-full text-[11px] font-medium border ${DAY_TYPE_BADGE[dayType].className}`}>
+        <span className={`px-4 py-2 rounded-full text-sm font-medium border ${DAY_TYPE_BADGE[dayType].className}`}>
           {DAY_TYPE_BADGE[dayType].label}
         </span>
       </div>
 
       <div className={gridClass}>
         {/* Breakfast Card */}
-        <div className="bg-gray-950/70 rounded-lg border border-gray-800 p-4">
+        <div className="bg-gray-950/70 rounded-xl border border-gray-800 p-6">
           <div className="flex items-center justify-between">
-            <h4 className="text-sm text-white font-medium">Breakfast</h4>
-            <span className="text-xs text-white font-semibold">
+            <h4 className="text-lg text-white font-medium">Breakfast</h4>
+            <span className="text-base text-white font-semibold">
               {mealCalories ? `${mealCalories.breakfast} kcal` : '--'}
             </span>
           </div>
-          <div className="text-[10px] text-gray-500 mt-0.5">
+          <div className="text-sm text-gray-500 mt-1">
             {mealTotals.breakfast} pts ({totalPoints > 0 ? Math.round((mealTotals.breakfast / totalPoints) * 100) : 0}% of day)
           </div>
-          <div className="grid grid-cols-3 gap-2 text-center mt-3">
+          <div className="grid grid-cols-3 gap-4 text-center mt-5">
             <div>
-              <div className="text-lg font-semibold text-orange-400">
+              <div className="text-2xl font-bold text-orange-400">
                 {mealGrams ? mealGrams.breakfast.carbsG : mealTargets.breakfast.carbs}g
               </div>
-              <div className="text-[10px] text-gray-500 uppercase">Carb</div>
+              <div className="text-sm text-gray-500 uppercase">Carb</div>
               {mealGrams && (
-                <div className="text-[9px] text-gray-600">
+                <div className="text-xs text-gray-600">
                   ({getMacroPercentages(mealGrams.breakfast).carb}%)
                 </div>
               )}
             </div>
             <div>
-              <div className="text-lg font-semibold text-purple-400">
+              <div className="text-2xl font-bold text-purple-400">
                 {mealGrams ? mealGrams.breakfast.proteinG : mealTargets.breakfast.protein}g
               </div>
-              <div className="text-[10px] text-gray-500 uppercase">Protein</div>
+              <div className="text-sm text-gray-500 uppercase">Protein</div>
               {mealGrams && (
-                <div className="text-[9px] text-gray-600">
+                <div className="text-xs text-gray-600">
                   ({getMacroPercentages(mealGrams.breakfast).protein}%)
                 </div>
               )}
             </div>
             <div>
-              <div className="text-lg font-semibold text-slate-300">
+              <div className="text-2xl font-bold text-slate-300">
                 {mealGrams ? mealGrams.breakfast.fatsG : mealTargets.breakfast.fats}g
               </div>
-              <div className="text-[10px] text-gray-500 uppercase">Fat</div>
+              <div className="text-sm text-gray-500 uppercase">Fat</div>
               {mealGrams && (
-                <div className="text-[9px] text-gray-600">
+                <div className="text-xs text-gray-600">
                   ({getMacroPercentages(mealGrams.breakfast).fat}%)
                 </div>
               )}
             </div>
           </div>
-          <div className="flex items-center justify-between mt-3 text-[11px]">
+          <div className="flex items-center justify-between mt-5 text-base">
             <span className="text-green-400">Fruit {fruitByMeal.breakfast}g</span>
             <span className="text-emerald-400">Veg {veggieByMeal.breakfast}g</span>
           </div>
         </div>
 
         {/* Lunch Card */}
-        <div className="bg-gray-950/70 rounded-lg border border-gray-800 p-4">
+        <div className="bg-gray-950/70 rounded-xl border border-gray-800 p-6">
           <div className="flex items-center justify-between">
-            <h4 className="text-sm text-white font-medium">Lunch</h4>
-            <span className="text-xs text-white font-semibold">
+            <h4 className="text-lg text-white font-medium">Lunch</h4>
+            <span className="text-base text-white font-semibold">
               {mealCalories ? `${mealCalories.lunch} kcal` : '--'}
             </span>
           </div>
-          <div className="text-[10px] text-gray-500 mt-0.5">
+          <div className="text-sm text-gray-500 mt-1">
             {mealTotals.lunch} pts ({totalPoints > 0 ? Math.round((mealTotals.lunch / totalPoints) * 100) : 0}% of day)
           </div>
-          <div className="grid grid-cols-3 gap-2 text-center mt-3">
+          <div className="grid grid-cols-3 gap-4 text-center mt-5">
             <div>
-              <div className="text-lg font-semibold text-orange-400">
+              <div className="text-2xl font-bold text-orange-400">
                 {mealGrams ? mealGrams.lunch.carbsG : mealTargets.lunch.carbs}g
               </div>
-              <div className="text-[10px] text-gray-500 uppercase">Carb</div>
+              <div className="text-sm text-gray-500 uppercase">Carb</div>
               {mealGrams && (
-                <div className="text-[9px] text-gray-600">
+                <div className="text-xs text-gray-600">
                   ({getMacroPercentages(mealGrams.lunch).carb}%)
                 </div>
               )}
             </div>
             <div>
-              <div className="text-lg font-semibold text-purple-400">
+              <div className="text-2xl font-bold text-purple-400">
                 {mealGrams ? mealGrams.lunch.proteinG : mealTargets.lunch.protein}g
               </div>
-              <div className="text-[10px] text-gray-500 uppercase">Protein</div>
+              <div className="text-sm text-gray-500 uppercase">Protein</div>
               {mealGrams && (
-                <div className="text-[9px] text-gray-600">
+                <div className="text-xs text-gray-600">
                   ({getMacroPercentages(mealGrams.lunch).protein}%)
                 </div>
               )}
             </div>
             <div>
-              <div className="text-lg font-semibold text-slate-300">
+              <div className="text-2xl font-bold text-slate-300">
                 {mealGrams ? mealGrams.lunch.fatsG : mealTargets.lunch.fats}g
               </div>
-              <div className="text-[10px] text-gray-500 uppercase">Fat</div>
+              <div className="text-sm text-gray-500 uppercase">Fat</div>
               {mealGrams && (
-                <div className="text-[9px] text-gray-600">
+                <div className="text-xs text-gray-600">
                   ({getMacroPercentages(mealGrams.lunch).fat}%)
                 </div>
               )}
             </div>
           </div>
-          <div className="flex items-center justify-between mt-3 text-[11px]">
+          <div className="flex items-center justify-between mt-5 text-base">
             <span className="text-green-400">Fruit {fruitByMeal.lunch}g</span>
             <span className="text-emerald-400">Veg {veggieByMeal.lunch}g</span>
           </div>
         </div>
 
         {/* Dinner Card */}
-        <div className="bg-gray-950/70 rounded-lg border border-gray-800 p-4">
+        <div className="bg-gray-950/70 rounded-xl border border-gray-800 p-6">
           <div className="flex items-center justify-between">
-            <h4 className="text-sm text-white font-medium">Dinner</h4>
-            <span className="text-xs text-white font-semibold">
+            <h4 className="text-lg text-white font-medium">Dinner</h4>
+            <span className="text-base text-white font-semibold">
               {mealCalories ? `${mealCalories.dinner} kcal` : '--'}
             </span>
           </div>
-          <div className="text-[10px] text-gray-500 mt-0.5">
+          <div className="text-sm text-gray-500 mt-1">
             {mealTotals.dinner} pts ({totalPoints > 0 ? Math.round((mealTotals.dinner / totalPoints) * 100) : 0}% of day)
           </div>
-          <div className="grid grid-cols-3 gap-2 text-center mt-3">
+          <div className="grid grid-cols-3 gap-4 text-center mt-5">
             <div>
-              <div className="text-lg font-semibold text-orange-400">
+              <div className="text-2xl font-bold text-orange-400">
                 {mealGrams ? mealGrams.dinner.carbsG : mealTargets.dinner.carbs}g
               </div>
-              <div className="text-[10px] text-gray-500 uppercase">Carb</div>
+              <div className="text-sm text-gray-500 uppercase">Carb</div>
               {mealGrams && (
-                <div className="text-[9px] text-gray-600">
+                <div className="text-xs text-gray-600">
                   ({getMacroPercentages(mealGrams.dinner).carb}%)
                 </div>
               )}
             </div>
             <div>
-              <div className="text-lg font-semibold text-purple-400">
+              <div className="text-2xl font-bold text-purple-400">
                 {mealGrams ? mealGrams.dinner.proteinG : mealTargets.dinner.protein}g
               </div>
-              <div className="text-[10px] text-gray-500 uppercase">Protein</div>
+              <div className="text-sm text-gray-500 uppercase">Protein</div>
               {mealGrams && (
-                <div className="text-[9px] text-gray-600">
+                <div className="text-xs text-gray-600">
                   ({getMacroPercentages(mealGrams.dinner).protein}%)
                 </div>
               )}
             </div>
             <div>
-              <div className="text-lg font-semibold text-slate-300">
+              <div className="text-2xl font-bold text-slate-300">
                 {mealGrams ? mealGrams.dinner.fatsG : mealTargets.dinner.fats}g
               </div>
-              <div className="text-[10px] text-gray-500 uppercase">Fat</div>
+              <div className="text-sm text-gray-500 uppercase">Fat</div>
               {mealGrams && (
-                <div className="text-[9px] text-gray-600">
+                <div className="text-xs text-gray-600">
                   ({getMacroPercentages(mealGrams.dinner).fat}%)
                 </div>
               )}
             </div>
           </div>
-          <div className="flex items-center justify-between mt-3 text-[11px]">
+          <div className="flex items-center justify-between mt-5 text-base">
             <span className="text-green-400">Fruit {fruitByMeal.dinner}g</span>
             <span className="text-emerald-400">Veg {veggieByMeal.dinner}g</span>
           </div>
         </div>
       </div>
 
-      <div className={`flex flex-wrap gap-3 mt-4 ${statText}`}>
-        <div className="bg-gray-950/70 rounded-lg border border-gray-800 px-3 py-2">
+      <div className={`flex flex-wrap gap-5 mt-6 ${statText}`}>
+        <div className="bg-gray-950/70 rounded-xl border border-gray-800 px-5 py-4">
           <span className="text-gray-400">Total Calories</span>
           <span className="text-white font-medium ml-2">
             {computedCalories} kcal
           </span>
         </div>
-        <div className="bg-gray-950/70 rounded-lg border border-gray-800 px-3 py-2">
+        <div className="bg-gray-950/70 rounded-xl border border-gray-800 px-5 py-4">
           <span className="text-gray-400">Fruit</span>
           <span className="text-white font-medium ml-2">{totalFruitG}g</span>
         </div>
-        <div className="bg-gray-950/70 rounded-lg border border-gray-800 px-3 py-2">
+        <div className="bg-gray-950/70 rounded-xl border border-gray-800 px-5 py-4">
           <span className="text-gray-400">Veggies</span>
           <span className="text-white font-medium ml-2">{totalVeggiesG}g</span>
         </div>
         {waterL !== undefined && (
-          <div className="bg-gray-950/70 rounded-lg border border-gray-800 px-3 py-2">
+          <div className="bg-gray-950/70 rounded-xl border border-gray-800 px-5 py-4">
             <span className="text-gray-400">Water</span>
             <span className="text-white font-medium ml-2">{waterL}L</span>
           </div>

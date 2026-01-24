@@ -49,7 +49,7 @@ func (s *PlanSuite) validInput() NutritionPlanInput {
 
 func (s *PlanSuite) TestPlanStatusParsing() {
 	s.Run("accepts all valid statuses", func() {
-		validStatuses := []string{"active", "completed", "cancelled"}
+		validStatuses := []string{"active", "completed", "abandoned"}
 		for _, status := range validStatuses {
 			parsed, err := ParsePlanStatus(status)
 			s.Require().NoError(err, "Should accept status: %s", status)
@@ -489,11 +489,11 @@ func (s *PlanSuite) TestIsActive() {
 		s.False(plan.IsActive())
 	})
 
-	s.Run("returns false for cancelled plan", func() {
+	s.Run("returns false for abandoned plan", func() {
 		input := s.validInput()
 		plan, err := NewNutritionPlan(input, s.profile, s.now)
 		s.Require().NoError(err)
-		plan.Status = PlanStatusCancelled
+		plan.Status = PlanStatusAbandoned
 		s.False(plan.IsActive())
 	})
 }

@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { Panel } from '../common/Panel';
+import { BulletChart } from '../charts';
 import type { TrainingSession, TrainingConfig } from '../../api/types';
 
 type ActivityStatus = 'on_track' | 'at_risk' | 'secured';
@@ -55,33 +56,6 @@ function getActivityStatus(
   return 'on_track';
 }
 
-function getStatusConfig(status: ActivityStatus) {
-  switch (status) {
-    case 'secured':
-      return {
-        label: 'Deficit Secured',
-        color: 'text-emerald-400',
-        bgColor: 'bg-emerald-500',
-        dotColor: 'bg-emerald-400',
-      };
-    case 'at_risk':
-      return {
-        label: 'Deficit at Risk',
-        color: 'text-amber-400',
-        bgColor: 'bg-amber-500',
-        dotColor: 'bg-amber-400',
-      };
-    case 'on_track':
-    default:
-      return {
-        label: 'On Track',
-        color: 'text-gray-400',
-        bgColor: 'bg-gray-500',
-        dotColor: 'bg-gray-400',
-      };
-  }
-}
-
 export function DeficitMonitor({
   plannedSessions,
   trainingConfigs,
@@ -95,12 +69,10 @@ export function DeficitMonitor({
   );
 
   const actualBurn = activeCaloriesBurned ?? 0;
-  const progress = plannedBurn > 0 ? Math.min(100, (actualBurn / plannedBurn) * 100) : 0;
   const remaining = Math.max(0, plannedBurn - actualBurn);
 
   const currentHour = new Date().getHours();
   const status = getActivityStatus(actualBurn, plannedBurn, currentHour);
-  const statusConfig = getStatusConfig(status);
 
   // Rest day - no activity goal
   if (plannedBurn === 0) {
@@ -115,48 +87,29 @@ export function DeficitMonitor({
 
   return (
     <Panel title="Activity & Deficit">
-      {/* Progress Bar */}
-      <div className="mb-3">
-        <div className="flex justify-between items-center mb-1.5">
-          <span className="text-xs text-gray-400">Active Burn (Garmin)</span>
-          <span className="text-xs text-gray-500">Target: {plannedBurn} kcal</span>
-        </div>
-        <div className="h-3 bg-gray-800 rounded-full overflow-hidden">
-          <div
-            className={`h-full ${statusConfig.bgColor} transition-all duration-300`}
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-
-        {/* Progress Label */}
-        <div className="flex justify-between items-center mt-2">
-          <span className="text-sm text-gray-300">
-            {activeCaloriesBurned !== undefined ? (
-              <span className="font-medium">{actualBurn} kcal</span>
-            ) : (
-              <span className="text-gray-500 italic">No data yet</span>
-            )}
-          </span>
-
-          {/* Status Indicator */}
-          <div className={`flex items-center gap-2 ${statusConfig.color}`}>
-            <span className={`w-2 h-2 rounded-full ${statusConfig.dotColor}`} />
-            <span className="text-sm font-medium">{statusConfig.label}</span>
-          </div>
-        </div>
-      </div>
+      {/* Enhanced Bullet Chart Visualization */}
+      <BulletChart
+        actual={actualBurn}
+        target={plannedBurn}
+        minimum={Math.round(plannedBurn * 0.5)} // 50% of target as minimum threshold
+        label="Active Burn (Garmin)"
+        unit="kcal"
+        animate={status === 'at_risk'}
+      />
 
       {/* Context Text */}
-      {status !== 'secured' && remaining > 0 && (
-        <p className="text-xs text-gray-500">
-          You need to burn <span className="text-gray-400">{remaining} more kcal</span> to "earn" full meals.
-        </p>
-      )}
-      {status === 'secured' && (
-        <p className="text-xs text-emerald-400/70">
-          Activity goal reached! Your {totalCalories.toLocaleString()} kcal target is fully earned.
-        </p>
-      )}
+      <div className="mt-3">
+        {status !== 'secured' && remaining > 0 && (
+          <p className="text-xs text-gray-500">
+            You need to burn <span className="text-gray-400">{remaining} more kcal</span> to "earn" full meals.
+          </p>
+        )}
+        {status === 'secured' && (
+          <p className="text-xs text-emerald-400/70">
+            Activity goal reached! Your {totalCalories.toLocaleString()} kcal target is fully earned.
+          </p>
+        )}
+      </div>
     </Panel>
   );
 }

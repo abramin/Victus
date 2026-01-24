@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom';
 
-export type NavItem = 'meal-points' | 'plan' | 'history' | 'daily-update' | 'log-workout' | 'profile';
+export type NavItem = 'today' | 'kitchen' | 'strategy' | 'schedule' | 'history' | 'log-workout' | 'profile';
 
 interface SidebarProps {
   currentNav?: NavItem;
@@ -9,9 +9,19 @@ interface SidebarProps {
 
 const NAV_ITEMS: { id: NavItem; path: string; label: string; icon: React.ReactNode }[] = [
   {
-    id: 'meal-points',
+    id: 'today',
     path: '/',
-    label: 'Meal Points',
+    label: 'Today',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+      </svg>
+    ),
+  },
+  {
+    id: 'kitchen',
+    path: '/kitchen',
+    label: 'Kitchen',
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
@@ -19,9 +29,19 @@ const NAV_ITEMS: { id: NavItem; path: string; label: string; icon: React.ReactNo
     ),
   },
   {
-    id: 'plan',
-    path: '/plan',
-    label: 'Plan',
+    id: 'strategy',
+    path: '/strategy',
+    label: 'Strategy',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+      </svg>
+    ),
+  },
+  {
+    id: 'schedule',
+    path: '/schedule',
+    label: 'Schedule',
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -35,16 +55,6 @@ const NAV_ITEMS: { id: NavItem; path: string; label: string; icon: React.ReactNo
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 3v5h5M3 8a8 8 0 0113.657-5.657M21 21v-5h-5m5-5a8 8 0 01-13.657 5.657M7 13h5l2 2 3-3" />
-      </svg>
-    ),
-  },
-  {
-    id: 'daily-update',
-    path: '/daily-update',
-    label: 'Daily Update',
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
       </svg>
     ),
   },

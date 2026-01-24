@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -75,6 +76,11 @@ func RunMigrations(db *sql.DB) error {
 	// This is needed for existing databases that have the old constraint
 	if err := migrateTrainingSessionsConstraint(db); err != nil {
 		return fmt.Errorf("training sessions constraint migration failed: %w", err)
+	}
+
+	// Update nutrition plan status values to use "abandoned" instead of "cancelled"
+	if err := migratePlanStatusCancelledToAbandoned(db); err != nil {
+		return fmt.Errorf("nutrition plan status migration failed: %w", err)
 	}
 
 	return nil
@@ -338,7 +344,7 @@ CREATE TABLE IF NOT EXISTS nutrition_plans (
     duration_weeks INTEGER NOT NULL CHECK (duration_weeks BETWEEN 4 AND 104),
     required_weekly_change_kg REAL NOT NULL,
     required_daily_deficit_kcal REAL NOT NULL,
-    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'completed', 'cancelled')),
+    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'completed', 'abandoned')),
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -455,6 +461,89 @@ func migrateTrainingSessionsConstraint(db *sql.DB) error {
 	}
 
 	// Re-enable foreign key checks
+	if _, err := tx.Exec("PRAGMA foreign_keys = ON"); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+// migratePlanStatusCancelledToAbandoned updates nutrition_plans status values and constraints.
+// This is needed for existing databases that still use "cancelled".
+func migratePlanStatusCancelledToAbandoned(db *sql.DB) error {
+	var schema string
+	err := db.QueryRow(`
+		SELECT sql FROM sqlite_master
+		WHERE type='table' AND name='nutrition_plans'
+	`).Scan(&schema)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+		return err
+	}
+
+	if strings.Contains(schema, "'abandoned'") {
+		return nil
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec("PRAGMA foreign_keys = OFF"); err != nil {
+		return err
+	}
+
+	if _, err := tx.Exec(`
+		CREATE TABLE nutrition_plans_new (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			start_date TEXT NOT NULL,
+			start_weight_kg REAL NOT NULL CHECK (start_weight_kg BETWEEN 30 AND 300),
+			goal_weight_kg REAL NOT NULL CHECK (goal_weight_kg BETWEEN 30 AND 300),
+			duration_weeks INTEGER NOT NULL CHECK (duration_weeks BETWEEN 4 AND 104),
+			required_weekly_change_kg REAL NOT NULL,
+			required_daily_deficit_kcal REAL NOT NULL,
+			status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'completed', 'abandoned')),
+			created_at TEXT NOT NULL DEFAULT (datetime('now')),
+			updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+		)
+	`); err != nil {
+		return err
+	}
+
+	if _, err := tx.Exec(`
+		INSERT INTO nutrition_plans_new (
+			id, start_date, start_weight_kg, goal_weight_kg, duration_weeks,
+			required_weekly_change_kg, required_daily_deficit_kcal, status, created_at, updated_at
+		)
+		SELECT
+			id, start_date, start_weight_kg, goal_weight_kg, duration_weeks,
+			required_weekly_change_kg, required_daily_deficit_kcal,
+			CASE status WHEN 'cancelled' THEN 'abandoned' ELSE status END,
+			created_at, updated_at
+		FROM nutrition_plans
+	`); err != nil {
+		return err
+	}
+
+	if _, err := tx.Exec("DROP TABLE nutrition_plans"); err != nil {
+		return err
+	}
+
+	if _, err := tx.Exec("ALTER TABLE nutrition_plans_new RENAME TO nutrition_plans"); err != nil {
+		return err
+	}
+
+	if _, err := tx.Exec("CREATE INDEX IF NOT EXISTS idx_nutrition_plans_status ON nutrition_plans(status)"); err != nil {
+		return err
+	}
+	if _, err := tx.Exec("CREATE INDEX IF NOT EXISTS idx_nutrition_plans_start_date ON nutrition_plans(start_date)"); err != nil {
+		return err
+	}
+
 	if _, err := tx.Exec("PRAGMA foreign_keys = ON"); err != nil {
 		return err
 	}
