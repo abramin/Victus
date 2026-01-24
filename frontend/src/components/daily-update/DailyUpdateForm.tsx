@@ -27,6 +27,7 @@ import {
   SLEEP_QUALITY_MIN,
   SLEEP_QUALITY_MAX,
 } from '../../constants';
+import { calculateProvisionalTargets } from '../../utils/calculateProvisionalTargets';
 
 interface DailyUpdateFormProps {
   onSubmit: (log: CreateDailyLogRequest) => Promise<DailyLog | null>;
@@ -72,6 +73,7 @@ export function DailyUpdateForm({
   const [showActualModal, setShowActualModal] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [isEditing, setIsEditing] = useState(false);
+  const [dayTypeAutoSelected, setDayTypeAutoSelected] = useState(false);
 
   const baselineData = useMemo(
     () => (log ? buildFormDataFromLog(log) : INITIAL_FORM_DATA),
@@ -91,6 +93,19 @@ export function DailyUpdateForm({
       }
     }
   }, [isEditing, log]);
+
+  // Smart default: Auto-select Fatburner when training is rest day
+  useEffect(() => {
+    const isRestDay = formData.plannedTrainingSessions.every(
+      (s) => s.type === 'rest'
+    );
+    if (isRestDay && formData.dayType !== 'fatburner') {
+      setFormData((prev) => ({ ...prev, dayType: 'fatburner' }));
+      setDayTypeAutoSelected(true);
+    } else if (!isRestDay) {
+      setDayTypeAutoSelected(false);
+    }
+  }, [formData.plannedTrainingSessions]);
 
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
@@ -201,6 +216,12 @@ export function DailyUpdateForm({
       profile.supplementConfig
     );
   }, [profile.mealRatios, profile.pointsConfig, profile.supplementConfig, targets]);
+
+  // Calculate provisional targets for live preview (when no saved log exists)
+  const provisionalTargets = useMemo(() => {
+    if (targets) return null; // Don't show provisional if we have saved targets
+    return calculateProvisionalTargets(profile, formData);
+  }, [profile, formData, targets]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -367,24 +388,21 @@ export function DailyUpdateForm({
                 </div>
               </div>
 
-              {/* Sleep Quality Slider */}
+              {/* Sleep Quality */}
               <div className="mt-4">
-                <div className="flex justify-between items-center mb-2">
-                  <label className="text-sm text-gray-400">Sleep Quality</label>
-                  <span className="text-white font-medium">{formData.sleepQuality}/100</span>
+                <label className="block text-sm text-gray-400 mb-2">Sleep Quality (1-100)</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min={SLEEP_QUALITY_MIN}
+                    max={SLEEP_QUALITY_MAX}
+                    value={formData.sleepQuality || ''}
+                    onChange={(e) => updateFormData({ sleepQuality: parseInt(e.target.value) || SLEEP_QUALITY_MIN })}
+                    placeholder="1-100"
+                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/20"
+                  />
                 </div>
-                <input
-                  type="range"
-                  min={1}
-                  max={100}
-                  value={formData.sleepQuality}
-                  onChange={(e) => updateFormData({ sleepQuality: parseInt(e.target.value) })}
-                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-white"
-                />
-                <div className="flex justify-between text-xs text-gray-500 mt-1">
-                  <span>Poor</span>
-                  <span>Excellent</span>
-                </div>
+                <p className="text-xs text-gray-500 mt-1">1 = Poor, 100 = Excellent</p>
                 {validationErrors.sleepQuality && (
                   <p className="text-xs text-red-400 mt-1">{validationErrors.sleepQuality}</p>
                 )}
@@ -433,40 +451,67 @@ export function DailyUpdateForm({
 
             {/* Day Type Selection */}
             <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
-              <h3 className="text-white font-medium mb-4">Day Type</h3>
-              <div className="space-y-3">
-                {DAY_TYPE_OPTIONS.map((dt) => (
-                  <label
-                    key={dt.value}
-                    className={`flex items-center gap-3 p-4 rounded-lg cursor-pointer transition-colors ${
-                      formData.dayType === dt.value
-                        ? 'bg-gray-800 border-2 border-white/30'
-                        : 'bg-gray-800/50 border-2 border-transparent hover:bg-gray-800'
-                    }`}
-                  >
-                    <div
-                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                        formData.dayType === dt.value ? 'border-white bg-white' : 'border-gray-600'
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-white font-medium">Day Type</h3>
+                {dayTypeAutoSelected && (
+                  <span className="text-xs text-orange-400">Auto-selected for rest day</span>
+                )}
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                {DAY_TYPE_OPTIONS.map((dt) => {
+                  const isSelected = formData.dayType === dt.value;
+                  const cardStyles = {
+                    performance: {
+                      icon: '⚡',
+                      selected: 'bg-blue-900/60 border-blue-500',
+                      unselected: 'bg-gray-800/50 border-gray-700 hover:border-blue-500/50',
+                      iconColor: 'text-blue-400',
+                      textColor: 'text-blue-300',
+                    },
+                    fatburner: {
+                      icon: '🔥',
+                      selected: 'bg-orange-900/60 border-orange-500',
+                      unselected: 'bg-gray-800/50 border-gray-700 hover:border-orange-500/50',
+                      iconColor: 'text-orange-400',
+                      textColor: 'text-orange-300',
+                    },
+                    metabolize: {
+                      icon: '🥗',
+                      selected: 'bg-emerald-900/60 border-emerald-500',
+                      unselected: 'bg-gray-800/50 border-gray-700 hover:border-emerald-500/50',
+                      iconColor: 'text-emerald-400',
+                      textColor: 'text-emerald-300',
+                    },
+                  }[dt.value as DayType];
+
+                  return (
+                    <label
+                      key={dt.value}
+                      className={`flex flex-col items-center text-center p-4 rounded-xl cursor-pointer transition-all border-2 min-h-[120px] ${
+                        isSelected ? cardStyles.selected : cardStyles.unselected
                       }`}
                     >
-                      {formData.dayType === dt.value && (
-                        <div className="w-2 h-2 rounded-full bg-black" />
-                      )}
-                    </div>
-                    <div>
-                      <div className="text-white font-medium">{dt.label}</div>
-                      <div className="text-sm text-gray-400">{dt.description}</div>
-                    </div>
-                    <input
-                      type="radio"
-                      name="dayType"
-                      value={dt.value}
-                      checked={formData.dayType === dt.value}
-                      onChange={() => updateFormData({ dayType: dt.value })}
-                      className="sr-only"
-                    />
-                  </label>
-                ))}
+                      <span className="text-3xl mb-2">{cardStyles.icon}</span>
+                      <span className={`font-semibold ${isSelected ? cardStyles.textColor : 'text-white'}`}>
+                        {dt.label}
+                      </span>
+                      <span className="text-xs text-gray-400 mt-1 leading-tight">
+                        {dt.description}
+                      </span>
+                      <input
+                        type="radio"
+                        name="dayType"
+                        value={dt.value}
+                        checked={isSelected}
+                        onChange={() => {
+                          updateFormData({ dayType: dt.value });
+                          setDayTypeAutoSelected(false);
+                        }}
+                        className="sr-only"
+                      />
+                    </label>
+                  );
+                })}
               </div>
             </div>
 
@@ -478,6 +523,32 @@ export function DailyUpdateForm({
                 rows={3}
                 className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/20 resize-none"
               />
+            </div>
+
+            {/* Bottom Save Button */}
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={saving || !hasChanges}
+                data-testid="save-log-button-bottom"
+                className={`px-6 py-3 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center gap-2 ${
+                  hasChanges
+                    ? 'bg-white text-black hover:bg-gray-200'
+                    : 'bg-gray-700 text-gray-400'
+                }`}
+              >
+                {saving ? (
+                  'Saving...'
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    {log ? 'Save Changes' : 'Save & Generate Targets'}
+                  </>
+                )}
+              </button>
             </div>
           </div>
 
@@ -532,11 +603,25 @@ export function DailyUpdateForm({
                 compact
                 helperText="Adjusted to your current meal distribution."
               />
+            ) : provisionalTargets ? (
+              <DayTargetsPanel
+                title="Day Targets"
+                dateLabel={todayLabel}
+                dayType={provisionalTargets.dayType}
+                mealTargets={provisionalTargets.meals}
+                mealRatios={profile.mealRatios}
+                totalFruitG={provisionalTargets.fruitG}
+                totalVeggiesG={provisionalTargets.veggiesG}
+                waterL={provisionalTargets.waterL}
+                compact
+                isProvisional
+                helperText="Live preview - save to confirm targets."
+              />
             ) : (
               <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
                 <h3 className="text-white font-medium mb-2">Day Targets</h3>
                 <p className="text-sm text-gray-400">
-                  Save your Daily Update to generate meal targets and fruit/veg splits.
+                  Enter your weight to see a live preview of your targets.
                 </p>
               </div>
             )}
@@ -550,132 +635,85 @@ export function DailyUpdateForm({
           </div>
         </form>
       ) : (
-        <div className="grid grid-cols-3 gap-6">
-          <div className="col-span-2 space-y-6">
-            <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
-              <h3 className="text-white font-medium mb-4">Morning Check-in</h3>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="text-gray-400">Weight</p>
-                  <p className="text-white font-medium">{log?.weightKg ? `${log.weightKg} kg` : '--'}</p>
-                </div>
-                <div>
-                  <p className="text-gray-400">Body Fat</p>
-                  <p className="text-white font-medium">{log?.bodyFatPercent ? `${log.bodyFatPercent}%` : '--'}</p>
-                </div>
-                <div>
-                  <p className="text-gray-400">Resting HR</p>
-                  <p className="text-white font-medium">{log?.restingHeartRate ?? '--'}</p>
-                </div>
-                <div>
-                  <p className="text-gray-400">Sleep Hours</p>
-                  <p className="text-white font-medium">{log?.sleepHours ?? '--'}</p>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Left Column - Compact Summary */}
+          <div className="space-y-4">
+            {/* Compact Check-in Summary */}
+            <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-white font-medium text-sm">Check-in</h3>
+                <div className="flex items-center gap-3 text-sm">
+                  <span className="text-white font-medium">{log?.weightKg ? `${log.weightKg} kg` : '--'}</span>
+                  <span className="text-gray-500">|</span>
+                  <span className="text-gray-400">Sleep {log?.sleepQuality}/100</span>
                 </div>
               </div>
-              <div className="mt-4">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm text-gray-400">Sleep Quality</span>
-                  <span className="text-white font-medium">{log?.sleepQuality}/100</span>
-                </div>
-                <div className="h-2 bg-gray-800 rounded-lg overflow-hidden">
-                  <div
-                    className="h-full bg-white/70"
-                    style={{ width: `${log?.sleepQuality ?? 0}%` }}
-                  />
-                </div>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400">
+                {log?.bodyFatPercent && <span>Body Fat: {log.bodyFatPercent}%</span>}
+                {log?.restingHeartRate && <span>HR: {log.restingHeartRate} bpm</span>}
+                {log?.sleepHours && <span>Slept: {log.sleepHours}h</span>}
               </div>
             </div>
 
-            <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
-              <h3 className="text-white font-medium mb-4">Today's Training</h3>
-              <div className="space-y-3">
-                {summarySessions.length === 0 ? (
-                  <p className="text-sm text-gray-400">No training sessions logged.</p>
+            {/* Compact Training Summary */}
+            <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-white font-medium text-sm">Training</h3>
+                <span className={`px-2.5 py-1 rounded-full text-[11px] font-medium border ${
+                  summaryDayType === 'performance' ? 'bg-blue-900/40 text-blue-300 border-blue-800' :
+                  summaryDayType === 'fatburner' ? 'bg-orange-900/40 text-orange-300 border-orange-800' :
+                  'bg-emerald-900/40 text-emerald-300 border-emerald-800'
+                }`}>
+                  {dayTypeDetail?.label ?? '--'}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {summarySessions.length === 0 || summarySessions.every(s => s.type === 'rest') ? (
+                  <span className="text-sm text-gray-400">Rest day</span>
                 ) : (
-                  summarySessions.map((session, index) => (
-                    <div
-                      key={`${session.type}-${index}`}
-                      className="flex items-center justify-between bg-gray-800/50 rounded-lg px-4 py-3 text-sm"
-                    >
-                      <span className="text-white">{TRAINING_LABELS[session.type]}</span>
-                      <span className="text-gray-400">
-                        {session.type === 'rest' ? 'Rest' : `${session.durationMin} min`}
+                  summarySessions
+                    .filter(s => s.type !== 'rest')
+                    .map((session, index) => (
+                      <span
+                        key={`${session.type}-${index}`}
+                        className="px-2 py-1 bg-gray-800/50 rounded text-xs text-gray-300"
+                      >
+                        {TRAINING_LABELS[session.type]} {session.durationMin}m
                       </span>
-                    </div>
-                  ))
+                    ))
                 )}
               </div>
               {log && (
-                <div className="mt-4 pt-4 border-t border-gray-700">
+                <div className="mt-3 pt-3 border-t border-gray-700">
                   <button
                     type="button"
                     onClick={() => setShowActualModal(true)}
-                    className="text-sm text-white hover:text-gray-300 flex items-center gap-2"
+                    className="text-xs text-white hover:text-gray-300 flex items-center gap-1.5"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                             d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                     </svg>
-                    {log.actualTrainingSessions?.length ? 'Edit Actual Training' : 'Log Actual Training'}
+                    {log.actualTrainingSessions?.length ? 'Edit Actual' : 'Log Actual Training'}
                   </button>
                   {log.actualTrainingSessions && log.actualTrainingSessions.length > 0 && (
                     <p className="text-xs text-green-400 mt-1">
-                      ✓ Logged: {log.actualTrainingSessions.length} session(s), {log.actualTrainingSessions.reduce((sum, s) => sum + s.durationMin, 0)} min total
+                      ✓ {log.actualTrainingSessions.length} session(s), {log.actualTrainingSessions.reduce((sum, s) => sum + s.durationMin, 0)} min
                     </p>
                   )}
-                  <div className="mt-2">
-                    <ActualVsPlannedComparison
-                      planned={log.plannedTrainingSessions}
-                      actual={log.actualTrainingSessions}
-                    />
-                  </div>
                 </div>
               )}
             </div>
 
-            <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
-              <h3 className="text-white font-medium mb-2">Day Type</h3>
-              <p className="text-white font-medium">{dayTypeDetail?.label ?? '--'}</p>
-              <p className="text-sm text-gray-400">{dayTypeDetail?.description ?? ''}</p>
-            </div>
+            {error && (
+              <div className="bg-red-900/30 border border-red-800 rounded-lg p-4">
+                <p className="text-red-400 text-sm">{error}</p>
+              </div>
+            )}
           </div>
 
-          <div className="space-y-6">
-            <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
-              <h3 className="text-white font-medium mb-4">Today's Summary</h3>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-400">Weight</span>
-                  <span className="text-white font-medium">
-                    {summaryWeight ? `${summaryWeight} kg` : '--'}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-400">Sleep Quality</span>
-                  <span className="text-white font-medium">
-                    {summarySleepQuality !== undefined ? `${summarySleepQuality}/100` : '--'}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-400">Training</span>
-                  <span className="text-white font-medium">
-                    {summarySessions.filter((s) => s.type !== 'rest').length === 0
-                      ? 'Rest day'
-                      : `${summarySessions.length} session${summarySessions.length > 1 ? 's' : ''}`}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-400">Day Type</span>
-                  <span className={`font-medium ${
-                    summaryDayType === 'performance' ? 'text-blue-400' :
-                    summaryDayType === 'fatburner' ? 'text-orange-400' : 'text-purple-400'
-                  }`}>
-                    {summaryDayType ? summaryDayType.charAt(0).toUpperCase() + summaryDayType.slice(1) : '--'}
-                  </span>
-                </div>
-              </div>
-            </div>
-
+          {/* Right Column - Day Targets (Hero) */}
+          <div>
             {targets ? (
               <DayTargetsPanel
                 title="Day Targets"
@@ -686,21 +724,14 @@ export function DailyUpdateForm({
                 totalFruitG={targets.fruitG}
                 totalVeggiesG={targets.veggiesG}
                 waterL={targets.waterL}
-                compact
                 helperText="Adjusted to your current meal distribution."
               />
             ) : (
               <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
                 <h3 className="text-white font-medium mb-2">Day Targets</h3>
                 <p className="text-sm text-gray-400">
-                  Save your Daily Update to generate meal targets and fruit/veg splits.
+                  No targets available.
                 </p>
-              </div>
-            )}
-
-            {error && (
-              <div className="bg-red-900/30 border border-red-800 rounded-lg p-4">
-                <p className="text-red-400 text-sm">{error}</p>
               </div>
             )}
           </div>

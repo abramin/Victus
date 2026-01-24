@@ -34,6 +34,8 @@ interface DayTargetsPanelProps {
   mealGrams?: MealGrams;
   totalGrams?: number;
   totalCalories?: number;
+  /** Show provisional/preview styling (faded, dashed border, preview badge) */
+  isProvisional?: boolean;
 }
 
 function splitTarget(total: number, ratios: MealRatios) {
@@ -62,6 +64,7 @@ export function DayTargetsPanel({
   trainingContext,
   mealGrams,
   totalCalories,
+  isProvisional = false,
 }: DayTargetsPanelProps) {
   const fruitByMeal = splitTarget(totalFruitG, mealRatios);
   const veggieByMeal = splitTarget(totalVeggiesG, mealRatios);
@@ -118,11 +121,23 @@ export function DayTargetsPanel({
   const gridClass = compact ? 'grid grid-cols-1 gap-3' : 'grid grid-cols-1 md:grid-cols-3 gap-3';
   const statText = compact ? 'text-xs' : 'text-sm';
 
+  // Provisional styling: faded opacity, dashed border
+  const provisionalClass = isProvisional
+    ? 'opacity-70 border-dashed border-gray-600'
+    : 'border-gray-800';
+
   return (
-    <div className={`bg-gray-900 rounded-xl border border-gray-800 ${panelPadding}`}>
+    <div className={`bg-gray-900 rounded-xl border ${provisionalClass} ${panelPadding}`}>
       <div className="flex items-start justify-between gap-3 mb-4">
         <div>
-          <h3 className={`text-white font-semibold ${headerClass}`}>{title}</h3>
+          <div className="flex items-center gap-2">
+            <h3 className={`text-white font-semibold ${headerClass}`}>{title}</h3>
+            {isProvisional && (
+              <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-yellow-900/40 text-yellow-400 border border-yellow-800">
+                Preview
+              </span>
+            )}
+          </div>
           <p className="text-gray-400 text-xs">{dateLabel}</p>
           {trainingContext && (
             <p className="text-blue-400 text-xs mt-1 font-medium">{trainingContext}</p>
