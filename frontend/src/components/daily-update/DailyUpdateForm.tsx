@@ -237,7 +237,7 @@ export function DailyUpdateForm({
   const summarySessions = showForm ? formData.plannedTrainingSessions : log?.plannedTrainingSessions ?? [];
 
   return (
-    <div className="p-6 max-w-4xl" data-testid="daily-update-form">
+    <div className="p-6 max-w-6xl mx-auto" data-testid="daily-update-form">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -307,9 +307,9 @@ export function DailyUpdateForm({
       </div>
 
       {showForm ? (
-        <form onSubmit={handleSubmit} className="grid grid-cols-3 gap-6">
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           {/* Left Column - Morning Check-in */}
-          <div className="col-span-2 space-y-6">
+          <div className="lg:col-span-3 space-y-6">
             <MorningCheckinSection
               formData={formData}
               onUpdate={updateFormData}
@@ -378,7 +378,7 @@ export function DailyUpdateForm({
           </div>
 
           {/* Right Column - Summary */}
-          <div className="space-y-6">
+          <div className="lg:col-span-2 space-y-6">
             {/* Quick Summary */}
             <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
               <h3 className="text-white font-medium mb-4">Today's Summary</h3>
@@ -393,14 +393,6 @@ export function DailyUpdateForm({
                   <span className="text-gray-400">Sleep Quality</span>
                   <span className="text-white font-medium">
                     {summarySleepQuality !== undefined ? `${summarySleepQuality}/100` : '--'}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-400">Training</span>
-                  <span className="text-white font-medium">
-                    {summarySessions.filter((s) => s.type !== 'rest').length === 0
-                      ? 'Rest day'
-                      : `${summarySessions.length} session${summarySessions.length > 1 ? 's' : ''}`}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
@@ -470,10 +462,10 @@ export function DailyUpdateForm({
                 <div className="flex items-center gap-3 text-sm">
                   <span className="text-white font-medium">{log?.weightKg ? `${log.weightKg} kg` : '--'}</span>
                   <span className="text-gray-500">|</span>
-                  <span className="text-gray-400">Sleep {log?.sleepQuality}/100</span>
+                  <span className="text-slate-200">Sleep {log?.sleepQuality}/100</span>
                 </div>
               </div>
-              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400">
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-200">
                 {log?.bodyFatPercent && <span>Body Fat: {log.bodyFatPercent}%</span>}
                 {log?.restingHeartRate && <span>HR: {log.restingHeartRate} bpm</span>}
                 {log?.sleepHours && <span>Slept: {log.sleepHours}h</span>}
@@ -494,14 +486,14 @@ export function DailyUpdateForm({
               </div>
               <div className="flex flex-wrap gap-2">
                 {summarySessions.length === 0 || summarySessions.every(s => s.type === 'rest') ? (
-                  <span className="text-sm text-gray-400">Rest day</span>
+                  <span className="text-sm text-slate-200">Rest day</span>
                 ) : (
                   summarySessions
                     .filter(s => s.type !== 'rest')
                     .map((session, index) => (
                       <span
                         key={`${session.type}-${index}`}
-                        className="px-2 py-1 bg-gray-800/50 rounded text-xs text-gray-300"
+                        className="px-2 py-1 bg-gray-800/50 rounded text-xs text-slate-200"
                       >
                         {TRAINING_LABELS[session.type]} {session.durationMin}m
                       </span>
