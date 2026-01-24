@@ -5,6 +5,7 @@ import { OnboardingWizard } from '../components/onboarding';
 import { AppLayout } from '../components/layout';
 import { MealPointsDashboard } from '../components/meal-points';
 import { PlanCalendar } from '../components/plan';
+import { PlanOverview } from '../components/planning';
 import { WeightHistory } from '../components/history';
 import { DailyUpdateForm } from '../components/daily-update';
 import { LogWorkoutView } from '../components/training';
@@ -78,7 +79,13 @@ function App() {
       <AppLayout>
         <Routes>
           <Route path="/" element={<MealPointsDashboard log={log} profile={profile} />} />
-          <Route path="/plan" element={<PlanCalendar profile={profile} />} />
+          <Route path="/plan" element={
+            <div className="p-6 max-w-6xl mx-auto">
+              <h1 className="text-2xl font-semibold text-white mb-6">Nutrition Plan</h1>
+              <PlanOverview />
+            </div>
+          } />
+          <Route path="/plan-calendar" element={<PlanCalendar profile={profile} />} />
           <Route path="/history" element={<WeightHistory profile={profile} />} />
           <Route
             path="/daily-update"

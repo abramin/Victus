@@ -267,3 +267,89 @@ export interface FoodReference {
 export interface FoodReferenceResponse {
   foods: FoodReference[];
 }
+
+// Nutrition Plan Types (Issue #27, #28)
+export type PlanStatus = 'active' | 'completed' | 'abandoned';
+
+export interface WeeklyTarget {
+  weekNumber: number;
+  startDate: string;
+  endDate: string;
+  projectedWeightKg: number;
+  projectedTDEE: number;
+  targetIntakeKcal: number;
+  targetCarbsG: number;
+  targetProteinG: number;
+  targetFatsG: number;
+  actualWeightKg?: number;
+  actualIntakeKcal?: number;
+  daysLogged: number;
+}
+
+export interface NutritionPlan {
+  id: number;
+  startDate: string;
+  startWeightKg: number;
+  goalWeightKg: number;
+  durationWeeks: number;
+  requiredWeeklyChangeKg: number;
+  requiredDailyDeficitKcal: number;
+  status: PlanStatus;
+  currentWeek: number;
+  weeklyTargets: WeeklyTarget[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NutritionPlanSummary {
+  id: number;
+  startDate: string;
+  startWeightKg: number;
+  goalWeightKg: number;
+  durationWeeks: number;
+  requiredWeeklyChangeKg: number;
+  requiredDailyDeficitKcal: number;
+  status: PlanStatus;
+  currentWeek: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreatePlanRequest {
+  startDate: string;
+  startWeightKg: number;
+  goalWeightKg: number;
+  durationWeeks: number;
+}
+
+// Dual-Track Analysis Types (Issue #29)
+export type RecalibrationOptionType = 'increase_deficit' | 'extend_timeline' | 'revise_goal' | 'keep_current';
+export type FeasibilityTag = 'Achievable' | 'Moderate' | 'Ambitious';
+
+export interface RecalibrationOption {
+  type: RecalibrationOptionType;
+  feasibilityTag: FeasibilityTag;
+  newParameter: string;
+  impact: string;
+}
+
+export interface ProjectionPoint {
+  weekNumber: number;
+  date: string;
+  weightKg: number;
+}
+
+export interface DualTrackAnalysis {
+  planId: number;
+  analysisDate: string;
+  currentWeek: number;
+  plannedWeightKg: number;
+  actualWeightKg: number;
+  varianceKg: number;
+  variancePercent: number;
+  tolerancePercent: number;
+  recalibrationNeeded: boolean;
+  options?: RecalibrationOption[];
+  planProjection: ProjectionPoint[];
+  trendProjection?: ProjectionPoint[];
+}

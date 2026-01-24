@@ -14,6 +14,11 @@ import type {
   PlannedDay,
   FoodReferenceResponse,
   DayType,
+  NutritionPlan,
+  NutritionPlanSummary,
+  CreatePlanRequest,
+  WeeklyTarget,
+  DualTrackAnalysis,
 } from './types';
 
 const API_BASE = '/api';
@@ -230,4 +235,91 @@ export async function updateFoodReferencePlateMultiplier(
     signal,
   });
   await handleEmptyResponse(response);
+}
+
+// Nutrition Plan API (Issue #27, #28)
+
+export async function getActivePlan(signal?: AbortSignal): Promise<NutritionPlan | null> {
+  const response = await fetch(`${API_BASE}/plans/active`, { signal });
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  return handleResponse<NutritionPlan>(response);
+}
+
+export async function getPlanById(id: number, signal?: AbortSignal): Promise<NutritionPlan> {
+  const response = await fetch(`${API_BASE}/plans/${id}`, { signal });
+  return handleResponse<NutritionPlan>(response);
+}
+
+export async function listPlans(signal?: AbortSignal): Promise<NutritionPlanSummary[]> {
+  const response = await fetch(`${API_BASE}/plans`, { signal });
+  return handleResponse<NutritionPlanSummary[]>(response);
+}
+
+export async function createPlan(request: CreatePlanRequest, signal?: AbortSignal): Promise<NutritionPlan> {
+  const response = await fetch(`${API_BASE}/plans`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(request),
+    signal,
+  });
+
+  return handleResponse<NutritionPlan>(response);
+}
+
+export async function completePlan(id: number, signal?: AbortSignal): Promise<void> {
+  const response = await fetch(`${API_BASE}/plans/${id}/complete`, {
+    method: 'POST',
+    signal,
+  });
+  await handleEmptyResponse(response);
+}
+
+export async function abandonPlan(id: number, signal?: AbortSignal): Promise<void> {
+  const response = await fetch(`${API_BASE}/plans/${id}/abandon`, {
+    method: 'POST',
+    signal,
+  });
+  await handleEmptyResponse(response);
+}
+
+export async function deletePlan(id: number, signal?: AbortSignal): Promise<void> {
+  const response = await fetch(`${API_BASE}/plans/${id}`, {
+    method: 'DELETE',
+    signal,
+  });
+  await handleEmptyResponse(response);
+}
+
+export async function getCurrentWeekTarget(signal?: AbortSignal): Promise<WeeklyTarget | null> {
+  const response = await fetch(`${API_BASE}/plans/current-week`, { signal });
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  return handleResponse<WeeklyTarget>(response);
+}
+
+// Dual-Track Analysis API (Issue #29)
+
+export async function getActivePlanAnalysis(date?: string, signal?: AbortSignal): Promise<DualTrackAnalysis> {
+  const url = date
+    ? `${API_BASE}/plans/active/analysis?date=${encodeURIComponent(date)}`
+    : `${API_BASE}/plans/active/analysis`;
+  const response = await fetch(url, { signal });
+  return handleResponse<DualTrackAnalysis>(response);
+}
+
+export async function getPlanAnalysis(id: number, date?: string, signal?: AbortSignal): Promise<DualTrackAnalysis> {
+  const url = date
+    ? `${API_BASE}/plans/${id}/analysis?date=${encodeURIComponent(date)}`
+    : `${API_BASE}/plans/${id}/analysis`;
+  const response = await fetch(url, { signal });
+  return handleResponse<DualTrackAnalysis>(response);
 }

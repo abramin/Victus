@@ -65,7 +65,7 @@ var (
 
 // NutritionPlan validation errors
 var (
-	ErrInvalidPlanStatus         = newValidationError("plan status must be 'active', 'completed', or 'cancelled'")
+	ErrInvalidPlanStatus         = newValidationError("plan status must be 'active', 'completed', or 'abandoned'")
 	ErrInvalidPlanStartDate      = newValidationError("plan start date must be in YYYY-MM-DD format")
 	ErrPlanStartDateTooOld       = newValidationError("plan start date cannot be more than 7 days in the past")
 	ErrInvalidPlanStartWeight    = newValidationError("plan start weight must be between 30 and 300 kg")
@@ -75,4 +75,11 @@ var (
 	ErrPlanSurplusTooAggressive  = newValidationError("plan surplus exceeds safe limit of 500 kcal/day (~0.5 kg/week gain)")
 	ErrActivePlanExists          = newValidationError("an active nutrition plan already exists")
 	ErrPlanNotFound              = newValidationError("nutrition plan not found")
+)
+
+// Dual-Track Analysis errors
+var (
+	ErrPlanEnded              = newValidationError("plan has ended - current week exceeds plan duration")
+	ErrPlanNotStarted         = newValidationError("plan has not started yet")
+	ErrInsufficientWeightData = newValidationError("insufficient weight data for analysis - need at least 7 days of logs")
 )

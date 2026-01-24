@@ -20,6 +20,7 @@ type Server struct {
 	dailyLogService       *service.DailyLogService
 	trainingConfigService *service.TrainingConfigService
 	planService           *service.NutritionPlanService
+	analysisService       *service.AnalysisService
 	plannedDayTypeStore   *store.PlannedDayTypeStore
 	foodReferenceStore    *store.FoodReferenceStore
 }
@@ -41,6 +42,7 @@ func NewServer(db *sql.DB) *Server {
 		dailyLogService:       service.NewDailyLogService(dailyLogStore, trainingSessionStore, profileStore),
 		trainingConfigService: service.NewTrainingConfigService(trainingConfigStore),
 		planService:           service.NewNutritionPlanService(planStore, profileStore),
+		analysisService:       service.NewAnalysisService(planStore, profileStore, dailyLogStore),
 		plannedDayTypeStore:   plannedDayTypeStore,
 		foodReferenceStore:    foodReferenceStore,
 	}
@@ -83,9 +85,11 @@ func NewServer(db *sql.DB) *Server {
 	mux.HandleFunc("GET /api/plans", srv.listPlans)
 	mux.HandleFunc("GET /api/plans/active", srv.getActivePlan)
 	mux.HandleFunc("GET /api/plans/current-week", srv.getCurrentWeekTarget)
+	mux.HandleFunc("GET /api/plans/active/analysis", srv.analyzeActivePlan)
 	mux.HandleFunc("GET /api/plans/{id}", srv.getPlanByID)
+	mux.HandleFunc("GET /api/plans/{id}/analysis", srv.analyzePlan)
 	mux.HandleFunc("POST /api/plans/{id}/complete", srv.completePlan)
-	mux.HandleFunc("POST /api/plans/{id}/cancel", srv.cancelPlan)
+	mux.HandleFunc("POST /api/plans/{id}/abandon", srv.abandonPlan)
 	mux.HandleFunc("DELETE /api/plans/{id}", srv.deletePlan)
 
 	return srv
