@@ -4,12 +4,15 @@ import type {
   DailyLog,
   UserProfile,
   TrainingSession,
+  TrainingConfig,
 } from '../../api/types';
 import { DayTargetsPanel } from '../day-view';
 import { calculateMealTargets } from '../targets/mealTargets';
 import { TrainingSessionList } from '../daily-input/TrainingSessionList';
 import { MorningCheckinSection } from './MorningCheckinSection';
 import { DayTypeSelector } from './DayTypeSelector';
+import { DeficitMonitor, WeeklyContextStrip, KitchenCheatSheet } from '../saved-view';
+import { getTrainingConfigs } from '../../api/client';
 import {
   DAY_TYPE_OPTIONS,
   TRAINING_LABELS,
@@ -67,6 +70,7 @@ export function DailyUpdateForm({
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [isEditing, setIsEditing] = useState(false);
   const [dayTypeAutoSelected, setDayTypeAutoSelected] = useState(false);
+  const [trainingConfigs, setTrainingConfigs] = useState<TrainingConfig[]>([]);
 
   const baselineData = useMemo(
     () => (log ? buildFormDataFromLog(log) : INITIAL_FORM_DATA),
@@ -99,6 +103,15 @@ export function DailyUpdateForm({
       setDayTypeAutoSelected(false);
     }
   }, [formData.plannedTrainingSessions]);
+
+  // Load training configs for Deficit Monitor MET calculations
+  useEffect(() => {
+    getTrainingConfigs()
+      .then(setTrainingConfigs)
+      .catch(() => {
+        // Fallback to empty - DeficitMonitor will handle gracefully
+      });
+  }, []);
 
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
@@ -452,8 +465,9 @@ export function DailyUpdateForm({
           </div>
         </form>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Left Column - Compact Summary */}
+        <>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Left Column - Compact Summary */}
           <div className="space-y-4">
             {/* Compact Check-in Summary */}
             <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">
@@ -502,6 +516,17 @@ export function DailyUpdateForm({
               </div>
             </div>
 
+            {/* Deficit Monitor - Activity & Burn Tracking */}
+            {log && targets && (
+              <DeficitMonitor
+                plannedSessions={log.plannedTrainingSessions}
+                trainingConfigs={trainingConfigs}
+                weightKg={log.weightKg}
+                activeCaloriesBurned={log.activeCaloriesBurned}
+                totalCalories={targets.totalCalories}
+              />
+            )}
+
             {error && (
               <div className="bg-red-900/30 border border-red-800 rounded-lg p-4">
                 <p className="text-red-400 text-sm">{error}</p>
@@ -509,8 +534,8 @@ export function DailyUpdateForm({
             )}
           </div>
 
-          {/* Right Column - Day Targets (Hero) */}
-          <div>
+          {/* Right Column - Day Targets (Hero) + Kitchen Cheat Sheet */}
+          <div className="space-y-4">
             {targets ? (
               <DayTargetsPanel
                 title="Day Targets"
@@ -531,8 +556,23 @@ export function DailyUpdateForm({
                 </p>
               </div>
             )}
+
+            {/* Kitchen Cheat Sheet - Food Reference */}
+            {targets && (
+              <KitchenCheatSheet
+                mealTargets={adjustedMealTargets ?? targets.meals}
+              />
+            )}
           </div>
         </div>
+
+          {/* Weekly Context Strip - Full Width */}
+          {log && (
+            <div className="mt-6">
+              <WeeklyContextStrip currentDate={log.date} />
+            </div>
+          )}
+        </>
       )}
     </div>
   );

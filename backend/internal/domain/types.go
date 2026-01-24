@@ -265,3 +265,36 @@ type DailyTargetsPoint struct {
 	Targets              DailyTargets
 	ActiveCaloriesBurned *int // User-entered active calories from wearable
 }
+
+// PlannedDayType represents a pre-planned day type for a future date.
+// Used for weekly microcycle planning in the Cockpit Dashboard.
+type PlannedDayType struct {
+	ID      int64
+	Date    string  // YYYY-MM-DD format
+	DayType DayType // performance, fatburner, or metabolize
+}
+
+// FoodCategory represents the primary macro category of a food.
+type FoodCategory string
+
+const (
+	FoodCategoryHighCarb    FoodCategory = "high_carb"
+	FoodCategoryHighProtein FoodCategory = "high_protein"
+	FoodCategoryHighFat     FoodCategory = "high_fat"
+)
+
+// ValidFoodCategories contains all valid food category values.
+var ValidFoodCategories = map[FoodCategory]bool{
+	FoodCategoryHighCarb:    true,
+	FoodCategoryHighProtein: true,
+	FoodCategoryHighFat:     true,
+}
+
+// FoodReference represents a food item in the reference table.
+// Used for the Kitchen Cheat Sheet in the Cockpit Dashboard.
+type FoodReference struct {
+	ID              int64
+	Category        FoodCategory
+	FoodItem        string
+	PlateMultiplier *float64 // Optional multiplier for plate portion
+}

@@ -230,6 +230,7 @@ export interface HistoryPoint {
   weightKg: number;
   estimatedTDEE: number;
   tdeeConfidence: number;
+  hasTraining: boolean;
 }
 
 export interface TrainingSummaryRange {
@@ -241,4 +242,28 @@ export interface HistoryResponse {
   points: HistoryPoint[];
   trend?: WeightTrendSummary;
   trainingSummary: TrainingSummaryRange;
+}
+
+// Planned Day Types (Cockpit Dashboard)
+export interface PlannedDay {
+  date: string;
+  dayType: DayType;
+}
+
+export interface PlannedDaysResponse {
+  days: PlannedDay[];
+}
+
+// Food Reference Types (Cockpit Dashboard)
+export type FoodCategory = 'high_carb' | 'high_protein' | 'high_fat';
+
+export interface FoodReference {
+  id: number;
+  category: FoodCategory;
+  foodItem: string;
+  plateMultiplier: number | null;
+}
+
+export interface FoodReferenceResponse {
+  foods: FoodReference[];
 }

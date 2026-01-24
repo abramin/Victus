@@ -19,6 +19,8 @@ func RunMigrations(db *sql.DB) error {
 		createDailyLogsTable,
 		createTrainingConfigsTable,
 		createTrainingSessionsTable,
+		createPlannedDayTypesTable,
+		createFoodReferenceTable,
 	}
 
 	for i, migration := range migrations {
@@ -238,6 +240,82 @@ CREATE TABLE IF NOT EXISTS training_sessions (
 );
 
 CREATE INDEX IF NOT EXISTS idx_training_sessions_daily_log ON training_sessions(daily_log_id);
+`
+
+// Planned day types for weekly microcycle planning (Cockpit Dashboard feature)
+const createPlannedDayTypesTable = `
+CREATE TABLE IF NOT EXISTS planned_day_types (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    plan_date TEXT UNIQUE NOT NULL,
+    day_type TEXT NOT NULL CHECK (day_type IN ('performance', 'fatburner', 'metabolize')),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_planned_day_types_date ON planned_day_types(plan_date);
+`
+
+// Food reference table for Kitchen Cheat Sheet (Cockpit Dashboard feature)
+// Plate_Multiplier is used to convert macro points to plate portions
+const createFoodReferenceTable = `
+CREATE TABLE IF NOT EXISTS food_reference (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    category TEXT NOT NULL CHECK (category IN ('high_carb', 'high_protein', 'high_fat')),
+    food_item TEXT NOT NULL,
+    plate_multiplier REAL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(category, food_item)
+);
+
+-- Seed initial food reference data
+INSERT OR IGNORE INTO food_reference (category, food_item, plate_multiplier) VALUES
+    -- High-Carb sources
+    ('high_carb', 'Oats', 1.00),
+    ('high_carb', 'Semolina', 1.00),
+    ('high_carb', 'Quinoa/Amaranth', 1.00),
+    ('high_carb', 'Chickpeas', 1.00),
+    ('high_carb', 'Pumpkin Seeds', 1.00),
+    ('high_carb', 'Brown Rice', 1.00),
+    ('high_carb', 'Wholegrain Bread', 1.00),
+    ('high_carb', 'Wholegrain Pasta', 1.00),
+    ('high_carb', 'Rye Bread', 1.00),
+    ('high_carb', 'Pita', 1.00),
+    ('high_carb', 'Potatoes', 1.00),
+    ('high_carb', 'Sweet Potatoes', 1.00),
+    ('high_carb', 'Yams', 1.00),
+    ('high_carb', 'Low-fat Milk', 1.00),
+    -- High-Protein sources
+    ('high_protein', 'Whey Protein', 0.25),
+    ('high_protein', 'Low-fat Curd/Quark', 0.25),
+    ('high_protein', 'Nutritional Yeast', 0.25),
+    ('high_protein', 'Cottage Cheese', 0.25),
+    ('high_protein', 'Spirulina', 0.25),
+    ('high_protein', 'Egg White', 0.25),
+    ('high_protein', 'Chicken/Turkey Breast', 0.25),
+    ('high_protein', 'Tofu', 0.25),
+    ('high_protein', 'Soy Milk', NULL),
+    ('high_protein', 'Edamame', 0.25),
+    ('high_protein', 'Salmon/Tuna/Perch', 0.25),
+    ('high_protein', 'Lentils', 0.25),
+    ('high_protein', 'Scampi/Prawns', 0.25),
+    ('high_protein', 'Low-fat Yoghurt', 0.25),
+    ('high_protein', 'Seitan', 0.25),
+    ('high_protein', 'Low-fat Greek Yoghurt', 0.50),
+    ('high_protein', 'Tempeh', 0.25),
+    -- High-Fat sources
+    ('high_fat', 'Flaxseed/Linseed Oil', 0.25),
+    ('high_fat', 'Olive Oil', 0.25),
+    ('high_fat', 'MCT Oil', 0.25),
+    ('high_fat', 'Walnut Oil', 0.25),
+    ('high_fat', 'Nuts', 0.25),
+    ('high_fat', 'Sesame Seeds', 0.25),
+    ('high_fat', 'Tahini', 0.25),
+    ('high_fat', 'Nut Butter', 0.25),
+    ('high_fat', 'Flax Seeds', 0.25),
+    ('high_fat', 'Chia Seeds', 0.25),
+    ('high_fat', 'Hempseeds', 0.25),
+    ('high_fat', 'Avocado', 0.25);
 `
 
 // Migrate existing single training data to sessions table

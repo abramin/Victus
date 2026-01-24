@@ -19,6 +19,8 @@ type Server struct {
 	profileService        *service.ProfileService
 	dailyLogService       *service.DailyLogService
 	trainingConfigService *service.TrainingConfigService
+	plannedDayTypeStore   *store.PlannedDayTypeStore
+	foodReferenceStore    *store.FoodReferenceStore
 }
 
 // NewServer configures routes and middleware.
@@ -27,6 +29,8 @@ func NewServer(db *sql.DB) *Server {
 	dailyLogStore := store.NewDailyLogStore(db)
 	trainingSessionStore := store.NewTrainingSessionStore(db)
 	trainingConfigStore := store.NewTrainingConfigStore(db)
+	plannedDayTypeStore := store.NewPlannedDayTypeStore(db)
+	foodReferenceStore := store.NewFoodReferenceStore(db)
 
 	mux := http.NewServeMux()
 	srv := &Server{
@@ -34,6 +38,8 @@ func NewServer(db *sql.DB) *Server {
 		profileService:        service.NewProfileService(profileStore),
 		dailyLogService:       service.NewDailyLogService(dailyLogStore, trainingSessionStore, profileStore),
 		trainingConfigService: service.NewTrainingConfigService(trainingConfigStore),
+		plannedDayTypeStore:   plannedDayTypeStore,
+		foodReferenceStore:    foodReferenceStore,
 	}
 
 	// Health
@@ -59,6 +65,15 @@ func NewServer(db *sql.DB) *Server {
 	// Stats routes
 	mux.HandleFunc("GET /api/stats/weight-trend", srv.getWeightTrend)
 	mux.HandleFunc("GET /api/stats/history", srv.getHistorySummary)
+
+	// Planned day types routes (Cockpit Dashboard)
+	mux.HandleFunc("GET /api/planned-days", srv.getPlannedDays)
+	mux.HandleFunc("PUT /api/planned-days/{date}", srv.upsertPlannedDay)
+	mux.HandleFunc("DELETE /api/planned-days/{date}", srv.deletePlannedDay)
+
+	// Food reference routes (Cockpit Dashboard)
+	mux.HandleFunc("GET /api/food-reference", srv.getFoodReference)
+	mux.HandleFunc("PATCH /api/food-reference/{id}", srv.updateFoodReference)
 
 	return srv
 }

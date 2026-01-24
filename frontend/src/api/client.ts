@@ -10,6 +10,10 @@ import type {
   WeightTrendResponse,
   HistoryResponse,
   DailyTargetsRangeResponse,
+  PlannedDaysResponse,
+  PlannedDay,
+  FoodReferenceResponse,
+  DayType,
 } from './types';
 
 const API_BASE = '/api';
@@ -165,4 +169,52 @@ export async function getDailyTargetsRange(startDate: string, endDate: string): 
     `${API_BASE}/logs?start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}`
   );
   return handleResponse<DailyTargetsRangeResponse>(response);
+}
+
+// Planned Day Types API (Cockpit Dashboard)
+
+export async function getPlannedDays(startDate: string, endDate: string): Promise<PlannedDaysResponse> {
+  const response = await fetch(
+    `${API_BASE}/planned-days?start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}`
+  );
+  return handleResponse<PlannedDaysResponse>(response);
+}
+
+export async function upsertPlannedDay(date: string, dayType: DayType): Promise<PlannedDay> {
+  const response = await fetch(`${API_BASE}/planned-days/${encodeURIComponent(date)}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ dayType }),
+  });
+  return handleResponse<PlannedDay>(response);
+}
+
+export async function deletePlannedDay(date: string): Promise<void> {
+  const response = await fetch(`${API_BASE}/planned-days/${encodeURIComponent(date)}`, {
+    method: 'DELETE',
+  });
+  await handleEmptyResponse(response);
+}
+
+// Food Reference API (Cockpit Dashboard)
+
+export async function getFoodReference(): Promise<FoodReferenceResponse> {
+  const response = await fetch(`${API_BASE}/food-reference`);
+  return handleResponse<FoodReferenceResponse>(response);
+}
+
+export async function updateFoodReferencePlateMultiplier(
+  id: number,
+  plateMultiplier: number | null
+): Promise<void> {
+  const response = await fetch(`${API_BASE}/food-reference/${id}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ plateMultiplier }),
+  });
+  await handleEmptyResponse(response);
 }
