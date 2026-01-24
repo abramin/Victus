@@ -117,9 +117,16 @@ export function PortionPlateVisualizer({
           </PieChart>
         </ResponsiveContainer>
 
-        {/* Center icon */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-3xl">🍽️</span>
+        {/* Center display - grams hero number or plate icon */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          {servingGrams !== null ? (
+            <>
+              <span className="text-2xl font-bold text-white">{servingGrams}g</span>
+              <span className="text-xs text-gray-400">serving</span>
+            </>
+          ) : (
+            <span className="text-3xl">🍽️</span>
+          )}
         </div>
       </div>
 

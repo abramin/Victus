@@ -8,6 +8,8 @@ import { MealBreakdownModal } from './MealBreakdownModal';
 import { MealCard } from './MealCard';
 import { SupplementsPanel } from './SupplementsPanel';
 import { FoodLibrary } from './FoodLibrary';
+import { PlateBuilderModal } from './PlateBuilderModal';
+import { usePlateBuilder } from '../../hooks/usePlateBuilder';
 import { toDateKey, isSameDay } from '../../utils';
 import {
   CARB_KCAL_PER_G,
@@ -256,6 +258,17 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
     supplementConfig,
   ]);
 
+  // Plate Builder hook for meal drafting
+  const plateBuilder = usePlateBuilder(
+    mealData.hasData
+      ? {
+          breakfast: mealData.breakfast,
+          lunch: mealData.lunch,
+          dinner: mealData.dinner,
+        }
+      : null
+  );
+
   // Calculate grams and kcal per meal
   const mealGramsAndKcal = useMemo(() => {
     if (!selectedLog?.calculatedTargets) {
@@ -400,6 +413,10 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
                 onViewBreakdown={() => setBreakdownMeal('Breakfast')}
                 isSelected={selectedMeal === 'breakfast'}
                 onSelect={() => setSelectedMeal('breakfast')}
+                draftedFoods={plateBuilder.drafts.breakfast.foods}
+                spentPoints={plateBuilder.drafts.breakfast.spentPoints}
+                onRemoveFood={(index) => plateBuilder.removeFoodFromMeal('breakfast', index)}
+                onClearDraft={() => plateBuilder.clearMealDraft('breakfast')}
               />
               <MealCard
                 meal="Lunch"
@@ -413,6 +430,10 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
                 onViewBreakdown={() => setBreakdownMeal('Lunch')}
                 isSelected={selectedMeal === 'lunch'}
                 onSelect={() => setSelectedMeal('lunch')}
+                draftedFoods={plateBuilder.drafts.lunch.foods}
+                spentPoints={plateBuilder.drafts.lunch.spentPoints}
+                onRemoveFood={(index) => plateBuilder.removeFoodFromMeal('lunch', index)}
+                onClearDraft={() => plateBuilder.clearMealDraft('lunch')}
               />
               <MealCard
                 meal="Dinner"
@@ -426,6 +447,10 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
                 onViewBreakdown={() => setBreakdownMeal('Dinner')}
                 isSelected={selectedMeal === 'dinner'}
                 onSelect={() => setSelectedMeal('dinner')}
+                draftedFoods={plateBuilder.drafts.dinner.foods}
+                spentPoints={plateBuilder.drafts.dinner.spentPoints}
+                onRemoveFood={(index) => plateBuilder.removeFoodFromMeal('dinner', index)}
+                onClearDraft={() => plateBuilder.clearMealDraft('dinner')}
               />
             </div>
           )}
@@ -492,9 +517,21 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
             targetPoints={mealData.hasData ? mealData[selectedMeal].protein + mealData[selectedMeal].carbs + mealData[selectedMeal].fats : 350}
             selectedMeal={selectedMeal}
             className="flex-1"
+            onFoodSelect={(food) => plateBuilder.openFoodModal(food, selectedMeal)}
+            remainingPoints={plateBuilder.drafts[selectedMeal].remainingPoints}
           />
         </div>
       </div>
+
+      {/* Plate Builder Modal */}
+      <PlateBuilderModal
+        modalState={plateBuilder.modalState}
+        existingFoods={plateBuilder.drafts[plateBuilder.modalState.mealId].foods}
+        targetPoints={plateBuilder.getMealTargetPoints(plateBuilder.modalState.mealId)}
+        onClose={plateBuilder.closeFoodModal}
+        onConfirm={plateBuilder.confirmFoodAddition}
+        onFillPercentageChange={plateBuilder.setFillPercentage}
+      />
 
       {/* Breakdown Modal */}
       {breakdownMeal && mealGramsAndKcal && selectedLog?.calculatedTargets && (

@@ -9,6 +9,9 @@ interface FoodLibraryProps {
   targetPoints: number;
   selectedMeal?: 'breakfast' | 'lunch' | 'dinner';
   className?: string;
+  // Plate Builder integration
+  onFoodSelect?: (food: FoodReference) => void;
+  remainingPoints?: number;
 }
 
 type FilterTab = 'all' | 'carb' | 'protein' | 'fat';
@@ -60,11 +63,15 @@ function capitalizeFirst(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
-export function FoodLibrary({ 
-  targetPoints, 
+export function FoodLibrary({
+  targetPoints,
   selectedMeal = 'dinner',
   className = '',
+  onFoodSelect,
+  remainingPoints,
 }: FoodLibraryProps) {
+  // Use remaining points if provided, otherwise use full target
+  const effectivePoints = remainingPoints ?? targetPoints;
   const [foods, setFoods] = useState<FoodReference[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -101,15 +108,21 @@ export function FoodLibrary({
     });
   }, [foods, activeFilter, searchQuery]);
 
-  // Calculate suggested serving based on plate multiplier
+  // Calculate suggested serving based on plate multiplier (uses remaining points if available)
   const getSuggestion = (food: FoodReference): { grams: number; display: string } => {
     if (!food.plateMultiplier) return { grams: 0, display: '—' };
-    const servingG = Math.round(targetPoints * food.plateMultiplier);
+    const servingG = Math.round(effectivePoints * food.plateMultiplier);
     return { grams: servingG, display: `${servingG}g` };
   };
 
   const handleFoodClick = (food: FoodReference) => {
-    setSelectedFood(selectedFood?.id === food.id ? null : food);
+    if (onFoodSelect) {
+      // Plate Builder mode: open modal instead of toggling selection
+      onFoodSelect(food);
+    } else {
+      // Default behavior: toggle selection for visualization
+      setSelectedFood(selectedFood?.id === food.id ? null : food);
+    }
   };
 
   const handleFoodHover = (food: FoodReference | null) => {
@@ -146,6 +159,7 @@ export function FoodLibrary({
         <PortionPlateVisualizer
           plateMultiplier={displayFood?.plateMultiplier ?? 0}
           foodName={displayFood?.foodItem ?? ''}
+          targetPoints={targetPoints}
           onClose={displayFood ? handleCloseVisualizer : undefined}
         />
       </div>
@@ -155,9 +169,16 @@ export function FoodLibrary({
         <div className="text-sm text-gray-400">
           Showing portions for <span className="text-white font-semibold">{capitalizeFirst(selectedMeal)}</span>
         </div>
-        <div className="text-lg text-emerald-400 font-bold">
-          Target: {targetPoints} pts
-        </div>
+        {remainingPoints !== undefined && remainingPoints < targetPoints ? (
+          <div className="text-lg text-cyan-400 font-bold">
+            Remaining: {remainingPoints} pts
+            <span className="text-gray-500 text-sm ml-2">(of {targetPoints})</span>
+          </div>
+        ) : (
+          <div className="text-lg text-emerald-400 font-bold">
+            Target: {targetPoints} pts
+          </div>
+        )}
       </div>
 
       {/* Search Input */}
