@@ -12,7 +12,7 @@ import { formatShortDate } from '../../utils';
 import {
   WeightTrendChart,
   MetabolicHealthChart,
-  TrainingComplianceGrid,
+  TrainingCalendarHeatmap,
   TrainingVolumeChart,
 } from './charts';
 
@@ -203,8 +203,11 @@ export function WeightHistory({ profile }: { profile: UserProfile }) {
         )}
       </Card>
 
-      {/* Training Consistency (Compliance Grid) */}
+      {/* Training Consistency (Calendar Heatmap) */}
       <Card title="Training Consistency">
+        <p className="text-xs text-slate-500 mb-4">
+          6-month training activity. Color intensity shows training load. Click a day to view details.
+        </p>
         {loading && (
           <div className="h-48 bg-slate-900/60 rounded-lg border border-slate-800 flex items-center justify-center text-slate-500 text-sm">
             Loading training data...
@@ -216,7 +219,7 @@ export function WeightHistory({ profile }: { profile: UserProfile }) {
           </div>
         )}
         {!loading && !error && (
-          <TrainingComplianceGrid
+          <TrainingCalendarHeatmap
             points={points}
             onSelectDate={handleSelectDate}
             selectedDate={selectedDate}
