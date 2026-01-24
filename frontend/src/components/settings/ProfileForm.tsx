@@ -5,7 +5,7 @@ import { NumberInput } from '../common/NumberInput';
 import { Select } from '../common/Select';
 import { Button } from '../common/Button';
 import { MacroRatiosInput } from './MacroRatiosInput';
-import { MacroGramsInput } from './MacroGramsInput';
+import { MacroDistributionBar } from './MacroDistributionBar';
 import { MealDistributionBar } from './MealDistributionBar';
 import { RecalibrationSettings } from './RecalibrationSettings';
 import {
@@ -492,7 +492,7 @@ export function ProfileForm({ initialProfile, onSave, saving, error }: ProfileFo
         <div className="space-y-6">
           {/* Macro Ratios Section */}
           <Card>
-            <MacroGramsInput
+            <MacroDistributionBar
               carbRatio={profile.carbRatio}
               proteinRatio={profile.proteinRatio}
               fatRatio={profile.fatRatio}
