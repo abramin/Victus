@@ -4,7 +4,8 @@
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   /* Slightly softer default text and background for dark mode */
   color: #dfe6ef;
-  background-color: #141a1f; /* charcoal dark */
+  background-color: #141a1f;
+  /* charcoal dark */
 }
 
 body {
@@ -17,12 +18,30 @@ body {
   --color-white: #e6edf3;
 
   /* Charcoal greys for surfaces and borders */
-  --color-slate-900: #141a1f; /* primary app background */
-  --color-slate-800: #1a2129; /* cards */
-  --color-slate-700: #232a36; /* borders and accents */
+  --color-slate-900: #141a1f;
+  /* primary app background */
+  --color-slate-800: #1a2129;
+  /* cards */
+  --color-slate-700: #232a36;
+  /* borders and accents */
 
   /* Greys used in some panels */
   --color-gray-950: #13161b;
   --color-gray-900: #161a20;
   --color-gray-800: #1c222a;
+
+  /* Softer blues for links, status, progress bars */
+  --color-blue-300: #86a9d6;
+  --color-blue-400: #6f95c9;
+  --color-blue-500: #5a84be; /* primary blue (muted) */
+  --color-blue-600: #4a73ab;
+
+  /* Softer greens for success/completed states */
+  --color-emerald-400: #27c08f;
+  --color-green-400: #21b66a;
+  --color-green-500: #1fa35f;
+
+  /* Softer reds for errors/missed states */
+  --color-rose-400: #df6a6a;
+  --color-red-500: #c54e4e;
 }
