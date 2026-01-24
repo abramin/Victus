@@ -5,7 +5,7 @@ FRONTEND_PORT ?= 5173
 export BACKEND_PORT
 export FRONTEND_PORT
 
-.PHONY: app-up app-down wait-backend wait-frontend e2e e2e-native test seed
+.PHONY: app-up app-down app-clean wait-backend wait-frontend e2e e2e-native test seed
 
 app-up:
 	docker compose up -d --build backend frontend
@@ -13,6 +13,9 @@ app-up:
 
 app-down:
 	docker compose down --remove-orphans
+
+app-clean:
+	docker compose down --remove-orphans --volumes --rmi local
 
 wait-backend:
 	@printf "Waiting for backend..."; \

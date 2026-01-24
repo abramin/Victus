@@ -11,7 +11,7 @@ interface FoodLibraryProps {
   className?: string;
 }
 
-type FilterTab = 'all' | 'carb' | 'protein' | 'fat' | 'veg';
+type FilterTab = 'all' | 'carb' | 'protein' | 'fat';
 
 const FILTER_CONFIG: Record<FilterTab, { 
   label: string; 
@@ -23,7 +23,7 @@ const FILTER_CONFIG: Record<FilterTab, {
   all: { 
     label: 'All', 
     emoji: '🍽️', 
-    categories: ['high_carb', 'high_protein', 'high_fat', 'vegetables'],
+    categories: ['high_carb', 'high_protein', 'high_fat'],
     color: 'text-white',
     bgColor: 'bg-gray-600',
   },
@@ -47,13 +47,6 @@ const FILTER_CONFIG: Record<FilterTab, {
     categories: ['high_fat'],
     color: 'text-gray-400',
     bgColor: 'bg-gray-500/20',
-  },
-  veg: { 
-    label: 'Veg', 
-    emoji: '🥦', 
-    categories: ['vegetables'],
-    color: 'text-emerald-400',
-    bgColor: 'bg-emerald-500/20',
   },
 };
 
@@ -211,8 +204,7 @@ export function FoodLibrary({
               <span className={`font-medium whitespace-nowrap ${
                 FILTER_CONFIG[
                   food.category === 'high_carb' ? 'carb' :
-                  food.category === 'high_protein' ? 'protein' :
-                  food.category === 'high_fat' ? 'fat' : 'veg'
+                  food.category === 'high_protein' ? 'protein' : 'fat'
                 ].color
               }`}>
                 {getSuggestion(food)}
