@@ -6,7 +6,7 @@ import { Select } from '../common/Select';
 import { Button } from '../common/Button';
 import { MacroRatiosInput } from './MacroRatiosInput';
 import { MacroGramsInput } from './MacroGramsInput';
-import { MealRatiosInput } from './MealRatiosInput';
+import { MealDistributionBar } from './MealDistributionBar';
 import { RecalibrationSettings } from './RecalibrationSettings';
 import {
   SEX_OPTIONS,
@@ -77,7 +77,6 @@ const DEFAULT_PROFILE: UserProfile = {
 export function ProfileForm({ initialProfile, onSave, saving, error }: ProfileFormProps) {
   const [profile, setProfile] = useState<UserProfile>(initialProfile || DEFAULT_PROFILE);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
-  const [useManualWeeklyChange, setUseManualWeeklyChange] = useState(false);
 
   useEffect(() => {
     if (initialProfile) {
@@ -99,28 +98,39 @@ export function ProfileForm({ initialProfile, onSave, saving, error }: ProfileFo
 
   // Check for aggressive goal warning
   const aggressiveGoalWarning = useMemo(() => {
-    const weeklyChange = useManualWeeklyChange ? profile.targetWeeklyChangeKg : derivedWeeklyChange;
-    if (weeklyChange < -AGGRESSIVE_LOSS_THRESHOLD_KG) {
+    if (derivedWeeklyChange < -AGGRESSIVE_LOSS_THRESHOLD_KG) {
       return `Losing more than ${AGGRESSIVE_LOSS_THRESHOLD_KG} kg/week may be unsustainable and could lead to muscle loss.`;
     }
-    if (weeklyChange > AGGRESSIVE_GAIN_THRESHOLD_KG) {
+    if (derivedWeeklyChange > AGGRESSIVE_GAIN_THRESHOLD_KG) {
       return `Gaining more than ${AGGRESSIVE_GAIN_THRESHOLD_KG} kg/week may lead to excess fat gain.`;
     }
     return null;
-  }, [profile.targetWeeklyChangeKg, derivedWeeklyChange, useManualWeeklyChange]);
+  }, [derivedWeeklyChange]);
 
-  // Auto-update weekly change when derived values change (unless manual override)
+  // Calculate projected end date from timeframe
+  const projectedEndDate = useMemo(() => {
+    const weeks = profile.timeframeWeeks || 0;
+    if (weeks <= 0) return null;
+    const endDate = new Date();
+    endDate.setDate(endDate.getDate() + weeks * 7);
+    return endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }, [profile.timeframeWeeks]);
+
+  // Auto-update weekly change when derived values change
   useEffect(() => {
-    if (!useManualWeeklyChange && derivedWeeklyChange !== 0) {
-      setProfile((prev) => ({ ...prev, targetWeeklyChangeKg: derivedWeeklyChange }));
-    }
-  }, [derivedWeeklyChange, useManualWeeklyChange]);
+    setProfile((prev) => ({ ...prev, targetWeeklyChangeKg: derivedWeeklyChange }));
+  }, [derivedWeeklyChange]);
 
   // Track if profile has changes compared to initial
   const hasChanges = useMemo(() => {
     if (!initialProfile) return true; // New profile always has "changes"
     return JSON.stringify(profile) !== JSON.stringify(initialProfile);
   }, [profile, initialProfile]);
+
+  const macroRatiosValid = useMemo(() => {
+    const total = profile.carbRatio + profile.proteinRatio + profile.fatRatio;
+    return Math.abs(total - 1.0) <= 0.01;
+  }, [profile.carbRatio, profile.proteinRatio, profile.fatRatio]);
 
   // Estimate daily calories for macro gram display (simplified Mifflin-St Jeor + moderate activity)
   const estimatedCalories = useMemo(() => {
@@ -350,55 +360,43 @@ export function ProfileForm({ initialProfile, onSave, saving, error }: ProfileFo
                 testId="targetWeight-input"
               />
 
-              <NumberInput
-                label="Timeframe"
-                value={profile.timeframeWeeks || 0}
-                onChange={(v) => updateProfile({ timeframeWeeks: v })}
-                min={1}
-                max={520}
-                step={1}
-                unit="weeks"
-                error={validationErrors.timeframe}
-                testId="timeframe-input"
-              />
+              <div className="space-y-1">
+                <NumberInput
+                  label="Timeframe"
+                  value={profile.timeframeWeeks || 0}
+                  onChange={(v) => updateProfile({ timeframeWeeks: v })}
+                  min={1}
+                  max={520}
+                  step={1}
+                  unit="weeks"
+                  error={validationErrors.timeframe}
+                  testId="timeframe-input"
+                />
+                {projectedEndDate && (
+                  <p className="text-xs text-slate-400 mt-1">
+                    Finish: <span className="text-slate-300 font-medium">{projectedEndDate}</span>
+                  </p>
+                )}
+              </div>
             </div>
 
-            {/* Derived/Manual Weekly Change */}
+            {/* Weekly Change (Read-only derived value) */}
             <div className="mt-4 pt-4 border-t border-slate-700">
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between">
                 <label className="text-sm font-medium text-slate-300">Weekly Change</label>
-                <label className="flex items-center gap-2 text-sm text-slate-400">
-                  <input
-                    type="checkbox"
-                    checked={useManualWeeklyChange}
-                    onChange={(e) => setUseManualWeeklyChange(e.target.checked)}
-                    className="rounded border-slate-600 bg-slate-800 text-blue-500 focus:ring-blue-500"
-                  />
-                  Manual override
-                </label>
+                <span className="text-sm text-slate-500">Calculated from goals</span>
               </div>
-
-              {!useManualWeeklyChange && derivedWeeklyChange !== 0 && (
-                <div className="mb-2 text-sm text-slate-400">
-                  Calculated: {derivedWeeklyChange > 0 ? '+' : ''}
-                  {derivedWeeklyChange.toFixed(2)} kg/week
-                </div>
-              )}
-
-              <NumberInput
-                label=""
-                value={profile.targetWeeklyChangeKg}
-                onChange={(v) => {
-                  setUseManualWeeklyChange(true);
-                  updateProfile({ targetWeeklyChangeKg: v });
-                }}
-                min={-2}
-                max={2}
-                step={0.5}
-                unit="kg/week"
-                error={validationErrors.weeklyChange}
-                testId="weeklyChange-input"
-              />
+              <div className="mt-2 px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-md">
+                <span 
+                  className={`text-lg font-semibold ${
+                    derivedWeeklyChange < 0 ? 'text-red-400' : 
+                    derivedWeeklyChange > 0 ? 'text-green-400' : 'text-slate-300'
+                  }`}
+                  data-testid="weeklyChange-display"
+                >
+                  {derivedWeeklyChange > 0 ? '+' : ''}{derivedWeeklyChange.toFixed(2)} kg/week
+                </span>
+              </div>
             </div>
 
             {/* Aggressive Goal Warning */}
@@ -507,9 +505,9 @@ export function ProfileForm({ initialProfile, onSave, saving, error }: ProfileFo
             />
           </Card>
 
-          {/* Meal Ratios Section */}
+          {/* Meal Distribution Section */}
           <Card>
-            <MealRatiosInput
+            <MealDistributionBar
               breakfast={profile.mealRatios.breakfast}
               lunch={profile.mealRatios.lunch}
               dinner={profile.mealRatios.dinner}
@@ -563,7 +561,12 @@ export function ProfileForm({ initialProfile, onSave, saving, error }: ProfileFo
 
       {/* Submit Button */}
       <div className="flex justify-end">
-        <Button type="submit" loading={saving} disabled={!hasChanges} testId="save-profile-button">
+        <Button
+          type="submit"
+          loading={saving}
+          disabled={!hasChanges || !macroRatiosValid}
+          testId="save-profile-button"
+        >
           Save Profile
         </Button>
       </div>

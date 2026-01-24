@@ -69,6 +69,15 @@ export function MacroGramsInput({
   estimatedCalories = 2000,
   weightKg = 75,
 }: MacroGramsInputProps) {
+  const ratioSum = carbRatio + proteinRatio + fatRatio;
+  const ratioTotalPercent = ratioSum * 100;
+  const ratioValid = Math.abs(ratioSum - 1) <= 0.01;
+  const ratioPercents = {
+    carbs: Number((carbRatio * 100).toFixed(1)),
+    protein: Number((proteinRatio * 100).toFixed(1)),
+    fats: Number((fatRatio * 100).toFixed(1)),
+  };
+
   // Convert ratios to grams for initial state
   const initialGrams = useMemo(() => {
     return ratiosToGrams(estimatedCalories, carbRatio, proteinRatio, fatRatio);
@@ -107,7 +116,23 @@ export function MacroGramsInput({
 
   // Validate percentages sum to ~100%
   const percentSum = derivedValues.carbPercent + derivedValues.proteinPercent + derivedValues.fatPercent;
-  const isValid = percentSum >= 99 && percentSum <= 101;
+  const gramsValid = percentSum >= 99 && percentSum <= 101;
+  const isValid = inputMode === 'ratios' ? ratioValid : gramsValid;
+
+  const displayPercents =
+    inputMode === 'ratios'
+      ? {
+          carbs: ratioPercents.carbs,
+          protein: ratioPercents.protein,
+          fats: ratioPercents.fats,
+        }
+      : {
+          carbs: derivedValues.carbPercent,
+          protein: derivedValues.proteinPercent,
+          fats: derivedValues.fatPercent,
+        };
+
+  const formatPercent = (value: number) => (Number.isInteger(value) ? `${value}` : value.toFixed(1));
 
   // Handle gram changes and update parent with ratios
   const handleGramChange = (type: 'carbs' | 'protein' | 'fats', value: number) => {
@@ -135,11 +160,25 @@ export function MacroGramsInput({
     onChange(ratios.carbRatio, ratios.proteinRatio, ratios.fatRatio);
   };
 
+  const handleRatioChange = (type: 'carbs' | 'protein' | 'fats', value: number) => {
+    const clamp = (val: number) => Math.min(100, Math.max(0, val));
+    const nextCarbs = type === 'carbs' ? clamp(value) / 100 : carbRatio;
+    const nextProtein = type === 'protein' ? clamp(value) / 100 : proteinRatio;
+    const nextFats = type === 'fats' ? clamp(value) / 100 : fatRatio;
+
+    onChange(nextCarbs, nextProtein, nextFats);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-medium text-slate-200">Daily Macros</h3>
         <div className="flex items-center gap-2">
+          {inputMode === 'ratios' && (
+            <span className={`text-sm ${ratioValid ? 'text-green-400' : 'text-red-400'}`}>
+              Total: {formatPercent(ratioTotalPercent)}%
+            </span>
+          )}
           <button
             type="button"
             onClick={() => setInputMode('grams')}
@@ -169,74 +208,83 @@ export function MacroGramsInput({
       <div className="grid grid-cols-3 gap-4">
         <NumberInput
           label="Carbohydrates"
-          value={carbsG}
-          onChange={(v) => handleGramChange('carbs', v)}
+          value={inputMode === 'grams' ? carbsG : ratioPercents.carbs}
+          onChange={(v) =>
+            inputMode === 'grams' ? handleGramChange('carbs', v) : handleRatioChange('carbs', v)
+          }
           min={0}
-          max={1000}
-          step={5}
-          unit="g"
+          max={inputMode === 'grams' ? 1000 : 100}
+          step={inputMode === 'grams' ? 5 : 1}
+          unit={inputMode === 'grams' ? 'g' : '%'}
           testId="carbs-input"
         />
         <NumberInput
           label="Protein"
-          value={proteinG}
-          onChange={(v) => handleGramChange('protein', v)}
+          value={inputMode === 'grams' ? proteinG : ratioPercents.protein}
+          onChange={(v) =>
+            inputMode === 'grams'
+              ? handleGramChange('protein', v)
+              : handleRatioChange('protein', v)
+          }
           min={0}
-          max={500}
-          step={5}
-          unit="g"
+          max={inputMode === 'grams' ? 500 : 100}
+          step={inputMode === 'grams' ? 5 : 1}
+          unit={inputMode === 'grams' ? 'g' : '%'}
           testId="protein-input"
         />
         <NumberInput
           label="Fats"
-          value={fatsG}
-          onChange={(v) => handleGramChange('fats', v)}
+          value={inputMode === 'grams' ? fatsG : ratioPercents.fats}
+          onChange={(v) =>
+            inputMode === 'grams' ? handleGramChange('fats', v) : handleRatioChange('fats', v)
+          }
           min={0}
-          max={300}
-          step={5}
-          unit="g"
+          max={inputMode === 'grams' ? 300 : 100}
+          step={inputMode === 'grams' ? 5 : 1}
+          unit={inputMode === 'grams' ? 'g' : '%'}
           testId="fats-input"
         />
       </div>
 
       {/* Derived Values Display */}
       <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
-        <div className="text-sm text-slate-400 mb-3">Derived Values</div>
-
-        {/* Total Calories */}
-        <div className="flex justify-between items-center mb-3 pb-3 border-b border-slate-700">
-          <span className="text-sm text-slate-300">Total Calories</span>
-          <span className="text-lg font-semibold text-white">
-            {derivedValues.totalCalories.toLocaleString()} kcal
-          </span>
+        {/* Hero: Total Calories */}
+        <div className="text-center mb-4 pb-4 border-b border-slate-700">
+          <div className="text-xs uppercase tracking-wider text-slate-500 mb-1">Daily Target</div>
+          <div className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400">
+            {derivedValues.totalCalories.toLocaleString()}
+          </div>
+          <div className="text-sm text-slate-400 mt-1">kcal</div>
         </div>
+
+        <div className="text-sm text-slate-400 mb-3">Macro Breakdown</div>
 
         {/* Macro Breakdown Grid */}
         <div className="grid grid-cols-3 gap-4 text-center">
           {/* Carbs */}
           <div className="space-y-1">
-            <div className="text-amber-400 font-medium">{carbsG}g</div>
-            <div className="text-xs text-slate-500">{derivedValues.carbPercent}%</div>
-            <div className="text-xs text-slate-500">{derivedValues.carbsPerKg} g/kg</div>
-            <div className="text-xs text-slate-600">Carbs</div>
-          </div>
+          <div className="text-amber-400 font-medium">{carbsG}g</div>
+          <div className="text-xs text-slate-500">{formatPercent(displayPercents.carbs)}%</div>
+          <div className="text-xs text-slate-500">{derivedValues.carbsPerKg} g/kg</div>
+          <div className="text-xs text-slate-600">Carbs</div>
+        </div>
 
           {/* Protein */}
           <div className="space-y-1">
-            <div className="text-purple-400 font-medium">{proteinG}g</div>
-            <div className="text-xs text-slate-500">{derivedValues.proteinPercent}%</div>
-            <div className="text-xs text-slate-500">{derivedValues.proteinPerKg} g/kg</div>
-            <div className="text-xs text-slate-600">Protein</div>
-          </div>
+          <div className="text-purple-400 font-medium">{proteinG}g</div>
+          <div className="text-xs text-slate-500">{formatPercent(displayPercents.protein)}%</div>
+          <div className="text-xs text-slate-500">{derivedValues.proteinPerKg} g/kg</div>
+          <div className="text-xs text-slate-600">Protein</div>
+        </div>
 
           {/* Fats */}
           <div className="space-y-1">
-            <div className="text-red-400 font-medium">{fatsG}g</div>
-            <div className="text-xs text-slate-500">{derivedValues.fatPercent}%</div>
-            <div className="text-xs text-slate-500">{derivedValues.fatsPerKg} g/kg</div>
-            <div className="text-xs text-slate-600">Fats</div>
-          </div>
+          <div className="text-red-400 font-medium">{fatsG}g</div>
+          <div className="text-xs text-slate-500">{formatPercent(displayPercents.fats)}%</div>
+          <div className="text-xs text-slate-500">{derivedValues.fatsPerKg} g/kg</div>
+          <div className="text-xs text-slate-600">Fats</div>
         </div>
+      </div>
 
         {/* Protein per kg indicator */}
         {weightKg > 0 && (
@@ -265,7 +313,12 @@ export function MacroGramsInput({
       </div>
 
       {error && <p className="text-sm text-red-400">{error}</p>}
-      {!isValid && !error && (
+      {!isValid && !error && inputMode === 'ratios' && (
+        <p className="text-sm text-red-400">
+          Percentages must total 100%. Adjust carbs, protein, or fats.
+        </p>
+      )}
+      {!isValid && !error && inputMode === 'grams' && (
         <p className="text-sm text-yellow-400">Macro percentages should sum to approximately 100%</p>
       )}
     </div>
