@@ -62,18 +62,20 @@ func (s *DailyLogStore) GetByDate(ctx context.Context, date string) (*domain.Dai
 			COALESCE(fruit_g, 0), COALESCE(veggies_g, 0), COALESCE(water_l, 0), COALESCE(day_type, 'fatburner'),
 			COALESCE(estimated_tdee, 0), COALESCE(formula_tdee, 0),
 			COALESCE(tdee_source_used, 'formula'), COALESCE(tdee_confidence, 0), COALESCE(data_points_used, 0),
+			active_calories_burned,
 			created_at, updated_at
 		FROM daily_logs
 		WHERE log_date = ?
 	`
 
 	var (
-		log            domain.DailyLog
-		bodyFatPercent sql.NullFloat64
-		heartRate      sql.NullInt64
-		sleepHours     sql.NullFloat64
-		createdAt      string
-		updatedAt      string
+		log                  domain.DailyLog
+		bodyFatPercent       sql.NullFloat64
+		heartRate            sql.NullInt64
+		sleepHours           sql.NullFloat64
+		activeCaloriesBurned sql.NullInt64
+		createdAt            string
+		updatedAt            string
 	)
 
 	err := s.db.QueryRowContext(ctx, query, date).Scan(
@@ -91,6 +93,7 @@ func (s *DailyLogStore) GetByDate(ctx context.Context, date string) (*domain.Dai
 		&log.CalculatedTargets.WaterL, &log.CalculatedTargets.DayType,
 		&log.EstimatedTDEE, &log.FormulaTDEE,
 		&log.TDEESourceUsed, &log.TDEEConfidence, &log.DataPointsUsed,
+		&activeCaloriesBurned,
 		&createdAt, &updatedAt,
 	)
 
@@ -111,6 +114,10 @@ func (s *DailyLogStore) GetByDate(ctx context.Context, date string) (*domain.Dai
 	}
 	if sleepHours.Valid {
 		log.SleepHours = &sleepHours.Float64
+	}
+	if activeCaloriesBurned.Valid {
+		acb := int(activeCaloriesBurned.Int64)
+		log.ActiveCaloriesBurned = &acb
 	}
 
 	// Parse timestamps
@@ -306,7 +313,8 @@ func (s *DailyLogStore) ListDailyTargets(ctx context.Context, startDate, endDate
 			COALESCE(lunch_carb_points, 0), COALESCE(lunch_protein_points, 0), COALESCE(lunch_fat_points, 0),
 			COALESCE(dinner_carb_points, 0), COALESCE(dinner_protein_points, 0), COALESCE(dinner_fat_points, 0),
 			COALESCE(fruit_g, 0), COALESCE(veggies_g, 0), COALESCE(water_l, 0), COALESCE(day_type, 'fatburner'),
-			COALESCE(estimated_tdee, 0)
+			COALESCE(estimated_tdee, 0),
+			active_calories_burned
 		FROM daily_logs
 		WHERE log_date >= ? AND log_date <= ?
 		ORDER BY log_date ASC
@@ -321,6 +329,7 @@ func (s *DailyLogStore) ListDailyTargets(ctx context.Context, startDate, endDate
 	var points []domain.DailyTargetsPoint
 	for rows.Next() {
 		var point domain.DailyTargetsPoint
+		var activeCaloriesBurned sql.NullInt64
 		if err := rows.Scan(
 			&point.Date,
 			&point.Targets.TotalCarbsG, &point.Targets.TotalProteinG,
@@ -334,8 +343,13 @@ func (s *DailyLogStore) ListDailyTargets(ctx context.Context, startDate, endDate
 			&point.Targets.FruitG, &point.Targets.VeggiesG, &point.Targets.WaterL,
 			&point.Targets.DayType,
 			&point.Targets.EstimatedTDEE,
+			&activeCaloriesBurned,
 		); err != nil {
 			return nil, err
+		}
+		if activeCaloriesBurned.Valid {
+			acb := int(activeCaloriesBurned.Int64)
+			point.ActiveCaloriesBurned = &acb
 		}
 		points = append(points, point)
 	}
@@ -400,6 +414,37 @@ func isUniqueConstraint(err error) bool {
 type RecoveryDataPoint struct {
 	Date         string
 	SleepQuality int
+}
+
+// UpdateActiveCaloriesBurned updates only the active_calories_burned field for a given date.
+// Returns ErrDailyLogNotFound if no log exists for that date.
+func (s *DailyLogStore) UpdateActiveCaloriesBurned(ctx context.Context, date string, calories *int) error {
+	const query = `
+		UPDATE daily_logs
+		SET active_calories_burned = ?, updated_at = datetime('now')
+		WHERE log_date = ?
+	`
+
+	var caloriesVal interface{}
+	if calories != nil {
+		caloriesVal = *calories
+	}
+
+	result, err := s.db.ExecContext(ctx, query, caloriesVal, date)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return ErrDailyLogNotFound
+	}
+
+	return nil
 }
 
 // GetRecoveryData returns sleep quality data for the last N days before (and including) endDate.

@@ -4,6 +4,7 @@ import type {
   DailyLog,
   CreateDailyLogRequest,
   UpdateActualTrainingRequest,
+  UpdateActiveCaloriesRequest,
   TrainingConfig,
   WeightTrendRange,
   WeightTrendResponse,
@@ -114,6 +115,21 @@ export async function updateActualTraining(
   request: UpdateActualTrainingRequest
 ): Promise<DailyLog> {
   const response = await fetch(`${API_BASE}/logs/${date}/actual-training`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(request),
+  });
+
+  return handleResponse<DailyLog>(response);
+}
+
+export async function updateActiveCalories(
+  date: string,
+  request: UpdateActiveCaloriesRequest
+): Promise<DailyLog> {
+  const response = await fetch(`${API_BASE}/logs/${date}/active-calories`, {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',

@@ -148,6 +148,7 @@ export interface DailyTargets {
 export interface DailyTargetsRangePoint {
   date: string;
   calculatedTargets: DailyTargets;
+  activeCaloriesBurned?: number;
 }
 
 export interface DailyTargetsRangeResponse {
@@ -173,6 +174,7 @@ export interface DailyLog {
   dataPointsUsed?: number;        // Number of data points used for adaptive calculation
   recoveryScore?: RecoveryScoreBreakdown;       // Recovery score breakdown
   adjustmentMultipliers?: AdjustmentMultipliers; // Adjustment multipliers breakdown
+  activeCaloriesBurned?: number;                // User-entered active calories from wearable
   createdAt?: string;
   updatedAt?: string;
 }
@@ -190,6 +192,10 @@ export interface CreateDailyLogRequest {
 
 export interface UpdateActualTrainingRequest {
   actualSessions: Omit<ActualTrainingSession, 'sessionOrder'>[];
+}
+
+export interface UpdateActiveCaloriesRequest {
+  activeCaloriesBurned: number | null;
 }
 
 // Training Config Types

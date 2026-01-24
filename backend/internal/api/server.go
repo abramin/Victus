@@ -51,6 +51,7 @@ func NewServer(db *sql.DB) *Server {
 	mux.HandleFunc("GET /api/logs/{date}", srv.getLogByDate)
 	mux.HandleFunc("DELETE /api/logs/today", srv.deleteTodayLog)
 	mux.HandleFunc("PATCH /api/logs/{date}/actual-training", srv.updateActualTraining)
+	mux.HandleFunc("PATCH /api/logs/{date}/active-calories", srv.updateActiveCalories)
 
 	// Training config routes
 	mux.HandleFunc("GET /api/training-configs", srv.getTrainingConfigs)

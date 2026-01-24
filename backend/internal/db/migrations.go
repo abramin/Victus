@@ -49,6 +49,8 @@ func RunMigrations(db *sql.DB) error {
 		addFormulaTDEEColumn,
 		// Recalibration tolerance (Issue #12 - Settings UI)
 		addRecalibrationToleranceColumn,
+		// Active calories burned for Deficit Protection feature
+		addActiveCaloriesBurnedColumn,
 	}
 
 	for _, migration := range alterMigrations {
@@ -212,6 +214,9 @@ const addTDEESourceUsedColumn = `ALTER TABLE daily_logs ADD COLUMN tdee_source_u
 const addTDEEConfidenceColumn = `ALTER TABLE daily_logs ADD COLUMN tdee_confidence REAL DEFAULT 0`
 const addDataPointsUsedColumn = `ALTER TABLE daily_logs ADD COLUMN data_points_used INTEGER DEFAULT 0`
 const addFormulaTDEEColumn = `ALTER TABLE daily_logs ADD COLUMN formula_tdee INTEGER`
+
+// Active calories burned for Deficit Protection feature
+const addActiveCaloriesBurnedColumn = `ALTER TABLE daily_logs ADD COLUMN active_calories_burned INTEGER`
 
 // Training sessions table for multiple sessions per day (Issue #31)
 const createTrainingSessionsTable = `

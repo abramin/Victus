@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Panel } from '../common/Panel';
 
 interface Supplement {
@@ -14,58 +13,85 @@ interface SupplementsPanelProps {
   onSupplementChange: (id: string, enabled: boolean, value: number) => void;
   onApplyDefaults: () => void;
   onReset: () => void;
+  isRestDay?: boolean;
+  hasPerformanceWorkout?: boolean;
+  trainingDescription?: string;
 }
 
 export function SupplementsPanel({
   supplements,
   onSupplementChange,
   onApplyDefaults,
-  onReset
+  onReset,
+  isRestDay = false,
+  hasPerformanceWorkout = false,
+  trainingDescription,
 }: SupplementsPanelProps) {
-  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  // Filter out intra-workout on rest days
+  const visibleSupplements = isRestDay
+    ? supplements.filter(s => s.id !== 'intra_carbs')
+    : supplements;
 
   return (
     <Panel title="Supplements Taken">
+      {/* Training Context */}
+      {trainingDescription && (
+        <div className="mb-4 pb-3 border-b border-gray-800">
+          <p className="text-xs text-gray-400">{trainingDescription}</p>
+        </div>
+      )}
+
       <div className="space-y-4">
-        {supplements.map((supp) => (
-          <div key={supp.id} className="flex items-center gap-3">
-            {/* Toggle */}
-            <button
-              onClick={() => onSupplementChange(supp.id, !supp.enabled, supp.value)}
-              className={`w-10 h-5 rounded-full transition-colors relative ${
-                supp.enabled ? 'bg-blue-600' : 'bg-gray-700'
-              }`}
-            >
-              <div
-                className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
-                  supp.enabled ? 'translate-x-5' : 'translate-x-0.5'
-                }`}
-              />
-            </button>
+        {visibleSupplements.map((supp) => {
+          const isIntraCarbs = supp.id === 'intra_carbs';
+          const showAutoIndicator = isIntraCarbs && hasPerformanceWorkout && supp.enabled;
 
-            {/* Labels */}
-            <div className="flex-1 min-w-0">
-              <div className="text-xs text-gray-500">{supp.sublabel}</div>
-              <div className="text-sm text-gray-300">{supp.label}</div>
-            </div>
-
-            {/* Value Input */}
-            <div className="w-16">
-              <input
-                type="number"
-                value={supp.value}
-                onChange={(e) => onSupplementChange(supp.id, supp.enabled, parseInt(e.target.value) || 0)}
-                disabled={!supp.enabled}
-                className={`w-full px-2 py-1 text-sm rounded border text-right ${
-                  supp.enabled
-                    ? 'bg-gray-800 border-gray-700 text-white'
-                    : 'bg-gray-800/50 border-gray-800 text-gray-600'
+          return (
+            <div key={supp.id} className="flex items-center gap-3">
+              {/* Toggle */}
+              <button
+                onClick={() => onSupplementChange(supp.id, !supp.enabled, supp.value)}
+                className={`w-10 h-5 rounded-full transition-colors relative ${
+                  supp.enabled ? 'bg-blue-600' : 'bg-gray-700'
                 }`}
-              />
+              >
+                <div
+                  className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                    supp.enabled ? 'translate-x-5' : 'translate-x-0.5'
+                  }`}
+                />
+              </button>
+
+              {/* Labels */}
+              <div className="flex-1 min-w-0">
+                <div className="text-xs text-gray-500">{supp.sublabel}</div>
+                <div className="text-sm text-gray-300 flex items-center gap-2">
+                  {supp.label}
+                  {showAutoIndicator && (
+                    <span className="text-xs text-blue-400">Auto-enabled</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Value Input */}
+              <div className="w-16">
+                <input
+                  type="number"
+                  value={supp.value}
+                  onChange={(e) => onSupplementChange(supp.id, supp.enabled, parseInt(e.target.value) || 0)}
+                  disabled={!supp.enabled}
+                  className={`w-full px-2 py-1 text-sm rounded border text-right ${
+                    supp.enabled
+                      ? 'bg-gray-800 border-gray-700 text-white'
+                      : 'bg-gray-800/50 border-gray-800 text-gray-600'
+                  }`}
+                />
+              </div>
+              <span className="text-xs text-gray-500 w-4">g</span>
             </div>
-            <span className="text-xs text-gray-500 w-4">g</span>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Action Buttons */}
@@ -84,31 +110,6 @@ export function SupplementsPanel({
         </button>
       </div>
 
-      {/* Advanced Section */}
-      <button
-        onClick={() => setShowAdvanced(!showAdvanced)}
-        className="w-full mt-4 flex items-center justify-between text-sm text-gray-400 hover:text-white transition-colors"
-      >
-        <span>Assumptions (Advanced)</span>
-        <svg
-          className={`w-4 h-4 transition-transform ${showAdvanced ? 'rotate-180' : ''}`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
-
-      {showAdvanced && (
-        <div className="mt-3 p-3 bg-gray-800/50 rounded-lg text-xs text-gray-500 space-y-1">
-          <p>Fruit: 10% carbs by weight</p>
-          <p>Vegetables: 3% carbs by weight</p>
-          <p>Maltodextrin: 96% carbs</p>
-          <p>Collagen: 90% protein</p>
-          <p>Whey: 88% protein</p>
-        </div>
-      )}
-    </Panel>
+      </Panel>
   );
 }

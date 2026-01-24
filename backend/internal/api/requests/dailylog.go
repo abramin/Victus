@@ -26,6 +26,11 @@ type UpdateActualTrainingRequest struct {
 	ActualSessions []ActualTrainingSessionRequest `json:"actualSessions"`
 }
 
+// UpdateActiveCaloriesRequest is the request body for PATCH /api/logs/:date/active-calories.
+type UpdateActiveCaloriesRequest struct {
+	ActiveCaloriesBurned *int `json:"activeCaloriesBurned"`
+}
+
 // CreateDailyLogRequest is the request body for POST /api/logs.
 type CreateDailyLogRequest struct {
 	Date                    string                   `json:"date,omitempty"`
@@ -118,8 +123,9 @@ type DailyTargetsResponse struct {
 
 // DailyTargetsRangePointResponse represents calculated targets for a date.
 type DailyTargetsRangePointResponse struct {
-	Date              string               `json:"date"`
-	CalculatedTargets DailyTargetsResponse `json:"calculatedTargets"`
+	Date                 string               `json:"date"`
+	CalculatedTargets    DailyTargetsResponse `json:"calculatedTargets"`
+	ActiveCaloriesBurned *int                 `json:"activeCaloriesBurned,omitempty"`
 }
 
 // DailyTargetsRangeResponse represents calculated targets over a range.
@@ -148,6 +154,7 @@ type DailyLogResponse struct {
 	DataPointsUsed          int                             `json:"dataPointsUsed,omitempty"`        // Number of data points used for adaptive
 	RecoveryScore           *RecoveryScoreResponse          `json:"recoveryScore,omitempty"`         // Recovery score breakdown
 	AdjustmentMultipliers   *AdjustmentMultipliersResponse  `json:"adjustmentMultipliers,omitempty"` // Adjustment multipliers breakdown
+	ActiveCaloriesBurned    *int                            `json:"activeCaloriesBurned,omitempty"`  // User-entered active calories from wearable
 	CreatedAt               string                          `json:"createdAt,omitempty"`
 	UpdatedAt               string                          `json:"updatedAt,omitempty"`
 }
@@ -286,8 +293,9 @@ func DailyTargetsRangeToResponse(points []domain.DailyTargetsPoint) DailyTargets
 	resp := make([]DailyTargetsRangePointResponse, len(points))
 	for i, point := range points {
 		resp[i] = DailyTargetsRangePointResponse{
-			Date:              point.Date,
-			CalculatedTargets: DailyTargetsToResponse(point.Targets),
+			Date:                 point.Date,
+			CalculatedTargets:    DailyTargetsToResponse(point.Targets),
+			ActiveCaloriesBurned: point.ActiveCaloriesBurned,
 		}
 	}
 	return DailyTargetsRangeResponse{Days: resp}
@@ -356,6 +364,7 @@ func DailyLogToResponseWithTrainingLoad(d *domain.DailyLog, trainingLoad *domain
 		DataPointsUsed:        d.DataPointsUsed,
 		RecoveryScore:         RecoveryScoreToResponse(d.RecoveryScore),
 		AdjustmentMultipliers: AdjustmentMultipliersToResponse(d.AdjustmentMultipliers),
+		ActiveCaloriesBurned:  d.ActiveCaloriesBurned,
 	}
 
 	if !d.CreatedAt.IsZero() {

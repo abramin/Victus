@@ -1,12 +1,19 @@
-import { useEffect, useMemo, useState } from 'react';
-import { ApiError, getDailyTargetsRange, getLogByDate } from '../../api/client';
-import type { DailyLog, DayType, UserProfile } from '../../api/types';
+import { useEffect, useMemo, useState, useCallback } from 'react';
+import { ApiError, getLogByDate, getTrainingConfigs, updateActiveCalories } from '../../api/client';
+import type { DailyLog, DayType, UserProfile, TrainingConfig } from '../../api/types';
 import { calculateMealTargets } from '../targets/mealTargets';
+import { ActivityGapCard } from './ActivityGapCard';
+import { ActivityTrendChart } from './ActivityTrendChart';
+import { MealBreakdownModal } from './MealBreakdownModal';
 import { MealCard } from './MealCard';
 import { SupplementsPanel } from './SupplementsPanel';
-import { toDateKey, formatShortDate, isSameDay } from '../../utils';
-import { buildSvgPath } from '../../utils/math';
-import { DAY_TYPE_OPTIONS } from '../../constants';
+import { toDateKey, isSameDay } from '../../utils';
+import {
+  CARB_KCAL_PER_G,
+  DAY_TYPE_OPTIONS,
+  FAT_KCAL_PER_G,
+  PROTEIN_KCAL_PER_G,
+} from '../../constants';
 
 interface MealPointsDashboardProps {
   log: DailyLog | null;
@@ -14,28 +21,6 @@ interface MealPointsDashboardProps {
   onDayTypeChange?: (dayType: DayType) => void;
 }
 
-type TrendPeriod = '7d' | '14d' | '30d';
-
-type TrendMetric = 'carbs' | 'protein' | 'fats';
-
-interface TrendPoint {
-  date: string;
-  carbs: number;
-  protein: number;
-  fats: number;
-}
-
-const TREND_METRICS: { value: TrendMetric; label: string }[] = [
-  { value: 'carbs', label: 'Carb Points' },
-  { value: 'protein', label: 'Protein Points' },
-  { value: 'fats', label: 'Fat Points' },
-];
-
-const TREND_PERIOD_DAYS: Record<TrendPeriod, number> = {
-  '7d': 7,
-  '14d': 14,
-  '30d': 30,
-};
 
 type SupplementState = {
   id: 'whey' | 'collagen' | 'intra_carbs';
@@ -50,37 +35,6 @@ const DEFAULT_SUPPLEMENTS: SupplementState[] = [
   { id: 'collagen', label: 'Collagen', sublabel: 'Protein', value: 20, enabled: false },
   { id: 'intra_carbs', label: 'Intra-workout', sublabel: 'Carbs', value: 50, enabled: false },
 ];
-
-const buildTrendPath = (
-  points: TrendPoint[],
-  toX: (index: number) => number,
-  toY: (value: number) => number,
-  getValue: (point: TrendPoint) => number
-) => buildSvgPath(points, toX, toY, getValue);
-
-const getMetricValue = (point: TrendPoint, metric: TrendMetric) => {
-  switch (metric) {
-    case 'carbs':
-      return point.carbs;
-    case 'protein':
-      return point.protein;
-    case 'fats':
-      return point.fats;
-  }
-};
-
-const metricColor = (metric: TrendMetric) => {
-  switch (metric) {
-    case 'carbs':
-      return 'rgba(249, 115, 22, 0.9)';
-    case 'protein':
-      return 'rgba(168, 85, 247, 0.9)';
-    case 'fats':
-      return 'rgba(148, 163, 184, 0.9)';
-  }
-};
-
-const formatPoints = (value: number) => `${Math.round(value)} pts`;
 
 const buildSupplementsFromProfile = (profile: UserProfile): SupplementState[] => {
   const defaults = DEFAULT_SUPPLEMENTS;
@@ -104,75 +58,17 @@ const buildSupplementsFromProfile = (profile: UserProfile): SupplementState[] =>
   ];
 };
 
-function MealPointsTrendChart({ points, metric }: { points: TrendPoint[]; metric: TrendMetric }) {
-  const values = points.map((point) => getMetricValue(point, metric));
-  const minValue = Math.min(...values);
-  const maxValue = Math.max(...values);
-  const range = maxValue - minValue;
-  const padding = range === 0 ? 10 : range * 0.15;
-  const minY = minValue - padding;
-  const maxY = maxValue + padding;
-  const stroke = metricColor(metric);
-
-  const toX = (index: number) => (points.length === 1 ? 50 : (index / (points.length - 1)) * 100);
-  const toY = (value: number) => ((maxY - value) / (maxY - minY)) * 100;
-
-  const path = buildTrendPath(points, toX, toY, (point) => getMetricValue(point, metric));
-
-  return (
-    <div className="space-y-2">
-      <div className="relative h-48">
-        <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-          {[0, 25, 50, 75, 100].map((y) => (
-            <line
-              key={y}
-              x1="0"
-              y1={y}
-              x2="100"
-              y2={y}
-              stroke="rgba(148, 163, 184, 0.12)"
-              strokeDasharray="2 2"
-            />
-          ))}
-          <path d={path} fill="none" stroke={stroke} strokeWidth="2" />
-          {points.map((point, index) => (
-            <circle
-              key={point.date}
-              cx={toX(index)}
-              cy={toY(getMetricValue(point, metric))}
-              r="2.2"
-              fill="rgba(255, 255, 255, 0.9)"
-            />
-          ))}
-        </svg>
-        <div className="absolute left-0 top-0 text-xs text-gray-500">
-          {formatPoints(maxValue)}
-        </div>
-        <div className="absolute left-0 bottom-0 text-xs text-gray-500">
-          {formatPoints(minValue)}
-        </div>
-      </div>
-      <div className="flex justify-between text-xs text-gray-500">
-        <span>{formatShortDate(points[0].date)}</span>
-        <span>{formatShortDate(points[points.length - 1].date)}</span>
-      </div>
-    </div>
-  );
-}
-
 export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPointsDashboardProps) {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedDayType, setSelectedDayType] = useState<DayType>(log?.dayType || 'fatburner');
   const [supplements, setSupplements] = useState<SupplementState[]>(() => buildSupplementsFromProfile(profile));
-  const [trendPeriod, setTrendPeriod] = useState<TrendPeriod>('7d');
-  const [trendMetric, setTrendMetric] = useState<TrendMetric>('carbs');
-  const [trendPoints, setTrendPoints] = useState<TrendPoint[]>([]);
-  const [trendLoading, setTrendLoading] = useState(false);
-  const [trendError, setTrendError] = useState<string | null>(null);
   const [selectedLog, setSelectedLog] = useState<DailyLog | null>(log);
   const [loadingLog, setLoadingLog] = useState(false);
   const [logError, setLogError] = useState<string | null>(null);
   const isSelectedToday = isSameDay(selectedDate, new Date());
+  const [breakdownMeal, setBreakdownMeal] = useState<'Breakfast' | 'Lunch' | 'Dinner' | null>(null);
+  const [trainingConfigs, setTrainingConfigs] = useState<TrainingConfig[]>([]);
+  const [activeCaloriesUpdating, setActiveCaloriesUpdating] = useState(false);
 
   // Get meal ratios from profile (convert to percentages)
   const mealRatios = useMemo(() => ({
@@ -257,50 +153,50 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
     profile.supplementConfig.collagenG,
   ]);
 
+  // Load training configs for MET-based calorie calculations
   useEffect(() => {
-    let isActive = true;
-    const rangeDays = TREND_PERIOD_DAYS[trendPeriod];
-    const endDate = toDateKey(selectedDate);
-    const startDate = new Date(selectedDate);
-    startDate.setDate(startDate.getDate() - (rangeDays - 1));
-    const startKey = toDateKey(startDate);
-
-    setTrendLoading(true);
-    setTrendError(null);
-
-    getDailyTargetsRange(startKey, endDate)
-      .then((response) => {
-        if (!isActive) return;
-        const points = response.days
-          .map((day) => {
-            const meals = day.calculatedTargets.meals;
-            const carbs = meals.breakfast.carbs + meals.lunch.carbs + meals.dinner.carbs;
-            const protein = meals.breakfast.protein + meals.lunch.protein + meals.dinner.protein;
-            const fats = meals.breakfast.fats + meals.lunch.fats + meals.dinner.fats;
-            return {
-              date: day.date,
-              carbs,
-              protein,
-              fats,
-            };
-          })
-          .sort((left, right) => left.date.localeCompare(right.date));
-        setTrendPoints(points);
-      })
-      .catch((err) => {
-        if (!isActive) return;
-        setTrendPoints([]);
-        setTrendError(err instanceof Error ? err.message : 'Failed to load trend data');
-      })
-      .finally(() => {
-        if (!isActive) return;
-        setTrendLoading(false);
+    getTrainingConfigs()
+      .then(setTrainingConfigs)
+      .catch(() => {
+        // Fallback to empty - Activity Gap card will handle gracefully
       });
+  }, []);
 
-    return () => {
-      isActive = false;
-    };
-  }, [log?.date, selectedDate, trendPeriod]);
+  // Handler for updating active calories burned
+  const handleActiveCaloriesChange = useCallback(async (calories: number | null) => {
+    if (!selectedLog) return;
+
+    setActiveCaloriesUpdating(true);
+    try {
+      const updatedLog = await updateActiveCalories(selectedLog.date, {
+        activeCaloriesBurned: calories,
+      });
+      setSelectedLog(updatedLog);
+    } catch {
+      // Silently fail - user can retry
+    } finally {
+      setActiveCaloriesUpdating(false);
+    }
+  }, [selectedLog]);
+
+  // Auto-enable intra-workout carbs for performance workouts
+  useEffect(() => {
+    if (!selectedLog) return;
+
+    const sessions = selectedLog.plannedTrainingSessions || [];
+    const performanceTypes = ['strength', 'hiit', 'calisthenics', 'run', 'row', 'cycle'];
+    const hasPerformanceWorkout = sessions.some(
+      s => performanceTypes.includes(s.type) && s.durationMin >= 45
+    );
+
+    if (hasPerformanceWorkout) {
+      setSupplements(prev =>
+        prev.map(s =>
+          s.id === 'intra_carbs' ? { ...s, enabled: true } : s
+        )
+      );
+    }
+  }, [selectedLog?.date]);
 
   const supplementConfig = useMemo(() => {
     const config = { maltodextrinG: 0, wheyG: 0, collagenG: 0 };
@@ -366,6 +262,79 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
     supplementConfig,
   ]);
 
+  // Calculate grams and kcal per meal
+  const mealGramsAndKcal = useMemo(() => {
+    if (!selectedLog?.calculatedTargets) {
+      return null;
+    }
+    const { totalCarbsG, totalProteinG, totalFatsG } = selectedLog.calculatedTargets;
+    const { mealRatios: ratios } = profile;
+
+    const calcMeal = (ratio: number) => {
+      const carbGrams = Math.round(totalCarbsG * ratio);
+      const proteinGrams = Math.round(totalProteinG * ratio);
+      const fatGrams = Math.round(totalFatsG * ratio);
+      const kcal = Math.round(
+        carbGrams * CARB_KCAL_PER_G +
+        proteinGrams * PROTEIN_KCAL_PER_G +
+        fatGrams * FAT_KCAL_PER_G
+      );
+      return { carbGrams, proteinGrams, fatGrams, kcal };
+    };
+
+    return {
+      breakfast: calcMeal(ratios.breakfast),
+      lunch: calcMeal(ratios.lunch),
+      dinner: calcMeal(ratios.dinner),
+    };
+  }, [selectedLog?.calculatedTargets, profile.mealRatios]);
+
+  // Detect training type for smart supplement defaults
+  const trainingContext = useMemo(() => {
+    if (!selectedLog) return { isRestDay: true, hasPerformanceWorkout: false };
+
+    const sessions = selectedLog.plannedTrainingSessions || [];
+    const isRestDay = sessions.length === 0 || sessions.every(s => s.type === 'rest');
+
+    // Performance workout: strength, hiit, calisthenics with ≥45min duration
+    const performanceTypes = ['strength', 'hiit', 'calisthenics', 'run', 'row', 'cycle'];
+    const hasPerformanceWorkout = sessions.some(
+      s => performanceTypes.includes(s.type) && s.durationMin >= 45
+    );
+
+    return { isRestDay, hasPerformanceWorkout };
+  }, [selectedLog]);
+
+  // Derive context text based on training and day type
+  const contextText = useMemo(() => {
+    if (!selectedLog) return null;
+
+    const sessions = selectedLog.plannedTrainingSessions || [];
+    const isRest = sessions.length === 0 || sessions.every(s => s.type === 'rest');
+
+    if (isRest) {
+      return 'Strategy adapted for Rest Day';
+    }
+
+    const hasStrength = sessions.some(s =>
+      ['strength', 'calisthenics', 'hiit'].includes(s.type)
+    );
+
+    if (hasStrength && selectedDayType === 'performance') {
+      return 'High Carbs for Heavy Lifting';
+    }
+
+    if (selectedDayType === 'fatburner') {
+      return 'Lower Carbs for Fat Burning';
+    }
+
+    if (selectedDayType === 'metabolize') {
+      return 'Balanced Macros for Recovery';
+    }
+
+    return null;
+  }, [selectedLog, selectedDayType]);
+
   const emptyTitle = loadingLog
     ? 'Loading daily log...'
     : logError ?? 'No daily log for this date.';
@@ -379,45 +348,75 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
     <div className="p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold text-white">Meal Points</h1>
-
-        {/* Date Navigation */}
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => navigateDate(-1)}
-            className="p-2 text-gray-400 hover:text-white transition-colors"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <span className="text-white font-medium min-w-[140px] text-center">
-            {formatDate(selectedDate)}
-          </span>
-          <button
-            onClick={() => navigateDate(1)}
-            className="p-2 text-gray-400 hover:text-white transition-colors"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
+          <h1 className="text-2xl font-semibold text-white">Meal Points</h1>
+          <div className="relative group">
+            <button
+              type="button"
+              className="w-5 h-5 rounded-full bg-gray-700 text-gray-400 hover:bg-gray-600 hover:text-white flex items-center justify-center text-xs font-medium transition-colors"
+              aria-label="Calculation assumptions"
+            >
+              ?
+            </button>
+            <div className="absolute left-0 top-full mt-2 w-56 p-3 bg-gray-800 border border-gray-700 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+              <p className="text-xs text-gray-400 font-medium mb-2">Calculation Assumptions</p>
+              <div className="text-xs text-gray-500 space-y-1">
+                <p>Fruit: 10% carbs by weight</p>
+                <p>Vegetables: 3% carbs by weight</p>
+                <p>Maltodextrin: 96% carbs</p>
+                <p>Collagen: 90% protein</p>
+                <p>Whey: 88% protein</p>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Day Type Tabs */}
-        <div className="flex items-center gap-1 bg-gray-900 rounded-lg p-1">
-          {DAY_TYPE_OPTIONS.map((dt) => (
+        {/* Date Navigation */}
+        <div className="flex flex-col items-center">
+          <div className="flex items-center gap-2">
             <button
-              key={dt.value}
-              onClick={() => handleDayTypeSelect(dt.value)}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${selectedDayType === dt.value
-                  ? 'bg-gray-700 text-white'
-                  : 'text-gray-400 hover:text-white'
-                }`}
+              onClick={() => navigateDate(-1)}
+              className="p-2 text-gray-400 hover:text-white transition-colors"
             >
-              {dt.label}
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
             </button>
-          ))}
+            <span className="text-white font-medium min-w-[140px] text-center">
+              {formatDate(selectedDate)}
+            </span>
+            <button
+              onClick={() => navigateDate(1)}
+              className="p-2 text-gray-400 hover:text-white transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+          {contextText && (
+            <p className="text-xs text-gray-400 mt-1">{contextText}</p>
+          )}
+        </div>
+
+        {/* Day Type Strategy Selector */}
+        <div className="flex flex-col items-end">
+          <span className="text-xs text-gray-500 mb-1">Day Strategy</span>
+          <div className="flex items-center gap-1 bg-gray-900 rounded-lg p-1">
+            {DAY_TYPE_OPTIONS.map((dt) => (
+              <button
+                key={dt.value}
+                onClick={() => handleDayTypeSelect(dt.value)}
+                title={dt.description}
+                className={`px-4 py-2 rounded-md text-sm transition-colors ${selectedDayType === dt.value
+                    ? 'bg-blue-600 text-white font-semibold border-2 border-blue-500'
+                    : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                  }`}
+              >
+                {dt.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -441,77 +440,52 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
                 carbPoints={mealData.breakfast.carbs}
                 proteinPoints={mealData.breakfast.protein}
                 fatPoints={mealData.breakfast.fats}
-                sharePercent={mealRatios.breakfast}
+                carbGrams={mealGramsAndKcal?.breakfast.carbGrams}
+                proteinGrams={mealGramsAndKcal?.breakfast.proteinGrams}
+                fatGrams={mealGramsAndKcal?.breakfast.fatGrams}
+                totalKcal={mealGramsAndKcal?.breakfast.kcal}
+                onViewBreakdown={() => setBreakdownMeal('Breakfast')}
               />
               <MealCard
                 meal="Lunch"
                 carbPoints={mealData.lunch.carbs}
                 proteinPoints={mealData.lunch.protein}
                 fatPoints={mealData.lunch.fats}
-                sharePercent={mealRatios.lunch}
+                carbGrams={mealGramsAndKcal?.lunch.carbGrams}
+                proteinGrams={mealGramsAndKcal?.lunch.proteinGrams}
+                fatGrams={mealGramsAndKcal?.lunch.fatGrams}
+                totalKcal={mealGramsAndKcal?.lunch.kcal}
+                onViewBreakdown={() => setBreakdownMeal('Lunch')}
               />
               <MealCard
                 meal="Dinner"
                 carbPoints={mealData.dinner.carbs}
                 proteinPoints={mealData.dinner.protein}
                 fatPoints={mealData.dinner.fats}
-                sharePercent={mealRatios.dinner}
+                carbGrams={mealGramsAndKcal?.dinner.carbGrams}
+                proteinGrams={mealGramsAndKcal?.dinner.proteinGrams}
+                fatGrams={mealGramsAndKcal?.dinner.fatGrams}
+                totalKcal={mealGramsAndKcal?.dinner.kcal}
+                onViewBreakdown={() => setBreakdownMeal('Dinner')}
               />
             </div>
           )}
 
-          {/* Trend Chart */}
-          <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-white font-medium">Trend</h3>
-              <div className="flex items-center gap-4">
-                <select
-                  value={trendMetric}
-                  onChange={(event) => setTrendMetric(event.target.value as TrendMetric)}
-                  className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-white"
-                >
-                  {TREND_METRICS.map((metric) => (
-                    <option key={metric.value} value={metric.value}>
-                      {metric.label}
-                    </option>
-                  ))}
-                </select>
-                <div className="flex gap-1 bg-gray-800 rounded-lg p-1">
-                  {(['7d', '14d', '30d'] as const).map((period) => (
-                    <button
-                      key={period}
-                      onClick={() => setTrendPeriod(period)}
-                      className={`px-3 py-1 rounded text-sm transition-colors ${trendPeriod === period
-                          ? 'bg-gray-700 text-white'
-                          : 'text-gray-400 hover:text-white'
-                        }`}
-                    >
-                      {period}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
+          {/* Activity Gap Card */}
+          {selectedLog && (
+            <ActivityGapCard
+              plannedSessions={selectedLog.plannedTrainingSessions || []}
+              trainingConfigs={trainingConfigs}
+              weightKg={selectedLog.weightKg}
+              activeCaloriesBurned={selectedLog.activeCaloriesBurned}
+              totalCalories={selectedLog.calculatedTargets.totalCalories}
+              onActiveCaloriesChange={handleActiveCaloriesChange}
+              isLoading={activeCaloriesUpdating}
+            />
+          )}
 
-            {trendLoading && (
-              <div className="h-48 bg-gray-800/50 rounded-lg flex items-center justify-center">
-                <span className="text-gray-500 text-sm">Loading trend...</span>
-              </div>
-            )}
-            {!trendLoading && trendError && (
-              <div className="h-48 bg-gray-800/50 rounded-lg flex items-center justify-center">
-                <span className="text-red-400 text-sm">{trendError}</span>
-              </div>
-            )}
-            {!trendLoading && !trendError && trendPoints.length === 0 && (
-              <div className="h-48 bg-gray-800/50 rounded-lg flex items-center justify-center">
-                <span className="text-gray-600 text-sm">No meal points logged yet.</span>
-              </div>
-            )}
-            {!trendLoading && !trendError && trendPoints.length > 0 && (
-              <MealPointsTrendChart points={trendPoints} metric={trendMetric} />
-            )}
-          </div>
+          {/* Activity Trend Chart */}
+          <ActivityTrendChart selectedDate={selectedDate} />
         </div>
 
         {/* Supplements Panel - Right Side */}
@@ -525,9 +499,30 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
             onReset={() => {
               setSupplements(DEFAULT_SUPPLEMENTS);
             }}
+            isRestDay={trainingContext.isRestDay}
+            hasPerformanceWorkout={trainingContext.hasPerformanceWorkout}
           />
         </div>
       </div>
+
+      {/* Breakdown Modal */}
+      {breakdownMeal && mealGramsAndKcal && (
+        <MealBreakdownModal
+          isOpen={!!breakdownMeal}
+          onClose={() => setBreakdownMeal(null)}
+          meal={breakdownMeal}
+          sharePercent={mealRatios[breakdownMeal.toLowerCase() as 'breakfast' | 'lunch' | 'dinner']}
+          dayType={selectedDayType}
+          points={mealData[breakdownMeal.toLowerCase() as 'breakfast' | 'lunch' | 'dinner']}
+          grams={{
+            carbs: mealGramsAndKcal[breakdownMeal.toLowerCase() as 'breakfast' | 'lunch' | 'dinner'].carbGrams,
+            protein: mealGramsAndKcal[breakdownMeal.toLowerCase() as 'breakfast' | 'lunch' | 'dinner'].proteinGrams,
+            fats: mealGramsAndKcal[breakdownMeal.toLowerCase() as 'breakfast' | 'lunch' | 'dinner'].fatGrams,
+          }}
+          pointsConfig={profile.pointsConfig}
+          supplementConfig={supplementConfig}
+        />
+      )}
     </div>
   );
 }

@@ -153,6 +153,40 @@ func (s *Server) deleteTodayLog(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// updateActiveCalories handles PATCH /api/logs/{date}/active-calories
+func (s *Server) updateActiveCalories(w http.ResponseWriter, r *http.Request) {
+	date := r.PathValue("date")
+	if date == "" {
+		writeError(w, http.StatusBadRequest, "missing_date", "Date parameter is required")
+		return
+	}
+
+	var req requests.UpdateActiveCaloriesRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json", "Could not parse request body as JSON")
+		return
+	}
+
+	log, err := s.dailyLogService.UpdateActiveCaloriesBurned(r.Context(), date, req.ActiveCaloriesBurned)
+	if err != nil {
+		if errors.Is(err, store.ErrDailyLogNotFound) {
+			writeError(w, http.StatusNotFound, "not_found", "No log exists for this date")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "internal_error", "")
+		return
+	}
+
+	// Calculate training load metrics (ACR)
+	trainingLoad, err := s.dailyLogService.GetTrainingLoadMetrics(r.Context(), log.Date, log.ActualSessions, log.PlannedSessions)
+	if err != nil {
+		trainingLoad = nil
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(requests.DailyLogToResponseWithTrainingLoad(log, trainingLoad))
+}
+
 // updateActualTraining handles PATCH /api/logs/{date}/actual-training
 func (s *Server) updateActualTraining(w http.ResponseWriter, r *http.Request) {
 	date := r.PathValue("date")

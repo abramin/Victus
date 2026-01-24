@@ -173,6 +173,15 @@ func (s *DailyLogService) DeleteToday(ctx context.Context, now time.Time) error 
 	return s.logStore.DeleteByDate(ctx, today)
 }
 
+// UpdateActiveCaloriesBurned updates the active calories burned for a given date.
+// Returns store.ErrDailyLogNotFound if no log exists for that date.
+func (s *DailyLogService) UpdateActiveCaloriesBurned(ctx context.Context, date string, calories *int) (*domain.DailyLog, error) {
+	if err := s.logStore.UpdateActiveCaloriesBurned(ctx, date, calories); err != nil {
+		return nil, err
+	}
+	return s.GetByDate(ctx, date)
+}
+
 // GetWeightTrend returns weight samples and regression trend for the given start date.
 // If startDate is empty, all samples are returned.
 func (s *DailyLogService) GetWeightTrend(ctx context.Context, startDate string) ([]domain.WeightSample, *domain.WeightTrend, error) {

@@ -28,6 +28,7 @@ type DailyLog struct {
 	DataPointsUsed        int                   // Number of data points used for adaptive calculation
 	RecoveryScore         *RecoveryScore        // Recovery score breakdown (nil if not calculated)
 	AdjustmentMultipliers *AdjustmentMultipliers // Adjustment multipliers breakdown (nil if not calculated)
+	ActiveCaloriesBurned  *int                   // User-entered active calories from wearable
 	CreatedAt             time.Time
 	UpdatedAt             time.Time
 }

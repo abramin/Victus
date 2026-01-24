@@ -261,6 +261,7 @@ type DailyTargets struct {
 
 // DailyTargetsPoint represents calculated targets for a specific date.
 type DailyTargetsPoint struct {
-	Date    string
-	Targets DailyTargets
+	Date                 string
+	Targets              DailyTargets
+	ActiveCaloriesBurned *int // User-entered active calories from wearable
 }
