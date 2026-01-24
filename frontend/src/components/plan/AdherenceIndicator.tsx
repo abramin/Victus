@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import type { TrainingSession, ActualTrainingSession } from '../../api/types';
 
 export type AdherenceStatus = 'complete' | 'partial' | 'missed' | 'rest' | 'future';
@@ -18,7 +19,7 @@ interface AdherenceIndicatorProps {
 export function AdherenceIndicator({ status, compact = false }: AdherenceIndicatorProps) {
   if (status === 'future') return null;
 
-  const configs: Record<Exclude<AdherenceStatus, 'future'>, { icon: JSX.Element; bg: string; title: string }> = {
+  const configs: Record<Exclude<AdherenceStatus, 'future'>, { icon: ReactElement; bg: string; title: string }> = {
     complete: {
       icon: (
         <svg className="w-full h-full" fill="currentColor" viewBox="0 0 20 20">

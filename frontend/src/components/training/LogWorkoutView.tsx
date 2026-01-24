@@ -23,6 +23,15 @@ const TRAINING_OPTIONS = [
 
 const DEFAULT_RPE = 5;
 
+const getSessionPerceivedIntensity = (
+  session: TrainingSession | ActualTrainingSession
+): number | undefined => {
+  if ('perceivedIntensity' in session) {
+    return session.perceivedIntensity;
+  }
+  return undefined;
+};
+
 const getSessionLoadScore = (session: ActualTrainingSession) => {
   if (session.type === 'rest') return 0;
   const rpeValue = session.perceivedIntensity ?? DEFAULT_RPE;
@@ -118,8 +127,7 @@ export function LogWorkoutView({ log, onUpdateActual, saving }: LogWorkoutViewPr
         _id: generateId(),
         type: session.type,
         durationMin: session.durationMin,
-        perceivedIntensity:
-          'perceivedIntensity' in session ? session.perceivedIntensity : undefined,
+        perceivedIntensity: getSessionPerceivedIntensity(session),
         notes: session.notes ?? '',
       }))
     );

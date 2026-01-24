@@ -23,6 +23,15 @@ const TRAINING_OPTIONS = [
 
 const DEFAULT_RPE = 5;
 
+const getSessionPerceivedIntensity = (
+  session: TrainingSession | ActualTrainingSession
+): number | undefined => {
+  if ('perceivedIntensity' in session) {
+    return session.perceivedIntensity;
+  }
+  return undefined;
+};
+
 const getTrainingLabel = (type: TrainingType) =>
   TRAINING_OPTIONS.find((option) => option.value === type)?.label ?? type;
 
@@ -103,9 +112,7 @@ export function ActualTrainingModal({
             ? session.type === 'rest'
               ? undefined
               : DEFAULT_RPE
-            : 'perceivedIntensity' in session
-            ? session.perceivedIntensity
-            : undefined,
+            : getSessionPerceivedIntensity(session),
         notes: session.notes ?? '',
       }))
     );

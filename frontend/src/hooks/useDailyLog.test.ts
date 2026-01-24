@@ -23,35 +23,41 @@ const mockLog: DailyLog = {
   date: '2026-01-24',
   weightKg: 80,
   dayType: 'fatburner',
-  sleepQuality: 'good',
+  sleepQuality: 75,
   plannedTrainingSessions: [
     { sessionOrder: 1, type: 'strength', durationMin: 60 },
   ],
   actualTrainingSessions: [],
+  trainingSummary: {
+    sessionCount: 1,
+    totalDurationMin: 60,
+    totalLoadScore: 300,
+    summary: '1 session, 60 min total',
+  },
   calculatedTargets: {
-    bmrKcal: 1800,
-    tdeeKcal: 2500,
-    targetKcal: 2200,
     totalCarbsG: 250,
     totalProteinG: 165,
     totalFatsG: 70,
+    totalCalories: 2200,
     fruitG: 200,
     veggiesG: 400,
+    waterL: 3,
+    dayType: 'fatburner',
     meals: {
       breakfast: { carbs: 3, protein: 2, fats: 1 },
       lunch: { carbs: 4, protein: 3, fats: 2 },
       dinner: { carbs: 5, protein: 4, fats: 2 },
     },
-    perMealFruitG: 67,
-    perMealVeggiesG: 133,
   },
+  estimatedTDEE: 2500,
+  tdeeSourceUsed: 'formula',
 };
 
 const mockCreateRequest: CreateDailyLogRequest = {
   date: '2026-01-24',
   weightKg: 80,
   dayType: 'fatburner',
-  sleepQuality: 'good',
+  sleepQuality: 75,
   plannedTrainingSessions: [
     { type: 'strength', durationMin: 60 },
   ],

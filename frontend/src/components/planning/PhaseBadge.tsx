@@ -48,7 +48,7 @@ export function getPlanPhase(weekNumber: number, totalWeeks: number): PlanPhase 
 export function getPhaseWeekRanges(totalWeeks: number): Array<{ phase: PlanPhase; startWeek: number; endWeek: number }> {
   const phaseLength = Math.ceil(totalWeeks / 3);
 
-  return [
+  const ranges: Array<{ phase: PlanPhase; startWeek: number; endWeek: number }> = [
     {
       phase: 'initiation',
       startWeek: 1,
@@ -64,7 +64,9 @@ export function getPhaseWeekRanges(totalWeeks: number): Array<{ phase: PlanPhase
       startWeek: phaseLength * 2 + 1,
       endWeek: totalWeeks,
     },
-  ].filter((p) => p.startWeek <= totalWeeks);
+  ];
+
+  return ranges.filter((p) => p.startWeek <= totalWeeks);
 }
 
 /**

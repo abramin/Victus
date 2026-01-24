@@ -128,9 +128,9 @@ export function useProfileValidation(profile: UserProfile): UseProfileValidation
       newErrors.bodyFat = `Body fat must be between ${BODY_FAT_MIN_PERCENT}% and ${BODY_FAT_MAX_PERCENT}%`;
     }
 
-    // Manual TDEE validation (only when using override)
+    // Manual TDEE validation (only when using manual)
     if (
-      profileToValidate.tdeeSource === 'override' &&
+      profileToValidate.tdeeSource === 'manual' &&
       profileToValidate.manualTDEE !== undefined &&
       (profileToValidate.manualTDEE < TDEE_MIN_KCAL || profileToValidate.manualTDEE > TDEE_MAX_KCAL)
     ) {

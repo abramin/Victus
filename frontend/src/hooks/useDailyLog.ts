@@ -105,6 +105,10 @@ export function useDailyLog(): UseDailyLogReturn {
           const rollback: CreateDailyLogRequest = {
             date: oldLog.date,
             weightKg: oldLog.weightKg,
+            bodyFatPercent: oldLog.bodyFatPercent,
+            restingHeartRate: oldLog.restingHeartRate,
+            sleepQuality: oldLog.sleepQuality,
+            sleepHours: oldLog.sleepHours,
             dayType: oldLog.dayType,
             plannedTrainingSessions: oldPlannedSessions,
           };
