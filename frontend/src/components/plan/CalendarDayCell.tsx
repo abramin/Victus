@@ -33,6 +33,11 @@ export interface CalendarDayData {
   actualSessions?: ActualTrainingSession[];
 }
 
+interface DragSourceData {
+  date: string;
+  dayType: DayType;
+}
+
 interface CalendarDayCellProps {
   dayData: CalendarDayData;
   isToday: boolean;
@@ -43,6 +48,9 @@ interface CalendarDayCellProps {
   onDayTypeChange?: (date: string, dayType: DayType) => void;
   isDropTarget?: boolean;
   isValidDropTarget?: boolean;
+  onDragEnter?: (date: string) => void;
+  onDragLeave?: () => void;
+  onDrop?: (targetDate: string, sourceData: DragSourceData) => void;
 }
 
 /**
@@ -66,6 +74,9 @@ export function CalendarDayCell({
   onDayTypeChange,
   isDropTarget = false,
   isValidDropTarget = true,
+  onDragEnter,
+  onDragLeave,
+  onDrop,
 }: CalendarDayCellProps) {
   const isDisabled = !dayData.hasData;
   const sessions = dayData.actualSessions?.length
@@ -100,12 +111,53 @@ export function CalendarDayCell({
     onDayTypeChange?.(dateKey, newDayType);
   };
 
+  // Drag-and-drop event handlers
+  const handleDragOver = (e: React.DragEvent) => {
+    // Only allow drop on future days with data
+    if (!isPast && dayData.hasData) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+    }
+  };
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (dayData.hasData) {
+      onDragEnter?.(dateKey);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    // Only trigger if leaving the cell (not entering a child)
+    if (e.currentTarget === e.target) {
+      onDragLeave?.();
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    onDragLeave?.(); // Clear drop target highlight
+
+    if (isPast || !dayData.hasData) return;
+
+    try {
+      const data = JSON.parse(e.dataTransfer.getData('application/json')) as DragSourceData;
+      onDrop?.(dateKey, data);
+    } catch {
+      // Invalid drag data, ignore
+    }
+  };
+
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={isDisabled}
       className={cellClasses}
+      onDragOver={handleDragOver}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
     >
       {/* Row 1: Day Number + Adherence + Mini Donut */}
       <div className="flex items-center justify-between mb-2">

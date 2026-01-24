@@ -7,6 +7,8 @@ interface DayTypeQuickSelectorProps {
   date: string;
   onSelect: (dayType: DayType) => void;
   disabled?: boolean;
+  onDragStart?: (date: string, dayType: DayType) => void;
+  onDragEnd?: () => void;
 }
 
 /**
@@ -18,6 +20,8 @@ export function DayTypeQuickSelector({
   date,
   onSelect,
   disabled = false,
+  onDragStart,
+  onDragEnd,
 }: DayTypeQuickSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -59,11 +63,29 @@ export function DayTypeQuickSelector({
 
   const colors = DAY_TYPE_COLORS[currentType];
 
+  // HTML5 drag event handlers
+  const handleDragStart = (e: React.DragEvent<HTMLButtonElement>) => {
+    if (disabled) {
+      e.preventDefault();
+      return;
+    }
+    e.dataTransfer.setData('application/json', JSON.stringify({ date, dayType: currentType }));
+    e.dataTransfer.effectAllowed = 'move';
+    onDragStart?.(date, currentType);
+  };
+
+  const handleDragEnd = () => {
+    onDragEnd?.();
+  };
+
   return (
     <div ref={containerRef} className="relative inline-block">
-      {/* Current badge - clickable to open selector */}
+      {/* Current badge - clickable to open selector, draggable for swapping */}
       <button
         type="button"
+        draggable={!disabled}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
         onClick={(e) => {
           e.stopPropagation();
           if (!disabled) setIsOpen(!isOpen);
@@ -72,10 +94,16 @@ export function DayTypeQuickSelector({
         className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium transition ${
           colors.bg
         } text-white ${
-          disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:opacity-90'
+          disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-grab active:cursor-grabbing hover:opacity-90'
         }`}
-        title={disabled ? 'Cannot edit past days' : 'Click to change day type'}
+        title={disabled ? 'Cannot edit past days' : 'Click to change, drag to swap'}
       >
+        {/* Drag handle indicator */}
+        {!disabled && (
+          <svg className="w-2.5 h-2.5 opacity-50" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M7 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 2zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 14zm6-8a2 2 0 1 0-.001-4.001A2 2 0 0 0 13 6zm0 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 14z" />
+          </svg>
+        )}
         <span className="capitalize">{currentType.slice(0, 4)}</span>
         {!disabled && (
           <svg className="w-3 h-3 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">

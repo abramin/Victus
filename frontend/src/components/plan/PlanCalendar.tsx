@@ -60,6 +60,9 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
   const [rangeLoading, setRangeLoading] = useState(false);
   const [rangeError, setRangeError] = useState<string | null>(null);
 
+  // Drag-and-drop state
+  const [dropTarget, setDropTarget] = useState<string | null>(null);
+
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
 
@@ -307,6 +310,61 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
     return `${label} +${nonRestSessions.length - 1} (${totalDuration}min total)`;
   };
 
+  // Handle drag-and-drop day type swap between two days
+  const handleDayTypeSwap = useCallback(async (
+    targetDate: string,
+    sourceData: { date: string; dayType: DayType }
+  ) => {
+    const sourceDate = sourceData.date;
+    if (sourceDate === targetDate) return;
+
+    const targetDay = rangeData.find(d => d.date === targetDate);
+    const sourceDayType = sourceData.dayType;
+    const targetDayType = targetDay?.calculatedTargets.dayType;
+
+    if (!targetDayType) return;
+
+    // Optimistic update: swap both day types in local state
+    setRangeData((prev) =>
+      prev.map((day) => {
+        if (day.date === sourceDate) {
+          return {
+            ...day,
+            calculatedTargets: {
+              ...day.calculatedTargets,
+              dayType: targetDayType,
+            },
+          };
+        }
+        if (day.date === targetDate) {
+          return {
+            ...day,
+            calculatedTargets: {
+              ...day.calculatedTargets,
+              dayType: sourceDayType,
+            },
+          };
+        }
+        return day;
+      })
+    );
+
+    // Persist both changes to backend
+    try {
+      await Promise.all([
+        upsertPlannedDay(sourceDate, targetDayType),
+        upsertPlannedDay(targetDate, sourceDayType),
+      ]);
+    } catch (error) {
+      // Revert on error - refetch data
+      console.error('Failed to swap day types:', error);
+      const startDate = toDateKey(new Date(year, month, 1));
+      const endDate = toDateKey(new Date(year, month + 1, 0));
+      const response = await getDailyTargetsRange(startDate, endDate);
+      setRangeData(response.days);
+    }
+  }, [rangeData, year, month]);
+
   // Handle day type change from the quick selector
   const handleDayTypeChange = useCallback(async (date: string, newDayType: DayType) => {
     // Optimistic update: update local state immediately
@@ -433,16 +491,24 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
               actualSessions: dayData.actualSessions,
             };
 
+            const cellDateKey = toDateKey(dayData.date);
+            const cellIsPast = isPast(dayData.date);
+
             return (
               <CalendarDayCell
-                key={toDateKey(dayData.date)}
+                key={cellDateKey}
                 dayData={cellData}
                 isToday={isToday(dayData.date)}
                 isSelected={isSelected}
                 isFiltered={isFiltered}
-                isPast={isPast(dayData.date)}
+                isPast={cellIsPast}
                 onClick={() => openDayDialog(dayData)}
                 onDayTypeChange={handleDayTypeChange}
+                isDropTarget={dropTarget === cellDateKey}
+                isValidDropTarget={!cellIsPast && dayData.hasData}
+                onDragEnter={setDropTarget}
+                onDragLeave={() => setDropTarget(null)}
+                onDrop={handleDayTypeSwap}
               />
             );
           })}

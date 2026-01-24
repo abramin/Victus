@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion';
 import type { DayType } from '../../api/types';
 import { DAY_TYPE_COLORS, DAY_TYPE_LABELS } from '../../constants';
 
@@ -13,6 +12,7 @@ interface DraggableDayTypeBadgeProps {
 
 /**
  * A day type badge that can be dragged to other calendar cells.
+ * Uses HTML5 Drag-and-Drop API for proper drop target detection.
  * Only future days can be dragged; past days are read-only.
  */
 export function DraggableDayTypeBadge({
@@ -37,23 +37,25 @@ export function DraggableDayTypeBadge({
     );
   }
 
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
+    // Set drag data as JSON
+    e.dataTransfer.setData('application/json', JSON.stringify({ date, dayType }));
+    e.dataTransfer.effectAllowed = 'move';
+    onDragStart?.(date, dayType);
+  };
+
+  const handleDragEnd = () => {
+    onDragEnd?.();
+  };
+
   return (
-    <motion.div
-      drag
-      dragSnapToOrigin
-      dragElastic={0.1}
-      dragMomentum={false}
-      onDragStart={() => onDragStart?.(date, dayType)}
-      onDragEnd={() => onDragEnd?.()}
-      whileDrag={{
-        scale: 1.1,
-        zIndex: 100,
-        boxShadow: '0 10px 25px rgba(0,0,0,0.3)',
-      }}
+    <div
+      draggable
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
       className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium cursor-grab active:cursor-grabbing ${
         colors.bg
-      } text-white ${isDragging ? 'opacity-50' : ''}`}
-      style={{ touchAction: 'none' }}
+      } text-white ${isDragging ? 'opacity-50' : ''} transition-opacity`}
     >
       {label}
       {/* Drag handle indicator */}
@@ -64,7 +66,7 @@ export function DraggableDayTypeBadge({
       >
         <path d="M7 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 2zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 14zm6-8a2 2 0 1 0-.001-4.001A2 2 0 0 0 13 6zm0 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 14z" />
       </svg>
-    </motion.div>
+    </div>
   );
 }
 
