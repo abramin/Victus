@@ -123,9 +123,11 @@ type DailyTargetsResponse struct {
 
 // DailyTargetsRangePointResponse represents calculated targets for a date.
 type DailyTargetsRangePointResponse struct {
-	Date                 string               `json:"date"`
-	CalculatedTargets    DailyTargetsResponse `json:"calculatedTargets"`
-	ActiveCaloriesBurned *int                 `json:"activeCaloriesBurned,omitempty"`
+	Date                 string                        `json:"date"`
+	CalculatedTargets    DailyTargetsResponse          `json:"calculatedTargets"`
+	ActiveCaloriesBurned *int                          `json:"activeCaloriesBurned,omitempty"`
+	PlannedSessions      []TrainingSessionResponse     `json:"plannedSessions,omitempty"`
+	ActualSessions       []ActualTrainingSessionResponse `json:"actualSessions,omitempty"`
 }
 
 // DailyTargetsRangeResponse represents calculated targets over a range.
@@ -299,6 +301,56 @@ func DailyTargetsRangeToResponse(points []domain.DailyTargetsPoint) DailyTargets
 		}
 	}
 	return DailyTargetsRangeResponse{Days: resp}
+}
+
+// DailyTargetsRangeWithSessionsToResponse converts daily targets points with sessions to a response payload.
+func DailyTargetsRangeWithSessionsToResponse(points []domain.DailyTargetsPointWithSessions) DailyTargetsRangeResponse {
+	resp := make([]DailyTargetsRangePointResponse, len(points))
+	for i, point := range points {
+		resp[i] = DailyTargetsRangePointResponse{
+			Date:                 point.Date,
+			CalculatedTargets:    DailyTargetsToResponse(point.Targets),
+			ActiveCaloriesBurned: point.ActiveCaloriesBurned,
+			PlannedSessions:      trainingSessionsToResponse(point.PlannedSessions),
+			ActualSessions:       actualTrainingSessionsToResponse(point.ActualSessions),
+		}
+	}
+	return DailyTargetsRangeResponse{Days: resp}
+}
+
+// trainingSessionsToResponse converts domain training sessions to response format.
+func trainingSessionsToResponse(sessions []domain.TrainingSession) []TrainingSessionResponse {
+	if len(sessions) == 0 {
+		return nil
+	}
+	resp := make([]TrainingSessionResponse, len(sessions))
+	for i, s := range sessions {
+		resp[i] = TrainingSessionResponse{
+			SessionOrder: s.SessionOrder,
+			Type:         string(s.Type),
+			DurationMin:  s.DurationMin,
+			Notes:        s.Notes,
+		}
+	}
+	return resp
+}
+
+// actualTrainingSessionsToResponse converts domain actual training sessions to response format.
+func actualTrainingSessionsToResponse(sessions []domain.TrainingSession) []ActualTrainingSessionResponse {
+	if len(sessions) == 0 {
+		return nil
+	}
+	resp := make([]ActualTrainingSessionResponse, len(sessions))
+	for i, s := range sessions {
+		resp[i] = ActualTrainingSessionResponse{
+			SessionOrder:       s.SessionOrder,
+			Type:               string(s.Type),
+			DurationMin:        s.DurationMin,
+			PerceivedIntensity: s.PerceivedIntensity,
+			Notes:              s.Notes,
+		}
+	}
+	return resp
 }
 
 // DailyLogToResponse converts a DailyLog model to a DailyLogResponse.

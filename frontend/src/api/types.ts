@@ -149,6 +149,8 @@ export interface DailyTargetsRangePoint {
   date: string;
   calculatedTargets: DailyTargets;
   activeCaloriesBurned?: number;
+  plannedSessions?: TrainingSession[];
+  actualSessions?: ActualTrainingSession[];
 }
 
 export interface DailyTargetsRangeResponse {

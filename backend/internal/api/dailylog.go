@@ -132,14 +132,14 @@ func (s *Server) getLogsRange(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	points, err := s.dailyLogService.GetDailyTargetsRange(r.Context(), startDate, endDate)
+	points, err := s.dailyLogService.GetDailyTargetsRangeWithSessions(r.Context(), startDate, endDate)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal_error", "")
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(requests.DailyTargetsRangeToResponse(points))
+	json.NewEncoder(w).Encode(requests.DailyTargetsRangeWithSessionsToResponse(points))
 }
 
 // deleteTodayLog handles DELETE /api/logs/today

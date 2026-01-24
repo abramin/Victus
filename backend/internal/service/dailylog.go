@@ -288,6 +288,42 @@ func (s *DailyLogService) GetDailyTargetsRange(ctx context.Context, startDate, e
 	return s.logStore.ListDailyTargets(ctx, startDate, endDate)
 }
 
+// GetDailyTargetsRangeWithSessions returns calculated targets with training sessions for logs in the date range.
+// Used for calendar views that need to correlate nutrition with training.
+func (s *DailyLogService) GetDailyTargetsRangeWithSessions(ctx context.Context, startDate, endDate string) ([]domain.DailyTargetsPointWithSessions, error) {
+	// Get daily targets
+	targets, err := s.logStore.ListDailyTargets(ctx, startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get training sessions for the range
+	sessionsData, err := s.sessionStore.GetSessionsForDateRange(ctx, startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+
+	// Build sessions lookup map for O(1) access
+	sessionsByDate := make(map[string]store.SessionsByDate, len(sessionsData))
+	for _, sd := range sessionsData {
+		sessionsByDate[sd.Date] = sd
+	}
+
+	// Merge targets with sessions
+	result := make([]domain.DailyTargetsPointWithSessions, len(targets))
+	for i, target := range targets {
+		result[i] = domain.DailyTargetsPointWithSessions{
+			DailyTargetsPoint: target,
+		}
+		if sd, ok := sessionsByDate[target.Date]; ok {
+			result[i].PlannedSessions = sd.PlannedSessions
+			result[i].ActualSessions = sd.ActualSessions
+		}
+	}
+
+	return result, nil
+}
+
 // GetTrainingLoadMetrics calculates ACR metrics for a given date.
 // Uses up to 28 days of historical data for chronic load calculation.
 // The todayLoad is calculated from the provided actual/planned sessions.

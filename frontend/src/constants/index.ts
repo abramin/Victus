@@ -194,6 +194,38 @@ export const TRAINING_LABELS: Record<TrainingType, string> = {
   mixed: 'Mixed',
 };
 
+/** Training type icons for calendar display */
+export const TRAINING_ICONS: Record<TrainingType, string> = {
+  rest: '😴',
+  qigong: '🧘',
+  walking: '🚶',
+  gmb: '💪',
+  run: '🏃',
+  row: '🚣',
+  cycle: '🚴',
+  hiit: '⚡',
+  strength: '🏋️',
+  calisthenics: '🤸',
+  mobility: '🔄',
+  mixed: '🔀',
+};
+
+/** Training type colors for styling */
+export const TRAINING_COLORS: Record<TrainingType, { bg: string; text: string }> = {
+  rest: { bg: 'bg-gray-700/50', text: 'text-gray-400' },
+  qigong: { bg: 'bg-teal-700/50', text: 'text-teal-400' },
+  walking: { bg: 'bg-green-700/50', text: 'text-green-400' },
+  gmb: { bg: 'bg-amber-700/50', text: 'text-amber-400' },
+  run: { bg: 'bg-red-700/50', text: 'text-red-400' },
+  row: { bg: 'bg-cyan-700/50', text: 'text-cyan-400' },
+  cycle: { bg: 'bg-lime-700/50', text: 'text-lime-400' },
+  hiit: { bg: 'bg-yellow-700/50', text: 'text-yellow-400' },
+  strength: { bg: 'bg-indigo-700/50', text: 'text-indigo-400' },
+  calisthenics: { bg: 'bg-pink-700/50', text: 'text-pink-400' },
+  mobility: { bg: 'bg-violet-700/50', text: 'text-violet-400' },
+  mixed: { bg: 'bg-slate-700/50', text: 'text-slate-400' },
+};
+
 // =============================================================================
 // DAY TYPE DISPLAY CONFIGURATION
 // =============================================================================
@@ -227,3 +259,36 @@ export const DAY_TYPE_LABELS: Record<DayType, string> = {
   fatburner: 'Fatb',
   metabolize: 'Meta',
 };
+
+// =============================================================================
+// PLAN SIMULATOR CONSTANTS
+// =============================================================================
+
+/** Energy equivalent of 1 kg body weight in kcal */
+export const KCAL_PER_KG = 7700;
+
+/** Plan duration limits */
+export const PLAN_DURATION_MIN_WEEKS = 4;
+export const PLAN_DURATION_MAX_WEEKS = 104;
+
+/** Safe deficit/surplus limits (kcal/day) */
+export const MAX_SAFE_DEFICIT_KCAL = 750;
+export const MAX_SAFE_SURPLUS_KCAL = 500;
+
+/** Pace slider range (kg/week) */
+export const PACE_MIN_KG_WEEK = 0.25;
+export const PACE_MAX_KG_WEEK = 1.5;
+
+/**
+ * Pace zones for the plan simulator slider.
+ * Zones are defined by percentage thresholds (0-100) mapping to the slider range.
+ * Slider range: 0.25 - 1.5 kg/week
+ * - 0.25-0.75 kg/week (0-40%) = Sustainable
+ * - 0.75-1.0 kg/week (40-60%) = Aggressive
+ * - 1.0-1.5 kg/week (60-100%) = Extreme
+ */
+export const PACE_ZONES = [
+  { upTo: 40, label: 'Sustainable', color: 'text-green-400' },
+  { upTo: 60, label: 'Aggressive', color: 'text-orange-400' },
+  { upTo: 100, label: 'Extreme', color: 'text-red-400' },
+] as const;

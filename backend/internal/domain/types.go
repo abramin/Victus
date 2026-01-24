@@ -266,6 +266,14 @@ type DailyTargetsPoint struct {
 	ActiveCaloriesBurned *int // User-entered active calories from wearable
 }
 
+// DailyTargetsPointWithSessions extends DailyTargetsPoint with training session data.
+// Used for calendar views that need to correlate nutrition with training.
+type DailyTargetsPointWithSessions struct {
+	DailyTargetsPoint
+	PlannedSessions []TrainingSession
+	ActualSessions  []TrainingSession
+}
+
 // PlannedDayType represents a pre-planned day type for a future date.
 // Used for weekly microcycle planning in the Cockpit Dashboard.
 type PlannedDayType struct {

@@ -1,25 +1,17 @@
-import { useEffect, useMemo, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import type { DayType, DailyTargets, MealTargets, UserProfile } from '../../api/types';
-import { getDailyTargetsRange } from '../../api/client';
+import { useEffect, useMemo, useState, useCallback } from 'react';
+import type { DayType, MealTargets, UserProfile, TrainingSession, ActualTrainingSession, DailyTargetsRangePoint } from '../../api/types';
+import { getDailyTargetsRange, upsertPlannedDay } from '../../api/client';
 import { DayTargetsPanel } from '../day-view';
 import { calculateMealTargets } from '../targets/mealTargets';
-import { MacroDonutChart } from '../charts';
+import { CalendarDayCell, EmptyCalendarCell, type CalendarDayData } from './CalendarDayCell';
+import { CalendarLegend } from './CalendarLegend';
 import {
   CARB_KCAL_PER_G,
   PROTEIN_KCAL_PER_G,
   FAT_KCAL_PER_G,
-  DAY_TYPE_COLORS,
-  DAY_TYPE_LABELS,
+  TRAINING_LABELS,
 } from '../../constants';
 import { toDateKey } from '../../utils';
-
-// Heatmap background colors for day types (faint tints)
-const DAY_TYPE_HEATMAP: Record<DayType, string> = {
-  fatburner: 'bg-orange-500/10',
-  performance: 'bg-blue-500/10',
-  metabolize: 'bg-emerald-500/10',
-};
 
 interface PlanCalendarProps {
   profile: UserProfile;
@@ -45,17 +37,18 @@ interface DayData {
   lunch: number;
   dinner: number;
   totalCalories: number;
-  // Per-meal calories
   breakfastCal: number;
   lunchCal: number;
   dinnerCal: number;
-  // Per-macro grams for each meal
   mealGrams?: MealGrams;
   hasData: boolean;
   hasTraining: boolean;
   fruitG?: number;
   veggiesG?: number;
   waterL?: number;
+  // Training sessions from API
+  plannedSessions?: TrainingSession[];
+  actualSessions?: ActualTrainingSession[];
 }
 
 export function PlanCalendar({ profile }: PlanCalendarProps) {
@@ -63,12 +56,15 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
   const [viewMode, setViewMode] = useState<'All Days' | 'Performance' | 'Fatburner' | 'Metabolize'>('All Days');
   const [selectedDay, setSelectedDay] = useState<DayData | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [targetsByDate, setTargetsByDate] = useState<Record<string, DailyTargets>>({});
+  const [rangeData, setRangeData] = useState<DailyTargetsRangePoint[]>([]);
   const [rangeLoading, setRangeLoading] = useState(false);
   const [rangeError, setRangeError] = useState<string | null>(null);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
+
+  // Today's date key for isPast comparison
+  const todayKey = toDateKey(new Date());
 
   useEffect(() => {
     let isActive = true;
@@ -81,15 +77,11 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
     getDailyTargetsRange(startDate, endDate)
       .then((response) => {
         if (!isActive) return;
-        const map: Record<string, DailyTargets> = {};
-        for (const day of response.days) {
-          map[day.date] = day.calculatedTargets;
-        }
-        setTargetsByDate(map);
+        setRangeData(response.days);
       })
       .catch((err) => {
         if (!isActive) return;
-        setTargetsByDate({});
+        setRangeData([]);
         setRangeError(err instanceof Error ? err.message : 'Failed to load plan data');
       })
       .finally(() => {
@@ -107,17 +99,27 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
     setIsDialogOpen(false);
   }, [year, month]);
 
+  // Build lookup map from range data
+  const dataByDate = useMemo(() => {
+    const map = new Map<string, DailyTargetsRangePoint>();
+    for (const day of rangeData) {
+      map.set(day.date, day);
+    }
+    return map;
+  }, [rangeData]);
+
   // Get first day of month and generate calendar grid
-  const firstDayOfMonth = new Date(year, month, 1);
-  const startingDayOfWeek = firstDayOfMonth.getDay();
+  const startingDayOfWeek = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
   const monthData = useMemo(() => {
     const data: DayData[] = [];
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(year, month, day);
-      const targets = targetsByDate[toDateKey(date)];
-      if (!targets) {
+      const dateKey = toDateKey(date);
+      const dayPoint = dataByDate.get(dateKey);
+
+      if (!dayPoint) {
         data.push({
           date,
           breakfast: 0,
@@ -132,6 +134,8 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
         });
         continue;
       }
+
+      const targets = dayPoint.calculatedTargets;
       const mealTargets = calculateMealTargets(
         targets.totalCarbsG,
         targets.totalProteinG,
@@ -149,7 +153,7 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
       const lunch = mealTargets.lunch.carbs + mealTargets.lunch.protein + mealTargets.lunch.fats;
       const dinner = mealTargets.dinner.carbs + mealTargets.dinner.protein + mealTargets.dinner.fats;
       const totalPoints = breakfast + lunch + dinner;
-      
+
       // Calculate per-macro grams for each meal (proportional based on meal ratio)
       const bRatio = totalPoints > 0 ? breakfast / totalPoints : 0;
       const lRatio = totalPoints > 0 ? lunch / totalPoints : 0;
@@ -171,7 +175,7 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
           fatsG: Math.round(targets.totalFatsG * dRatio),
         },
       };
-      
+
       // Calculate per-meal calories
       const breakfastCal = Math.round(
         mealGrams.breakfast.carbsG * CARB_KCAL_PER_G +
@@ -188,17 +192,18 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
         mealGrams.dinner.proteinG * PROTEIN_KCAL_PER_G +
         mealGrams.dinner.fatsG * FAT_KCAL_PER_G
       );
-      
+
       // Calculate total calories
       const totalCalories = Math.round(
         targets.totalCarbsG * CARB_KCAL_PER_G +
         targets.totalProteinG * PROTEIN_KCAL_PER_G +
         targets.totalFatsG * FAT_KCAL_PER_G
       );
-      
-      // Determine if this is a training day (Performance day type implies training)
-      const hasTraining = targets.dayType === 'performance';
-      
+
+      // Determine if this has actual training (from sessions, not just day type)
+      const sessions = dayPoint.actualSessions?.length ? dayPoint.actualSessions : dayPoint.plannedSessions;
+      const hasTraining = sessions ? sessions.some(s => s.type !== 'rest') : false;
+
       data.push({
         date,
         dayType: targets.dayType,
@@ -216,10 +221,12 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
         fruitG: targets.fruitG,
         veggiesG: targets.veggiesG,
         waterL: targets.waterL,
+        plannedSessions: dayPoint.plannedSessions,
+        actualSessions: dayPoint.actualSessions,
       });
     }
     return data;
-  }, [daysInMonth, month, profile.mealRatios, profile.pointsConfig, profile.supplementConfig, targetsByDate, year]);
+  }, [daysInMonth, month, profile.mealRatios, profile.pointsConfig, profile.supplementConfig, dataByDate, year]);
 
   const navigateMonth = (delta: number) => {
     const newDate = new Date(year, month + delta, 1);
@@ -267,6 +274,10 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
            date.getFullYear() === today.getFullYear();
   };
 
+  const isPast = (date: Date) => {
+    return toDateKey(date) < todayKey;
+  };
+
   const selectedMealTargets: MealTargets | null = selectedDay?.mealTargets ?? null;
 
   const selectedDateLabel = selectedDay
@@ -277,6 +288,54 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
       year: 'numeric',
     })
     : 'Select a day';
+
+  // Generate training context string for the modal
+  const getTrainingContext = (dayData: DayData): string | undefined => {
+    const sessions = dayData.actualSessions?.length ? dayData.actualSessions : dayData.plannedSessions;
+    if (!sessions || sessions.length === 0) return undefined;
+
+    const nonRestSessions = sessions.filter(s => s.type !== 'rest');
+    if (nonRestSessions.length === 0) return undefined;
+
+    const totalDuration = nonRestSessions.reduce((sum, s) => sum + s.durationMin, 0);
+    const primaryType = nonRestSessions[0].type;
+    const label = TRAINING_LABELS[primaryType];
+
+    if (nonRestSessions.length === 1) {
+      return `${label} (${totalDuration}min)`;
+    }
+    return `${label} +${nonRestSessions.length - 1} (${totalDuration}min total)`;
+  };
+
+  // Handle day type change from the quick selector
+  const handleDayTypeChange = useCallback(async (date: string, newDayType: DayType) => {
+    // Optimistic update: update local state immediately
+    setRangeData((prev) =>
+      prev.map((day) =>
+        day.date === date
+          ? {
+              ...day,
+              calculatedTargets: {
+                ...day.calculatedTargets,
+                dayType: newDayType,
+              },
+            }
+          : day
+      )
+    );
+
+    try {
+      // Persist to backend
+      await upsertPlannedDay(date, newDayType);
+    } catch (error) {
+      // Revert on error - refetch data
+      console.error('Failed to update day type:', error);
+      const startDate = toDateKey(new Date(year, month, 1));
+      const endDate = toDateKey(new Date(year, month + 1, 0));
+      const response = await getDailyTargetsRange(startDate, endDate);
+      setRangeData(response.days);
+    }
+  }, [year, month]);
 
   const openDayDialog = (dayData: DayData) => {
     if (!dayData.hasData) {
@@ -355,81 +414,58 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
         <div className="grid grid-cols-7">
           {calendarDays.map((dayData, index) => {
             if (!dayData) {
-              return (
-                <div
-                  key={`empty-${index}`}
-                  className="min-h-[120px] p-2 border-t border-r border-gray-800 last:border-r-0"
-                />
-              );
+              return <EmptyCalendarCell key={`empty-${index}`} />;
             }
 
             const isSelected = selectedDay?.date.getDate() === dayData.date.getDate()
               && selectedDay?.date.getMonth() === dayData.date.getMonth()
               && selectedDay?.date.getFullYear() === dayData.date.getFullYear();
-            const isDisabled = !dayData.hasData;
             const isFiltered = !matchesViewFilter(dayData);
 
+            // Convert DayData to CalendarDayData for the cell component
+            const cellData: CalendarDayData = {
+              date: dayData.date,
+              dayType: dayData.dayType,
+              totalCalories: dayData.totalCalories,
+              mealGrams: dayData.mealGrams,
+              hasData: dayData.hasData,
+              plannedSessions: dayData.plannedSessions,
+              actualSessions: dayData.actualSessions,
+            };
+
             return (
-              <button
+              <CalendarDayCell
                 key={toDateKey(dayData.date)}
-                type="button"
+                dayData={cellData}
+                isToday={isToday(dayData.date)}
+                isSelected={isSelected}
+                isFiltered={isFiltered}
+                isPast={isPast(dayData.date)}
                 onClick={() => openDayDialog(dayData)}
-                disabled={isDisabled}
-                className={`min-h-[120px] p-2 border-t border-r border-gray-800 last:border-r-0 text-left transition ${
-                  isToday(dayData.date) ? 'ring-2 ring-blue-500/50' : ''
-                } ${isSelected ? 'ring-2 ring-white/30' : ''} ${
-                  isDisabled ? 'cursor-not-allowed opacity-60' : 'hover:bg-gray-800/40'
-                } ${isFiltered && dayData.hasData ? 'opacity-30' : ''} ${
-                  dayData.dayType ? DAY_TYPE_HEATMAP[dayData.dayType] : 'bg-transparent'
-                }`}
-              >
-                {/* Day Number with Macro Donut */}
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-1">
-                    <span className={`text-sm font-medium ${
-                      isToday(dayData.date) ? 'text-white' : 'text-gray-400'
-                    }`}>
-                      {dayData.date.getDate()}
-                    </span>
-                    {isToday(dayData.date) && (
-                      <span className="text-[10px] text-blue-400 font-medium">TODAY</span>
-                    )}
-                  </div>
-                  
-                  {/* Mini Macro Donut Chart */}
-                  {dayData.hasData && dayData.mealGrams && (
-                    <MacroDonutChart
-                      carbs={dayData.mealGrams.dinner.carbsG}
-                      protein={dayData.mealGrams.dinner.proteinG}
-                      fat={dayData.mealGrams.dinner.fatsG}
-                      size={32}
-                    />
-                  )}
-                </div>
-
-                {/* Day Type Badge */}
-                {dayData.dayType && dayData.hasData && (
-                  <div className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium mb-1 ${
-                    DAY_TYPE_COLORS[dayData.dayType].bg
-                  } text-white`}>
-                    {DAY_TYPE_LABELS[dayData.dayType].slice(0, 4)}
-                  </div>
-                )}
-
-                {/* Total Calories (simplified) */}
-                <div className="text-center mt-1">
-                  <span className={`text-xs font-medium ${dayData.hasData ? 'text-white' : 'text-gray-600'}`}>
-                    {dayData.hasData ? `${dayData.totalCalories}` : '--'}
-                  </span>
-                  {dayData.hasData && (
-                    <span className="text-[10px] text-gray-500 ml-0.5">kcal</span>
-                  )}
-                </div>
-              </button>
+                onDayTypeChange={handleDayTypeChange}
+              />
             );
           })}
         </div>
       </div>
+
+      {/* Collapsible Legend */}
+      <details className="group">
+        <summary className="flex items-center gap-2 cursor-pointer text-sm text-gray-400 hover:text-gray-300 transition-colors select-none">
+          <svg
+            className="w-4 h-4 transition-transform group-open:rotate-90"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+          Show Legend
+        </summary>
+        <div className="mt-3">
+          <CalendarLegend />
+        </div>
+      </details>
 
       {selectedDay && selectedMealTargets && (
         <div
@@ -477,7 +513,7 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
                 totalVeggiesG={selectedDay.veggiesG ?? profile.veggieTargetG}
                 waterL={selectedDay.waterL}
                 helperText="Adjusted to your current meal distribution."
-                trainingContext={selectedDay.hasTraining ? 'Training day' : undefined}
+                trainingContext={getTrainingContext(selectedDay)}
                 mealGrams={selectedDay.mealGrams}
                 totalCalories={selectedDay.totalCalories}
               />
