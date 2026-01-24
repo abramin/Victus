@@ -469,6 +469,9 @@ func (s *TrainingSessionStoreSuite) TestSessionCascadeDelete() {
 }
 
 // --- Nutrition Plan Store Suite ---
+// NOTE: Many of these tests overlap with plan.feature E2E scenarios. Review for redundancy.
+// Tests marked with [OVERLAP] may be candidates for removal once E2E coverage is verified.
+// Tests marked with [KEEP] test store-specific behavior not covered by feature scenarios.
 
 type NutritionPlanStoreSuite struct {
 	suite.Suite
@@ -499,6 +502,14 @@ func (s *NutritionPlanStoreSuite) TearDownTest() {
 	if s.db != nil {
 		s.db.Close()
 	}
+}
+
+// clearPlans removes all plans and weekly targets to ensure test isolation between subtests.
+func (s *NutritionPlanStoreSuite) clearPlans() {
+	_, err := s.db.ExecContext(s.ctx, "DELETE FROM weekly_targets")
+	s.Require().NoError(err)
+	_, err = s.db.ExecContext(s.ctx, "DELETE FROM nutrition_plans")
+	s.Require().NoError(err)
 }
 
 func (s *NutritionPlanStoreSuite) validPlan() *domain.NutritionPlan {
@@ -537,6 +548,7 @@ func (s *NutritionPlanStoreSuite) validPlan() *domain.NutritionPlan {
 	}
 }
 
+// [OVERLAP] plan.feature: "Fetch active plan when none exists", "Fetch non-existent plan by ID"
 func (s *NutritionPlanStoreSuite) TestPlanNotFoundBeforeCreation() {
 	s.Run("GetByID returns ErrPlanNotFound when empty", func() {
 		_, err := s.store.GetByID(s.ctx, 999)
@@ -549,8 +561,10 @@ func (s *NutritionPlanStoreSuite) TestPlanNotFoundBeforeCreation() {
 	})
 }
 
+// [KEEP] Tests field-level persistence integrity for weekly targets - not asserted at HTTP level
 func (s *NutritionPlanStoreSuite) TestPlanCreationAndRetrieval() {
 	s.Run("creates plan with weekly targets", func() {
+		s.clearPlans()
 		plan := s.validPlan()
 		planID, err := s.store.Create(s.ctx, plan)
 		s.Require().NoError(err)
@@ -568,6 +582,7 @@ func (s *NutritionPlanStoreSuite) TestPlanCreationAndRetrieval() {
 	})
 
 	s.Run("weekly targets preserve all fields", func() {
+		s.clearPlans()
 		plan := s.validPlan()
 		planID, err := s.store.Create(s.ctx, plan)
 		s.Require().NoError(err)
@@ -589,8 +604,11 @@ func (s *NutritionPlanStoreSuite) TestPlanCreationAndRetrieval() {
 	})
 }
 
+// [OVERLAP] plan.feature: "Reject creating second active plan"
+// [KEEP] "allows creating new plan after completing previous" - sequence behavior not in feature
 func (s *NutritionPlanStoreSuite) TestActivePlanConstraint() {
 	s.Run("prevents creating second active plan", func() {
+		s.clearPlans()
 		plan1 := s.validPlan()
 		_, err := s.store.Create(s.ctx, plan1)
 		s.Require().NoError(err)
@@ -602,6 +620,7 @@ func (s *NutritionPlanStoreSuite) TestActivePlanConstraint() {
 	})
 
 	s.Run("allows creating new plan after completing previous", func() {
+		s.clearPlans()
 		plan1 := s.validPlan()
 		planID, err := s.store.Create(s.ctx, plan1)
 		s.Require().NoError(err)
@@ -617,8 +636,10 @@ func (s *NutritionPlanStoreSuite) TestActivePlanConstraint() {
 	})
 }
 
+// [OVERLAP] plan.feature: "Fetch active nutrition plan"
 func (s *NutritionPlanStoreSuite) TestGetActivePlan() {
 	s.Run("returns active plan", func() {
+		s.clearPlans()
 		plan := s.validPlan()
 		planID, err := s.store.Create(s.ctx, plan)
 		s.Require().NoError(err)
@@ -630,8 +651,10 @@ func (s *NutritionPlanStoreSuite) TestGetActivePlan() {
 	})
 }
 
+// [OVERLAP] plan.feature: "Complete a nutrition plan", "Cancel a nutrition plan"
 func (s *NutritionPlanStoreSuite) TestUpdateStatus() {
 	s.Run("updates plan status", func() {
+		s.clearPlans()
 		plan := s.validPlan()
 		planID, err := s.store.Create(s.ctx, plan)
 		s.Require().NoError(err)
@@ -650,8 +673,10 @@ func (s *NutritionPlanStoreSuite) TestUpdateStatus() {
 	})
 }
 
+// [KEEP] Tests UpdateWeeklyActuals store method - no corresponding feature scenario yet
 func (s *NutritionPlanStoreSuite) TestUpdateWeeklyActuals() {
 	s.Run("updates actual values for a week", func() {
+		s.clearPlans()
 		plan := s.validPlan()
 		planID, err := s.store.Create(s.ctx, plan)
 		s.Require().NoError(err)
@@ -673,6 +698,7 @@ func (s *NutritionPlanStoreSuite) TestUpdateWeeklyActuals() {
 	})
 
 	s.Run("handles nil actual values", func() {
+		s.clearPlans()
 		plan := s.validPlan()
 		planID, err := s.store.Create(s.ctx, plan)
 		s.Require().NoError(err)
@@ -690,8 +716,11 @@ func (s *NutritionPlanStoreSuite) TestUpdateWeeklyActuals() {
 	})
 }
 
+// [OVERLAP] plan.feature: "Delete a nutrition plan"
+// [KEEP] "is idempotent on missing plan" - store-specific behavior, cascade verification
 func (s *NutritionPlanStoreSuite) TestDeletePlan() {
 	s.Run("deletes plan and weekly targets cascade", func() {
+		s.clearPlans()
 		plan := s.validPlan()
 		planID, err := s.store.Create(s.ctx, plan)
 		s.Require().NoError(err)
@@ -715,8 +744,11 @@ func (s *NutritionPlanStoreSuite) TestDeletePlan() {
 	})
 }
 
+// [OVERLAP] plan.feature: "List all plans"
+// [KEEP] Verifies ordering behavior (start_date DESC) not asserted at HTTP level
 func (s *NutritionPlanStoreSuite) TestListAllPlans() {
 	s.Run("returns all plans ordered by start date descending", func() {
+		s.clearPlans()
 		// Create plan 1
 		plan1 := s.validPlan()
 		planID1, err := s.store.Create(s.ctx, plan1)
@@ -741,6 +773,7 @@ func (s *NutritionPlanStoreSuite) TestListAllPlans() {
 	})
 
 	s.Run("returns empty slice when no plans", func() {
+		s.clearPlans()
 		plans, err := s.store.ListAll(s.ctx)
 		s.Require().NoError(err)
 		s.Empty(plans)

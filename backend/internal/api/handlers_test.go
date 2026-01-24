@@ -220,9 +220,9 @@ func (s *HandlerSuite) TestProfileNotFound() {
 // - "Fetch the current profile"
 
 // --- Daily log endpoint tests ---
-// Justification: Tests validation edge cases and error mapping not fully covered by feature scenarios.
-// Feature covers: invalid training type, missing profile, not found, duplicate, happy paths.
-// These tests cover: invalid day type, JSON parsing errors.
+// NOTE: Tests validation edge cases and error mapping not fully covered by feature scenarios.
+// Feature scenarios cover: invalid training type, missing profile, not found, duplicate, happy paths.
+// These tests cover: invalid day type (no feature scenario for this), JSON parsing errors (HTTP-layer concern).
 
 // NOTE: TestDailyLogRequiresProfile removed - redundant with dailylog.feature:
 // - "Reject daily log creation without profile"
@@ -357,7 +357,9 @@ func (s *HandlerSuite) TestTrainingConfigsEndpoint() {
 }
 
 // --- Actual training endpoint tests ---
-// Justification: Tests PATCH /actual-training behavior not covered by feature scenarios.
+// NOTE: Tests PATCH /actual-training validation not covered by feature scenarios.
+// Feature scenarios test min/max RPE boundaries (1-10); these test out-of-range values (11).
+// Also tests 404 for missing log which is an HTTP-layer concern.
 
 func (s *HandlerSuite) TestActualTrainingUpdate() {
 	s.createProfile()
