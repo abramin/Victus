@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"strings"
 	"time"
 
 	"victus/internal/domain"
@@ -404,10 +403,6 @@ func (s *DailyLogStore) ListAdaptiveDataPoints(ctx context.Context, endDate stri
 	}
 
 	return points, nil
-}
-
-func isUniqueConstraint(err error) bool {
-	return strings.Contains(err.Error(), "UNIQUE constraint")
 }
 
 // RecoveryDataPoint contains data needed for recovery score calculation.

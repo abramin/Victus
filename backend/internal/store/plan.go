@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"strings"
 	"time"
 
 	"victus/internal/domain"
@@ -347,7 +346,3 @@ func (s *NutritionPlanStore) getWeeklyTargets(ctx context.Context, planID int64)
 	return targets, nil
 }
 
-// isUniqueConstraint checks if error is a SQLite unique constraint violation.
-func isUniqueConstraint(err error) bool {
-	return strings.Contains(err.Error(), "UNIQUE constraint")
-}
