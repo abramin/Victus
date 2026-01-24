@@ -7,6 +7,7 @@ import { MealPointsDashboard } from '../components/meal-points';
 import { PlanCalendar } from '../components/plan';
 import { WeightHistory } from '../components/history';
 import { DailyUpdateForm } from '../components/daily-update';
+import { LogWorkoutView } from '../components/training';
 import { ProfileForm } from '../components/settings/ProfileForm';
 
 function App() {
@@ -90,11 +91,18 @@ function App() {
         <DailyUpdateForm
           onSubmit={create}
           onReplace={replace}
-          onUpdateActual={updateActual}
           saving={logSaving}
           error={logSaveError}
           profile={profile}
           log={log}
+        />
+      )}
+
+      {currentNav === 'log-workout' && (
+        <LogWorkoutView
+          log={log}
+          onUpdateActual={updateActual}
+          saving={logSaving}
         />
       )}
 

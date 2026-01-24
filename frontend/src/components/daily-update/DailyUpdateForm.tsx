@@ -3,16 +3,13 @@ import type {
   CreateDailyLogRequest,
   DailyLog,
   UserProfile,
-  ActualTrainingSession,
   TrainingSession,
 } from '../../api/types';
 import { DayTargetsPanel } from '../day-view';
 import { calculateMealTargets } from '../targets/mealTargets';
 import { TrainingSessionList } from '../daily-input/TrainingSessionList';
-import { ActualTrainingModal, ActualVsPlannedComparison } from '../training';
 import { MorningCheckinSection } from './MorningCheckinSection';
 import { DayTypeSelector } from './DayTypeSelector';
-import { DailySummaryPanel } from './DailySummaryPanel';
 import {
   DAY_TYPE_OPTIONS,
   TRAINING_LABELS,
@@ -31,7 +28,6 @@ import { calculateProvisionalTargets } from '../../utils/calculateProvisionalTar
 interface DailyUpdateFormProps {
   onSubmit: (log: CreateDailyLogRequest) => Promise<DailyLog | null>;
   onReplace: (log: CreateDailyLogRequest) => Promise<DailyLog | null>;
-  onUpdateActual: (sessions: Omit<ActualTrainingSession, 'sessionOrder'>[]) => Promise<DailyLog | null>;
   saving: boolean;
   error: string | null;
   profile: UserProfile;
@@ -62,15 +58,12 @@ const buildFormDataFromLog = (log: DailyLog): CreateDailyLogRequest => ({
 export function DailyUpdateForm({
   onSubmit,
   onReplace,
-  onUpdateActual,
   saving,
   error,
   profile,
   log,
 }: DailyUpdateFormProps) {
   const [formData, setFormData] = useState<CreateDailyLogRequest>(INITIAL_FORM_DATA);
-  const [showActualModal, setShowActualModal] = useState(false);
-  const [actualModalMode, setActualModalMode] = useState<'quick' | 'detail'>('detail');
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [isEditing, setIsEditing] = useState(false);
   const [dayTypeAutoSelected, setDayTypeAutoSelected] = useState(false);
@@ -158,17 +151,6 @@ export function DailyUpdateForm({
     setValidationErrors({});
   };
 
-  const handleSaveActualTraining = async (
-    sessions: Omit<ActualTrainingSession, 'sessionOrder'>[]
-  ) => {
-    const result = await onUpdateActual(sessions);
-    if (result) {
-      setShowActualModal(false);
-      return true;
-    }
-    return false;
-  };
-
   const handleEdit = () => {
     if (!log) return;
     setFormData(buildFormDataFromLog(log));
@@ -217,11 +199,18 @@ export function DailyUpdateForm({
     );
   }, [profile.mealRatios, profile.pointsConfig, profile.supplementConfig, targets]);
 
-  // Calculate provisional targets for live preview (when no saved log exists)
+  // Calculate provisional targets for live preview (when no saved log exists OR when editing)
   const provisionalTargets = useMemo(() => {
-    if (targets) return null; // Don't show provisional if we have saved targets
-    return calculateProvisionalTargets(profile, formData);
-  }, [profile, formData, targets]);
+    // If editing an existing log, always show live preview based on current form data
+    if (isEditing && hasChanges) {
+      return calculateProvisionalTargets(profile, formData);
+    }
+    // For new logs, show provisional if we don't have saved targets
+    if (!targets) {
+      return calculateProvisionalTargets(profile, formData);
+    }
+    return null;
+  }, [profile, formData, targets, isEditing, hasChanges]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -240,21 +229,12 @@ export function DailyUpdateForm({
     setFormData((prev) => ({ ...prev, ...updates }));
   };
 
-  const openActualTrainingModal = (mode: 'quick' | 'detail') => {
-    setActualModalMode(mode);
-    setShowActualModal(true);
-  };
-
   const showForm = !log || isEditing;
   const dayTypeDetail = log ? DAY_TYPE_OPTIONS.find((dt) => dt.value === log.dayType) : null;
   const summaryWeight = showForm ? formData.weightKg : log?.weightKg;
   const summarySleepQuality = showForm ? formData.sleepQuality : log?.sleepQuality;
   const summaryDayType = showForm ? formData.dayType : log?.dayType;
   const summarySessions = showForm ? formData.plannedTrainingSessions : log?.plannedTrainingSessions ?? [];
-  const actualSessionCount = log?.actualTrainingSessions?.length ?? 0;
-  const actualDurationTotal =
-    log?.actualTrainingSessions?.reduce((sum, session) => sum + session.durationMin, 0) ?? 0;
-  const hasActualTraining = actualSessionCount > 0;
 
   return (
     <div className="p-6 max-w-4xl" data-testid="daily-update-form">
@@ -325,70 +305,6 @@ export function DailyUpdateForm({
           )}
         </div>
       </div>
-
-      {log ? (
-        <div className="mb-6">
-          <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-white">Log Workout</h2>
-                <p className="text-sm text-gray-400">
-                  Evening check-in to record what you actually did.
-                </p>
-              </div>
-              <div className="text-xs text-gray-400">
-                {hasActualTraining
-                  ? `Logged: ${actualSessionCount} session${actualSessionCount !== 1 ? 's' : ''}, ${actualDurationTotal} min`
-                  : 'No workout logged yet'}
-              </div>
-            </div>
-
-            <div className="mt-4">
-              <p className="text-sm text-gray-300 mb-3">Did you stick to the plan?</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => openActualTrainingModal('quick')}
-                  disabled={saving}
-                  className="w-full px-4 py-3 rounded-lg font-medium bg-white text-black hover:bg-gray-200 transition-colors disabled:opacity-50"
-                >
-                  Yes, All Complete
-                </button>
-                <button
-                  type="button"
-                  onClick={() => openActualTrainingModal('detail')}
-                  disabled={saving}
-                  className="w-full px-4 py-3 rounded-lg font-medium bg-gray-800 text-white border border-gray-700 hover:bg-gray-700 transition-colors disabled:opacity-50"
-                >
-                  No, Edit Details
-                </button>
-              </div>
-              <div className="mt-3">
-                <ActualVsPlannedComparison
-                  planned={log.plannedTrainingSessions}
-                  actual={log.actualTrainingSessions}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="mb-6">
-          <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
-            <h2 className="text-lg font-semibold text-white">Log Workout</h2>
-            <p className="text-sm text-gray-400 mt-1">
-              Save your Morning Check-in to unlock evening workout logging.
-            </p>
-            <button
-              type="button"
-              disabled
-              className="mt-4 px-4 py-3 rounded-lg font-medium bg-gray-800 text-gray-500 border border-gray-700 cursor-not-allowed"
-            >
-              Save Morning Check-in First
-            </button>
-          </div>
-        </div>
-      )}
 
       {showForm ? (
         <form onSubmit={handleSubmit} className="grid grid-cols-3 gap-6">
@@ -499,7 +415,21 @@ export function DailyUpdateForm({
               </div>
             </div>
 
-            {targets ? (
+            {provisionalTargets ? (
+              <DayTargetsPanel
+                title="Day Targets"
+                dateLabel={targetDateLabel}
+                dayType={provisionalTargets.dayType}
+                mealTargets={provisionalTargets.meals}
+                mealRatios={profile.mealRatios}
+                totalFruitG={provisionalTargets.fruitG}
+                totalVeggiesG={provisionalTargets.veggiesG}
+                waterL={provisionalTargets.waterL}
+                compact
+                isProvisional
+                helperText={isEditing ? "Preview - save to apply changes." : "Live preview - save to confirm targets."}
+              />
+            ) : targets ? (
               <DayTargetsPanel
                 title="Day Targets"
                 dateLabel={targetDateLabel}
@@ -511,20 +441,6 @@ export function DailyUpdateForm({
                 waterL={targets.waterL}
                 compact
                 helperText="Adjusted to your current meal distribution."
-              />
-            ) : provisionalTargets ? (
-              <DayTargetsPanel
-                title="Day Targets"
-                dateLabel={todayLabel}
-                dayType={provisionalTargets.dayType}
-                mealTargets={provisionalTargets.meals}
-                mealRatios={profile.mealRatios}
-                totalFruitG={provisionalTargets.fruitG}
-                totalVeggiesG={provisionalTargets.veggiesG}
-                waterL={provisionalTargets.waterL}
-                compact
-                isProvisional
-                helperText="Live preview - save to confirm targets."
               />
             ) : (
               <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
@@ -625,19 +541,6 @@ export function DailyUpdateForm({
             )}
           </div>
         </div>
-      )}
-
-      {/* Actual Training Modal */}
-      {log && (
-        <ActualTrainingModal
-          isOpen={showActualModal}
-          onClose={() => setShowActualModal(false)}
-          initialMode={actualModalMode}
-          plannedSessions={log.plannedTrainingSessions}
-          actualSessions={log.actualTrainingSessions}
-          onSave={handleSaveActualTraining}
-          saving={saving}
-        />
       )}
     </div>
   );
