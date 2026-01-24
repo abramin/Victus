@@ -8,13 +8,13 @@
 // =============================================================================
 
 /** Calories per gram of carbohydrate */
-export const CARB_KCAL_PER_G = 4.1;
+export const CARB_KCAL_PER_G = 4;
 
 /** Calories per gram of protein */
-export const PROTEIN_KCAL_PER_G = 4.3;
+export const PROTEIN_KCAL_PER_G = 4;
 
 /** Calories per gram of fat */
-export const FAT_KCAL_PER_G = 9.3;
+export const FAT_KCAL_PER_G = 9;
 
 // =============================================================================
 // MACRO CALCULATION CONSTANTS (aligned with backend domain/constants.go)

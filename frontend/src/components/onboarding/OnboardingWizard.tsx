@@ -3,6 +3,7 @@ import type { UserProfile } from '../../api/types';
 import { BasicInfoStep } from './BasicInfoStep';
 import { ActivityGoalsStep } from './ActivityGoalsStep';
 import { NutritionTargetsStep } from './NutritionTargetsStep';
+import { CARB_KCAL_PER_G, PROTEIN_KCAL_PER_G, FAT_KCAL_PER_G } from '../../constants';
 
 interface OnboardingWizardProps {
   onComplete: (profile: UserProfile) => Promise<boolean>;
@@ -68,9 +69,9 @@ export function OnboardingWizard({ onComplete, saving, error }: OnboardingWizard
   const handleComplete = async () => {
     // Convert onboarding data to UserProfile
     const totalCalories = data.dailyCalories;
-    const carbCalories = data.carbsG * 4.1;
-    const proteinCalories = data.proteinG * 4.3;
-    const fatCalories = data.fatG * 9.3;
+    const carbCalories = data.carbsG * CARB_KCAL_PER_G;
+    const proteinCalories = data.proteinG * PROTEIN_KCAL_PER_G;
+    const fatCalories = data.fatG * FAT_KCAL_PER_G;
     const totalMacroCalories = carbCalories + proteinCalories + fatCalories;
 
     // Calculate ratios from gram inputs
