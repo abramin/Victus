@@ -10,24 +10,24 @@ import {
   COLLAGEN_PROTEIN_PERCENT,
 } from './index';
 
-describe('Calorie constants (Standard Atwater Factors)', () => {
-  it('should use 4 kcal/g for carbohydrates', () => {
-    // Invariant: nutrition constants must match external specs.
-    expect(CARB_KCAL_PER_G).toBe(4.0);
+describe('Calorie constants (PRD Section 0.2)', () => {
+  it('should use 4.1 kcal/g for carbohydrates', () => {
+    // Invariant: nutrition constants must match PRD section 0.2.
+    expect(CARB_KCAL_PER_G).toBe(4.1);
   });
 
-  it('should use 4 kcal/g for protein', () => {
-    // Invariant: nutrition constants must match external specs.
-    expect(PROTEIN_KCAL_PER_G).toBe(4.0);
+  it('should use 4.3 kcal/g for protein', () => {
+    // Invariant: nutrition constants must match PRD section 0.2.
+    expect(PROTEIN_KCAL_PER_G).toBe(4.3);
   });
 
-  it('should use 9 kcal/g for fat', () => {
-    // Invariant: nutrition constants must match external specs.
-    expect(FAT_KCAL_PER_G).toBe(9.0);
+  it('should use 9.3 kcal/g for fat', () => {
+    // Invariant: nutrition constants must match PRD section 0.2.
+    expect(FAT_KCAL_PER_G).toBe(9.3);
   });
 
   it('should calculate correct calories for a sample meal', () => {
-    // Invariant: nutrition constants must match external specs.
+    // Invariant: nutrition constants must match PRD section 0.2.
     const carbsG = 200;
     const proteinG = 150;
     const fatsG = 80;
@@ -37,8 +37,8 @@ describe('Calorie constants (Standard Atwater Factors)', () => {
       proteinG * PROTEIN_KCAL_PER_G +
       fatsG * FAT_KCAL_PER_G;
 
-    // 200*4 + 150*4 + 80*9 = 800 + 600 + 720 = 2120
-    expect(totalCalories).toBe(2120);
+    // 200*4.1 + 150*4.3 + 80*9.3 = 820 + 645 + 744 = 2209
+    expect(totalCalories).toBe(2209);
   });
 });
 

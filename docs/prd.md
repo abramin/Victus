@@ -339,19 +339,23 @@ The `DayTargetsPanel` is a foundational component used across multiple views to 
 ┌─────────────────────────────────────────────┐
 │ [Title]                    [Day Type Badge] │
 │ [Date Label]                                │
+│ [Training Context: "Strength • 60 mins"]    │
 │ [Helper Text (optional)]                    │
 ├─────────────────────────────────────────────┤
-│ ┌─────────┐ ┌─────────┐ ┌─────────┐        │
-│ │Breakfast│ │  Lunch  │ │ Dinner  │        │
-│ │ 210 pts │ │ 210 pts │ │ 280 pts │        │
-│ │ C  P  F │ │ C  P  F │ │ C  P  F │        │
-│ │ 70 170 75│ │70 170 75│ │95 230 100│      │
-│ │Fruit Veg│ │Fruit Veg│ │Fruit Veg│        │
-│ │180g 150g│ │180g 150g│ │240g 200g│        │
-│ └─────────┘ └─────────┘ └─────────┘        │
+│ ┌──────────────────────┐ ┌────────────────┐ │
+│ │ Breakfast   650 kcal │ │ Lunch ...      │ │
+│ │ 210 pts (30% of day) │ │                │ │
+│ │                      │ │                │ │
+│ │ C    P    F          │ │                │ │
+│ │ 78g  52g  19g        │ │                │ │
+│ │(45%)(30%)(25%)       │ │                │ │
+│ │                      │ │                │ │
+│ │ Fruit  Veg           │ │                │ │
+│ │ 180g   150g          │ │                │ │
+│ └──────────────────────┘ └────────────────┘ │
 ├─────────────────────────────────────────────┤
-│ Total: 700 pts | Fruit: 600g | Veg: 500g   │
-│ Water: 3.6L                                 │
+│ Total Calories: 2300 kcal                   │
+│ Fruit: 600g | Veg: 500g | Water: 3.6L       │
 └─────────────────────────────────────────────┘
 ```
 
@@ -366,6 +370,9 @@ The `DayTargetsPanel` is a foundational component used across multiple views to 
 - `waterL?: number` - Optional water liters
 - `compact?: boolean` - Render in smaller size for comparison views
 - `helperText?: string` - Optional context message
+- `trainingContext?: string` - Training session description (e.g., "Strength (Hypertrophy) • 60 mins • RPE 8")
+- `mealGrams?: MealGrams` - Per-meal macro grams for calorie calculation
+- `totalCalories?: number` - Pre-computed total calories
 
 **Color Coding (Canonical)**
 - Day type badges:
@@ -382,14 +389,20 @@ The `DayTargetsPanel` is a foundational component used across multiple views to 
 
 **Behavior**
 - Automatically distributes total fruit/veg across meals using meal ratios
-- Calculates total points per meal (carbs + protein + fats)
+- Calculates per-meal calories from macro grams: `(C × 4.1) + (P × 4.3) + (F × 9.3)`
+- Displays meal points with percentage of daily total as sub-header
+- Shows macro percentages (by caloric contribution) under each macro value
 - Displays all values rounded to multiples of 5 (for points) or appropriate precision (for grams)
 
 **Acceptance Criteria**
-- Component renders identically given the same props regardless of context
-- Fruit and veg distribution matches calculation: `splitTarget(total, ratios)` where remainders go to dinner
-- All rendered values match stored database values (no client-side recalculation)
-- Compact mode reduces font sizes and padding while maintaining readability
+- **Header Metric**: Each meal card header displays Total Meal Calories (e.g., "650 kcal"), derived from `(Carbs × 4.1) + (Protein × 4.3) + (Fats × 9.3)`. Must not display sum of macro mass (grams).
+- **Sub-Header**: Display Meal Points with day percentage below the header (e.g., "210 pts (30% of day)").
+- **Macro Display**: Macros (C/P/F) displayed in grams as the primary operational unit, with percentage labels below showing caloric contribution.
+- **Training Context**: If `trainingContext` prop provided, display immediately below date label in blue text.
+- Component renders identically given the same props regardless of context.
+- Fruit and veg distribution matches calculation: `splitTarget(total, ratios)` where remainders go to dinner.
+- All rendered values match stored database values (no client-side recalculation).
+- Compact mode reduces font sizes and padding while maintaining readability.
 
 ---
 
@@ -411,12 +424,14 @@ The `DayTargetsPanel` is a foundational component used across multiple views to 
 - Display as a reusable `DayTargetsPanel` component that shows:
   - Title and date label
   - Day type badge (color-coded: performance=blue, fatburner=orange, metabolize=emerald)
+  - Training context line (if training session planned) showing session type, duration, RPE
   - Three meal cards (breakfast/lunch/dinner) showing:
-    - Individual meal point totals
-    - Carb/protein/fat points per meal (color-coded: carbs=orange, protein=purple, fats=slate)
+    - **Meal calories in header** (e.g., "650 kcal") - derived from `(C × 4.1) + (P × 4.3) + (F × 9.3)`
+    - Meal points with day percentage as sub-header (e.g., "210 pts (30% of day)")
+    - Carb/protein/fat grams per meal with percentage labels (e.g., "78g (45%)")
     - Fruit and veggie grams allocated per meal (based on meal ratios)
   - Summary stats bar showing:
-    - Total points across all meals
+    - Total calories across all meals
     - Total fruit grams
     - Total veggies grams
     - Water target in liters (if provided)
@@ -424,7 +439,9 @@ The `DayTargetsPanel` is a foundational component used across multiple views to 
 - Allow optional helper text for context (e.g., "This is your plan for today")
 
 **Acceptance criteria**
-- Meal points shown match the stored values in `daily_logs` (not recomputed on render).
+- Meal card headers display calories (not points or grams sum).
+- Meal points shown as sub-header with percentage of daily total.
+- Macro values displayed in grams with caloric percentage labels.
 - All points values are multiples of 5.
 - Fruit and veg grams are distributed across meals using the meal ratios (breakfast/lunch/dinner percentages).
 - The day type badge uses the correct color scheme and label.
@@ -441,10 +458,39 @@ The `DayTargetsPanel` is a foundational component used across multiple views to 
   - Planned vs actual training sessions
   - Calculation details (TDEE, multipliers) at time of calculation
 
+**Calendar View (PlanCalendar)**
+Each day cell in the month view must contain:
+- **Date Number** (Top Left): Day of month.
+- **Training Context Dot** (Next to Date): Small dot indicator - blue for training day, grey for rest day.
+- **Day Type Badge** (Below Date): Perf, Fatb, or Meta label with color coding.
+- **Meal Breakdown (Rows)**:
+  - Labels: B:, L:, D:
+  - Values: Per-meal calories (e.g., 650, 800, 850)
+  - **Constraint**: Never show points or summed gram mass in calendar cells.
+- **Daily Total**: Bolded total daily calories at the bottom (e.g., 2300).
+
+**Calendar Cell Visual Structure**
+```
+┌──────────────┐
+│ 15  (•)      │  ← Day number + training dot (blue=training, grey=rest)
+│ ┌────────┐   │
+│ │ Perf   │   │  ← Day type badge
+│ └────────┘   │
+│ B: 650       │  ← Per-meal calories
+│ L: 800       │
+│ D: 850       │
+│ ─────────    │
+│ Total: 2300  │  ← Bolded daily total
+└──────────────┘
+```
+
 **Acceptance criteria**
 - Trendline rate uses the same regression approach as adaptive TDEE weight trend logic.
 - Selecting a date opens a log details modal that displays stored inputs, sessions, and targets using DayTargetsPanel.
 - Historical DayTargetsPanel uses stored `calculatedTargets` from database, preserving the calculation as it was performed on that date.
+- Calendar cells display per-meal calories only (not points or grams).
+- Training context dot is blue for Performance day type, grey otherwise.
+- Daily total calories displayed in bold at bottom of each cell.
 
 ### 6.4 Plan views
 **Must**

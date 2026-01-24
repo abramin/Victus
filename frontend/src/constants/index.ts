@@ -4,17 +4,17 @@
  */
 
 // =============================================================================
-// CALORIE CONVERSION CONSTANTS (Standard Atwater Factors)
+// CALORIE CONVERSION CONSTANTS (PRD Section 0.2)
 // =============================================================================
 
 /** Calories per gram of carbohydrate */
-export const CARB_KCAL_PER_G = 4.0;
+export const CARB_KCAL_PER_G = 4.1;
 
 /** Calories per gram of protein */
-export const PROTEIN_KCAL_PER_G = 4.0;
+export const PROTEIN_KCAL_PER_G = 4.3;
 
 /** Calories per gram of fat */
-export const FAT_KCAL_PER_G = 9.0;
+export const FAT_KCAL_PER_G = 9.3;
 
 // =============================================================================
 // MACRO CALCULATION CONSTANTS (aligned with backend domain/constants.go)
