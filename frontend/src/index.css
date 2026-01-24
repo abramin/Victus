@@ -2,10 +2,27 @@
 
 :root {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  color: #e2e8f0;
-  background-color: #0f172a;
+  /* Slightly softer default text and background for dark mode */
+  color: #dfe6ef;
+  background-color: #141a1f; /* charcoal dark */
 }
 
 body {
   margin: 0;
+}
+
+/* Tailwind v4: soften dark palette via theme tokens */
+@theme {
+  /* Softer white to reduce contrast in dark mode */
+  --color-white: #e6edf3;
+
+  /* Charcoal greys for surfaces and borders */
+  --color-slate-900: #141a1f; /* primary app background */
+  --color-slate-800: #1a2129; /* cards */
+  --color-slate-700: #232a36; /* borders and accents */
+
+  /* Greys used in some panels */
+  --color-gray-950: #13161b;
+  --color-gray-900: #161a20;
+  --color-gray-800: #1c222a;
 }

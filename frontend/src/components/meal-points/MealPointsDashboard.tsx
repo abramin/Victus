@@ -352,7 +352,7 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
       : 'Complete your Daily Update to see your meal points.';
 
   return (
-    <div className="p-6 h-full flex flex-col">
+    <div className="p-6 h-screen flex flex-col min-h-0">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
@@ -387,7 +387,7 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
       </div>
 
       {/* Main Content Grid */}
-      <div className={`grid grid-cols-12 gap-6 ${loadingLog ? 'opacity-50 pointer-events-none' : ''}`}>
+      <div className={`grid grid-cols-12 grid-rows-1 gap-6 flex-1 min-h-0 ${loadingLog ? 'opacity-50 pointer-events-none' : ''}`}>
         {/* Left Side - Inputs (40% = col-span-5) */}
         <div className="col-span-5 space-y-4">
           {/* Day Type Selector - Vertical Radio Tiles */}
@@ -512,11 +512,11 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
         </div>
 
         {/* Right Side - Food Library (60% = col-span-7) */}
-        <div className="col-span-7 flex flex-col min-h-[600px]">
+        <div className="col-span-7 flex flex-col min-h-0">
           <FoodLibrary
             targetPoints={mealData.hasData ? mealData[selectedMeal].protein + mealData[selectedMeal].carbs + mealData[selectedMeal].fats : 350}
             selectedMeal={selectedMeal}
-            className="flex-1"
+            className="flex-1 min-h-0"
             onFoodSelect={(food) => plateBuilder.openFoodModal(food, selectedMeal)}
             remainingPoints={plateBuilder.drafts[selectedMeal].remainingPoints}
           />

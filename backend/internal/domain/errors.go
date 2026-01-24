@@ -65,7 +65,7 @@ var (
 
 // NutritionPlan validation errors
 var (
-	ErrInvalidPlanStatus         = newValidationError("plan status must be 'active', 'completed', or 'abandoned'")
+	ErrInvalidPlanStatus         = newValidationError("plan status must be 'active', 'completed', 'abandoned', or 'paused'")
 	ErrInvalidPlanStartDate      = newValidationError("plan start date must be in YYYY-MM-DD format")
 	ErrPlanStartDateTooOld       = newValidationError("plan start date cannot be more than 7 days in the past")
 	ErrInvalidPlanStartWeight    = newValidationError("plan start weight must be between 30 and 300 kg")

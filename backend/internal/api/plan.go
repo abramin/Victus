@@ -144,6 +144,84 @@ func (s *Server) abandonPlan(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// pausePlan handles POST /api/plans/{id}/pause
+func (s *Server) pausePlan(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_id", "Plan ID must be a number")
+		return
+	}
+
+	if err := s.planService.Pause(r.Context(), id); err != nil {
+		if errors.Is(err, store.ErrPlanNotFound) {
+			writeError(w, http.StatusNotFound, "not_found", "Nutrition plan not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "internal_error", "")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// resumePlan handles POST /api/plans/{id}/resume
+func (s *Server) resumePlan(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_id", "Plan ID must be a number")
+		return
+	}
+
+	if err := s.planService.Resume(r.Context(), id); err != nil {
+		if errors.Is(err, store.ErrPlanNotFound) {
+			writeError(w, http.StatusNotFound, "not_found", "Nutrition plan not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "internal_error", "")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// recalibratePlan handles POST /api/plans/{id}/recalibrate
+func (s *Server) recalibratePlan(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_id", "Plan ID must be a number")
+		return
+	}
+
+	var req requests.RecalibratePlanRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json", "Could not parse request body as JSON")
+		return
+	}
+
+	recalibrationType := requests.RecalibrationInputFromRequest(req)
+	now := time.Now()
+
+	plan, err := s.planService.Recalibrate(r.Context(), id, recalibrationType, now)
+	if err != nil {
+		if errors.Is(err, store.ErrPlanNotFound) {
+			writeError(w, http.StatusNotFound, "not_found", "Nutrition plan not found")
+			return
+		}
+		if isValidationError(err) {
+			writeError(w, http.StatusBadRequest, "validation_error", err.Error())
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "internal_error", "")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(requests.PlanToResponse(plan, now))
+}
+
 // deletePlan handles DELETE /api/plans/{id}
 func (s *Server) deletePlan(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")

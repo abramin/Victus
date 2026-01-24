@@ -288,6 +288,22 @@ export async function abandonPlan(id: number, signal?: AbortSignal): Promise<voi
   await handleEmptyResponse(response);
 }
 
+export async function pausePlan(id: number, signal?: AbortSignal): Promise<void> {
+  const response = await fetch(`${API_BASE}/plans/${id}/pause`, {
+    method: 'POST',
+    signal,
+  });
+  await handleEmptyResponse(response);
+}
+
+export async function resumePlan(id: number, signal?: AbortSignal): Promise<void> {
+  const response = await fetch(`${API_BASE}/plans/${id}/resume`, {
+    method: 'POST',
+    signal,
+  });
+  await handleEmptyResponse(response);
+}
+
 export async function deletePlan(id: number, signal?: AbortSignal): Promise<void> {
   const response = await fetch(`${API_BASE}/plans/${id}`, {
     method: 'DELETE',

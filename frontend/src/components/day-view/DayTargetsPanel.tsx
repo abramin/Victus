@@ -164,8 +164,8 @@ export function DayTargetsPanel({
               {mealCalories ? `${mealCalories.breakfast} kcal` : '--'}
             </span>
           </div>
-          <div className="flex items-center gap-8">
-            <div className="flex items-center gap-6">
+          <div className="flex items-center gap-8 flex-wrap">
+            <div className="flex items-center gap-6 flex-wrap">
               <div className="flex items-center gap-2">
                 <span className="text-2xl font-bold text-orange-400">
                   {mealGrams ? mealGrams.breakfast.carbsG : mealTargets.breakfast.carbs}g
@@ -194,9 +194,9 @@ export function DayTargetsPanel({
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-4 ml-auto text-sm">
-              <span className="text-green-400">Fruit {fruitByMeal.breakfast}g</span>
-              <span className="text-emerald-400">Veg {veggieByMeal.breakfast}g</span>
+            <div className="flex items-center gap-4 ml-auto text-sm flex-shrink-0">
+              <span className="text-green-400 whitespace-nowrap">Fruit {fruitByMeal.breakfast}g</span>
+              <span className="text-emerald-400 whitespace-nowrap">Veg {veggieByMeal.breakfast}g</span>
             </div>
           </div>
         </div>
@@ -214,8 +214,8 @@ export function DayTargetsPanel({
               {mealCalories ? `${mealCalories.lunch} kcal` : '--'}
             </span>
           </div>
-          <div className="flex items-center gap-8">
-            <div className="flex items-center gap-6">
+          <div className="flex items-center gap-8 flex-wrap">
+            <div className="flex items-center gap-6 flex-wrap">
               <div className="flex items-center gap-2">
                 <span className="text-2xl font-bold text-orange-400">
                   {mealGrams ? mealGrams.lunch.carbsG : mealTargets.lunch.carbs}g
@@ -244,9 +244,9 @@ export function DayTargetsPanel({
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-4 ml-auto text-sm">
-              <span className="text-green-400">Fruit {fruitByMeal.lunch}g</span>
-              <span className="text-emerald-400">Veg {veggieByMeal.lunch}g</span>
+            <div className="flex items-center gap-4 ml-auto text-sm flex-shrink-0">
+              <span className="text-green-400 whitespace-nowrap">Fruit {fruitByMeal.lunch}g</span>
+              <span className="text-emerald-400 whitespace-nowrap">Veg {veggieByMeal.lunch}g</span>
             </div>
           </div>
         </div>
@@ -264,8 +264,8 @@ export function DayTargetsPanel({
               {mealCalories ? `${mealCalories.dinner} kcal` : '--'}
             </span>
           </div>
-          <div className="flex items-center gap-8">
-            <div className="flex items-center gap-6">
+          <div className="flex items-center gap-8 flex-wrap">
+            <div className="flex items-center gap-6 flex-wrap">
               <div className="flex items-center gap-2">
                 <span className="text-2xl font-bold text-orange-400">
                   {mealGrams ? mealGrams.dinner.carbsG : mealTargets.dinner.carbs}g
@@ -294,9 +294,9 @@ export function DayTargetsPanel({
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-4 ml-auto text-sm">
-              <span className="text-green-400">Fruit {fruitByMeal.dinner}g</span>
-              <span className="text-emerald-400">Veg {veggieByMeal.dinner}g</span>
+            <div className="flex items-center gap-4 ml-auto text-sm flex-shrink-0">
+              <span className="text-green-400 whitespace-nowrap">Fruit {fruitByMeal.dinner}g</span>
+              <span className="text-emerald-400 whitespace-nowrap">Veg {veggieByMeal.dinner}g</span>
             </div>
           </div>
         </div>

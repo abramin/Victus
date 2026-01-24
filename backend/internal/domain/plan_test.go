@@ -63,8 +63,14 @@ func (s *PlanSuite) TestPlanStatusParsing() {
 		s.Equal(PlanStatusActive, status)
 	})
 
+	s.Run("accepts paused status", func() {
+		status, err := ParsePlanStatus("paused")
+		s.Require().NoError(err)
+		s.Equal(PlanStatusPaused, status)
+	})
+
 	s.Run("rejects invalid status", func() {
-		_, err := ParsePlanStatus("paused")
+		_, err := ParsePlanStatus("invalid_status")
 		s.Require().ErrorIs(err, ErrInvalidPlanStatus)
 	})
 }

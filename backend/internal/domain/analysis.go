@@ -38,6 +38,16 @@ type DualTrackAnalysis struct {
 	Options             []RecalibrationOption
 	PlanProjection      []ProjectionPoint // Linear interpolation from start to goal
 	TrendProjection     []ProjectionPoint // Projection based on current trend
+	LandingPoint        *LandingPointProjection // Where user will end up at current pace
+}
+
+// LandingPointProjection represents where the user will end up if they continue
+// at their current rate of change through the end of the plan.
+type LandingPointProjection struct {
+	WeightKg           float64   // Projected final weight at plan end date
+	Date               time.Time // Plan end date
+	VarianceFromGoalKg float64   // Difference from goal weight (positive = above goal)
+	OnTrackForGoal     bool      // Whether landing point is within tolerance of goal
 }
 
 // RecalibrationOption represents a single recalibration action the user can take.
@@ -118,6 +128,9 @@ func CalculateDualTrackAnalysis(input AnalysisInput) (*DualTrackAnalysis, error)
 	// Generate trend projection if weight trend data is available
 	if input.WeightTrend != nil {
 		analysis.TrendProjection = generateTrendProjection(plan, input.ActualWeightKg, input.WeightTrend, currentWeek)
+
+		// Calculate landing point from trend projection
+		analysis.LandingPoint = calculateLandingPoint(plan, analysis.TrendProjection, tolerancePercent)
 	}
 
 	// Generate recalibration options if needed
@@ -185,6 +198,34 @@ func generateTrendProjection(plan *NutritionPlan, currentWeight float64, trend *
 	}
 
 	return points
+}
+
+// calculateLandingPoint extracts the final projected weight from the trend projection.
+// This represents where the user will end up if they continue at their current pace.
+func calculateLandingPoint(plan *NutritionPlan, trendProjection []ProjectionPoint, tolerancePercent float64) *LandingPointProjection {
+	if len(trendProjection) == 0 {
+		return nil
+	}
+
+	// Get the last point in the trend projection (plan end)
+	lastPoint := trendProjection[len(trendProjection)-1]
+
+	// Calculate variance from goal
+	varianceFromGoal := lastPoint.WeightKg - plan.GoalWeightKg
+
+	// Determine if on track (within tolerance of goal)
+	toleranceKg := plan.GoalWeightKg * (tolerancePercent / 100)
+	onTrack := math.Abs(varianceFromGoal) <= toleranceKg
+
+	// Calculate plan end date
+	endDate := plan.StartDate.AddDate(0, 0, plan.DurationWeeks*7)
+
+	return &LandingPointProjection{
+		WeightKg:           math.Round(lastPoint.WeightKg*10) / 10,
+		Date:               endDate,
+		VarianceFromGoalKg: math.Round(varianceFromGoal*10) / 10,
+		OnTrackForGoal:     onTrack,
+	}
 }
 
 // generateRecalibrationOptions creates the 4 recalibration options with feasibility tags.

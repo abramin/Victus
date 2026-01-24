@@ -54,6 +54,7 @@ describe('FoodLibrary', () => {
     // Should show Brown Rice but not Chicken Breast
     await waitFor(() => {
       expect(screen.getByText('Brown Rice')).toBeInTheDocument();
+      expect(screen.queryByText('Chicken Breast')).not.toBeInTheDocument();
     });
   });
 
@@ -104,5 +105,29 @@ describe('FoodLibrary', () => {
     await waitFor(() => {
       expect(screen.getByText(/error|failed/i)).toBeInTheDocument();
     });
+  });
+
+  it('calls onFoodSelect when provided', async () => {
+    const onFoodSelect = vi.fn();
+    render(<FoodLibrary targetPoints={350} onFoodSelect={onFoodSelect} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Chicken Breast')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Chicken Breast'));
+    expect(onFoodSelect).toHaveBeenCalledWith(
+      expect.objectContaining({ foodItem: 'Chicken Breast' })
+    );
+  });
+
+  it('shows remaining points when provided', async () => {
+    render(<FoodLibrary targetPoints={350} remainingPoints={200} />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/remaining: 200 pts/i)).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/\(of 350\)/i)).toBeInTheDocument();
   });
 });

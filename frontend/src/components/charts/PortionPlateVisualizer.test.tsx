@@ -34,11 +34,10 @@ describe('PortionPlateVisualizer', () => {
   });
 
   it('renders correct pie slice angle for quarter plate', () => {
-    const { container } = render(
+    render(
       <PortionPlateVisualizer {...defaultProps} plateMultiplier={0.25} />
     );
-    // Container should be present with plate visualizer
-    expect(container.firstChild).toBeInTheDocument();
+    expect(screen.getByText('25% of your plate')).toBeInTheDocument();
   });
 
   it('shows empty state when no food selected', () => {
@@ -61,5 +60,17 @@ describe('PortionPlateVisualizer', () => {
     const closeButton = screen.getByRole('button', { name: /close/i });
     fireEvent.click(closeButton);
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('shows serving grams when target points are provided', () => {
+    render(
+      <PortionPlateVisualizer
+        {...defaultProps}
+        plateMultiplier={0.5}
+        targetPoints={200}
+      />
+    );
+    expect(screen.getByText('100g')).toBeInTheDocument();
+    expect(screen.getByText(/serving/i)).toBeInTheDocument();
   });
 });

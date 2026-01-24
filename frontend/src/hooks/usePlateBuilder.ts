@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import type {
   MealId,
   MealDraft,
@@ -21,14 +21,39 @@ const createEmptyDraft = (targetPoints: number): MealDraft => ({
 });
 
 export function usePlateBuilder(mealData: MealTargets | null) {
+  const targetPointsByMeal = useMemo(
+    () => ({
+      breakfast:
+        (mealData?.breakfast.carbs ?? 0) +
+        (mealData?.breakfast.protein ?? 0) +
+        (mealData?.breakfast.fats ?? 0),
+      lunch:
+        (mealData?.lunch.carbs ?? 0) +
+        (mealData?.lunch.protein ?? 0) +
+        (mealData?.lunch.fats ?? 0),
+      dinner:
+        (mealData?.dinner.carbs ?? 0) +
+        (mealData?.dinner.protein ?? 0) +
+        (mealData?.dinner.fats ?? 0),
+    }),
+    [
+      mealData?.breakfast.carbs,
+      mealData?.breakfast.protein,
+      mealData?.breakfast.fats,
+      mealData?.lunch.carbs,
+      mealData?.lunch.protein,
+      mealData?.lunch.fats,
+      mealData?.dinner.carbs,
+      mealData?.dinner.protein,
+      mealData?.dinner.fats,
+    ]
+  );
+  const hasMealData = Boolean(mealData);
+
   // Calculate total points per meal from macro points
   const getMealTargetPoints = useCallback(
-    (mealId: MealId): number => {
-      if (!mealData) return 0;
-      const points = mealData[mealId];
-      return points.carbs + points.protein + points.fats;
-    },
-    [mealData]
+    (mealId: MealId): number => targetPointsByMeal[mealId],
+    [targetPointsByMeal]
   );
 
   // Initialize draft state
@@ -39,26 +64,40 @@ export function usePlateBuilder(mealData: MealTargets | null) {
   }));
 
   // Sync drafts when meal data changes
-  useMemo(() => {
-    if (!mealData) return;
-    setDrafts((prev) => ({
-      breakfast: {
-        ...prev.breakfast,
-        remainingPoints:
-          getMealTargetPoints('breakfast') - prev.breakfast.spentPoints,
-      },
-      lunch: {
-        ...prev.lunch,
-        remainingPoints:
-          getMealTargetPoints('lunch') - prev.lunch.spentPoints,
-      },
-      dinner: {
-        ...prev.dinner,
-        remainingPoints:
-          getMealTargetPoints('dinner') - prev.dinner.spentPoints,
-      },
-    }));
-  }, [mealData, getMealTargetPoints]);
+  useEffect(() => {
+    if (!hasMealData) return;
+    setDrafts((prev) => {
+      const breakfastRemaining =
+        targetPointsByMeal.breakfast - prev.breakfast.spentPoints;
+      const lunchRemaining =
+        targetPointsByMeal.lunch - prev.lunch.spentPoints;
+      const dinnerRemaining =
+        targetPointsByMeal.dinner - prev.dinner.spentPoints;
+
+      if (
+        prev.breakfast.remainingPoints === breakfastRemaining &&
+        prev.lunch.remainingPoints === lunchRemaining &&
+        prev.dinner.remainingPoints === dinnerRemaining
+      ) {
+        return prev;
+      }
+
+      return {
+        breakfast: {
+          ...prev.breakfast,
+          remainingPoints: breakfastRemaining,
+        },
+        lunch: {
+          ...prev.lunch,
+          remainingPoints: lunchRemaining,
+        },
+        dinner: {
+          ...prev.dinner,
+          remainingPoints: dinnerRemaining,
+        },
+      };
+    });
+  }, [hasMealData, targetPointsByMeal]);
 
   // Modal state
   const [modalState, setModalState] = useState<FoodModalState>({

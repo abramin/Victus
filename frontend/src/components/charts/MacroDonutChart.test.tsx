@@ -1,6 +1,20 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MacroDonutChart } from './MacroDonutChart';
+
+let lastPieData: Array<{ name: string; value: number; color: string }> | null = null;
+
+vi.mock('recharts', () => ({
+  ResponsiveContainer: ({ children }: any) => (
+    <div data-testid="responsive-container">{children}</div>
+  ),
+  PieChart: ({ children }: any) => <div data-testid="pie-chart">{children}</div>,
+  Pie: (props: any) => {
+    lastPieData = props.data;
+    return <div data-testid="pie">{props.children}</div>;
+  },
+  Cell: () => null,
+}));
 
 describe('MacroDonutChart', () => {
   const defaultProps = {
@@ -8,6 +22,10 @@ describe('MacroDonutChart', () => {
     protein: 35,
     fat: 25,
   };
+
+  beforeEach(() => {
+    lastPieData = null;
+  });
 
   it('renders without crashing', () => {
     const { container } = render(<MacroDonutChart {...defaultProps} />);
@@ -29,8 +47,14 @@ describe('MacroDonutChart', () => {
   });
 
   it('handles zero values gracefully', () => {
-    const { container } = render(<MacroDonutChart carbs={0} protein={0} fat={0} />);
-    expect(container.firstChild).toBeInTheDocument();
+    render(<MacroDonutChart carbs={0} protein={0} fat={0} />);
+
+    expect(lastPieData).toHaveLength(1);
+    expect(lastPieData?.[0]).toMatchObject({
+      name: 'Empty',
+      value: 100,
+      color: '#374151',
+    });
   });
 
   it('applies custom className', () => {
@@ -42,7 +66,12 @@ describe('MacroDonutChart', () => {
 
   it('normalizes percentages that exceed 100', () => {
     // Should still render even with values over 100
-    const { container } = render(<MacroDonutChart carbs={60} protein={50} fat={40} />);
-    expect(container.firstChild).toBeInTheDocument();
+    render(<MacroDonutChart carbs={60} protein={50} fat={40} />);
+
+    expect(lastPieData).toHaveLength(3);
+    expect(lastPieData?.[0].value).toBeCloseTo(40, 2);
+    expect(lastPieData?.[1].value).toBeCloseTo(33.3333, 2);
+    expect(lastPieData?.[2].value).toBeCloseTo(26.6666, 2);
+    expect(lastPieData?.reduce((sum, item) => sum + item.value, 0)).toBeCloseTo(100, 2);
   });
 });

@@ -1,6 +1,14 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { PlanProgressTimeline } from './PlanProgressTimeline';
+
+vi.mock('framer-motion', () => ({
+  motion: {
+    div: ({ animate, initial, transition, style, ...rest }: any) => (
+      <div style={{ ...style, ...(animate || {}) }} {...rest} />
+    ),
+  },
+}));
 
 describe('PlanProgressTimeline', () => {
   const defaultProps = {
@@ -46,13 +54,32 @@ describe('PlanProgressTimeline', () => {
 
   it('displays weight lost so far', () => {
     render(<PlanProgressTimeline {...defaultProps} />);
-    expect(screen.getByText(/2.*kg/i)).toBeInTheDocument(); // 95 - 93 = 2kg lost
+    expect(screen.getByText('2.0 kg lost')).toBeInTheDocument(); // 95 - 93 = 2kg lost
   });
 
   it('calculates progress percentage correctly', () => {
     const { container } = render(<PlanProgressTimeline {...defaultProps} />);
     // Week 4 of 12 = 33% progress
     const progressBar = container.querySelector('[data-testid="progress-bar"]');
-    expect(progressBar).toBeInTheDocument();
+    expect(progressBar).toHaveStyle({
+      width: `${(defaultProps.currentWeek / defaultProps.totalWeeks) * 100}%`,
+    });
+
+    const currentPosition = container.querySelector('[data-testid="current-position"]');
+    expect(currentPosition).toHaveStyle({
+      left: `calc(${(defaultProps.currentWeek / defaultProps.totalWeeks) * 100}% - 8px)`,
+    });
+  });
+
+  it('clamps progress to 100% when currentWeek exceeds totalWeeks', () => {
+    const { container } = render(
+      <PlanProgressTimeline {...defaultProps} currentWeek={20} totalWeeks={10} />
+    );
+
+    const progressBar = container.querySelector('[data-testid="progress-bar"]');
+    expect(progressBar).toHaveStyle({ width: '100%' });
+
+    const currentPosition = container.querySelector('[data-testid="current-position"]');
+    expect(currentPosition).toHaveStyle({ left: 'calc(100% - 8px)' });
   });
 });

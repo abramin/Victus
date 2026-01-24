@@ -123,3 +123,13 @@ func PlanToSummaryResponse(p *domain.NutritionPlan, now time.Time) PlanSummaryRe
 		CurrentWeek:            p.GetCurrentWeek(now),
 	}
 }
+
+// RecalibratePlanRequest is the request body for POST /api/plans/{id}/recalibrate.
+type RecalibratePlanRequest struct {
+	Type string `json:"type"` // increase_deficit, extend_timeline, revise_goal, keep_current
+}
+
+// RecalibrationInputFromRequest converts a RecalibratePlanRequest to a domain type.
+func RecalibrationInputFromRequest(req RecalibratePlanRequest) domain.RecalibrationOptionType {
+	return domain.RecalibrationOptionType(req.Type)
+}

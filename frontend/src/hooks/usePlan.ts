@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { getActivePlan, createPlan, completePlan, abandonPlan, ApiError } from '../api/client';
+import { getActivePlan, createPlan, completePlan, abandonPlan, pausePlan, resumePlan, ApiError } from '../api/client';
 import type { NutritionPlan, CreatePlanRequest } from '../api/types';
 
 interface UsePlanReturn {
@@ -11,6 +11,8 @@ interface UsePlanReturn {
   create: (request: CreatePlanRequest) => Promise<NutritionPlan | null>;
   complete: () => Promise<boolean>;
   abandon: () => Promise<boolean>;
+  pause: () => Promise<boolean>;
+  resume: () => Promise<boolean>;
   refresh: () => Promise<void>;
 }
 
@@ -105,5 +107,37 @@ export function usePlan(): UsePlanReturn {
     }
   }, [plan, refresh]);
 
-  return { plan, loading, creating, error, createError, create, complete, abandon, refresh };
+  const pause = useCallback(async (): Promise<boolean> => {
+    if (!plan) return false;
+    try {
+      await pausePlan(plan.id);
+      await refresh();
+      return true;
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message);
+      } else {
+        setError('Failed to pause plan');
+      }
+      return false;
+    }
+  }, [plan, refresh]);
+
+  const resume = useCallback(async (): Promise<boolean> => {
+    if (!plan) return false;
+    try {
+      await resumePlan(plan.id);
+      await refresh();
+      return true;
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message);
+      } else {
+        setError('Failed to resume plan');
+      }
+      return false;
+    }
+  }, [plan, refresh]);
+
+  return { plan, loading, creating, error, createError, create, complete, abandon, pause, resume, refresh };
 }

@@ -277,7 +277,7 @@ export interface FoodReferenceResponse {
 }
 
 // Nutrition Plan Types (Issue #27, #28)
-export type PlanStatus = 'active' | 'completed' | 'abandoned';
+export type PlanStatus = 'active' | 'completed' | 'abandoned' | 'paused';
 
 export interface WeeklyTarget {
   weekNumber: number;
@@ -347,6 +347,13 @@ export interface ProjectionPoint {
   weightKg: number;
 }
 
+export interface LandingPointProjection {
+  weightKg: number;
+  date: string;
+  varianceFromGoalKg: number;
+  onTrackForGoal: boolean;
+}
+
 export interface DualTrackAnalysis {
   planId: number;
   analysisDate: string;
@@ -360,4 +367,5 @@ export interface DualTrackAnalysis {
   options?: RecalibrationOption[];
   planProjection: ProjectionPoint[];
   trendProjection?: ProjectionPoint[];
+  landingPoint?: LandingPointProjection;
 }

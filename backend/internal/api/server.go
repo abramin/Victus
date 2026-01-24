@@ -90,6 +90,9 @@ func NewServer(db *sql.DB) *Server {
 	mux.HandleFunc("GET /api/plans/{id}/analysis", srv.analyzePlan)
 	mux.HandleFunc("POST /api/plans/{id}/complete", srv.completePlan)
 	mux.HandleFunc("POST /api/plans/{id}/abandon", srv.abandonPlan)
+	mux.HandleFunc("POST /api/plans/{id}/pause", srv.pausePlan)
+	mux.HandleFunc("POST /api/plans/{id}/resume", srv.resumePlan)
+	mux.HandleFunc("POST /api/plans/{id}/recalibrate", srv.recalibratePlan)
 	mux.HandleFunc("DELETE /api/plans/{id}", srv.deletePlan)
 
 	return srv

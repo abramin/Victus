@@ -13,18 +13,27 @@ import (
 
 // DualTrackAnalysisResponse represents the API response for plan analysis.
 type DualTrackAnalysisResponse struct {
-	PlanID              int64                         `json:"planId"`
-	AnalysisDate        string                        `json:"analysisDate"`
-	CurrentWeek         int                           `json:"currentWeek"`
-	PlannedWeightKg     float64                       `json:"plannedWeightKg"`
-	ActualWeightKg      float64                       `json:"actualWeightKg"`
-	VarianceKg          float64                       `json:"varianceKg"`
-	VariancePercent     float64                       `json:"variancePercent"`
-	TolerancePercent    float64                       `json:"tolerancePercent"`
-	RecalibrationNeeded bool                          `json:"recalibrationNeeded"`
-	Options             []RecalibrationOptionResponse `json:"options,omitempty"`
-	PlanProjection      []ProjectionPointResponse     `json:"planProjection"`
-	TrendProjection     []ProjectionPointResponse     `json:"trendProjection,omitempty"`
+	PlanID              int64                          `json:"planId"`
+	AnalysisDate        string                         `json:"analysisDate"`
+	CurrentWeek         int                            `json:"currentWeek"`
+	PlannedWeightKg     float64                        `json:"plannedWeightKg"`
+	ActualWeightKg      float64                        `json:"actualWeightKg"`
+	VarianceKg          float64                        `json:"varianceKg"`
+	VariancePercent     float64                        `json:"variancePercent"`
+	TolerancePercent    float64                        `json:"tolerancePercent"`
+	RecalibrationNeeded bool                           `json:"recalibrationNeeded"`
+	Options             []RecalibrationOptionResponse  `json:"options,omitempty"`
+	PlanProjection      []ProjectionPointResponse      `json:"planProjection"`
+	TrendProjection     []ProjectionPointResponse      `json:"trendProjection,omitempty"`
+	LandingPoint        *LandingPointProjectionResponse `json:"landingPoint,omitempty"`
+}
+
+// LandingPointProjectionResponse represents where the user will end up at current pace.
+type LandingPointProjectionResponse struct {
+	WeightKg           float64 `json:"weightKg"`
+	Date               string  `json:"date"`
+	VarianceFromGoalKg float64 `json:"varianceFromGoalKg"`
+	OnTrackForGoal     bool    `json:"onTrackForGoal"`
 }
 
 // RecalibrationOptionResponse represents a recalibration option in the API response.
@@ -187,6 +196,16 @@ func analysisToResponse(a *domain.DualTrackAnalysis) DualTrackAnalysisResponse {
 				Date:       p.Date.Format("2006-01-02"),
 				WeightKg:   p.WeightKg,
 			}
+		}
+	}
+
+	// Convert landing point
+	if a.LandingPoint != nil {
+		response.LandingPoint = &LandingPointProjectionResponse{
+			WeightKg:           a.LandingPoint.WeightKg,
+			Date:               a.LandingPoint.Date.Format("2006-01-02"),
+			VarianceFromGoalKg: a.LandingPoint.VarianceFromGoalKg,
+			OnTrackForGoal:     a.LandingPoint.OnTrackForGoal,
 		}
 	}
 

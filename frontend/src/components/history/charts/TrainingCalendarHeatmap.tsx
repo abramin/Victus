@@ -395,31 +395,33 @@ export function TrainingCalendarHeatmap({
         </div>
       </div>
 
-      {/* Hover Tooltip */}
-      {hoveredCell && (
-        <div className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm">
-          <span className="text-slate-400">
-            {new Date(hoveredCell.date + 'T00:00:00').toLocaleDateString('en-US', {
-              weekday: 'short',
-              month: 'short',
-              day: 'numeric',
-            })}
-            :
-          </span>
-          <span className="text-white ml-2">
-            {hoveredCell.status === 'no-data' && 'No data logged'}
-            {hoveredCell.status === 'rest' && 'Rest day'}
-            {hoveredCell.status === 'missed' && `Missed • Planned ${hoveredCell.plannedDurationMin} min`}
-            {(hoveredCell.status === 'completed' || hoveredCell.status === 'partial') &&
-              `${hoveredCell.actualDurationMin} min trained`}
-          </span>
-          {hoveredCell.loadIntensity !== 'none' && (
-            <span className="text-slate-400 ml-2">
-              • Load: {hoveredCell.loadIntensity.charAt(0).toUpperCase() + hoveredCell.loadIntensity.slice(1)}
+      {/* Hover Tooltip - Fixed height to prevent layout shift */}
+      <div className="h-10 flex items-center">
+        {hoveredCell && (
+          <div className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm w-full">
+            <span className="text-slate-400">
+              {new Date(hoveredCell.date + 'T00:00:00').toLocaleDateString('en-US', {
+                weekday: 'short',
+                month: 'short',
+                day: 'numeric',
+              })}
+              :
             </span>
-          )}
-        </div>
-      )}
+            <span className="text-white ml-2">
+              {hoveredCell.status === 'no-data' && 'No data logged'}
+              {hoveredCell.status === 'rest' && 'Rest day'}
+              {hoveredCell.status === 'missed' && `Missed • Planned ${hoveredCell.plannedDurationMin} min`}
+              {(hoveredCell.status === 'completed' || hoveredCell.status === 'partial') &&
+                `${hoveredCell.actualDurationMin} min trained`}
+            </span>
+            {hoveredCell.loadIntensity !== 'none' && (
+              <span className="text-slate-400 ml-2">
+                • Load: {hoveredCell.loadIntensity.charAt(0).toUpperCase() + hoveredCell.loadIntensity.slice(1)}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Status Legend */}
       <div className="flex flex-wrap gap-4 text-xs text-slate-500 pt-2 border-t border-slate-800">

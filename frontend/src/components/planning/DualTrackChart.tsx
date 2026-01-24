@@ -82,7 +82,7 @@ export function DualTrackChart({ analysis, tolerancePercent = 0.03 }: DualTrackC
     return data;
   }, [analysis, tolerancePercent]);
 
-  // Calculate Y-axis domain - include tolerance zone bounds
+  // Calculate Y-axis domain - include tolerance zone bounds and landing point
   const yDomain = useMemo(() => {
     const allWeights = chartData.flatMap(d =>
       [
@@ -93,6 +93,12 @@ export function DualTrackChart({ analysis, tolerancePercent = 0.03 }: DualTrackC
         d.toleranceZone?.[1]
       ].filter((w): w is number => w !== undefined)
     );
+
+    // Include landing point in y-axis calculation
+    if (analysis.landingPoint) {
+      allWeights.push(analysis.landingPoint.weightKg);
+    }
+
     if (allWeights.length === 0) return [60, 100];
 
     const min = Math.min(...allWeights);
@@ -100,6 +106,12 @@ export function DualTrackChart({ analysis, tolerancePercent = 0.03 }: DualTrackC
     const padding = (max - min) * 0.1 || 2;
 
     return [Math.floor(min - padding), Math.ceil(max + padding)];
+  }, [chartData, analysis.landingPoint]);
+
+  // Find the last week number for landing point placement
+  const lastWeekNumber = useMemo(() => {
+    if (chartData.length === 0) return 0;
+    return Math.max(...chartData.map(d => d.weekNumber));
   }, [chartData]);
 
   return (
@@ -135,12 +147,17 @@ export function DualTrackChart({ analysis, tolerancePercent = 0.03 }: DualTrackC
                 borderRadius: '8px',
                 boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
               }}
-              formatter={(value: number, name: string) => [
-                `${value.toFixed(1)} kg`,
-                name === 'planWeight' ? 'Plan Projection' :
-                name === 'trendWeight' ? 'Current Trend' :
-                'Actual Weight'
-              ]}
+              formatter={(value: number | [number, number], name: string) => {
+                if (Array.isArray(value)) {
+                  return [`${value[0].toFixed(1)} - ${value[1].toFixed(1)} kg`, 'Tolerance Zone'];
+                }
+                return [
+                  `${value.toFixed(1)} kg`,
+                  name === 'planWeight' ? 'Plan Projection' :
+                  name === 'trendWeight' ? 'Current Trend' :
+                  'Actual Weight'
+                ];
+              }}
               labelFormatter={(week) => `Week ${week}`}
             />
             <Legend
@@ -194,6 +211,18 @@ export function DualTrackChart({ analysis, tolerancePercent = 0.03 }: DualTrackC
               stroke="white"
               strokeWidth={2}
             />
+
+            {/* Landing point marker (where user will end up at current pace) */}
+            {analysis.landingPoint && (
+              <ReferenceDot
+                x={lastWeekNumber}
+                y={analysis.landingPoint.weightKg}
+                r={8}
+                fill="#f97316"
+                stroke="white"
+                strokeWidth={2}
+              />
+            )}
           </ComposedChart>
         </ResponsiveContainer>
       </div>
@@ -216,6 +245,14 @@ export function DualTrackChart({ analysis, tolerancePercent = 0.03 }: DualTrackC
           <div className="w-3 h-3 rounded-full bg-green-500" />
           <span className="text-gray-600">Current Weight</span>
         </div>
+        {analysis.landingPoint && (
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-orange-500" />
+            <span className="text-gray-600">
+              Projected Landing ({analysis.landingPoint.weightKg.toFixed(1)} kg)
+            </span>
+          </div>
+        )}
       </div>
     </Card>
   );

@@ -73,6 +73,18 @@ func (s *NutritionPlanService) Abandon(ctx context.Context, id int64) error {
 	return s.planStore.UpdateStatus(ctx, id, domain.PlanStatusAbandoned)
 }
 
+// Pause marks a plan as paused.
+// Returns store.ErrPlanNotFound if plan doesn't exist.
+func (s *NutritionPlanService) Pause(ctx context.Context, id int64) error {
+	return s.planStore.UpdateStatus(ctx, id, domain.PlanStatusPaused)
+}
+
+// Resume marks a paused plan as active again.
+// Returns store.ErrPlanNotFound if plan doesn't exist.
+func (s *NutritionPlanService) Resume(ctx context.Context, id int64) error {
+	return s.planStore.UpdateStatus(ctx, id, domain.PlanStatusActive)
+}
+
 // Delete removes a nutrition plan.
 func (s *NutritionPlanService) Delete(ctx context.Context, id int64) error {
 	return s.planStore.Delete(ctx, id)
@@ -104,4 +116,43 @@ func (s *NutritionPlanService) GetCurrentWeekTarget(ctx context.Context, now tim
 
 	target := plan.GetWeeklyTarget(currentWeek)
 	return target, nil
+}
+
+// Recalibrate applies a recalibration option to a plan.
+// This modifies the plan based on the selected strategy:
+// - increase_deficit: Increase daily deficit to hit goal on time
+// - extend_timeline: Add weeks to maintain current deficit
+// - revise_goal: Adjust goal weight to be achievable
+// - keep_current: No changes (returns current plan)
+func (s *NutritionPlanService) Recalibrate(ctx context.Context, id int64, optionType domain.RecalibrationOptionType, now time.Time) (*domain.NutritionPlan, error) {
+	// Get the current plan
+	plan, err := s.planStore.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get profile for TDEE calculations
+	profile, err := s.profileStore.Get(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// If keep_current, just return the plan unchanged
+	if optionType == domain.RecalibrationKeepCurrent {
+		return plan, nil
+	}
+
+	// Apply recalibration based on option type
+	updatedPlan, err := domain.ApplyRecalibration(plan, profile, optionType, now)
+	if err != nil {
+		return nil, err
+	}
+
+	// Update the plan in the store
+	if err := s.planStore.UpdatePlan(ctx, updatedPlan); err != nil {
+		return nil, err
+	}
+
+	// Return fresh copy
+	return s.planStore.GetByID(ctx, id)
 }
