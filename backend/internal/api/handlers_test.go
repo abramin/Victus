@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 	"time"
 
@@ -398,5 +399,339 @@ func (s *HandlerSuite) TestActualTrainingUpdate() {
 		var resp APIError
 		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
 		s.Equal("not_found", resp.Error)
+	})
+}
+
+// --- Nutrition Plan endpoint tests ---
+// Justification: Tests HTTP contract for plan endpoints - validation, error mapping, response format.
+// Domain invariants are tested at domain layer; these test API boundary behavior.
+
+func (s *HandlerSuite) TestPlanCreation() {
+	s.Run("requires profile", func() {
+		today := time.Now().Format("2006-01-02")
+		req := map[string]interface{}{
+			"startDate":     today,
+			"startWeightKg": 90,
+			"goalWeightKg":  80,
+			"durationWeeks": 20,
+		}
+		rec := s.doRequest("POST", "/api/plans", req)
+		s.Equal(http.StatusBadRequest, rec.Code)
+
+		var resp APIError
+		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
+		s.Equal("profile_required", resp.Error)
+	})
+
+	s.Run("creates plan with weekly targets", func() {
+		s.createProfile()
+		today := time.Now().Format("2006-01-02")
+		req := map[string]interface{}{
+			"startDate":     today,
+			"startWeightKg": 90,
+			"goalWeightKg":  80,
+			"durationWeeks": 20,
+		}
+		rec := s.doRequest("POST", "/api/plans", req)
+		s.Equal(http.StatusCreated, rec.Code)
+
+		var resp struct {
+			ID            int64  `json:"id"`
+			Status        string `json:"status"`
+			WeeklyTargets []struct {
+				WeekNumber int `json:"weekNumber"`
+			} `json:"weeklyTargets"`
+		}
+		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
+		s.Greater(resp.ID, int64(0))
+		s.Equal("active", resp.Status)
+		s.Len(resp.WeeklyTargets, 20)
+	})
+
+	s.Run("prevents duplicate active plan", func() {
+		today := time.Now().Format("2006-01-02")
+		req := map[string]interface{}{
+			"startDate":     today,
+			"startWeightKg": 90,
+			"goalWeightKg":  80,
+			"durationWeeks": 20,
+		}
+		rec := s.doRequest("POST", "/api/plans", req)
+		s.Equal(http.StatusConflict, rec.Code)
+
+		var resp APIError
+		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
+		s.Equal("active_plan_exists", resp.Error)
+	})
+}
+
+func (s *HandlerSuite) TestPlanValidation() {
+	s.createProfile()
+
+	s.Run("rejects aggressive deficit", func() {
+		today := time.Now().Format("2006-01-02")
+		req := map[string]interface{}{
+			"startDate":     today,
+			"startWeightKg": 90,
+			"goalWeightKg":  70, // 20kg loss
+			"durationWeeks": 10, // 2 kg/week (unsafe)
+		}
+		rec := s.doRequest("POST", "/api/plans", req)
+		s.Equal(http.StatusBadRequest, rec.Code)
+
+		var resp APIError
+		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
+		s.Equal("validation_error", resp.Error)
+		s.Contains(resp.Message, "aggressive")
+	})
+
+	s.Run("rejects invalid duration", func() {
+		today := time.Now().Format("2006-01-02")
+		req := map[string]interface{}{
+			"startDate":     today,
+			"startWeightKg": 90,
+			"goalWeightKg":  89,
+			"durationWeeks": 3, // Below minimum
+		}
+		rec := s.doRequest("POST", "/api/plans", req)
+		s.Equal(http.StatusBadRequest, rec.Code)
+
+		var resp APIError
+		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
+		s.Equal("validation_error", resp.Error)
+	})
+
+	s.Run("rejects invalid JSON", func() {
+		req := httptest.NewRequest("POST", "/api/plans", bytes.NewBufferString("not json"))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		s.server.Handler().ServeHTTP(rec, req)
+
+		s.Equal(http.StatusBadRequest, rec.Code)
+
+		var resp APIError
+		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
+		s.Equal("invalid_json", resp.Error)
+	})
+}
+
+func (s *HandlerSuite) TestGetActivePlan() {
+	s.Run("returns 404 when no active plan", func() {
+		rec := s.doRequest("GET", "/api/plans/active", nil)
+		s.Equal(http.StatusNotFound, rec.Code)
+
+		var resp APIError
+		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
+		s.Equal("not_found", resp.Error)
+	})
+
+	s.Run("returns active plan with current week", func() {
+		s.createProfile()
+		today := time.Now().Format("2006-01-02")
+		planReq := map[string]interface{}{
+			"startDate":     today,
+			"startWeightKg": 90,
+			"goalWeightKg":  80,
+			"durationWeeks": 20,
+		}
+		s.doRequest("POST", "/api/plans", planReq)
+
+		rec := s.doRequest("GET", "/api/plans/active", nil)
+		s.Equal(http.StatusOK, rec.Code)
+
+		var resp struct {
+			ID          int64  `json:"id"`
+			Status      string `json:"status"`
+			CurrentWeek int    `json:"currentWeek"`
+		}
+		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
+		s.Equal("active", resp.Status)
+		s.Equal(1, resp.CurrentWeek) // Should be week 1 on start date
+	})
+}
+
+func (s *HandlerSuite) TestGetPlanByID() {
+	s.Run("returns 404 for non-existent plan", func() {
+		rec := s.doRequest("GET", "/api/plans/99999", nil)
+		s.Equal(http.StatusNotFound, rec.Code)
+
+		var resp APIError
+		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
+		s.Equal("not_found", resp.Error)
+	})
+
+	s.Run("returns 400 for invalid ID", func() {
+		rec := s.doRequest("GET", "/api/plans/notanumber", nil)
+		s.Equal(http.StatusBadRequest, rec.Code)
+
+		var resp APIError
+		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
+		s.Equal("invalid_id", resp.Error)
+	})
+
+	s.Run("returns plan by ID", func() {
+		s.createProfile()
+		today := time.Now().Format("2006-01-02")
+		planReq := map[string]interface{}{
+			"startDate":     today,
+			"startWeightKg": 90,
+			"goalWeightKg":  80,
+			"durationWeeks": 20,
+		}
+		createRec := s.doRequest("POST", "/api/plans", planReq)
+		s.Require().Equal(http.StatusCreated, createRec.Code)
+
+		var created struct {
+			ID int64 `json:"id"`
+		}
+		json.Unmarshal(createRec.Body.Bytes(), &created)
+
+		rec := s.doRequest("GET", "/api/plans/"+strconv.FormatInt(created.ID, 10), nil)
+		s.Equal(http.StatusOK, rec.Code)
+
+		var resp struct {
+			ID int64 `json:"id"`
+		}
+		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
+		s.Equal(created.ID, resp.ID)
+	})
+}
+
+func (s *HandlerSuite) TestListPlans() {
+	s.Run("returns empty list when no plans", func() {
+		rec := s.doRequest("GET", "/api/plans", nil)
+		s.Equal(http.StatusOK, rec.Code)
+
+		var resp []interface{}
+		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
+		s.Empty(resp)
+	})
+
+	s.Run("returns all plans", func() {
+		s.createProfile()
+		today := time.Now().Format("2006-01-02")
+		planReq := map[string]interface{}{
+			"startDate":     today,
+			"startWeightKg": 90,
+			"goalWeightKg":  80,
+			"durationWeeks": 20,
+		}
+		s.doRequest("POST", "/api/plans", planReq)
+
+		rec := s.doRequest("GET", "/api/plans", nil)
+		s.Equal(http.StatusOK, rec.Code)
+
+		var resp []struct {
+			ID     int64  `json:"id"`
+			Status string `json:"status"`
+		}
+		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
+		s.Len(resp, 1)
+		s.Equal("active", resp[0].Status)
+	})
+}
+
+func (s *HandlerSuite) TestPlanStatusTransitions() {
+	s.createProfile()
+	today := time.Now().Format("2006-01-02")
+	planReq := map[string]interface{}{
+		"startDate":     today,
+		"startWeightKg": 90,
+		"goalWeightKg":  80,
+		"durationWeeks": 20,
+	}
+	createRec := s.doRequest("POST", "/api/plans", planReq)
+	var created struct {
+		ID int64 `json:"id"`
+	}
+	json.Unmarshal(createRec.Body.Bytes(), &created)
+	planID := strconv.FormatInt(created.ID, 10)
+
+	s.Run("complete returns 204", func() {
+		rec := s.doRequest("POST", "/api/plans/"+planID+"/complete", nil)
+		s.Equal(http.StatusNoContent, rec.Code)
+
+		// Verify status changed
+		getRec := s.doRequest("GET", "/api/plans/"+planID, nil)
+		var plan struct {
+			Status string `json:"status"`
+		}
+		json.Unmarshal(getRec.Body.Bytes(), &plan)
+		s.Equal("completed", plan.Status)
+	})
+
+	s.Run("complete on non-existent plan returns 404", func() {
+		rec := s.doRequest("POST", "/api/plans/99999/complete", nil)
+		s.Equal(http.StatusNotFound, rec.Code)
+	})
+
+	s.Run("cancel on non-existent plan returns 404", func() {
+		rec := s.doRequest("POST", "/api/plans/99999/cancel", nil)
+		s.Equal(http.StatusNotFound, rec.Code)
+	})
+}
+
+func (s *HandlerSuite) TestDeletePlan() {
+	s.createProfile()
+	today := time.Now().Format("2006-01-02")
+	planReq := map[string]interface{}{
+		"startDate":     today,
+		"startWeightKg": 90,
+		"goalWeightKg":  80,
+		"durationWeeks": 20,
+	}
+	createRec := s.doRequest("POST", "/api/plans", planReq)
+	var created struct {
+		ID int64 `json:"id"`
+	}
+	json.Unmarshal(createRec.Body.Bytes(), &created)
+	planID := strconv.FormatInt(created.ID, 10)
+
+	s.Run("delete returns 204", func() {
+		rec := s.doRequest("DELETE", "/api/plans/"+planID, nil)
+		s.Equal(http.StatusNoContent, rec.Code)
+
+		// Verify plan is deleted
+		getRec := s.doRequest("GET", "/api/plans/"+planID, nil)
+		s.Equal(http.StatusNotFound, getRec.Code)
+	})
+
+	s.Run("delete invalid ID returns 400", func() {
+		rec := s.doRequest("DELETE", "/api/plans/notanumber", nil)
+		s.Equal(http.StatusBadRequest, rec.Code)
+	})
+}
+
+func (s *HandlerSuite) TestGetCurrentWeekTarget() {
+	s.Run("returns 404 when no active plan", func() {
+		rec := s.doRequest("GET", "/api/plans/current-week", nil)
+		s.Equal(http.StatusNotFound, rec.Code)
+
+		var resp APIError
+		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
+		s.Equal("not_found", resp.Error)
+	})
+
+	s.Run("returns current week target", func() {
+		s.createProfile()
+		today := time.Now().Format("2006-01-02")
+		planReq := map[string]interface{}{
+			"startDate":     today,
+			"startWeightKg": 90,
+			"goalWeightKg":  80,
+			"durationWeeks": 20,
+		}
+		s.doRequest("POST", "/api/plans", planReq)
+
+		rec := s.doRequest("GET", "/api/plans/current-week", nil)
+		s.Equal(http.StatusOK, rec.Code)
+
+		var resp struct {
+			WeekNumber       int `json:"weekNumber"`
+			TargetIntakeKcal int `json:"targetIntakeKcal"`
+		}
+		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
+		s.Equal(1, resp.WeekNumber)
+		s.Greater(resp.TargetIntakeKcal, 0)
 	})
 }
