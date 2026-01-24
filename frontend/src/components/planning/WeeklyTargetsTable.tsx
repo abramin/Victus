@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, Fragment } from 'react';
 import type { WeeklyTarget } from '../../api/types';
 import { Card } from '../common/Card';
 import { IntakeSparkline } from './IntakeSparkline';
@@ -68,7 +68,7 @@ export function WeeklyTargetsTable({
           </thead>
           <tbody>
             {groupedTargets.map((group, groupIndex) => (
-              <>
+              <Fragment key={`group-${groupIndex}-${group.phase ?? 'none'}`}>
                 {/* Phase header row */}
                 {group.phase && (
                   <tr key={`phase-${groupIndex}`} className="bg-gray-50">
@@ -156,7 +156,7 @@ export function WeeklyTargetsTable({
                     </tr>
                   );
                 })}
-              </>
+              </Fragment>
             ))}
           </tbody>
         </table>
