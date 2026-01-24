@@ -21,6 +21,8 @@ func RunMigrations(db *sql.DB) error {
 		createTrainingSessionsTable,
 		createPlannedDayTypesTable,
 		createFoodReferenceTable,
+		createNutritionPlansTable,
+		createWeeklyTargetsTable,
 	}
 
 	for i, migration := range migrations {
@@ -324,6 +326,51 @@ INSERT OR IGNORE INTO training_sessions (daily_log_id, session_order, is_planned
 SELECT id, 1, 1, planned_training_type, planned_duration_min
 FROM daily_logs
 WHERE planned_training_type IS NOT NULL AND planned_training_type != '';
+`
+
+// Nutrition Plans table for long-term goal tracking (Issue #27)
+const createNutritionPlansTable = `
+CREATE TABLE IF NOT EXISTS nutrition_plans (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    start_date TEXT NOT NULL,
+    start_weight_kg REAL NOT NULL CHECK (start_weight_kg BETWEEN 30 AND 300),
+    goal_weight_kg REAL NOT NULL CHECK (goal_weight_kg BETWEEN 30 AND 300),
+    duration_weeks INTEGER NOT NULL CHECK (duration_weeks BETWEEN 4 AND 104),
+    required_weekly_change_kg REAL NOT NULL,
+    required_daily_deficit_kcal REAL NOT NULL,
+    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'completed', 'cancelled')),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_nutrition_plans_status ON nutrition_plans(status);
+CREATE INDEX IF NOT EXISTS idx_nutrition_plans_start_date ON nutrition_plans(start_date);
+`
+
+// Weekly Targets table for plan milestones (Issue #27)
+const createWeeklyTargetsTable = `
+CREATE TABLE IF NOT EXISTS weekly_targets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    plan_id INTEGER NOT NULL,
+    week_number INTEGER NOT NULL CHECK (week_number >= 1),
+    start_date TEXT NOT NULL,
+    end_date TEXT NOT NULL,
+    projected_weight_kg REAL NOT NULL,
+    projected_tdee INTEGER NOT NULL,
+    target_intake_kcal INTEGER NOT NULL,
+    target_carbs_g INTEGER NOT NULL,
+    target_protein_g INTEGER NOT NULL,
+    target_fats_g INTEGER NOT NULL,
+    actual_weight_kg REAL,
+    actual_intake_kcal INTEGER,
+    days_logged INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (plan_id) REFERENCES nutrition_plans(id) ON DELETE CASCADE,
+    UNIQUE(plan_id, week_number)
+);
+
+CREATE INDEX IF NOT EXISTS idx_weekly_targets_plan ON weekly_targets(plan_id);
+CREATE INDEX IF NOT EXISTS idx_weekly_targets_dates ON weekly_targets(start_date, end_date);
 `
 
 // migrateTrainingSessionsConstraint fixes the unique constraint on training_sessions

@@ -62,3 +62,17 @@ var (
 	ErrInvalidPerceivedIntensity = newValidationError("perceived intensity must be between 1 and 10")
 	ErrTooManySessions           = newValidationError("maximum 10 training sessions allowed per day")
 )
+
+// NutritionPlan validation errors
+var (
+	ErrInvalidPlanStatus         = newValidationError("plan status must be 'active', 'completed', or 'cancelled'")
+	ErrInvalidPlanStartDate      = newValidationError("plan start date must be in YYYY-MM-DD format")
+	ErrPlanStartDateTooOld       = newValidationError("plan start date cannot be more than 7 days in the past")
+	ErrInvalidPlanStartWeight    = newValidationError("plan start weight must be between 30 and 300 kg")
+	ErrInvalidPlanGoalWeight     = newValidationError("plan goal weight must be between 30 and 300 kg")
+	ErrInvalidPlanDuration       = newValidationError("plan duration must be between 4 and 104 weeks")
+	ErrPlanDeficitTooAggressive  = newValidationError("plan deficit exceeds safe limit of 750 kcal/day (~0.75 kg/week loss)")
+	ErrPlanSurplusTooAggressive  = newValidationError("plan surplus exceeds safe limit of 500 kcal/day (~0.5 kg/week gain)")
+	ErrActivePlanExists          = newValidationError("an active nutrition plan already exists")
+	ErrPlanNotFound              = newValidationError("nutrition plan not found")
+)
