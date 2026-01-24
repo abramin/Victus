@@ -1,6 +1,7 @@
 import { usePlan } from '../../hooks/usePlan';
 import { usePlanAnalysis } from '../../hooks/usePlanAnalysis';
 import { useProfile } from '../../hooks/useProfile';
+import { useDailyLog } from '../../hooks/useDailyLog';
 import { PlanCreationForm } from './PlanCreationForm';
 import { PlanSummaryCard } from './PlanSummaryCard';
 import { WeeklyTargetsTable } from './WeeklyTargetsTable';
@@ -13,6 +14,7 @@ export function PlanOverview() {
   const { profile, loading: profileLoading } = useProfile();
   const { plan, loading: planLoading, creating, createError, create, complete, abandon } = usePlan();
   const { analysis, loading: analysisLoading, error: analysisError } = usePlanAnalysis();
+  const { log } = useDailyLog();
 
   const loading = profileLoading || planLoading;
 
@@ -62,9 +64,11 @@ export function PlanOverview() {
   // No active plan - show creation form
   if (!plan) {
     return (
-      <div className="max-w-lg mx-auto">
+      <div className="max-w-xl mx-auto">
         <PlanCreationForm
           currentWeight={profile.currentWeightKg || 80}
+          estimatedTDEE={log?.estimatedTDEE}
+          profile={profile}
           onSubmit={handleCreatePlan}
           creating={creating}
           error={createError}
