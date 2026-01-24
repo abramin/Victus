@@ -11,6 +11,7 @@ type HistoryPointResponse struct {
 	WeightKg       float64 `json:"weightKg"`
 	EstimatedTDEE  int     `json:"estimatedTDEE"`
 	TDEEConfidence float64 `json:"tdeeConfidence"`
+	HasTraining    bool    `json:"hasTraining"`
 }
 
 type HistoryTrainingSummaryResponse struct {
@@ -19,8 +20,8 @@ type HistoryTrainingSummaryResponse struct {
 }
 
 type HistoryResponse struct {
-	Points          []HistoryPointResponse        `json:"points"`
-	Trend           *WeightTrendSummaryResponse   `json:"trend,omitempty"`
+	Points          []HistoryPointResponse         `json:"points"`
+	Trend           *WeightTrendSummaryResponse    `json:"trend,omitempty"`
 	TrainingSummary HistoryTrainingSummaryResponse `json:"trainingSummary"`
 }
 
@@ -42,6 +43,7 @@ func HistoryToResponse(summary *domain.HistorySummary) HistoryResponse {
 			WeightKg:       point.WeightKg,
 			EstimatedTDEE:  point.EstimatedTDEE,
 			TDEEConfidence: point.TDEEConfidence,
+			HasTraining:    point.HasTraining,
 		}
 	}
 

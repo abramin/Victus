@@ -1,11 +1,12 @@
 import type { OnboardingData } from './OnboardingWizard';
+import { SelectorCard } from '../common/SelectorCard';
 
 interface ActivityGoalsStepProps {
   data: OnboardingData;
   onChange: (updates: Partial<OnboardingData>) => void;
 }
 
-const ACTIVITY_LEVELS = [
+const ACTIVITY_LEVEL_OPTIONS = [
   { value: 'sedentary', label: 'Sedentary', description: 'Little or no exercise' },
   { value: 'light', label: 'Light', description: 'Exercise 1-3 times/week' },
   { value: 'moderate', label: 'Moderate', description: 'Exercise 3-5 times/week' },
@@ -13,10 +14,10 @@ const ACTIVITY_LEVELS = [
   { value: 'very_active', label: 'Very Active', description: 'Very intense exercise daily' },
 ] as const;
 
-const GOALS = [
-  { value: 'lose_weight', label: 'Lose Weight' },
-  { value: 'maintain', label: 'Maintain Weight' },
-  { value: 'gain_weight', label: 'Gain Muscle' },
+const GOAL_OPTIONS = [
+  { value: 'lose_weight', label: 'Lose Weight', description: 'Calorie Deficit', icon: '📉' },
+  { value: 'maintain', label: 'Maintain', description: 'TDEE Match', icon: '⚖️' },
+  { value: 'gain_weight', label: 'Gain Muscle', description: 'Surplus', icon: '💪' },
 ] as const;
 
 export function ActivityGoalsStep({ data, onChange }: ActivityGoalsStepProps) {
@@ -27,87 +28,33 @@ export function ActivityGoalsStep({ data, onChange }: ActivityGoalsStepProps) {
 
       <div className="space-y-8">
         {/* Activity Level */}
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-4">Activity Level</label>
-          <div className="space-y-3">
-            {ACTIVITY_LEVELS.map((level) => (
-              <label
-                key={level.value}
-                className={`flex items-start gap-3 p-4 rounded-lg cursor-pointer transition-colors ${
-                  data.activityLevel === level.value
-                    ? 'bg-gray-800 border-2 border-white/30'
-                    : 'bg-gray-800/50 border-2 border-transparent hover:bg-gray-800'
-                }`}
-              >
-                <div className="flex-shrink-0 mt-0.5">
-                  <div
-                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                      data.activityLevel === level.value
-                        ? 'border-white bg-white'
-                        : 'border-gray-600'
-                    }`}
-                  >
-                    {data.activityLevel === level.value && (
-                      <div className="w-2 h-2 rounded-full bg-black" />
-                    )}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-white font-medium">{level.label}</div>
-                  <div className="text-sm text-gray-400">{level.description}</div>
-                </div>
-                <input
-                  type="radio"
-                  name="activityLevel"
-                  value={level.value}
-                  checked={data.activityLevel === level.value}
-                  onChange={() => onChange({ activityLevel: level.value })}
-                  className="sr-only"
-                />
-              </label>
-            ))}
-          </div>
-        </div>
+        <SelectorCard
+          label="Activity Level"
+          value={data.activityLevel}
+          onChange={(v) => onChange({ activityLevel: v as OnboardingData['activityLevel'] })}
+          options={ACTIVITY_LEVEL_OPTIONS.map(level => ({
+            value: level.value,
+            label: level.label,
+            description: level.description,
+          }))}
+          columns={2}
+          testId="activity-level"
+        />
 
         {/* Primary Goal */}
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-4">Primary Goal</label>
-          <div className="space-y-3">
-            {GOALS.map((goal) => (
-              <label
-                key={goal.value}
-                className={`flex items-center gap-3 p-4 rounded-lg cursor-pointer transition-colors ${
-                  data.goal === goal.value
-                    ? 'bg-gray-800 border-2 border-white/30'
-                    : 'bg-gray-800/50 border-2 border-transparent hover:bg-gray-800'
-                }`}
-              >
-                <div className="flex-shrink-0">
-                  <div
-                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                      data.goal === goal.value
-                        ? 'border-white bg-white'
-                        : 'border-gray-600'
-                    }`}
-                  >
-                    {data.goal === goal.value && (
-                      <div className="w-2 h-2 rounded-full bg-black" />
-                    )}
-                  </div>
-                </div>
-                <div className="text-white font-medium">{goal.label}</div>
-                <input
-                  type="radio"
-                  name="goal"
-                  value={goal.value}
-                  checked={data.goal === goal.value}
-                  onChange={() => onChange({ goal: goal.value })}
-                  className="sr-only"
-                />
-              </label>
-            ))}
-          </div>
-        </div>
+        <SelectorCard
+          label="Primary Goal"
+          value={data.goal}
+          onChange={(v) => onChange({ goal: v as OnboardingData['goal'] })}
+          options={GOAL_OPTIONS.map(goal => ({
+            value: goal.value,
+            label: goal.label,
+            description: goal.description,
+            icon: goal.icon,
+          }))}
+          columns={3}
+          testId="goal"
+        />
       </div>
     </div>
   );

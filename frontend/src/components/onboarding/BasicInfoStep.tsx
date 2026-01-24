@@ -1,4 +1,5 @@
 import type { OnboardingData } from './OnboardingWizard';
+import { SelectorCard } from '../common/SelectorCard';
 
 interface BasicInfoStepProps {
   data: OnboardingData;
@@ -25,55 +26,52 @@ export function BasicInfoStep({ data, onChange }: BasicInfoStepProps) {
           />
         </div>
 
-        {/* Age and Gender Row */}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Age</label>
-            <div className="relative">
-              <input
-                type="number"
-                value={data.age}
-                onChange={(e) => onChange({ age: parseInt(e.target.value) || 0 })}
-                min={13}
-                max={120}
-                data-testid="age-input"
-                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-transparent appearance-none"
-              />
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex flex-col">
-                <button
-                  type="button"
-                  onClick={() => onChange({ age: Math.min(120, data.age + 1) })}
-                  className="text-gray-400 hover:text-white p-0.5"
-                >
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                  </svg>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onChange({ age: Math.max(13, data.age - 1) })}
-                  className="text-gray-400 hover:text-white p-0.5"
-                >
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          </div>
+        {/* Gender Selector Cards */}
+        <SelectorCard
+          label="Gender"
+          value={data.gender}
+          onChange={(v) => onChange({ gender: v as 'male' | 'female' })}
+          options={[
+            { value: 'male', label: 'Male', icon: '♂️' },
+            { value: 'female', label: 'Female', icon: '♀️' },
+          ]}
+          columns={2}
+          testId="gender-select"
+        />
 
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Gender</label>
-            <select
-              value={data.gender}
-              onChange={(e) => onChange({ gender: e.target.value as 'male' | 'female' })}
-              data-testid="gender-select"
-              className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-transparent appearance-none cursor-pointer"
-              style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 0.75rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.25em 1.25em' }}
-            >
-              <option value="male">Male</option>
-              <option value="female">Female</option>
-            </select>
+        {/* Age Input */}
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Age</label>
+          <div className="relative">
+            <input
+              type="number"
+              value={data.age}
+              onChange={(e) => onChange({ age: parseInt(e.target.value) || 0 })}
+              min={13}
+              max={120}
+              data-testid="age-input"
+              className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-transparent appearance-none"
+            />
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex flex-col">
+              <button
+                type="button"
+                onClick={() => onChange({ age: Math.min(120, data.age + 1) })}
+                className="text-gray-400 hover:text-white p-0.5"
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={() => onChange({ age: Math.max(13, data.age - 1) })}
+                className="text-gray-400 hover:text-white p-0.5"
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
 

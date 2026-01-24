@@ -212,6 +212,9 @@ func (s *DailyLogService) GetHistorySummary(ctx context.Context, startDate, endD
 	var plannedSummary domain.TrainingSummaryAggregate
 	var actualSummary domain.TrainingSummaryAggregate
 
+	// Track which dates have actual training sessions
+	trainingDates := make(map[string]bool)
+
 	if len(points) > 0 {
 		rangeStart := startDate
 		if rangeStart == "" {
@@ -233,11 +236,20 @@ func (s *DailyLogService) GetHistorySummary(ctx context.Context, startDate, endD
 			for _, sd := range sessionsData {
 				plannedSessions = append(plannedSessions, sd.PlannedSessions...)
 				actualSessions = append(actualSessions, sd.ActualSessions...)
+				// Mark dates that have actual training
+				if len(sd.ActualSessions) > 0 {
+					trainingDates[sd.Date] = true
+				}
 			}
 
 			plannedSummary = aggregateTrainingSummary(plannedSessions)
 			actualSummary = aggregateTrainingSummary(actualSessions)
 		}
+	}
+
+	// Update points with training markers
+	for i := range points {
+		points[i].HasTraining = trainingDates[points[i].Date]
 	}
 
 	return &domain.HistorySummary{

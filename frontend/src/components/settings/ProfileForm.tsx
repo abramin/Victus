@@ -4,10 +4,12 @@ import { Card } from '../common/Card';
 import { NumberInput } from '../common/NumberInput';
 import { Select } from '../common/Select';
 import { Button } from '../common/Button';
-import { MacroRatiosInput } from './MacroRatiosInput';
+import { SelectorCard } from '../common/SelectorCard';
+import { ContextualSlider, BODY_FAT_ZONES } from '../common/ContextualSlider';
 import { MacroDistributionBar } from './MacroDistributionBar';
 import { MealDistributionBar } from './MealDistributionBar';
 import { RecalibrationSettings } from './RecalibrationSettings';
+import { GoalProjectorChart } from './GoalProjectorChart';
 import {
   SEX_OPTIONS,
   GOAL_OPTIONS,
@@ -280,60 +282,72 @@ export function ProfileForm({ initialProfile, onSave, saving, error }: ProfileFo
         <div className="space-y-6">
           {/* Biometrics Section */}
           <Card title="Biometrics">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <NumberInput
-                label="Height"
-                value={profile.height_cm}
-                onChange={(v) => updateProfile({ height_cm: v })}
-                min={100}
-                max={250}
-                unit="cm"
-                error={validationErrors.height}
-                required
-                testId="height-input"
-              />
-
-              <div className="space-y-1">
-                <label className="block text-sm font-medium text-slate-300">
-                  Birth Date <span className="text-red-400 ml-1">*</span>
-                </label>
-                <input
-                  type="date"
-                  value={profile.birthDate.split('T')[0]}
-                  onChange={(e) => updateProfile({ birthDate: e.target.value })}
-                  data-testid="birthDate-input"
-                  className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-md text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                {validationErrors.birthDate && (
-                  <p className="text-sm text-red-400" data-testid="birthDate-error">{validationErrors.birthDate}</p>
-                )}
-              </div>
-
-              <Select
+            <div className="space-y-4">
+              {/* Sex Selector Cards */}
+              <SelectorCard
                 label="Sex"
                 value={profile.sex}
                 onChange={(v) => updateProfile({ sex: v as Sex })}
-                options={SEX_OPTIONS}
+                options={[
+                  { value: 'male', label: 'Male', icon: '♂️' },
+                  { value: 'female', label: 'Female', icon: '♀️' },
+                ]}
+                columns={2}
                 error={validationErrors.sex}
-                required
                 testId="sex-select"
               />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <NumberInput
+                  label="Height"
+                  value={profile.height_cm}
+                  onChange={(v) => updateProfile({ height_cm: v })}
+                  min={100}
+                  max={250}
+                  unit="cm"
+                  error={validationErrors.height}
+                  required
+                  testId="height-input"
+                />
+
+                <div className="space-y-1">
+                  <label className="block text-sm font-medium text-slate-300">
+                    Birth Date <span className="text-red-400 ml-1">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={profile.birthDate.split('T')[0]}
+                    onChange={(e) => updateProfile({ birthDate: e.target.value })}
+                    data-testid="birthDate-input"
+                    className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-md text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  {validationErrors.birthDate && (
+                    <p className="text-sm text-red-400" data-testid="birthDate-error">{validationErrors.birthDate}</p>
+                  )}
+                </div>
+              </div>
             </div>
           </Card>
 
           {/* Goals Section */}
           <Card title="Goals">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Select
-                label="Goal"
+            <div className="space-y-6">
+              {/* Goal Type Selector Cards */}
+              <SelectorCard
+                label="Primary Goal"
                 value={profile.goal}
                 onChange={(v) => updateProfile({ goal: v as Goal })}
-                options={GOAL_OPTIONS}
+                options={[
+                  { value: 'lose_weight', label: 'Lose Weight', description: 'Calorie Deficit', icon: '📉' },
+                  { value: 'maintain', label: 'Maintain', description: 'TDEE Match', icon: '⚖️' },
+                  { value: 'gain_weight', label: 'Gain Muscle', description: 'Surplus', icon: '💪' },
+                ]}
+                columns={3}
                 error={validationErrors.goal}
-                required
                 testId="goal-select"
               />
 
+              {/* Current Weight Input */}
               <NumberInput
                 label="Current Weight"
                 value={profile.currentWeightKg || 0}
@@ -347,100 +361,99 @@ export function ProfileForm({ initialProfile, onSave, saving, error }: ProfileFo
                 testId="currentWeight-input"
               />
 
-              <NumberInput
-                label="Target Weight"
-                value={profile.targetWeightKg}
-                onChange={(v) => updateProfile({ targetWeightKg: v })}
-                min={30}
-                max={300}
-                step={0.1}
-                unit="kg"
-                error={validationErrors.targetWeight}
-                required
-                testId="targetWeight-input"
-              />
+              {/* Goal Projector Chart - Only for non-maintain goals */}
+              {profile.goal !== 'maintain' && profile.currentWeightKg > 0 && (
+                <div className="p-4 bg-slate-800/30 rounded-lg border border-slate-700">
+                  <GoalProjectorChart
+                    currentWeight={profile.currentWeightKg}
+                    targetWeight={profile.targetWeightKg || profile.currentWeightKg}
+                    timeframeWeeks={profile.timeframeWeeks || 12}
+                    onTargetWeightChange={(v) => updateProfile({ targetWeightKg: v })}
+                    onTimeframeChange={(v) => updateProfile({ timeframeWeeks: v })}
+                    minWeight={WEIGHT_MIN_KG}
+                    maxWeight={WEIGHT_MAX_KG}
+                    minWeeks={TIMEFRAME_MIN_WEEKS}
+                    maxWeeks={TIMEFRAME_MAX_WEEKS}
+                  />
+                </div>
+              )}
 
-              <div className="space-y-1">
-                <NumberInput
-                  label="Timeframe"
-                  value={profile.timeframeWeeks || 0}
-                  onChange={(v) => updateProfile({ timeframeWeeks: v })}
-                  min={1}
-                  max={520}
-                  step={1}
-                  unit="weeks"
-                  error={validationErrors.timeframe}
-                  testId="timeframe-input"
-                />
-                {projectedEndDate && (
-                  <p className="text-xs text-slate-400 mt-1">
-                    Finish: <span className="text-slate-300 font-medium">{projectedEndDate}</span>
-                  </p>
-                )}
-              </div>
+              {/* Fallback inputs for maintain goal or when chart isn't shown */}
+              {profile.goal === 'maintain' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <NumberInput
+                    label="Target Weight"
+                    value={profile.targetWeightKg}
+                    onChange={(v) => updateProfile({ targetWeightKg: v })}
+                    min={30}
+                    max={300}
+                    step={0.1}
+                    unit="kg"
+                    error={validationErrors.targetWeight}
+                    required
+                    testId="targetWeight-input"
+                  />
+                </div>
+              )}
+
+              {/* Aggressive Goal Warning */}
+              {aggressiveGoalWarning && (
+                <div className="p-3 bg-amber-900/50 border border-amber-700 rounded-md" data-testid="aggressive-goal-warning">
+                  <p className="text-sm text-amber-300">{aggressiveGoalWarning}</p>
+                </div>
+              )}
             </div>
-
-            {/* Weekly Change (Read-only derived value) */}
-            <div className="mt-4 pt-4 border-t border-slate-700">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium text-slate-300">Weekly Change</label>
-                <span className="text-sm text-slate-500">Calculated from goals</span>
-              </div>
-              <div className="mt-2 px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-md">
-                <span 
-                  className={`text-lg font-semibold ${
-                    derivedWeeklyChange < 0 ? 'text-red-400' : 
-                    derivedWeeklyChange > 0 ? 'text-green-400' : 'text-slate-300'
-                  }`}
-                  data-testid="weeklyChange-display"
-                >
-                  {derivedWeeklyChange > 0 ? '+' : ''}{derivedWeeklyChange.toFixed(2)} kg/week
-                </span>
-              </div>
-            </div>
-
-            {/* Aggressive Goal Warning */}
-            {aggressiveGoalWarning && (
-              <div className="mt-4 p-3 bg-amber-900/50 border border-amber-700 rounded-md" data-testid="aggressive-goal-warning">
-                <p className="text-sm text-amber-300">{aggressiveGoalWarning}</p>
-              </div>
-            )}
           </Card>
 
           {/* TDEE Configuration Section */}
           <Card title="TDEE Configuration">
-            <p className="text-sm text-slate-400 mb-4">
-              Configure how your Total Daily Energy Expenditure (TDEE) is calculated. This affects your daily calorie targets.
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Select
+            <div className="space-y-6">
+              <p className="text-sm text-slate-400">
+                Configure how your Total Daily Energy Expenditure (TDEE) is calculated.
+              </p>
+
+              {/* BMR Equation Selector Cards */}
+              <SelectorCard
                 label="BMR Equation"
                 value={profile.bmrEquation || 'mifflin_st_jeor'}
                 onChange={(v) => updateProfile({ bmrEquation: v as BMREquation })}
-                options={BMR_EQUATION_OPTIONS}
+                options={[
+                  { value: 'mifflin_st_jeor', label: 'Mifflin-St Jeor', description: 'Best for most people' },
+                  { value: 'katch_mcardle', label: 'Katch-McArdle', description: 'Requires Body Fat %' },
+                  { value: 'harris_benedict', label: 'Harris-Benedict', description: 'Classic formula' },
+                  { value: 'who_fao', label: 'WHO/FAO', description: 'International standard' },
+                ]}
+                columns={2}
                 testId="bmrEquation-select"
               />
 
-              {/* Body Fat % - Only shown when Katch-McArdle is selected */}
+              {/* Body Fat Slider - Only shown when Katch-McArdle is selected */}
               {profile.bmrEquation === 'katch_mcardle' && (
-                <NumberInput
-                  label="Body Fat %"
-                  value={profile.bodyFatPercent || 0}
+                <ContextualSlider
+                  label="Body Fat"
+                  value={profile.bodyFatPercent || 20}
                   onChange={(v) => updateProfile({ bodyFatPercent: v })}
-                  min={3}
-                  max={70}
+                  min={BODY_FAT_MIN_PERCENT}
+                  max={BODY_FAT_MAX_PERCENT}
                   step={0.5}
                   unit="%"
+                  zones={BODY_FAT_ZONES}
                   error={validationErrors.bodyFatPercent}
-                  testId="bodyFat-input"
+                  testId="bodyFat-slider"
                 />
               )}
 
-              <Select
+              {/* TDEE Source Selector Cards */}
+              <SelectorCard
                 label="TDEE Source"
                 value={profile.tdeeSource || 'formula'}
                 onChange={(v) => updateProfile({ tdeeSource: v as TDEESource })}
-                options={TDEE_SOURCE_OPTIONS}
+                options={[
+                  { value: 'formula', label: 'Formula', description: 'BMR × Activity Factor' },
+                  { value: 'manual', label: 'Manual', description: 'Enter your own TDEE' },
+                  { value: 'adaptive', label: 'Adaptive', description: 'Learn from your data' },
+                ]}
+                columns={3}
                 testId="tdeeSource-select"
               />
 
@@ -458,33 +471,33 @@ export function ProfileForm({ initialProfile, onSave, saving, error }: ProfileFo
                   testId="manualTDEE-input"
                 />
               )}
-            </div>
 
-            {/* TDEE Source Help Text */}
-            {profile.tdeeSource === 'formula' && (
-              <p className="mt-3 text-sm text-slate-500">
-                Using BMR × activity factor + exercise calories. Good starting point for most users.
-              </p>
-            )}
-            {profile.tdeeSource === 'manual' && (
-              <p className="mt-3 text-sm text-slate-500">
-                Enter your known TDEE from a wearable device or previous measurement. Confidence: 80%.
-              </p>
-            )}
-            {profile.tdeeSource === 'adaptive' && (
-              <p className="mt-3 text-sm text-slate-500">
-                TDEE will be calculated from your weight trend and intake data. Requires 14+ days of logging for accurate results.
-              </p>
-            )}
-
-            {/* Katch-McArdle Warning */}
-            {profile.bmrEquation === 'katch_mcardle' && !profile.bodyFatPercent && (
-              <div className="mt-3 p-3 bg-amber-900/50 border border-amber-700 rounded-md">
-                <p className="text-sm text-amber-300">
-                  Katch-McArdle requires body fat %. Without it, Mifflin-St Jeor will be used as fallback.
+              {/* TDEE Source Help Text */}
+              {profile.tdeeSource === 'formula' && (
+                <p className="text-sm text-slate-500">
+                  Using BMR × activity factor + exercise calories. Good starting point for most users.
                 </p>
-              </div>
-            )}
+              )}
+              {profile.tdeeSource === 'manual' && (
+                <p className="text-sm text-slate-500">
+                  Enter your known TDEE from a wearable device or previous measurement.
+                </p>
+              )}
+              {profile.tdeeSource === 'adaptive' && (
+                <p className="text-sm text-slate-500">
+                  TDEE will be calculated from your weight trend and intake data. Requires 14+ days of logging.
+                </p>
+              )}
+
+              {/* Katch-McArdle Warning */}
+              {profile.bmrEquation === 'katch_mcardle' && !profile.bodyFatPercent && (
+                <div className="p-3 bg-amber-900/50 border border-amber-700 rounded-md">
+                  <p className="text-sm text-amber-300">
+                    Katch-McArdle requires body fat %. Without it, Mifflin-St Jeor will be used as fallback.
+                  </p>
+                </div>
+              )}
+            </div>
           </Card>
         </div>
 

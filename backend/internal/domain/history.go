@@ -6,6 +6,7 @@ type HistoryPoint struct {
 	WeightKg       float64
 	EstimatedTDEE  int
 	TDEEConfidence float64
+	HasTraining    bool // Whether actual training sessions occurred on this day
 }
 
 // TrainingSummaryAggregate provides aggregate training totals over a range.

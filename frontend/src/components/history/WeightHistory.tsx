@@ -21,6 +21,28 @@ const RANGE_OPTIONS: { label: string; value: WeightTrendRange }[] = [
 ];
 
 const RECENT_LOG_LIMIT = 8;
+const ROLLING_AVERAGE_WINDOW = 7;
+
+/** Compute 7-day rolling average for TDEE values to smooth the curve */
+function computeRollingAverage(points: HistoryPoint[], window: number = ROLLING_AVERAGE_WINDOW): number[] {
+  return points.map((_, index) => {
+    const start = Math.max(0, index - window + 1);
+    const windowPoints = points.slice(start, index + 1);
+    const sum = windowPoints.reduce((acc, p) => acc + p.estimatedTDEE, 0);
+    return sum / windowPoints.length;
+  });
+}
+
+/** Get trend confidence label and color based on R² value */
+function getTrendConfidence(rSquared: number): { label: string; color: string; emoji: string } {
+  if (rSquared >= 0.7) {
+    return { label: 'Strong', color: 'text-emerald-400', emoji: '🟢' };
+  } else if (rSquared >= 0.3) {
+    return { label: 'Moderate', color: 'text-amber-400', emoji: '🟡' };
+  } else {
+    return { label: 'Weak', color: 'text-slate-400', emoji: '🔴' };
+  }
+}
 
 function formatWeight(value: number, digits = 1): string {
   return `${value.toFixed(digits)} kg`;
@@ -105,6 +127,31 @@ function WeightTrendChart({ points, trend, onSelectDate, selectedDate }: WeightT
               strokeDasharray="6 4"
             />
           )}
+          {/* Training markers on x-axis */}
+          {points.map((point, index) => {
+            if (!point.hasTraining) return null;
+            return (
+              <g key={`training-${point.date}`}>
+                {/* Training indicator dot at bottom of chart */}
+                <circle
+                  cx={toX(index)}
+                  cy={97}
+                  r="1.8"
+                  fill="rgba(34, 197, 94, 0.9)"
+                />
+                {/* Vertical dashed line connecting to weight point */}
+                <line
+                  x1={toX(index)}
+                  y1={95}
+                  x2={toX(index)}
+                  y2={toY(point.weightKg) + 4}
+                  stroke="rgba(34, 197, 94, 0.3)"
+                  strokeWidth="0.5"
+                  strokeDasharray="2 2"
+                />
+              </g>
+            );
+          })}
           {points.map((point, index) => {
             const isSelected = selectedDate === point.date;
             return (
@@ -127,9 +174,16 @@ function WeightTrendChart({ points, trend, onSelectDate, selectedDate }: WeightT
           {formatWeight(minWeight)}
         </div>
       </div>
-      <div className="flex justify-between text-xs text-slate-500">
-        <span>{formatShortDate(points[0].date)}</span>
-        <span>{formatShortDate(points[points.length - 1].date)}</span>
+      {/* Training legend */}
+      <div className="flex items-center justify-between text-xs">
+        <div className="flex items-center gap-4 text-slate-500">
+          <span>{formatShortDate(points[0].date)}</span>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-500/90"></span>
+            <span>Training day</span>
+          </div>
+        </div>
+        <span className="text-slate-500">{formatShortDate(points[points.length - 1].date)}</span>
       </div>
     </div>
   );
@@ -140,6 +194,8 @@ interface TDEETrendChartProps {
 }
 
 function TDEETrendChart({ points }: TDEETrendChartProps) {
+  const rollingAverage = useMemo(() => computeRollingAverage(points), [points]);
+
   if (points.length === 0) {
     return (
       <div className="h-56 bg-slate-900/60 rounded-lg border border-slate-800 flex items-center justify-center text-slate-500 text-sm">
@@ -148,9 +204,11 @@ function TDEETrendChart({ points }: TDEETrendChartProps) {
     );
   }
 
-  const values = points.map((point) => point.estimatedTDEE);
-  const minValue = Math.min(...values);
-  const maxValue = Math.max(...values);
+  // Use both raw values and smoothed values to determine chart bounds
+  const rawValues = points.map((point) => point.estimatedTDEE);
+  const allValues = [...rawValues, ...rollingAverage];
+  const minValue = Math.min(...allValues);
+  const maxValue = Math.max(...allValues);
   const range = maxValue - minValue;
   const padding = range === 0 ? 100 : range * 0.15;
   const minY = minValue - padding;
@@ -159,7 +217,31 @@ function TDEETrendChart({ points }: TDEETrendChartProps) {
   const toX = (index: number) => (points.length === 1 ? 50 : (index / (points.length - 1)) * 100);
   const toY = (value: number) => ((maxY - value) / (maxY - minY)) * 100;
 
-  const tdeePath = buildSvgPath(points, toX, toY, (point) => point.estimatedTDEE);
+  // Build smoothed TDEE path (the main trend line)
+  const smoothedPath = rollingAverage
+    .map((value, index) => `${index === 0 ? 'M' : 'L'} ${toX(index)} ${toY(value)}`)
+    .join(' ');
+
+  // Build confidence band path (area around the smoothed line)
+  const bandPoints = points.map((point, index) => {
+    const avg = rollingAverage[index];
+    const confidence = point.tdeeConfidence || 0.1;
+    // Spread is inversely proportional to confidence (low confidence = wider band)
+    const spread = (1 - confidence) * 150;
+    return {
+      x: toX(index),
+      upper: toY(avg + spread),
+      lower: toY(avg - spread),
+    };
+  });
+
+  const bandPath = bandPoints.length > 0
+    ? `M ${bandPoints[0].x} ${bandPoints[0].upper} ` +
+      bandPoints.map((p) => `L ${p.x} ${p.upper}`).join(' ') +
+      ` L ${bandPoints[bandPoints.length - 1].x} ${bandPoints[bandPoints.length - 1].lower} ` +
+      [...bandPoints].reverse().map((p) => `L ${p.x} ${p.lower}`).join(' ') +
+      ' Z'
+    : '';
 
   return (
     <div className="space-y-3">
@@ -176,21 +258,29 @@ function TDEETrendChart({ points }: TDEETrendChartProps) {
               strokeDasharray="2 2"
             />
           ))}
+          {/* Confidence band (the "cloud") */}
           <path
-            d={tdeePath}
-            fill="none"
-            stroke="rgba(14, 165, 233, 0.9)"
-            strokeWidth="2"
+            d={bandPath}
+            fill="rgba(14, 165, 233, 0.15)"
+            stroke="none"
           />
+          {/* Faint raw daily dots in background */}
           {points.map((point, index) => (
             <circle
-              key={point.date}
+              key={`raw-${point.date}`}
               cx={toX(index)}
               cy={toY(point.estimatedTDEE)}
-              r="2.2"
-              fill="rgba(255, 255, 255, 0.9)"
+              r="1.5"
+              fill="rgba(148, 163, 184, 0.25)"
             />
           ))}
+          {/* Smoothed rolling average line (the "truth") */}
+          <path
+            d={smoothedPath}
+            fill="none"
+            stroke="rgba(14, 165, 233, 0.9)"
+            strokeWidth="2.5"
+          />
         </svg>
         <div className="absolute left-0 top-0 text-xs text-slate-500">
           {formatKcal(maxValue)}
@@ -240,11 +330,12 @@ export function WeightHistory({ profile }: { profile: UserProfile }) {
   const rangeChange = latest && earliest ? latest.weightKg - earliest.weightKg : 0;
 
   const weightStats = useMemo(() => {
+    const trendConfidence = trend ? getTrendConfidence(trend.rSquared) : null;
     return {
       latestWeight: latest ? formatWeight(latest.weightKg) : '--',
       rangeChange: points.length > 1 ? `${rangeChange >= 0 ? '+' : ''}${rangeChange.toFixed(1)} kg` : '--',
       weeklyChange: trend ? formatWeeklyChange(trend.weeklyChangeKg) : '--',
-      rSquared: trend ? trend.rSquared.toFixed(2) : '--',
+      trendConfidence,
       dataPoints: points.length,
     };
   }, [latest, points.length, rangeChange, trend]);
@@ -356,8 +447,10 @@ export function WeightHistory({ profile }: { profile: UserProfile }) {
             <p className="text-lg font-semibold text-white">{weightStats.weeklyChange}</p>
           </div>
           <div className="bg-slate-900/70 rounded-lg border border-slate-800 p-4">
-            <p className="text-xs text-slate-500 mb-1">Fit (R2)</p>
-            <p className="text-lg font-semibold text-white">{weightStats.rSquared}</p>
+            <p className="text-xs text-slate-500 mb-1">Trend Confidence</p>
+            <p className={`text-lg font-semibold ${weightStats.trendConfidence?.color ?? 'text-slate-400'}`}>
+              {weightStats.trendConfidence ? `${weightStats.trendConfidence.emoji} ${weightStats.trendConfidence.label}` : '--'}
+            </p>
           </div>
           <div className="bg-slate-900/70 rounded-lg border border-slate-800 p-4">
             <p className="text-xs text-slate-500 mb-1">Data Points</p>
@@ -385,7 +478,8 @@ export function WeightHistory({ profile }: { profile: UserProfile }) {
             />
             {recentPoints.length > 0 && (
               <div className="mt-4 border-t border-slate-800 pt-4">
-                <p className="text-xs text-slate-500">Select a date to view log details.</p>
+                <p className="text-xs text-slate-500 font-medium">Recent Daily Logs</p>
+                <p className="text-xs text-slate-600 mt-0.5">Tap a date to view details</p>
                 <div className="flex flex-wrap gap-2 mt-2">
                   {recentPoints.map((point) => (
                     <button
