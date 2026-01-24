@@ -2,7 +2,6 @@ import { useState, useMemo, useEffect } from 'react';
 import type {
   CreateDailyLogRequest,
   DailyLog,
-  DayType,
   UserProfile,
   ActualTrainingSession,
   TrainingSession,
@@ -71,6 +70,7 @@ export function DailyUpdateForm({
 }: DailyUpdateFormProps) {
   const [formData, setFormData] = useState<CreateDailyLogRequest>(INITIAL_FORM_DATA);
   const [showActualModal, setShowActualModal] = useState(false);
+  const [actualModalMode, setActualModalMode] = useState<'quick' | 'detail'>('detail');
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [isEditing, setIsEditing] = useState(false);
   const [dayTypeAutoSelected, setDayTypeAutoSelected] = useState(false);
@@ -240,12 +240,21 @@ export function DailyUpdateForm({
     setFormData((prev) => ({ ...prev, ...updates }));
   };
 
+  const openActualTrainingModal = (mode: 'quick' | 'detail') => {
+    setActualModalMode(mode);
+    setShowActualModal(true);
+  };
+
   const showForm = !log || isEditing;
   const dayTypeDetail = log ? DAY_TYPE_OPTIONS.find((dt) => dt.value === log.dayType) : null;
   const summaryWeight = showForm ? formData.weightKg : log?.weightKg;
   const summarySleepQuality = showForm ? formData.sleepQuality : log?.sleepQuality;
   const summaryDayType = showForm ? formData.dayType : log?.dayType;
   const summarySessions = showForm ? formData.plannedTrainingSessions : log?.plannedTrainingSessions ?? [];
+  const actualSessionCount = log?.actualTrainingSessions?.length ?? 0;
+  const actualDurationTotal =
+    log?.actualTrainingSessions?.reduce((sum, session) => sum + session.durationMin, 0) ?? 0;
+  const hasActualTraining = actualSessionCount > 0;
 
   return (
     <div className="p-6 max-w-4xl" data-testid="daily-update-form">
@@ -316,98 +325,80 @@ export function DailyUpdateForm({
           )}
         </div>
       </div>
+
+      {log ? (
+        <div className="mb-6">
+          <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-white">Log Workout</h2>
+                <p className="text-sm text-gray-400">
+                  Evening check-in to record what you actually did.
+                </p>
+              </div>
+              <div className="text-xs text-gray-400">
+                {hasActualTraining
+                  ? `Logged: ${actualSessionCount} session${actualSessionCount !== 1 ? 's' : ''}, ${actualDurationTotal} min`
+                  : 'No workout logged yet'}
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <p className="text-sm text-gray-300 mb-3">Did you stick to the plan?</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => openActualTrainingModal('quick')}
+                  disabled={saving}
+                  className="w-full px-4 py-3 rounded-lg font-medium bg-white text-black hover:bg-gray-200 transition-colors disabled:opacity-50"
+                >
+                  Yes, All Complete
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openActualTrainingModal('detail')}
+                  disabled={saving}
+                  className="w-full px-4 py-3 rounded-lg font-medium bg-gray-800 text-white border border-gray-700 hover:bg-gray-700 transition-colors disabled:opacity-50"
+                >
+                  No, Edit Details
+                </button>
+              </div>
+              <div className="mt-3">
+                <ActualVsPlannedComparison
+                  planned={log.plannedTrainingSessions}
+                  actual={log.actualTrainingSessions}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="mb-6">
+          <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
+            <h2 className="text-lg font-semibold text-white">Log Workout</h2>
+            <p className="text-sm text-gray-400 mt-1">
+              Save your Morning Check-in to unlock evening workout logging.
+            </p>
+            <button
+              type="button"
+              disabled
+              className="mt-4 px-4 py-3 rounded-lg font-medium bg-gray-800 text-gray-500 border border-gray-700 cursor-not-allowed"
+            >
+              Save Morning Check-in First
+            </button>
+          </div>
+        </div>
+      )}
+
       {showForm ? (
         <form onSubmit={handleSubmit} className="grid grid-cols-3 gap-6">
           {/* Left Column - Morning Check-in */}
           <div className="col-span-2 space-y-6">
-            {/* Morning Biometrics */}
-            <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
-              <h3 className="text-white font-medium mb-4">Morning Check-in</h3>
-              <div className="grid grid-cols-2 gap-4">
-                {/* Weight */}
-                <div>
-                  <label className="block text-sm text-gray-400 mb-2">Weight (kg)</label>
-                  <input
-                    type="number"
-                    value={formData.weightKg || ''}
-                    onChange={(e) => updateFormData({ weightKg: parseFloat(e.target.value) || 0 })}
-                    step={0.1}
-                    placeholder="Enter weight"
-                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/20"
-                  />
-                  {validationErrors.weightKg && (
-                    <p className="text-xs text-red-400 mt-1">{validationErrors.weightKg}</p>
-                  )}
-                </div>
-
-                {/* Body Fat */}
-                <div>
-                  <label className="block text-sm text-gray-400 mb-2">Body Fat % (optional)</label>
-                  <input
-                    type="number"
-                    value={formData.bodyFatPercent || ''}
-                    onChange={(e) => updateFormData({ bodyFatPercent: parseFloat(e.target.value) || undefined })}
-                    step={0.1}
-                    placeholder="Optional"
-                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/20"
-                  />
-                  {validationErrors.bodyFatPercent && (
-                    <p className="text-xs text-red-400 mt-1">{validationErrors.bodyFatPercent}</p>
-                  )}
-                </div>
-
-                {/* Resting Heart Rate */}
-                <div>
-                  <label className="block text-sm text-gray-400 mb-2">Resting Heart Rate (bpm)</label>
-                  <input
-                    type="number"
-                    value={formData.restingHeartRate || ''}
-                    onChange={(e) => updateFormData({ restingHeartRate: parseInt(e.target.value) || undefined })}
-                    placeholder="Optional"
-                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/20"
-                  />
-                  {validationErrors.restingHeartRate && (
-                    <p className="text-xs text-red-400 mt-1">{validationErrors.restingHeartRate}</p>
-                  )}
-                </div>
-
-                {/* Sleep Hours */}
-                <div>
-                  <label className="block text-sm text-gray-400 mb-2">Sleep Duration (hrs)</label>
-                  <input
-                    type="number"
-                    value={formData.sleepHours || ''}
-                    onChange={(e) => updateFormData({ sleepHours: parseFloat(e.target.value) || undefined })}
-                    step={0.5}
-                    placeholder="Optional"
-                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/20"
-                  />
-                  {validationErrors.sleepHours && (
-                    <p className="text-xs text-red-400 mt-1">{validationErrors.sleepHours}</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Sleep Quality */}
-              <div className="mt-4">
-                <label className="block text-sm text-gray-400 mb-2">Sleep Quality (1-100)</label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    min={SLEEP_QUALITY_MIN}
-                    max={SLEEP_QUALITY_MAX}
-                    value={formData.sleepQuality || ''}
-                    onChange={(e) => updateFormData({ sleepQuality: parseInt(e.target.value) || SLEEP_QUALITY_MIN })}
-                    placeholder="1-100"
-                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/20"
-                  />
-                </div>
-                <p className="text-xs text-gray-500 mt-1">1 = Poor, 100 = Excellent</p>
-                {validationErrors.sleepQuality && (
-                  <p className="text-xs text-red-400 mt-1">{validationErrors.sleepQuality}</p>
-                )}
-              </div>
-            </div>
+            <MorningCheckinSection
+              formData={formData}
+              onUpdate={updateFormData}
+              validationErrors={validationErrors}
+            />
 
             {/* Planned Training */}
             <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
@@ -421,99 +412,17 @@ export function DailyUpdateForm({
               {validationErrors.training && (
                 <p className="text-xs text-red-400 mt-2">{validationErrors.training}</p>
               )}
-              {log && (
-                <div className="mt-4 pt-4 border-t border-gray-700">
-                  <button
-                    type="button"
-                    onClick={() => setShowActualModal(true)}
-                    className="text-sm text-white hover:text-gray-300 flex items-center gap-2"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                    </svg>
-                    {log.actualTrainingSessions?.length ? 'Edit Actual Training' : 'Log Actual Training'}
-                  </button>
-                  {log.actualTrainingSessions && log.actualTrainingSessions.length > 0 && (
-                    <p className="text-xs text-green-400 mt-1">
-                      ✓ Logged: {log.actualTrainingSessions.length} session(s), {log.actualTrainingSessions.reduce((sum, s) => sum + s.durationMin, 0)} min total
-                    </p>
-                  )}
-                  <div className="mt-2">
-                    <ActualVsPlannedComparison
-                      planned={log.plannedTrainingSessions}
-                      actual={log.actualTrainingSessions}
-                    />
-                  </div>
-                </div>
-              )}
             </div>
 
-            {/* Day Type Selection */}
-            <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-white font-medium">Day Type</h3>
-                {dayTypeAutoSelected && (
-                  <span className="text-xs text-orange-400">Auto-selected for rest day</span>
-                )}
-              </div>
-              <div className="grid grid-cols-3 gap-3">
-                {DAY_TYPE_OPTIONS.map((dt) => {
-                  const isSelected = formData.dayType === dt.value;
-                  const cardStyles = {
-                    performance: {
-                      icon: '⚡',
-                      selected: 'bg-blue-900/60 border-blue-500',
-                      unselected: 'bg-gray-800/50 border-gray-700 hover:border-blue-500/50',
-                      iconColor: 'text-blue-400',
-                      textColor: 'text-blue-300',
-                    },
-                    fatburner: {
-                      icon: '🔥',
-                      selected: 'bg-orange-900/60 border-orange-500',
-                      unselected: 'bg-gray-800/50 border-gray-700 hover:border-orange-500/50',
-                      iconColor: 'text-orange-400',
-                      textColor: 'text-orange-300',
-                    },
-                    metabolize: {
-                      icon: '🥗',
-                      selected: 'bg-emerald-900/60 border-emerald-500',
-                      unselected: 'bg-gray-800/50 border-gray-700 hover:border-emerald-500/50',
-                      iconColor: 'text-emerald-400',
-                      textColor: 'text-emerald-300',
-                    },
-                  }[dt.value as DayType];
-
-                  return (
-                    <label
-                      key={dt.value}
-                      className={`flex flex-col items-center text-center p-4 rounded-xl cursor-pointer transition-all border-2 min-h-[120px] ${
-                        isSelected ? cardStyles.selected : cardStyles.unselected
-                      }`}
-                    >
-                      <span className="text-3xl mb-2">{cardStyles.icon}</span>
-                      <span className={`font-semibold ${isSelected ? cardStyles.textColor : 'text-white'}`}>
-                        {dt.label}
-                      </span>
-                      <span className="text-xs text-gray-400 mt-1 leading-tight">
-                        {dt.description}
-                      </span>
-                      <input
-                        type="radio"
-                        name="dayType"
-                        value={dt.value}
-                        checked={isSelected}
-                        onChange={() => {
-                          updateFormData({ dayType: dt.value });
-                          setDayTypeAutoSelected(false);
-                        }}
-                        className="sr-only"
-                      />
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
+            <DayTypeSelector
+              selectedDayType={formData.dayType}
+              onDayTypeChange={(dt) => {
+                updateFormData({ dayType: dt });
+                setDayTypeAutoSelected(false);
+              }}
+              variant="cards"
+              showAutoSelectedHint={dayTypeAutoSelected}
+            />
 
             {/* Notes */}
             <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
@@ -683,26 +592,6 @@ export function DailyUpdateForm({
                     ))
                 )}
               </div>
-              {log && (
-                <div className="mt-3 pt-3 border-t border-gray-700">
-                  <button
-                    type="button"
-                    onClick={() => setShowActualModal(true)}
-                    className="text-xs text-white hover:text-gray-300 flex items-center gap-1.5"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                    </svg>
-                    {log.actualTrainingSessions?.length ? 'Edit Actual' : 'Log Actual Training'}
-                  </button>
-                  {log.actualTrainingSessions && log.actualTrainingSessions.length > 0 && (
-                    <p className="text-xs text-green-400 mt-1">
-                      ✓ {log.actualTrainingSessions.length} session(s), {log.actualTrainingSessions.reduce((sum, s) => sum + s.durationMin, 0)} min
-                    </p>
-                  )}
-                </div>
-              )}
             </div>
 
             {error && (
@@ -743,6 +632,7 @@ export function DailyUpdateForm({
         <ActualTrainingModal
           isOpen={showActualModal}
           onClose={() => setShowActualModal(false)}
+          initialMode={actualModalMode}
           plannedSessions={log.plannedTrainingSessions}
           actualSessions={log.actualTrainingSessions}
           onSave={handleSaveActualTraining}

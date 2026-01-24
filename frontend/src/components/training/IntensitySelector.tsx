@@ -2,61 +2,78 @@ interface IntensitySelectorProps {
   value: number | undefined;
   onChange: (value: number | undefined) => void;
   disabled?: boolean;
+  allowClear?: boolean;
 }
 
+const DEFAULT_RPE = 5;
+
 const RPE_LABELS: Record<number, string> = {
-  1: 'Very Light',
-  2: 'Light',
-  3: 'Light+',
-  4: 'Moderate',
-  5: 'Moderate+',
-  6: 'Vigorous',
-  7: 'Vigorous+',
+  1: 'Rest',
+  2: 'Easy',
+  3: 'Easy',
+  4: 'Mod',
+  5: 'Mod',
+  6: 'Mod',
+  7: 'Hard',
   8: 'Hard',
-  9: 'Very Hard',
-  10: 'Max Effort',
+  9: 'Max',
+  10: 'Max',
 };
+
+const RPE_TICKS = [
+  { value: 1, label: 'Rest' },
+  { value: 3, label: 'Easy' },
+  { value: 5, label: 'Mod' },
+  { value: 7, label: 'Hard' },
+  { value: 10, label: 'Max' },
+];
 
 export function IntensitySelector({
   value,
   onChange,
   disabled = false,
+  allowClear = true,
 }: IntensitySelectorProps) {
+  const displayValue = value ?? DEFAULT_RPE;
+  const displayLabel = RPE_LABELS[displayValue];
+
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <span className="text-sm text-gray-400">Perceived Intensity (RPE)</span>
-        {value !== undefined && (
-          <button
-            type="button"
-            onClick={() => onChange(undefined)}
-            className="text-xs text-gray-500 hover:text-gray-300"
-            disabled={disabled}
-          >
-            Clear
-          </button>
-        )}
+        <span className="text-sm text-gray-400">Intensity (RPE)</span>
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-gray-200">
+            {displayValue} - {displayLabel}
+          </span>
+          {allowClear && value !== undefined && (
+            <button
+              type="button"
+              onClick={() => onChange(undefined)}
+              className="text-xs text-gray-500 hover:text-gray-300"
+              disabled={disabled}
+            >
+              Clear
+            </button>
+          )}
+        </div>
       </div>
-      <div className="flex gap-1">
-        {Array.from({ length: 10 }, (_, i) => i + 1).map((level) => (
-          <button
-            key={level}
-            type="button"
-            onClick={() => onChange(level)}
-            disabled={disabled}
-            className={`flex-1 h-10 rounded-lg border text-sm font-medium transition-colors ${
-              value === level
-                ? 'bg-white text-black border-white'
-                : 'border-gray-600 text-gray-400 hover:border-gray-500 hover:text-gray-300'
-            } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-            title={RPE_LABELS[level]}
-          >
-            {level}
-          </button>
+      <input
+        type="range"
+        min={1}
+        max={10}
+        step={1}
+        value={displayValue}
+        onChange={(e) => onChange(parseInt(e.target.value))}
+        disabled={disabled}
+        className="w-full accent-white disabled:opacity-50"
+      />
+      <div className="flex justify-between text-[11px] text-gray-500">
+        {RPE_TICKS.map((tick) => (
+          <span key={tick.value}>{tick.label}</span>
         ))}
       </div>
-      {value !== undefined && (
-        <p className="text-xs text-gray-500 text-center">{RPE_LABELS[value]}</p>
+      {value === undefined && (
+        <p className="text-xs text-gray-500">Defaulting to {DEFAULT_RPE} (Mod).</p>
       )}
     </div>
   );

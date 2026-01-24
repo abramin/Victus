@@ -1,6 +1,7 @@
 import type { ActualTrainingSession, DailyLog, TrainingSession, UserProfile } from '../../api/types';
 import { DayTargetsPanel } from '../day-view';
 import { Modal } from '../common/Modal';
+import { formatLongDate } from '../../utils/date';
 
 interface HistoryLogModalProps {
   isOpen: boolean;
@@ -9,17 +10,6 @@ interface HistoryLogModalProps {
   loading: boolean;
   error: string | null;
   profile: UserProfile;
-}
-
-function formatLongDate(dateString: string): string {
-  const [year, month, day] = dateString.split('-').map(Number);
-  const date = new Date(year, month - 1, day);
-  return date.toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  });
 }
 
 function formatOptionalValue(value: number | null | undefined, suffix: string) {

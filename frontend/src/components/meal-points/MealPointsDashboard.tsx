@@ -506,7 +506,7 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
       </div>
 
       {/* Breakdown Modal */}
-      {breakdownMeal && mealGramsAndKcal && (
+      {breakdownMeal && mealGramsAndKcal && selectedLog?.calculatedTargets && (
         <MealBreakdownModal
           isOpen={!!breakdownMeal}
           onClose={() => setBreakdownMeal(null)}
@@ -521,6 +521,8 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
           }}
           pointsConfig={profile.pointsConfig}
           supplementConfig={supplementConfig}
+          totalFruitG={selectedLog.calculatedTargets.fruitG}
+          totalVeggiesG={selectedLog.calculatedTargets.veggiesG}
         />
       )}
     </div>

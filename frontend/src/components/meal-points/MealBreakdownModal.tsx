@@ -1,5 +1,6 @@
 import { Modal } from '../common/Modal';
 import type { DayType, PointsConfig, SupplementConfig } from '../../api/types';
+import { FRUIT_CARBS_PERCENT_WEIGHT, VEGGIE_CARBS_PERCENT_WEIGHT } from '../../constants';
 
 interface MealBreakdownModalProps {
   isOpen: boolean;
@@ -19,6 +20,8 @@ interface MealBreakdownModalProps {
   };
   pointsConfig: PointsConfig;
   supplementConfig: SupplementConfig;
+  totalFruitG: number;
+  totalVeggiesG: number;
 }
 
 const DAY_TYPE_LABELS: Record<DayType, string> = {
@@ -37,11 +40,20 @@ export function MealBreakdownModal({
   grams,
   pointsConfig,
   supplementConfig,
+  totalFruitG,
+  totalVeggiesG,
 }: MealBreakdownModalProps) {
   const hasWhey = supplementConfig.wheyG > 0;
   const hasCollagen = supplementConfig.collagenG > 0;
   const hasMaltodextrin = supplementConfig.maltodextrinG > 0;
   const hasSupplements = hasWhey || hasCollagen || hasMaltodextrin;
+
+  // Calculate per-meal fruit and veggie targets
+  const mealFruitG = Math.round(totalFruitG * (sharePercent / 100));
+  const mealVeggiesG = Math.round(totalVeggiesG * (sharePercent / 100));
+  const fruitCarbDeduction = Math.round(totalFruitG * FRUIT_CARBS_PERCENT_WEIGHT);
+  const veggieCarbDeduction = Math.round(totalVeggiesG * VEGGIE_CARBS_PERCENT_WEIGHT);
+  const hasFruitOrVeggies = totalFruitG > 0 || totalVeggiesG > 0;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={`${meal} Breakdown`}>
@@ -114,6 +126,44 @@ export function MealBreakdownModal({
                 <div className="flex justify-between">
                   <span className="text-gray-500">Maltodextrin ({supplementConfig.maltodextrinG}g × 96%)</span>
                   <span className="text-orange-400">-{Math.round(supplementConfig.maltodextrinG * 0.96)}g carbs</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Fruits & Vegetables */}
+        {hasFruitOrVeggies && (
+          <div className="bg-gray-800/50 rounded-lg p-4">
+            <h4 className="text-gray-400 mb-3">Fruits & Vegetables</h4>
+            <p className="text-xs text-gray-500 mb-2">
+              Carbs from fruit/veg are deducted before calculating meal points
+            </p>
+            <div className="space-y-2 text-sm">
+              {totalFruitG > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Fruit ({totalFruitG}g × {sharePercent}%)</span>
+                  <span className="text-green-400 font-medium">{mealFruitG}g</span>
+                </div>
+              )}
+              {totalVeggiesG > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Vegetables ({totalVeggiesG}g × {sharePercent}%)</span>
+                  <span className="text-green-400 font-medium">{mealVeggiesG}g</span>
+                </div>
+              )}
+            </div>
+            <div className="border-t border-gray-700 mt-3 pt-3 space-y-1 text-xs text-gray-500">
+              {totalFruitG > 0 && (
+                <div className="flex justify-between">
+                  <span>Fruit carb deduction ({totalFruitG}g × 10%)</span>
+                  <span className="text-orange-400">-{fruitCarbDeduction}g carbs</span>
+                </div>
+              )}
+              {totalVeggiesG > 0 && (
+                <div className="flex justify-between">
+                  <span>Veggie carb deduction ({totalVeggiesG}g × 3%)</span>
+                  <span className="text-orange-400">-{veggieCarbDeduction}g carbs</span>
                 </div>
               )}
             </div>

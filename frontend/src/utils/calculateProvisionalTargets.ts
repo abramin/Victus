@@ -15,6 +15,7 @@ import type {
   Goal,
   TrainingType,
 } from '../api/types';
+import { roundToNearest5 } from './math';
 
 // =============================================================================
 // CONSTANTS (mirroring backend/internal/domain/constants.go)
@@ -138,10 +139,6 @@ function calculateExerciseCalories(sessions: TrainingSession[], weightKg: number
 
 function hasNonRestSession(sessions: TrainingSession[]): boolean {
   return sessions.some((s) => s.type !== 'rest');
-}
-
-function roundToNearest5(n: number): number {
-  return Math.round(n / 5) * 5;
 }
 
 function calculateFruit(carbsG: number, targetG: number, dayType: DayType): number {

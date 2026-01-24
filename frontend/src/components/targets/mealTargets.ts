@@ -6,8 +6,7 @@ import {
   WHEY_PROTEIN_PERCENT,
   COLLAGEN_PROTEIN_PERCENT,
 } from '../../constants';
-
-const roundToNearest5 = (value: number) => Math.round(value / 5) * 5;
+import { roundToNearest5 } from '../../utils/math';
 
 export function calculateMealTargets(
   totalCarbsG: number,

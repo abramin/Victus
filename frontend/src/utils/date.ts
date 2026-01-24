@@ -49,11 +49,14 @@ export const getDaysInMonth = (year: number, month: number): number =>
 
 /**
  * Formats a date as a long date string (e.g., "Thursday, January 23, 2026").
+ * Accepts either a Date object or a YYYY-MM-DD string.
  */
-export const formatLongDate = (date: Date): string =>
-  date.toLocaleDateString('en-US', {
+export const formatLongDate = (date: Date | string): string => {
+  const d = typeof date === 'string' ? parseDateKey(date) : date;
+  return d.toLocaleDateString('en-US', {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
     day: 'numeric',
   });
+};
