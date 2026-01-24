@@ -19,6 +19,7 @@ type Server struct {
 	profileService        *service.ProfileService
 	dailyLogService       *service.DailyLogService
 	trainingConfigService *service.TrainingConfigService
+	planService           *service.NutritionPlanService
 	plannedDayTypeStore   *store.PlannedDayTypeStore
 	foodReferenceStore    *store.FoodReferenceStore
 }
@@ -29,6 +30,7 @@ func NewServer(db *sql.DB) *Server {
 	dailyLogStore := store.NewDailyLogStore(db)
 	trainingSessionStore := store.NewTrainingSessionStore(db)
 	trainingConfigStore := store.NewTrainingConfigStore(db)
+	planStore := store.NewNutritionPlanStore(db)
 	plannedDayTypeStore := store.NewPlannedDayTypeStore(db)
 	foodReferenceStore := store.NewFoodReferenceStore(db)
 
@@ -38,6 +40,7 @@ func NewServer(db *sql.DB) *Server {
 		profileService:        service.NewProfileService(profileStore),
 		dailyLogService:       service.NewDailyLogService(dailyLogStore, trainingSessionStore, profileStore),
 		trainingConfigService: service.NewTrainingConfigService(trainingConfigStore),
+		planService:           service.NewNutritionPlanService(planStore, profileStore),
 		plannedDayTypeStore:   plannedDayTypeStore,
 		foodReferenceStore:    foodReferenceStore,
 	}
@@ -74,6 +77,16 @@ func NewServer(db *sql.DB) *Server {
 	// Food reference routes (Cockpit Dashboard)
 	mux.HandleFunc("GET /api/food-reference", srv.getFoodReference)
 	mux.HandleFunc("PATCH /api/food-reference/{id}", srv.updateFoodReference)
+
+	// Nutrition plan routes (Issue #27)
+	mux.HandleFunc("POST /api/plans", srv.createPlan)
+	mux.HandleFunc("GET /api/plans", srv.listPlans)
+	mux.HandleFunc("GET /api/plans/active", srv.getActivePlan)
+	mux.HandleFunc("GET /api/plans/current-week", srv.getCurrentWeekTarget)
+	mux.HandleFunc("GET /api/plans/{id}", srv.getPlanByID)
+	mux.HandleFunc("POST /api/plans/{id}/complete", srv.completePlan)
+	mux.HandleFunc("POST /api/plans/{id}/cancel", srv.cancelPlan)
+	mux.HandleFunc("DELETE /api/plans/{id}", srv.deletePlan)
 
 	return srv
 }

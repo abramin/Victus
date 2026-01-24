@@ -467,3 +467,282 @@ func (s *TrainingSessionStoreSuite) TestSessionCascadeDelete() {
 		s.Empty(loaded, "Sessions should be deleted with log")
 	})
 }
+
+// --- Nutrition Plan Store Suite ---
+
+type NutritionPlanStoreSuite struct {
+	suite.Suite
+	db    *sql.DB
+	store *NutritionPlanStore
+	ctx   context.Context
+	now   time.Time
+}
+
+func TestNutritionPlanStoreSuite(t *testing.T) {
+	suite.Run(t, new(NutritionPlanStoreSuite))
+}
+
+func (s *NutritionPlanStoreSuite) SetupTest() {
+	var err error
+	s.db, err = sql.Open("sqlite", ":memory:")
+	s.Require().NoError(err)
+
+	err = db.RunMigrations(s.db)
+	s.Require().NoError(err)
+
+	s.store = NewNutritionPlanStore(s.db)
+	s.ctx = context.Background()
+	s.now = time.Date(2026, 1, 24, 12, 0, 0, 0, time.UTC)
+}
+
+func (s *NutritionPlanStoreSuite) TearDownTest() {
+	if s.db != nil {
+		s.db.Close()
+	}
+}
+
+func (s *NutritionPlanStoreSuite) validPlan() *domain.NutritionPlan {
+	return &domain.NutritionPlan{
+		StartDate:              s.now,
+		StartWeightKg:          90.0,
+		GoalWeightKg:           80.0,
+		DurationWeeks:          20,
+		RequiredWeeklyChangeKg: -0.5,
+		RequiredDailyDeficitKcal: -550,
+		Status:                 domain.PlanStatusActive,
+		WeeklyTargets: []domain.WeeklyTarget{
+			{
+				WeekNumber:        1,
+				StartDate:         s.now,
+				EndDate:           s.now.AddDate(0, 0, 6),
+				ProjectedWeightKg: 89.5,
+				ProjectedTDEE:     2400,
+				TargetIntakeKcal:  1850,
+				TargetCarbsG:      208,
+				TargetProteinG:    139,
+				TargetFatsG:       51,
+			},
+			{
+				WeekNumber:        2,
+				StartDate:         s.now.AddDate(0, 0, 7),
+				EndDate:           s.now.AddDate(0, 0, 13),
+				ProjectedWeightKg: 89.0,
+				ProjectedTDEE:     2380,
+				TargetIntakeKcal:  1830,
+				TargetCarbsG:      206,
+				TargetProteinG:    137,
+				TargetFatsG:       51,
+			},
+		},
+	}
+}
+
+func (s *NutritionPlanStoreSuite) TestPlanNotFoundBeforeCreation() {
+	s.Run("GetByID returns ErrPlanNotFound when empty", func() {
+		_, err := s.store.GetByID(s.ctx, 999)
+		s.Require().ErrorIs(err, ErrPlanNotFound)
+	})
+
+	s.Run("GetActive returns ErrPlanNotFound when no active plan", func() {
+		_, err := s.store.GetActive(s.ctx)
+		s.Require().ErrorIs(err, ErrPlanNotFound)
+	})
+}
+
+func (s *NutritionPlanStoreSuite) TestPlanCreationAndRetrieval() {
+	s.Run("creates plan with weekly targets", func() {
+		plan := s.validPlan()
+		planID, err := s.store.Create(s.ctx, plan)
+		s.Require().NoError(err)
+		s.Greater(planID, int64(0))
+
+		loaded, err := s.store.GetByID(s.ctx, planID)
+		s.Require().NoError(err)
+
+		s.Equal(plan.StartWeightKg, loaded.StartWeightKg)
+		s.Equal(plan.GoalWeightKg, loaded.GoalWeightKg)
+		s.Equal(plan.DurationWeeks, loaded.DurationWeeks)
+		s.InDelta(plan.RequiredWeeklyChangeKg, loaded.RequiredWeeklyChangeKg, 0.001)
+		s.Equal(plan.Status, loaded.Status)
+		s.Len(loaded.WeeklyTargets, 2)
+	})
+
+	s.Run("weekly targets preserve all fields", func() {
+		plan := s.validPlan()
+		planID, err := s.store.Create(s.ctx, plan)
+		s.Require().NoError(err)
+
+		loaded, err := s.store.GetByID(s.ctx, planID)
+		s.Require().NoError(err)
+
+		target := loaded.WeeklyTargets[0]
+		s.Equal(1, target.WeekNumber)
+		s.InDelta(89.5, target.ProjectedWeightKg, 0.1)
+		s.Equal(2400, target.ProjectedTDEE)
+		s.Equal(1850, target.TargetIntakeKcal)
+		s.Equal(208, target.TargetCarbsG)
+		s.Equal(139, target.TargetProteinG)
+		s.Equal(51, target.TargetFatsG)
+		s.Nil(target.ActualWeightKg)
+		s.Nil(target.ActualIntakeKcal)
+		s.Equal(0, target.DaysLogged)
+	})
+}
+
+func (s *NutritionPlanStoreSuite) TestActivePlanConstraint() {
+	s.Run("prevents creating second active plan", func() {
+		plan1 := s.validPlan()
+		_, err := s.store.Create(s.ctx, plan1)
+		s.Require().NoError(err)
+
+		plan2 := s.validPlan()
+		plan2.StartDate = s.now.AddDate(0, 0, 30)
+		_, err = s.store.Create(s.ctx, plan2)
+		s.Require().ErrorIs(err, ErrActivePlanExists)
+	})
+
+	s.Run("allows creating new plan after completing previous", func() {
+		plan1 := s.validPlan()
+		planID, err := s.store.Create(s.ctx, plan1)
+		s.Require().NoError(err)
+
+		err = s.store.UpdateStatus(s.ctx, planID, domain.PlanStatusCompleted)
+		s.Require().NoError(err)
+
+		plan2 := s.validPlan()
+		plan2.StartDate = s.now.AddDate(0, 0, 30)
+		planID2, err := s.store.Create(s.ctx, plan2)
+		s.Require().NoError(err)
+		s.Greater(planID2, planID)
+	})
+}
+
+func (s *NutritionPlanStoreSuite) TestGetActivePlan() {
+	s.Run("returns active plan", func() {
+		plan := s.validPlan()
+		planID, err := s.store.Create(s.ctx, plan)
+		s.Require().NoError(err)
+
+		active, err := s.store.GetActive(s.ctx)
+		s.Require().NoError(err)
+		s.Equal(planID, active.ID)
+		s.Equal(domain.PlanStatusActive, active.Status)
+	})
+}
+
+func (s *NutritionPlanStoreSuite) TestUpdateStatus() {
+	s.Run("updates plan status", func() {
+		plan := s.validPlan()
+		planID, err := s.store.Create(s.ctx, plan)
+		s.Require().NoError(err)
+
+		err = s.store.UpdateStatus(s.ctx, planID, domain.PlanStatusCompleted)
+		s.Require().NoError(err)
+
+		loaded, err := s.store.GetByID(s.ctx, planID)
+		s.Require().NoError(err)
+		s.Equal(domain.PlanStatusCompleted, loaded.Status)
+	})
+
+	s.Run("returns error for non-existent plan", func() {
+		err := s.store.UpdateStatus(s.ctx, 999, domain.PlanStatusCompleted)
+		s.Require().ErrorIs(err, ErrPlanNotFound)
+	})
+}
+
+func (s *NutritionPlanStoreSuite) TestUpdateWeeklyActuals() {
+	s.Run("updates actual values for a week", func() {
+		plan := s.validPlan()
+		planID, err := s.store.Create(s.ctx, plan)
+		s.Require().NoError(err)
+
+		actualWeight := 89.2
+		actualIntake := 1900
+		err = s.store.UpdateWeeklyActuals(s.ctx, planID, 1, &actualWeight, &actualIntake, 7)
+		s.Require().NoError(err)
+
+		loaded, err := s.store.GetByID(s.ctx, planID)
+		s.Require().NoError(err)
+
+		target := loaded.WeeklyTargets[0]
+		s.Require().NotNil(target.ActualWeightKg)
+		s.InDelta(89.2, *target.ActualWeightKg, 0.1)
+		s.Require().NotNil(target.ActualIntakeKcal)
+		s.Equal(1900, *target.ActualIntakeKcal)
+		s.Equal(7, target.DaysLogged)
+	})
+
+	s.Run("handles nil actual values", func() {
+		plan := s.validPlan()
+		planID, err := s.store.Create(s.ctx, plan)
+		s.Require().NoError(err)
+
+		err = s.store.UpdateWeeklyActuals(s.ctx, planID, 2, nil, nil, 3)
+		s.Require().NoError(err)
+
+		loaded, err := s.store.GetByID(s.ctx, planID)
+		s.Require().NoError(err)
+
+		target := loaded.WeeklyTargets[1]
+		s.Nil(target.ActualWeightKg)
+		s.Nil(target.ActualIntakeKcal)
+		s.Equal(3, target.DaysLogged)
+	})
+}
+
+func (s *NutritionPlanStoreSuite) TestDeletePlan() {
+	s.Run("deletes plan and weekly targets cascade", func() {
+		plan := s.validPlan()
+		planID, err := s.store.Create(s.ctx, plan)
+		s.Require().NoError(err)
+
+		err = s.store.Delete(s.ctx, planID)
+		s.Require().NoError(err)
+
+		_, err = s.store.GetByID(s.ctx, planID)
+		s.Require().ErrorIs(err, ErrPlanNotFound)
+
+		// Verify weekly targets are also deleted
+		var count int
+		err = s.db.QueryRowContext(s.ctx, "SELECT COUNT(*) FROM weekly_targets WHERE plan_id = ?", planID).Scan(&count)
+		s.Require().NoError(err)
+		s.Equal(0, count)
+	})
+
+	s.Run("is idempotent on missing plan", func() {
+		err := s.store.Delete(s.ctx, 999)
+		s.Require().NoError(err, "Deleting nonexistent plan should not error")
+	})
+}
+
+func (s *NutritionPlanStoreSuite) TestListAllPlans() {
+	s.Run("returns all plans ordered by start date descending", func() {
+		// Create plan 1
+		plan1 := s.validPlan()
+		planID1, err := s.store.Create(s.ctx, plan1)
+		s.Require().NoError(err)
+
+		// Complete plan 1
+		err = s.store.UpdateStatus(s.ctx, planID1, domain.PlanStatusCompleted)
+		s.Require().NoError(err)
+
+		// Create plan 2 with later date
+		plan2 := s.validPlan()
+		plan2.StartDate = s.now.AddDate(0, 1, 0)
+		_, err = s.store.Create(s.ctx, plan2)
+		s.Require().NoError(err)
+
+		plans, err := s.store.ListAll(s.ctx)
+		s.Require().NoError(err)
+		s.Len(plans, 2)
+
+		// Should be ordered by start_date DESC (plan2 first)
+		s.True(plans[0].StartDate.After(plans[1].StartDate))
+	})
+
+	s.Run("returns empty slice when no plans", func() {
+		plans, err := s.store.ListAll(s.ctx)
+		s.Require().NoError(err)
+		s.Empty(plans)
+	})
+}
