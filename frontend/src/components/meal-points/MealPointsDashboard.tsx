@@ -69,6 +69,8 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
   const [breakdownMeal, setBreakdownMeal] = useState<'Breakfast' | 'Lunch' | 'Dinner' | null>(null);
   const [trainingConfigs, setTrainingConfigs] = useState<TrainingConfig[]>([]);
   const [activeCaloriesUpdating, setActiveCaloriesUpdating] = useState(false);
+  const [selectedMeal, setSelectedMeal] = useState<'breakfast' | 'lunch' | 'dinner'>('dinner');
+  const [supplementsExpanded, setSupplementsExpanded] = useState(false);
 
   // Get meal ratios from profile (convert to percentages)
   const mealRatios = useMemo(() => ({
@@ -391,7 +393,7 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-3 gap-4">
+            <div className="space-y-3">
               <MealCard
                 meal="Breakfast"
                 carbPoints={mealData.breakfast.carbs}
@@ -402,6 +404,8 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
                 fatGrams={mealGramsAndKcal?.breakfast.fatGrams}
                 totalKcal={mealGramsAndKcal?.breakfast.kcal}
                 onViewBreakdown={() => setBreakdownMeal('Breakfast')}
+                isSelected={selectedMeal === 'breakfast'}
+                onSelect={() => setSelectedMeal('breakfast')}
               />
               <MealCard
                 meal="Lunch"
@@ -413,6 +417,8 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
                 fatGrams={mealGramsAndKcal?.lunch.fatGrams}
                 totalKcal={mealGramsAndKcal?.lunch.kcal}
                 onViewBreakdown={() => setBreakdownMeal('Lunch')}
+                isSelected={selectedMeal === 'lunch'}
+                onSelect={() => setSelectedMeal('lunch')}
               />
               <MealCard
                 meal="Dinner"
@@ -424,30 +430,57 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
                 fatGrams={mealGramsAndKcal?.dinner.fatGrams}
                 totalKcal={mealGramsAndKcal?.dinner.kcal}
                 onViewBreakdown={() => setBreakdownMeal('Dinner')}
+                isSelected={selectedMeal === 'dinner'}
+                onSelect={() => setSelectedMeal('dinner')}
               />
             </div>
           )}
 
-          {/* Supplements Panel */}
-          <SupplementsPanel
-            supplements={supplements}
-            onSupplementChange={handleSupplementChange}
-            onApplyDefaults={() => {
-              setSupplements(DEFAULT_SUPPLEMENTS.map(s => ({ ...s, enabled: true })));
-            }}
-            onReset={() => {
-              setSupplements(DEFAULT_SUPPLEMENTS);
-            }}
-            isRestDay={trainingContext.isRestDay}
-            hasPerformanceWorkout={trainingContext.hasPerformanceWorkout}
-          />
+          {/* Supplements Panel - Collapsible */}
+          <div className="border border-gray-800 rounded-xl overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setSupplementsExpanded(!supplementsExpanded)}
+              className="w-full flex items-center justify-between px-4 py-3 bg-gray-900 hover:bg-gray-800 transition-colors"
+            >
+              <span className="text-sm text-gray-400 font-medium">
+                Supplements {supplements.filter(s => s.enabled).length > 0 && (
+                  <span className="text-emerald-400 ml-1">
+                    ({supplements.filter(s => s.enabled).length} active)
+                  </span>
+                )}
+              </span>
+              <svg 
+                className={`w-4 h-4 text-gray-500 transition-transform ${supplementsExpanded ? 'rotate-180' : ''}`} 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {supplementsExpanded && (
+              <SupplementsPanel
+                supplements={supplements}
+                onSupplementChange={handleSupplementChange}
+                onApplyDefaults={() => {
+                  setSupplements(DEFAULT_SUPPLEMENTS.map(s => ({ ...s, enabled: true })));
+                }}
+                onReset={() => {
+                  setSupplements(DEFAULT_SUPPLEMENTS);
+                }}
+                isRestDay={trainingContext.isRestDay}
+                hasPerformanceWorkout={trainingContext.hasPerformanceWorkout}
+              />
+            )}
+          </div>
         </div>
 
         {/* Food Library - Right Side (Full Height) */}
         <div className="col-span-6 flex flex-col min-h-[600px]">
           <FoodLibrary
-            targetPoints={mealData.hasData ? mealData.dinner.protein + mealData.dinner.carbs + mealData.dinner.fats : 350}
-            selectedMeal="dinner"
+            targetPoints={mealData.hasData ? mealData[selectedMeal].protein + mealData[selectedMeal].carbs + mealData[selectedMeal].fats : 350}
+            selectedMeal={selectedMeal}
             className="flex-1"
           />
         </div>

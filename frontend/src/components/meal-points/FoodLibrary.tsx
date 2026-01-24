@@ -50,6 +50,16 @@ const FILTER_CONFIG: Record<FilterTab, {
   },
 };
 
+const CATEGORY_EMOJI: Record<FoodCategory, string> = {
+  high_carb: '🍞',
+  high_protein: '🍗',
+  high_fat: '🥑',
+};
+
+function capitalizeFirst(str: string): string {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
 export function FoodLibrary({ 
   targetPoints, 
   selectedMeal = 'dinner',
@@ -61,6 +71,10 @@ export function FoodLibrary({
   const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFood, setSelectedFood] = useState<FoodReference | null>(null);
+  const [hoveredFood, setHoveredFood] = useState<FoodReference | null>(null);
+
+  // Display food is either hovered (takes priority) or selected
+  const displayFood = hoveredFood || selectedFood;
 
   useEffect(() => {
     const fetchFoods = async () => {
@@ -88,18 +102,23 @@ export function FoodLibrary({
   }, [foods, activeFilter, searchQuery]);
 
   // Calculate suggested serving based on plate multiplier
-  const getSuggestion = (food: FoodReference): string => {
-    if (!food.plateMultiplier) return '—';
+  const getSuggestion = (food: FoodReference): { grams: number; display: string } => {
+    if (!food.plateMultiplier) return { grams: 0, display: '—' };
     const servingG = Math.round(targetPoints * food.plateMultiplier);
-    return `~${servingG}g`;
+    return { grams: servingG, display: `${servingG}g` };
   };
 
   const handleFoodClick = (food: FoodReference) => {
     setSelectedFood(selectedFood?.id === food.id ? null : food);
   };
 
+  const handleFoodHover = (food: FoodReference | null) => {
+    setHoveredFood(food);
+  };
+
   const handleCloseVisualizer = () => {
     setSelectedFood(null);
+    setHoveredFood(null);
   };
 
   if (loading) {
@@ -122,23 +141,24 @@ export function FoodLibrary({
 
   return (
     <Panel title="Food Library" className={`flex flex-col h-full ${className}`}>
-      {/* Portion Plate Visualizer (Sticky Header) */}
-      <AnimatePresence>
-        {selectedFood && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="mb-4 border-b border-gray-800 pb-4"
-          >
-            <PortionPlateVisualizer
-              plateMultiplier={selectedFood.plateMultiplier ?? 0}
-              foodName={selectedFood.foodItem}
-              onClose={handleCloseVisualizer}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Portion Plate Visualizer (Sticky Header) - Shows on hover or click */}
+      <div className="mb-4 border-b border-gray-800 pb-4">
+        <PortionPlateVisualizer
+          plateMultiplier={displayFood?.plateMultiplier ?? 0}
+          foodName={displayFood?.foodItem ?? ''}
+          onClose={displayFood ? handleCloseVisualizer : undefined}
+        />
+      </div>
+
+      {/* Target Context Header - Prominent */}
+      <div className="mb-4 p-3 bg-gray-800/50 rounded-lg border border-gray-700">
+        <div className="text-sm text-gray-400">
+          Showing portions for <span className="text-white font-semibold">{capitalizeFirst(selectedMeal)}</span>
+        </div>
+        <div className="text-lg text-emerald-400 font-bold">
+          Target: {targetPoints} pts
+        </div>
+      </div>
 
       {/* Search Input */}
       <div className="mb-3">
@@ -176,39 +196,63 @@ export function FoodLibrary({
         })}
       </div>
 
-      {/* Target info */}
-      <div className="mb-3 text-xs text-gray-400">
-        To hit <span className="text-white font-medium">~{targetPoints} pts</span> ({selectedMeal}):
-      </div>
-
       {/* Food List (Scrollable) */}
       <div className="flex-1 overflow-y-auto space-y-1.5 min-h-0">
         {filteredFoods.map(food => {
           const isSelected = selectedFood?.id === food.id;
+          const isHovered = hoveredFood?.id === food.id;
+          const suggestion = getSuggestion(food);
+          const categoryEmoji = CATEGORY_EMOJI[food.category];
+          
           return (
             <motion.button
               key={food.id}
               onClick={() => handleFoodClick(food)}
+              onMouseEnter={() => handleFoodHover(food)}
+              onMouseLeave={() => handleFoodHover(null)}
               className={`
-                w-full flex justify-between items-center text-sm py-2 px-3 rounded-lg
+                w-full flex items-center text-sm py-3 px-3 rounded-lg
                 transition-colors text-left
                 ${isSelected 
                   ? 'bg-emerald-500/20 border border-emerald-500/50' 
-                  : 'bg-gray-800/50 hover:bg-gray-700/50 border border-transparent'
+                  : isHovered
+                    ? 'bg-gray-700/70 border border-gray-600'
+                    : 'bg-gray-800/50 hover:bg-gray-700/50 border border-transparent'
                 }
               `}
-              whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.99 }}
             >
-              <span className="text-gray-200 truncate mr-2">{food.foodItem}</span>
-              <span className={`font-medium whitespace-nowrap ${
-                FILTER_CONFIG[
-                  food.category === 'high_carb' ? 'carb' :
-                  food.category === 'high_protein' ? 'protein' : 'fat'
-                ].color
-              }`}>
-                {getSuggestion(food)}
-              </span>
+              {/* Category Emoji */}
+              <span className="text-lg mr-3 flex-shrink-0">{categoryEmoji}</span>
+              
+              {/* Food Name & Serving Info */}
+              <div className="flex-1 min-w-0">
+                <div className="text-gray-200 truncate font-medium">{food.foodItem}</div>
+                {suggestion.grams > 0 && (
+                  <div className="text-xs text-gray-500 mt-0.5">
+                    Eat <span className="text-cyan-400 font-semibold">{suggestion.display}</span> → Hits Target
+                  </div>
+                )}
+              </div>
+              
+              {/* Multiplier Badge */}
+              {food.plateMultiplier && (
+                <span className={`text-xs px-2 py-0.5 rounded-full ml-2 flex-shrink-0 ${
+                  FILTER_CONFIG[
+                    food.category === 'high_carb' ? 'carb' :
+                    food.category === 'high_protein' ? 'protein' : 'fat'
+                  ].bgColor
+                } ${
+                  FILTER_CONFIG[
+                    food.category === 'high_carb' ? 'carb' :
+                    food.category === 'high_protein' ? 'protein' : 'fat'
+                  ].color
+                }`}>
+                  {food.plateMultiplier <= 0.25 ? '¼' : 
+                   food.plateMultiplier <= 0.5 ? '½' : 
+                   food.plateMultiplier <= 0.75 ? '¾' : '1'} plate
+                </span>
+              )}
             </motion.button>
           );
         })}
@@ -222,7 +266,7 @@ export function FoodLibrary({
 
       {/* Footer */}
       <div className="mt-3 pt-3 border-t border-gray-800 text-center text-xs text-gray-500">
-        {filteredFoods.length} foods • Click to see plate portion
+        {filteredFoods.length} foods • Hover to preview portion
       </div>
     </Panel>
   );

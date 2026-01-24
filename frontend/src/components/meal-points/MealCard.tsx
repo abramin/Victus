@@ -10,6 +10,36 @@ interface MealCardProps {
   fatGrams?: number;
   totalKcal?: number;
   onViewBreakdown?: () => void;
+  isSelected?: boolean;
+  onSelect?: () => void;
+}
+
+interface MacroBarProps {
+  label: string;
+  current: number;
+  color: string;
+  bgColor: string;
+}
+
+function MacroBar({ label, current, color, bgColor }: MacroBarProps) {
+  // For display purposes, show points as progress toward a reasonable max
+  const maxPoints = 100; // Visual max for the bar
+  const percentage = Math.min((current / maxPoints) * 100, 100);
+
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-xs text-gray-500 w-10 uppercase">{label}</span>
+      <div className={`flex-1 h-2 rounded-full ${bgColor}`}>
+        <div
+          className={`h-full rounded-full transition-all duration-300 ${color}`}
+          style={{ width: `${percentage}%` }}
+        />
+      </div>
+      <span className={`text-xs font-medium w-8 text-right ${color.replace('bg-', 'text-').replace('-500', '-400')}`}>
+        {current}
+      </span>
+    </div>
+  );
 }
 
 export function MealCard({
@@ -17,59 +47,75 @@ export function MealCard({
   carbPoints,
   proteinPoints,
   fatPoints,
-  carbGrams,
-  proteinGrams,
-  fatGrams,
   totalKcal,
   onViewBreakdown,
+  isSelected = false,
+  onSelect,
 }: MealCardProps) {
   return (
-    <Panel>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-white font-medium">{meal}</h3>
-        {totalKcal !== undefined && (
-          <span className="text-gray-400 text-sm font-medium">{totalKcal} kcal</span>
-        )}
-      </div>
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`
+        w-full text-left transition-all duration-200 rounded-xl
+        ${isSelected 
+          ? 'ring-2 ring-emerald-500 ring-offset-2 ring-offset-gray-900' 
+          : 'hover:ring-1 hover:ring-gray-600'
+        }
+      `}
+    >
+      <Panel className={isSelected ? 'bg-gray-800/80' : ''}>
+        {/* Header Row */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <h3 className="text-white font-medium">{meal}</h3>
+            {isSelected && (
+              <span className="text-xs text-emerald-400 font-medium">● Active</span>
+            )}
+          </div>
+          {totalKcal !== undefined && (
+            <span className="text-gray-500 text-xs">{totalKcal} kcal</span>
+          )}
+        </div>
 
-      {/* Points Display */}
-      <div className="flex items-end gap-4 mb-4">
-        <div className="text-center flex-1">
-          <div className="text-3xl font-bold text-purple-500">{proteinPoints}</div>
-          <div className="text-xs text-gray-500 mt-1">PROT</div>
-          {proteinGrams !== undefined && (
-            <div className="text-xs text-gray-600">({proteinGrams}g)</div>
-          )}
+        {/* Macro Progress Bars */}
+        <div className="space-y-2">
+          <MacroBar 
+            label="Prot" 
+            current={proteinPoints} 
+            color="bg-purple-500"
+            bgColor="bg-purple-500/20"
+          />
+          <MacroBar 
+            label="Carb" 
+            current={carbPoints} 
+            color="bg-orange-500"
+            bgColor="bg-orange-500/20"
+          />
+          <MacroBar 
+            label="Fat" 
+            current={fatPoints} 
+            color="bg-gray-400"
+            bgColor="bg-gray-600/30"
+          />
         </div>
-        <div className="text-center flex-1">
-          <div className="text-3xl font-bold text-orange-500">{carbPoints}</div>
-          <div className="text-xs text-gray-500 mt-1">CARB</div>
-          {carbGrams !== undefined && (
-            <div className="text-xs text-gray-600">({carbGrams}g)</div>
-          )}
-        </div>
-        <div className="text-center flex-1">
-          <div className="text-3xl font-bold text-gray-400">{fatPoints}</div>
-          <div className="text-xs text-gray-500 mt-1">FAT</div>
-          {fatGrams !== undefined && (
-            <div className="text-xs text-gray-600">({fatGrams}g)</div>
-          )}
-        </div>
-      </div>
 
-      {/* Footer */}
-      <div className="flex items-center justify-end text-sm">
-        <button
-          onClick={onViewBreakdown}
-          className="text-gray-400 hover:text-white flex items-center gap-1 transition-colors"
-        >
-          View breakdown
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        </button>
-      </div>
-    </Panel>
+        {/* Footer */}
+        <div className="flex items-center justify-end mt-3 pt-2 border-t border-gray-800">
+          <span
+            onClick={(e) => {
+              e.stopPropagation();
+              onViewBreakdown?.();
+            }}
+            className="text-xs text-gray-500 hover:text-white flex items-center gap-1 transition-colors cursor-pointer"
+          >
+            Details
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </span>
+        </div>
+      </Panel>
+    </button>
   );
 }
