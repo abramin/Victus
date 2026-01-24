@@ -340,34 +340,16 @@ func (s *DailyLogService) calculateRecoveryAndAdjustments(ctx context.Context, d
 		avgSleepQuality = totalSleepQuality / float64(len(sleepData))
 	}
 
-	// Count rest days and find yesterday's max load score
-	restDays := 0
-	var yesterdayMaxLoad float64
-
-	for _, sd := range sessionsData {
-		// Determine if it's a rest day (no sessions or all sessions are rest type)
-		sessions := sd.ActualSessions
-		if len(sessions) == 0 {
-			sessions = sd.PlannedSessions
-		}
-
-		isRestDay := true
-		for _, sess := range sessions {
-			if sess.Type != domain.TrainingTypeRest {
-				isRestDay = false
-				break
-			}
-		}
-
-		if isRestDay || len(sessions) == 0 {
-			restDays++
-		}
-
-		// Check if this is yesterday to get max load score
-		if sd.Date == yesterdayDate {
-			yesterdayMaxLoad = domain.MaxSessionLoadScore(sessions)
+	// Analyze session patterns for rest days and yesterday's max load
+	patternData := make([]domain.SessionPatternData, len(sessionsData))
+	for i, sd := range sessionsData {
+		patternData[i] = domain.SessionPatternData{
+			Date:            sd.Date,
+			PlannedSessions: sd.PlannedSessions,
+			ActualSessions:  sd.ActualSessions,
 		}
 	}
+	pattern := domain.AnalyzeSessionPattern(patternData, yesterdayDate)
 
 	// Get ACR using existing method (uses 28-day lookback for chronic load)
 	trainingLoadResult, err := s.GetTrainingLoadMetrics(ctx, date, nil, nil)
@@ -378,7 +360,7 @@ func (s *DailyLogService) calculateRecoveryAndAdjustments(ctx context.Context, d
 
 	// Calculate recovery score
 	recoveryInput := domain.RecoveryScoreInput{
-		RestDaysLast7:     restDays,
+		RestDaysLast7:     pattern.RestDays,
 		ACR:               trainingLoadResult.ACR,
 		AvgSleepQualityL7: avgSleepQuality,
 	}
@@ -389,7 +371,7 @@ func (s *DailyLogService) calculateRecoveryAndAdjustments(ctx context.Context, d
 		ACR:               trainingLoadResult.ACR,
 		RecoveryScore:     recoveryScore.Score,
 		TodaySleepQuality: todaySleepQuality,
-		YesterdayMaxLoad:  yesterdayMaxLoad,
+		YesterdayMaxLoad:  pattern.YesterdayMaxLoad,
 	}
 	adjustmentMultipliers := domain.CalculateAdjustmentMultipliers(adjustmentInput)
 

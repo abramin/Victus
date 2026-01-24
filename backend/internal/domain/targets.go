@@ -46,6 +46,72 @@ func GetAllTrainingConfigs() map[TrainingType]TrainingConfig {
 	return result
 }
 
+// calculateTargetCalories computes target calories and deficit severity based on goal.
+// Returns target calories and deficit severity (0 for non-deficit goals).
+func calculateTargetCalories(goal Goal, effectiveTDEE float64) (targetCalories float64, deficitSeverity float64) {
+	switch goal {
+	case GoalLoseWeight:
+		// Target 500-750 kcal deficit for ~0.5-0.75 kg/week loss
+		deficit := math.Min(effectiveTDEE*MaxDeficitPercent, MaxDeficitKcal)
+		return effectiveTDEE - deficit, deficit / effectiveTDEE
+	case GoalGainWeight:
+		// Target 250-500 kcal surplus for lean gains
+		surplus := math.Min(effectiveTDEE*MaxSurplusPercent, MaxSurplusKcal)
+		return effectiveTDEE + surplus, 0
+	default: // GoalMaintain
+		return effectiveTDEE, 0
+	}
+}
+
+// MacroAllocation contains the allocated macro grams after applying all adjustments.
+type MacroAllocation struct {
+	CarbsG   float64
+	ProteinG float64
+	FatsG    float64
+}
+
+// allocateMacros computes macro allocation using protein-first approach with day type modifiers.
+// Enforces protein floor (MinGPerKg × weight) and fat floor (0.7 g/kg).
+func allocateMacros(targetCalories, weightKg float64, goal Goal, isTrainingDay bool, deficitSeverity float64, dayType DayType) MacroAllocation {
+	proteinRec := GetProteinRecommendation(goal, isTrainingDay, deficitSeverity)
+
+	// Use optimal protein target
+	proteinG := weightKg * proteinRec.OptimalGPerKg
+	proteinCalories := proteinG * CaloriesPerGramProtein
+
+	// Set fat floor (0.7 g/kg minimum for essential fatty acids)
+	fatMinG := GetFatMinimum(weightKg)
+
+	// Calculate fat based on remaining calories after protein
+	remainingAfterProtein := targetCalories - proteinCalories
+
+	// Allocate ~35% of remaining to fat (minimum fatMinG)
+	fatCaloriesTarget := remainingAfterProtein * FatCaloriesPercent
+	fatG := math.Max(fatCaloriesTarget/CaloriesPerGramFat, fatMinG)
+	fatCalories := fatG * CaloriesPerGramFat
+
+	// Remaining goes to carbs
+	carbCalories := targetCalories - proteinCalories - fatCalories
+	if carbCalories < 0 {
+		carbCalories = 0
+	}
+	carbG := carbCalories / CaloriesPerGramCarb
+
+	// Apply day type modifiers (protecting protein)
+	mult := getDayTypeModifiers(dayType)
+
+	// Protein stays at or above optimal - only adjust carbs and fats
+	finalCarbsG := carbG * mult.Carbs
+	finalProteinG := math.Max(proteinG*mult.Protein, weightKg*proteinRec.MinGPerKg)
+	finalFatsG := math.Max(fatG*mult.Fats, fatMinG)
+
+	return MacroAllocation{
+		CarbsG:   finalCarbsG,
+		ProteinG: finalProteinG,
+		FatsG:    finalFatsG,
+	}
+}
+
 // CalculateExerciseCalories computes calories burned using MET formula for a single session.
 // Formula: Calories = (MET - 1) × weight(kg) × duration(hours)
 // We subtract 1 from MET to get "extra" calories above resting (avoids double-counting with BMR).
@@ -115,81 +181,35 @@ func CalculateDailyTargets(profile *UserProfile, log *DailyLog, now time.Time) D
 	}
 
 	// 4. Apply goal-based calorie adjustment
-	var targetCalories float64
-	var deficitSeverity float64
+	targetCalories, deficitSeverity := calculateTargetCalories(profile.Goal, effectiveTDEE)
 
-	switch profile.Goal {
-	case GoalLoseWeight:
-		// Target 500-750 kcal deficit for ~0.5-0.75 kg/week loss
-		deficit := math.Min(effectiveTDEE*MaxDeficitPercent, MaxDeficitKcal)
-		targetCalories = effectiveTDEE - deficit
-		deficitSeverity = deficit / effectiveTDEE
-	case GoalGainWeight:
-		// Target 250-500 kcal surplus for lean gains
-		surplus := math.Min(effectiveTDEE*MaxSurplusPercent, MaxSurplusKcal)
-		targetCalories = effectiveTDEE + surplus
-	default: // GoalMaintain
-		targetCalories = effectiveTDEE
-	}
-
-	// 5. Calculate macros with protein-first approach
-	// A day is a training day if any session is not rest
+	// 5. Allocate macros with protein-first approach, day type modifiers, and floors
 	isTrainingDay := HasNonRestSession(log.PlannedSessions)
-	proteinRec := GetProteinRecommendation(profile.Goal, isTrainingDay, deficitSeverity)
-
-	// Use optimal protein target
-	proteinG := log.WeightKg * proteinRec.OptimalGPerKg
-	proteinCalories := proteinG * CaloriesPerGramProtein
-
-	// 6. Set fat floor (0.7 g/kg minimum for essential fatty acids)
-	fatMinG := GetFatMinimum(log.WeightKg)
-
-	// Calculate fat based on remaining calories after protein
-	remainingAfterProtein := targetCalories - proteinCalories
-
-	// Allocate ~35% of remaining to fat (minimum fatMinG)
-	fatCaloriesTarget := remainingAfterProtein * FatCaloriesPercent
-	fatG := math.Max(fatCaloriesTarget/CaloriesPerGramFat, fatMinG)
-	fatCalories := fatG * CaloriesPerGramFat
-
-	// 7. Remaining goes to carbs
-	carbCalories := targetCalories - proteinCalories - fatCalories
-	if carbCalories < 0 {
-		carbCalories = 0
-	}
-	carbG := carbCalories / CaloriesPerGramCarb
-
-	// 8. Apply day type modifiers (protecting protein)
 	dayType := log.DayType
-	mult := getDayTypeModifiers(dayType)
+	macros := allocateMacros(targetCalories, log.WeightKg, profile.Goal, isTrainingDay, deficitSeverity, dayType)
 
-	// Protein stays at or above optimal - only adjust carbs and fats
-	finalCarbsG := carbG * mult.Carbs
-	finalProteinG := math.Max(proteinG*mult.Protein, log.WeightKg*proteinRec.MinGPerKg)
-	finalFatsG := math.Max(fatG*mult.Fats, fatMinG)
+	// 6. Recalculate total calories from final macros
+	totalCalories := (macros.CarbsG * CaloriesPerGramCarb) + (macros.ProteinG * CaloriesPerGramProtein) + (macros.FatsG * CaloriesPerGramFat)
 
-	// 9. Recalculate total calories from final macros
-	totalCalories := (finalCarbsG * CaloriesPerGramCarb) + (finalProteinG * CaloriesPerGramProtein) + (finalFatsG * CaloriesPerGramFat)
+	// 7. Calculate fruit/veggies targets
+	fruitG := calculateFruit(macros.CarbsG, profile.FruitTargetG, dayType)
+	veggiesG := calculateVeggies(macros.CarbsG, profile.VeggieTargetG)
 
-	// 10. Calculate fruit/veggies targets
-	fruitG := calculateFruit(finalCarbsG, profile.FruitTargetG, dayType)
-	veggiesG := calculateVeggies(finalCarbsG, profile.VeggieTargetG)
-
-	// 11. Convert to meal points
+	// 8. Convert to meal points
 	meals := calculateMealPoints(
-		finalCarbsG, finalProteinG, finalFatsG,
+		macros.CarbsG, macros.ProteinG, macros.FatsG,
 		float64(fruitG), float64(veggiesG),
 		profile.MealRatios, profile.PointsConfig,
 		dayType, profile.SupplementConfig,
 	)
 
-	// 12. Calculate water target (0.04 L per kg body weight)
+	// 9. Calculate water target (0.04 L per kg body weight)
 	waterL := math.Round(log.WeightKg*WaterLPerKg*10) / 10
 
 	return DailyTargets{
-		TotalCarbsG:   int(math.Round(finalCarbsG)),
-		TotalProteinG: int(math.Round(finalProteinG)),
-		TotalFatsG:    int(math.Round(finalFatsG)),
+		TotalCarbsG:   int(math.Round(macros.CarbsG)),
+		TotalProteinG: int(math.Round(macros.ProteinG)),
+		TotalFatsG:    int(math.Round(macros.FatsG)),
 		TotalCalories: int(math.Round(totalCalories)),
 		EstimatedTDEE: int(math.Round(effectiveTDEE)),
 		Meals:         meals,
@@ -584,6 +604,38 @@ func adherencePenalty(avgAdjustment float64) float64 {
 	return penalty
 }
 
+// calculateAdaptiveConfidence computes confidence level for adaptive TDEE calculation.
+// Based on data point count, consistency of estimates (CV), and adherence error penalty.
+func calculateAdaptiveConfidence(dataPointCount int, weeklyTDEEEstimates []float64, adaptiveTDEE float64, adherenceErrorSum float64, adherenceSamples int) float64 {
+	// 1. Data point confidence (more = higher)
+	dataPointConfidence := math.Min(float64(dataPointCount)/float64(MaxDataPointsForAdaptive), 1.0)
+
+	// 2. Calculate variance in estimates for consistency confidence
+	var sumSquaredDiff float64
+	for _, tdee := range weeklyTDEEEstimates {
+		diff := tdee - adaptiveTDEE
+		sumSquaredDiff += diff * diff
+	}
+	variance := sumSquaredDiff / float64(len(weeklyTDEEEstimates))
+	stdDev := math.Sqrt(variance)
+
+	// Lower coefficient of variation = higher consistency confidence
+	// CV > 0.15 (15%) reduces confidence
+	cv := stdDev / adaptiveTDEE
+	consistencyConfidence := math.Max(0, 1.0-(cv/0.15))
+
+	// 3. Combined confidence (geometric mean of factors)
+	confidence := math.Sqrt(dataPointConfidence * consistencyConfidence)
+
+	// 4. Apply adherence penalty
+	if adherenceSamples > 0 {
+		avgAdherenceError := adherenceErrorSum / float64(adherenceSamples)
+		confidence *= 1 - adherencePenalty(avgAdherenceError)
+	}
+
+	return math.Round(confidence*100) / 100 // Round to 2 decimal places
+}
+
 func parseDate(dateStr string) (time.Time, bool) {
 	parsed, err := time.Parse("2006-01-02", dateStr)
 	if err != nil {
@@ -739,32 +791,8 @@ func CalculateAdaptiveTDEE(dataPoints []AdaptiveDataPoint) *AdaptiveTDEEResult {
 	}
 	adaptiveTDEE := weightedSum / totalWeight
 
-	// Calculate confidence based on:
-	// 1. Number of data points (more = higher confidence)
-	// 2. Consistency of weekly estimates (lower variance = higher confidence)
-	dataPointConfidence := math.Min(float64(len(dataPoints))/float64(MaxDataPointsForAdaptive), 1.0)
-
-	// Calculate variance in estimates
-	var sumSquaredDiff float64
-	for _, tdee := range weeklyTDEEEstimates {
-		diff := tdee - adaptiveTDEE
-		sumSquaredDiff += diff * diff
-	}
-	variance := sumSquaredDiff / float64(len(weeklyTDEEEstimates))
-	stdDev := math.Sqrt(variance)
-
-	// Lower coefficient of variation = higher consistency confidence
-	// CV > 0.15 (15%) reduces confidence
-	cv := stdDev / adaptiveTDEE
-	consistencyConfidence := math.Max(0, 1.0-(cv/0.15))
-
-	// Combined confidence (geometric mean of factors)
-	confidence := math.Sqrt(dataPointConfidence * consistencyConfidence)
-	if adherenceSamples > 0 {
-		avgAdherenceError := adherenceErrorSum / float64(adherenceSamples)
-		confidence *= 1 - adherencePenalty(avgAdherenceError)
-	}
-	confidence = math.Round(confidence*100) / 100 // Round to 2 decimal places
+	// Calculate confidence from data quality, consistency, and adherence
+	confidence := calculateAdaptiveConfidence(len(dataPoints), weeklyTDEEEstimates, adaptiveTDEE, adherenceErrorSum, adherenceSamples)
 
 	return &AdaptiveTDEEResult{
 		TDEE:           math.Round(adaptiveTDEE),

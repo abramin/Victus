@@ -222,3 +222,51 @@ func MaxSessionLoadScore(sessions []TrainingSession) float64 {
 	}
 	return maxLoad
 }
+
+// SessionPatternData contains session information for a single day.
+// Used for recovery calculations without store dependency.
+type SessionPatternData struct {
+	Date            string
+	PlannedSessions []TrainingSession
+	ActualSessions  []TrainingSession
+}
+
+// SessionPatternResult contains the analysis of session patterns for recovery calculation.
+type SessionPatternResult struct {
+	RestDays         int
+	YesterdayMaxLoad float64
+}
+
+// AnalyzeSessionPattern analyzes training session patterns to determine rest days
+// and yesterday's max load score. Uses ActualSessions if available, falls back to PlannedSessions.
+func AnalyzeSessionPattern(sessionsData []SessionPatternData, yesterdayDate string) SessionPatternResult {
+	var result SessionPatternResult
+
+	for _, sd := range sessionsData {
+		// Prefer actual sessions over planned sessions
+		sessions := sd.ActualSessions
+		if len(sessions) == 0 {
+			sessions = sd.PlannedSessions
+		}
+
+		// Check if it's a rest day (no sessions or all sessions are rest type)
+		isRestDay := true
+		for _, sess := range sessions {
+			if sess.Type != TrainingTypeRest {
+				isRestDay = false
+				break
+			}
+		}
+
+		if isRestDay || len(sessions) == 0 {
+			result.RestDays++
+		}
+
+		// Check if this is yesterday to get max load score
+		if sd.Date == yesterdayDate {
+			result.YesterdayMaxLoad = MaxSessionLoadScore(sessions)
+		}
+	}
+
+	return result
+}
