@@ -141,8 +141,8 @@ export function FoodLibrary({
 
   return (
     <Panel title="Food Library" className={`flex flex-col h-full ${className}`}>
-      {/* Portion Plate Visualizer (Sticky Header) - Shows on hover or click */}
-      <div className="mb-4 border-b border-gray-800 pb-4">
+      {/* Portion Plate Visualizer (Sticky Header) - Fixed height prevents layout shift on hover */}
+      <div className="mb-4 border-b border-gray-800 pb-4 h-[300px]">
         <PortionPlateVisualizer
           plateMultiplier={displayFood?.plateMultiplier ?? 0}
           foodName={displayFood?.foodItem ?? ''}

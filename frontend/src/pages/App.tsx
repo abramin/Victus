@@ -85,6 +85,7 @@ function App() {
               <DailyUpdateForm
                 onSubmit={create}
                 onReplace={replace}
+                onUpdateActual={updateActual}
                 saving={logSaving}
                 error={logSaveError}
                 profile={profile}

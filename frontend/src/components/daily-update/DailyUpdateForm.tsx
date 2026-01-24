@@ -14,7 +14,6 @@ import { DayTypeSelector } from './DayTypeSelector';
 import { DeficitMonitor, DailyMissionCard, TrainingLogCard } from '../saved-view';
 import { getTrainingConfigs } from '../../api/client';
 import {
-  DAY_TYPE_OPTIONS,
   DAY_TYPE_BADGE,
   WEIGHT_MIN_KG,
   WEIGHT_MAX_KG,
@@ -31,6 +30,7 @@ import { calculateProvisionalTargets } from '../../utils/calculateProvisionalTar
 interface DailyUpdateFormProps {
   onSubmit: (log: CreateDailyLogRequest) => Promise<DailyLog | null>;
   onReplace: (log: CreateDailyLogRequest) => Promise<DailyLog | null>;
+  onUpdateActual?: (sessions: Omit<ActualTrainingSession, 'sessionOrder'>[]) => Promise<DailyLog | null>;
   saving: boolean;
   error: string | null;
   profile: UserProfile;
@@ -61,6 +61,7 @@ const buildFormDataFromLog = (log: DailyLog): CreateDailyLogRequest => ({
 export function DailyUpdateForm({
   onSubmit,
   onReplace,
+  onUpdateActual,
   saving,
   error,
   profile,
@@ -232,12 +233,49 @@ export function DailyUpdateForm({
     setFormData((prev) => ({ ...prev, ...updates }));
   };
 
+  // Handle toggling a training session as complete/incomplete
+  const handleToggleSession = useCallback(
+    (session: TrainingSession, completed: boolean) => {
+      if (!onUpdateActual || !log) return;
+
+      const currentActual = log.actualTrainingSessions ?? [];
+
+      if (completed) {
+        // Add this session to actual sessions
+        const newActual: Omit<ActualTrainingSession, 'sessionOrder'>[] = [
+          ...currentActual.map(({ sessionOrder, ...rest }) => rest),
+          { type: session.type, durationMin: session.durationMin },
+        ];
+        onUpdateActual(newActual);
+      } else {
+        // Remove this session from actual sessions
+        const newActual = currentActual
+          .filter(
+            (actual) =>
+              !(actual.type === session.type && actual.durationMin === session.durationMin)
+          )
+          .map(({ sessionOrder, ...rest }) => rest);
+        onUpdateActual(newActual);
+      }
+    },
+    [onUpdateActual, log]
+  );
+
+  // Calculate total points for DailyMissionCard
+  const totalPoints = useMemo(() => {
+    if (!adjustedMealTargets) return 0;
+    const { breakfast, lunch, dinner } = adjustedMealTargets;
+    return (
+      breakfast.carbs + breakfast.protein + breakfast.fats +
+      lunch.carbs + lunch.protein + lunch.fats +
+      dinner.carbs + dinner.protein + dinner.fats
+    );
+  }, [adjustedMealTargets]);
+
   const showForm = !log || isEditing;
-  const dayTypeDetail = log ? DAY_TYPE_OPTIONS.find((dt) => dt.value === log.dayType) : null;
   const summaryWeight = showForm ? formData.weightKg : log?.weightKg;
   const summarySleepQuality = showForm ? formData.sleepQuality : log?.sleepQuality;
   const summaryDayType = showForm ? formData.dayType : log?.dayType;
-  const summarySessions = showForm ? formData.plannedTrainingSessions : log?.plannedTrainingSessions ?? [];
 
   return (
     <div className="p-6" data-testid="daily-update-form">
@@ -441,58 +479,54 @@ export function DailyUpdateForm({
           </div>
         </form>
       ) : (
-        <>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Left Column - Compact Summary */}
-          <div className="space-y-4">
-            {/* Compact Check-in Summary */}
-            <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-white font-medium text-sm">Check-in</h3>
-                <div className="flex items-center gap-3 text-sm">
-                  <span className="text-white font-medium">{log?.weightKg ? `${log.weightKg} kg` : '--'}</span>
-                  <span className="text-gray-500">|</span>
-                  <span className="text-slate-200">Sleep {log?.sleepQuality}/100</span>
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-200">
-                {log?.bodyFatPercent && <span>Body Fat: {log.bodyFatPercent}%</span>}
-                {log?.restingHeartRate && <span>HR: {log.restingHeartRate} bpm</span>}
-                {log?.sleepHours && <span>Slept: {log.sleepHours}h</span>}
-              </div>
-            </div>
-
-            {/* Compact Training Summary */}
-            <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-white font-medium text-sm">Training</h3>
-                <span className={`px-2.5 py-1 rounded-full text-[11px] font-medium border ${
-                  summaryDayType === 'performance' ? 'bg-blue-900/40 text-blue-300 border-blue-800' :
-                  summaryDayType === 'fatburner' ? 'bg-orange-900/40 text-orange-300 border-orange-800' :
-                  'bg-emerald-900/40 text-emerald-300 border-emerald-800'
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+          {/* Left Column (60%) - Status Feed */}
+          <div className="lg:col-span-3 space-y-4">
+            {/* Morning Check-in Card with Day Type Badge */}
+            <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-white font-medium">Check-in</h3>
+                {/* Day Type Badge - Hero Element */}
+                <span className={`px-3 py-1.5 rounded-full text-sm font-medium border ${
+                  DAY_TYPE_BADGE[summaryDayType ?? 'fatburner'].className
                 }`}>
-                  {dayTypeDetail?.label ?? '--'}
+                  {DAY_TYPE_BADGE[summaryDayType ?? 'fatburner'].label}
                 </span>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {summarySessions.length === 0 || summarySessions.every(s => s.type === 'rest') ? (
-                  <span className="text-sm text-slate-200">Rest day</span>
-                ) : (
-                  summarySessions
-                    .filter(s => s.type !== 'rest')
-                    .map((session, index) => (
-                      <span
-                        key={`${session.type}-${index}`}
-                        className="px-2 py-1 bg-gray-800/50 rounded text-xs text-slate-200"
-                      >
-                        {TRAINING_LABELS[session.type]} {session.durationMin}m
-                      </span>
-                    ))
-                )}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <span className="text-gray-400 text-xs block mb-1">Weight</span>
+                  <span className="text-xl font-semibold text-white">
+                    {log?.weightKg ? `${log.weightKg} kg` : '--'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-400 text-xs block mb-1">Sleep Quality</span>
+                  <span className="text-xl font-semibold text-white">
+                    {log?.sleepQuality}/100
+                  </span>
+                </div>
               </div>
+              {(log?.bodyFatPercent || log?.restingHeartRate || log?.sleepHours) && (
+                <div className="flex flex-wrap gap-x-4 gap-y-1 mt-4 pt-4 border-t border-gray-800 text-sm text-gray-400">
+                  {log?.bodyFatPercent && <span>Body Fat: {log.bodyFatPercent}%</span>}
+                  {log?.restingHeartRate && <span>HR: {log.restingHeartRate} bpm</span>}
+                  {log?.sleepHours && <span>Slept: {log.sleepHours}h</span>}
+                </div>
+              )}
             </div>
 
-            {/* Deficit Monitor - Activity & Burn Tracking */}
+            {/* Training Log Card with Completion Checkboxes */}
+            {log && (
+              <TrainingLogCard
+                plannedSessions={log.plannedTrainingSessions}
+                actualSessions={log.actualTrainingSessions}
+                onToggleSession={handleToggleSession}
+                saving={saving}
+              />
+            )}
+
+            {/* Activity & Deficit Monitor - Enhanced */}
             {log && targets && (
               <DeficitMonitor
                 plannedSessions={log.plannedTrainingSessions}
@@ -510,45 +544,24 @@ export function DailyUpdateForm({
             )}
           </div>
 
-          {/* Right Column - Day Targets (Hero) + Kitchen Cheat Sheet */}
-          <div className="space-y-4">
-            {targets ? (
-              <DayTargetsPanel
-                title="Day Targets"
-                dateLabel={targetDateLabel}
-                dayType={targets.dayType}
-                mealTargets={adjustedMealTargets ?? targets.meals}
-                mealRatios={profile.mealRatios}
-                totalFruitG={targets.fruitG}
-                totalVeggiesG={targets.veggiesG}
-                waterL={targets.waterL}
-                helperText="Adjusted to your current meal distribution."
+          {/* Right Column (40%) - Daily Mission */}
+          <div className="lg:col-span-2">
+            {log && targets ? (
+              <DailyMissionCard
+                targets={targets}
+                totalPoints={totalPoints}
+                date={log.date}
               />
             ) : (
               <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
-                <h3 className="text-white font-medium mb-2">Day Targets</h3>
+                <h3 className="text-white font-medium mb-2">Today's Fuel</h3>
                 <p className="text-sm text-gray-400">
-                  No targets available.
+                  Complete your check-in to see your nutrition targets.
                 </p>
               </div>
             )}
-
-            {/* Kitchen Cheat Sheet - Food Reference */}
-            {targets && (
-              <KitchenCheatSheet
-                mealTargets={adjustedMealTargets ?? targets.meals}
-              />
-            )}
           </div>
         </div>
-
-          {/* Weekly Context Strip - Full Width */}
-          {log && (
-            <div className="mt-6">
-              <WeeklyContextStrip currentDate={log.date} />
-            </div>
-          )}
-        </>
       )}
     </div>
   );
