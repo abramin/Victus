@@ -149,15 +149,21 @@ export function CalendarDayCell({
   };
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={isDisabled}
+    <div
+      onClick={isDisabled ? undefined : onClick}
       className={cellClasses}
       onDragOver={handleDragOver}
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
+      role="button"
+      tabIndex={isDisabled ? -1 : 0}
+      onKeyDown={(e) => {
+        if (!isDisabled && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault();
+          onClick();
+        }
+      }}
     >
       {/* Row 1: Day Number + Adherence + Mini Donut */}
       <div className="flex items-center justify-between mb-2">
@@ -228,7 +234,7 @@ export function CalendarDayCell({
           <span className="text-xs text-gray-600">--</span>
         </div>
       )}
-    </button>
+    </div>
   );
 }
 
