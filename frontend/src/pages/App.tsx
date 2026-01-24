@@ -99,16 +99,14 @@ function App() {
       )}
 
       {currentNav === 'profile' && (
-        <div className="p-6 max-w-2xl">
+        <div className="p-6 max-w-6xl mx-auto">
           <h1 className="text-2xl font-semibold text-white mb-6">Profile Settings</h1>
-          <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
-            <ProfileForm
-              initialProfile={profile}
-              onSave={save}
-              saving={profileSaving}
-              error={saveError}
-            />
-          </div>
+          <ProfileForm
+            initialProfile={profile}
+            onSave={save}
+            saving={profileSaving}
+            error={saveError}
+          />
         </div>
       )}
     </AppLayout>

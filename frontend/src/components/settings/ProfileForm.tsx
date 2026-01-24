@@ -264,286 +264,295 @@ export function ProfileForm({ initialProfile, onSave, saving, error }: ProfileFo
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6" data-testid="profile-form">
-      {/* Biometrics Section */}
-      <Card title="Biometrics">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <NumberInput
-            label="Height"
-            value={profile.height_cm}
-            onChange={(v) => updateProfile({ height_cm: v })}
-            min={100}
-            max={250}
-            unit="cm"
-            error={validationErrors.height}
-            required
-            testId="height-input"
-          />
-
-          <div className="space-y-1">
-            <label className="block text-sm font-medium text-slate-300">
-              Birth Date <span className="text-red-400 ml-1">*</span>
-            </label>
-            <input
-              type="date"
-              value={profile.birthDate.split('T')[0]}
-              onChange={(e) => updateProfile({ birthDate: e.target.value })}
-              data-testid="birthDate-input"
-              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-md text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            {validationErrors.birthDate && (
-              <p className="text-sm text-red-400" data-testid="birthDate-error">{validationErrors.birthDate}</p>
-            )}
-          </div>
-
-          <Select
-            label="Sex"
-            value={profile.sex}
-            onChange={(v) => updateProfile({ sex: v as Sex })}
-            options={SEX_OPTIONS}
-            error={validationErrors.sex}
-            required
-            testId="sex-select"
-          />
-        </div>
-      </Card>
-
-      {/* Goals Section */}
-      <Card title="Goals">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Select
-            label="Goal"
-            value={profile.goal}
-            onChange={(v) => updateProfile({ goal: v as Goal })}
-            options={GOAL_OPTIONS}
-            error={validationErrors.goal}
-            required
-            testId="goal-select"
-          />
-
-          <NumberInput
-            label="Current Weight"
-            value={profile.currentWeightKg || 0}
-            onChange={(v) => updateProfile({ currentWeightKg: v })}
-            min={30}
-            max={300}
-            step={0.1}
-            unit="kg"
-            error={validationErrors.currentWeight}
-            required
-            testId="currentWeight-input"
-          />
-
-          <NumberInput
-            label="Target Weight"
-            value={profile.targetWeightKg}
-            onChange={(v) => updateProfile({ targetWeightKg: v })}
-            min={30}
-            max={300}
-            step={0.1}
-            unit="kg"
-            error={validationErrors.targetWeight}
-            required
-            testId="targetWeight-input"
-          />
-
-          <NumberInput
-            label="Timeframe"
-            value={profile.timeframeWeeks || 0}
-            onChange={(v) => updateProfile({ timeframeWeeks: v })}
-            min={1}
-            max={520}
-            step={1}
-            unit="weeks"
-            error={validationErrors.timeframe}
-            testId="timeframe-input"
-          />
-        </div>
-
-        {/* Derived/Manual Weekly Change */}
-        <div className="mt-4 pt-4 border-t border-slate-700">
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-sm font-medium text-slate-300">Weekly Change</label>
-            <label className="flex items-center gap-2 text-sm text-slate-400">
-              <input
-                type="checkbox"
-                checked={useManualWeeklyChange}
-                onChange={(e) => setUseManualWeeklyChange(e.target.checked)}
-                className="rounded border-slate-600 bg-slate-800 text-blue-500 focus:ring-blue-500"
+      {/* Two-column responsive grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Left Column: Body & Goals */}
+        <div className="space-y-6">
+          {/* Biometrics Section */}
+          <Card title="Biometrics">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <NumberInput
+                label="Height"
+                value={profile.height_cm}
+                onChange={(v) => updateProfile({ height_cm: v })}
+                min={100}
+                max={250}
+                unit="cm"
+                error={validationErrors.height}
+                required
+                testId="height-input"
               />
-              Manual override
-            </label>
-          </div>
 
-          {!useManualWeeklyChange && derivedWeeklyChange !== 0 && (
-            <div className="mb-2 text-sm text-slate-400">
-              Calculated: {derivedWeeklyChange > 0 ? '+' : ''}
-              {derivedWeeklyChange.toFixed(2)} kg/week
+              <div className="space-y-1">
+                <label className="block text-sm font-medium text-slate-300">
+                  Birth Date <span className="text-red-400 ml-1">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={profile.birthDate.split('T')[0]}
+                  onChange={(e) => updateProfile({ birthDate: e.target.value })}
+                  data-testid="birthDate-input"
+                  className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-md text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                {validationErrors.birthDate && (
+                  <p className="text-sm text-red-400" data-testid="birthDate-error">{validationErrors.birthDate}</p>
+                )}
+              </div>
+
+              <Select
+                label="Sex"
+                value={profile.sex}
+                onChange={(v) => updateProfile({ sex: v as Sex })}
+                options={SEX_OPTIONS}
+                error={validationErrors.sex}
+                required
+                testId="sex-select"
+              />
             </div>
-          )}
+          </Card>
 
-          <NumberInput
-            label=""
-            value={profile.targetWeeklyChangeKg}
-            onChange={(v) => {
-              setUseManualWeeklyChange(true);
-              updateProfile({ targetWeeklyChangeKg: v });
-            }}
-            min={-2}
-            max={2}
-            step={0.5}
-            unit="kg/week"
-            error={validationErrors.weeklyChange}
-            testId="weeklyChange-input"
-          />
-        </div>
+          {/* Goals Section */}
+          <Card title="Goals">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Select
+                label="Goal"
+                value={profile.goal}
+                onChange={(v) => updateProfile({ goal: v as Goal })}
+                options={GOAL_OPTIONS}
+                error={validationErrors.goal}
+                required
+                testId="goal-select"
+              />
 
-        {/* Aggressive Goal Warning */}
-        {aggressiveGoalWarning && (
-          <div className="mt-4 p-3 bg-amber-900/50 border border-amber-700 rounded-md" data-testid="aggressive-goal-warning">
-            <p className="text-sm text-amber-300">{aggressiveGoalWarning}</p>
-          </div>
-        )}
-      </Card>
+              <NumberInput
+                label="Current Weight"
+                value={profile.currentWeightKg || 0}
+                onChange={(v) => updateProfile({ currentWeightKg: v })}
+                min={30}
+                max={300}
+                step={0.1}
+                unit="kg"
+                error={validationErrors.currentWeight}
+                required
+                testId="currentWeight-input"
+              />
 
-      {/* Macro Ratios Section */}
-      <Card>
-        <MacroGramsInput
-          carbRatio={profile.carbRatio}
-          proteinRatio={profile.proteinRatio}
-          fatRatio={profile.fatRatio}
-          onChange={(carb, protein, fat) =>
-            updateProfile({ carbRatio: carb, proteinRatio: protein, fatRatio: fat })
-          }
-          error={validationErrors.macroRatios}
-          estimatedCalories={estimatedCalories}
-          weightKg={profile.currentWeightKg || profile.targetWeightKg}
-        />
-      </Card>
+              <NumberInput
+                label="Target Weight"
+                value={profile.targetWeightKg}
+                onChange={(v) => updateProfile({ targetWeightKg: v })}
+                min={30}
+                max={300}
+                step={0.1}
+                unit="kg"
+                error={validationErrors.targetWeight}
+                required
+                testId="targetWeight-input"
+              />
 
-      {/* Meal Ratios Section */}
-      <Card>
-        <MealRatiosInput
-          breakfast={profile.mealRatios.breakfast}
-          lunch={profile.mealRatios.lunch}
-          dinner={profile.mealRatios.dinner}
-          onChange={(b, l, d) => updateProfile({ mealRatios: { breakfast: b, lunch: l, dinner: d } })}
-          error={validationErrors.mealRatios}
-        />
-      </Card>
+              <NumberInput
+                label="Timeframe"
+                value={profile.timeframeWeeks || 0}
+                onChange={(v) => updateProfile({ timeframeWeeks: v })}
+                min={1}
+                max={520}
+                step={1}
+                unit="weeks"
+                error={validationErrors.timeframe}
+                testId="timeframe-input"
+              />
+            </div>
 
-      {/* Fruit/Veggie Targets */}
-      <Card title="Daily Targets">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <NumberInput
-            label="Fruit Target"
-            value={profile.fruitTargetG}
-            onChange={(v) => updateProfile({ fruitTargetG: v })}
-            min={0}
-            max={2000}
-            step={50}
-            unit="g"
-          />
+            {/* Derived/Manual Weekly Change */}
+            <div className="mt-4 pt-4 border-t border-slate-700">
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-medium text-slate-300">Weekly Change</label>
+                <label className="flex items-center gap-2 text-sm text-slate-400">
+                  <input
+                    type="checkbox"
+                    checked={useManualWeeklyChange}
+                    onChange={(e) => setUseManualWeeklyChange(e.target.checked)}
+                    className="rounded border-slate-600 bg-slate-800 text-blue-500 focus:ring-blue-500"
+                  />
+                  Manual override
+                </label>
+              </div>
 
-          <NumberInput
-            label="Vegetable Target"
-            value={profile.veggieTargetG}
-            onChange={(v) => updateProfile({ veggieTargetG: v })}
-            min={0}
-            max={2000}
-            step={50}
-            unit="g"
-          />
-        </div>
-      </Card>
+              {!useManualWeeklyChange && derivedWeeklyChange !== 0 && (
+                <div className="mb-2 text-sm text-slate-400">
+                  Calculated: {derivedWeeklyChange > 0 ? '+' : ''}
+                  {derivedWeeklyChange.toFixed(2)} kg/week
+                </div>
+              )}
 
-      {/* TDEE Configuration Section */}
-      <Card title="TDEE Configuration">
-        <p className="text-sm text-slate-400 mb-4">
-          Configure how your Total Daily Energy Expenditure (TDEE) is calculated. This affects your daily calorie targets.
-        </p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Select
-            label="BMR Equation"
-            value={profile.bmrEquation || 'mifflin_st_jeor'}
-            onChange={(v) => updateProfile({ bmrEquation: v as BMREquation })}
-            options={BMR_EQUATION_OPTIONS}
-            testId="bmrEquation-select"
-          />
+              <NumberInput
+                label=""
+                value={profile.targetWeeklyChangeKg}
+                onChange={(v) => {
+                  setUseManualWeeklyChange(true);
+                  updateProfile({ targetWeeklyChangeKg: v });
+                }}
+                min={-2}
+                max={2}
+                step={0.5}
+                unit="kg/week"
+                error={validationErrors.weeklyChange}
+                testId="weeklyChange-input"
+              />
+            </div>
 
-          {/* Body Fat % - Only shown when Katch-McArdle is selected */}
-          {profile.bmrEquation === 'katch_mcardle' && (
-            <NumberInput
-              label="Body Fat %"
-              value={profile.bodyFatPercent || 0}
-              onChange={(v) => updateProfile({ bodyFatPercent: v })}
-              min={3}
-              max={70}
-              step={0.5}
-              unit="%"
-              error={validationErrors.bodyFatPercent}
-              testId="bodyFat-input"
-            />
-          )}
+            {/* Aggressive Goal Warning */}
+            {aggressiveGoalWarning && (
+              <div className="mt-4 p-3 bg-amber-900/50 border border-amber-700 rounded-md" data-testid="aggressive-goal-warning">
+                <p className="text-sm text-amber-300">{aggressiveGoalWarning}</p>
+              </div>
+            )}
+          </Card>
 
-          <Select
-            label="TDEE Source"
-            value={profile.tdeeSource || 'formula'}
-            onChange={(v) => updateProfile({ tdeeSource: v as TDEESource })}
-            options={TDEE_SOURCE_OPTIONS}
-            testId="tdeeSource-select"
-          />
-
-          {/* Manual TDEE - Only shown when Manual is selected */}
-          {profile.tdeeSource === 'manual' && (
-            <NumberInput
-              label="Manual TDEE"
-              value={profile.manualTDEE || 0}
-              onChange={(v) => updateProfile({ manualTDEE: v })}
-              min={1000}
-              max={6000}
-              step={50}
-              unit="kcal"
-              error={validationErrors.manualTDEE}
-              testId="manualTDEE-input"
-            />
-          )}
-        </div>
-
-        {/* TDEE Source Help Text */}
-        {profile.tdeeSource === 'formula' && (
-          <p className="mt-3 text-sm text-slate-500">
-            Using BMR × activity factor + exercise calories. Good starting point for most users.
-          </p>
-        )}
-        {profile.tdeeSource === 'manual' && (
-          <p className="mt-3 text-sm text-slate-500">
-            Enter your known TDEE from a wearable device or previous measurement. Confidence: 80%.
-          </p>
-        )}
-        {profile.tdeeSource === 'adaptive' && (
-          <p className="mt-3 text-sm text-slate-500">
-            TDEE will be calculated from your weight trend and intake data. Requires 14+ days of logging for accurate results.
-          </p>
-        )}
-
-        {/* Katch-McArdle Warning */}
-        {profile.bmrEquation === 'katch_mcardle' && !profile.bodyFatPercent && (
-          <div className="mt-3 p-3 bg-amber-900/50 border border-amber-700 rounded-md">
-            <p className="text-sm text-amber-300">
-              Katch-McArdle requires body fat %. Without it, Mifflin-St Jeor will be used as fallback.
+          {/* TDEE Configuration Section */}
+          <Card title="TDEE Configuration">
+            <p className="text-sm text-slate-400 mb-4">
+              Configure how your Total Daily Energy Expenditure (TDEE) is calculated. This affects your daily calorie targets.
             </p>
-          </div>
-        )}
-      </Card>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Select
+                label="BMR Equation"
+                value={profile.bmrEquation || 'mifflin_st_jeor'}
+                onChange={(v) => updateProfile({ bmrEquation: v as BMREquation })}
+                options={BMR_EQUATION_OPTIONS}
+                testId="bmrEquation-select"
+              />
 
-      {/* Recalibration Settings Section */}
-      <Card>
-        <RecalibrationSettings
-          tolerance={profile.recalibrationTolerance || RECALIBRATION_TOLERANCE_DEFAULT}
-          onChange={(tolerance) => updateProfile({ recalibrationTolerance: tolerance })}
-          error={validationErrors.recalibrationTolerance}
-        />
-      </Card>
+              {/* Body Fat % - Only shown when Katch-McArdle is selected */}
+              {profile.bmrEquation === 'katch_mcardle' && (
+                <NumberInput
+                  label="Body Fat %"
+                  value={profile.bodyFatPercent || 0}
+                  onChange={(v) => updateProfile({ bodyFatPercent: v })}
+                  min={3}
+                  max={70}
+                  step={0.5}
+                  unit="%"
+                  error={validationErrors.bodyFatPercent}
+                  testId="bodyFat-input"
+                />
+              )}
+
+              <Select
+                label="TDEE Source"
+                value={profile.tdeeSource || 'formula'}
+                onChange={(v) => updateProfile({ tdeeSource: v as TDEESource })}
+                options={TDEE_SOURCE_OPTIONS}
+                testId="tdeeSource-select"
+              />
+
+              {/* Manual TDEE - Only shown when Manual is selected */}
+              {profile.tdeeSource === 'manual' && (
+                <NumberInput
+                  label="Manual TDEE"
+                  value={profile.manualTDEE || 0}
+                  onChange={(v) => updateProfile({ manualTDEE: v })}
+                  min={1000}
+                  max={6000}
+                  step={50}
+                  unit="kcal"
+                  error={validationErrors.manualTDEE}
+                  testId="manualTDEE-input"
+                />
+              )}
+            </div>
+
+            {/* TDEE Source Help Text */}
+            {profile.tdeeSource === 'formula' && (
+              <p className="mt-3 text-sm text-slate-500">
+                Using BMR × activity factor + exercise calories. Good starting point for most users.
+              </p>
+            )}
+            {profile.tdeeSource === 'manual' && (
+              <p className="mt-3 text-sm text-slate-500">
+                Enter your known TDEE from a wearable device or previous measurement. Confidence: 80%.
+              </p>
+            )}
+            {profile.tdeeSource === 'adaptive' && (
+              <p className="mt-3 text-sm text-slate-500">
+                TDEE will be calculated from your weight trend and intake data. Requires 14+ days of logging for accurate results.
+              </p>
+            )}
+
+            {/* Katch-McArdle Warning */}
+            {profile.bmrEquation === 'katch_mcardle' && !profile.bodyFatPercent && (
+              <div className="mt-3 p-3 bg-amber-900/50 border border-amber-700 rounded-md">
+                <p className="text-sm text-amber-300">
+                  Katch-McArdle requires body fat %. Without it, Mifflin-St Jeor will be used as fallback.
+                </p>
+              </div>
+            )}
+          </Card>
+        </div>
+
+        {/* Right Column: Nutrition */}
+        <div className="space-y-6">
+          {/* Macro Ratios Section */}
+          <Card>
+            <MacroGramsInput
+              carbRatio={profile.carbRatio}
+              proteinRatio={profile.proteinRatio}
+              fatRatio={profile.fatRatio}
+              onChange={(carb, protein, fat) =>
+                updateProfile({ carbRatio: carb, proteinRatio: protein, fatRatio: fat })
+              }
+              error={validationErrors.macroRatios}
+              estimatedCalories={estimatedCalories}
+              weightKg={profile.currentWeightKg || profile.targetWeightKg}
+            />
+          </Card>
+
+          {/* Meal Ratios Section */}
+          <Card>
+            <MealRatiosInput
+              breakfast={profile.mealRatios.breakfast}
+              lunch={profile.mealRatios.lunch}
+              dinner={profile.mealRatios.dinner}
+              onChange={(b, l, d) => updateProfile({ mealRatios: { breakfast: b, lunch: l, dinner: d } })}
+              error={validationErrors.mealRatios}
+            />
+          </Card>
+
+          {/* Fruit/Veggie Targets */}
+          <Card title="Daily Targets">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <NumberInput
+                label="Fruit Target"
+                value={profile.fruitTargetG}
+                onChange={(v) => updateProfile({ fruitTargetG: v })}
+                min={0}
+                max={2000}
+                step={50}
+                unit="g"
+              />
+
+              <NumberInput
+                label="Vegetable Target"
+                value={profile.veggieTargetG}
+                onChange={(v) => updateProfile({ veggieTargetG: v })}
+                min={0}
+                max={2000}
+                step={50}
+                unit="g"
+              />
+            </div>
+          </Card>
+
+          {/* Recalibration Settings Section */}
+          <Card>
+            <RecalibrationSettings
+              tolerance={profile.recalibrationTolerance || RECALIBRATION_TOLERANCE_DEFAULT}
+              onChange={(tolerance) => updateProfile({ recalibrationTolerance: tolerance })}
+              error={validationErrors.recalibrationTolerance}
+            />
+          </Card>
+        </div>
+      </div>
 
       {/* Error Display */}
       {error && (
