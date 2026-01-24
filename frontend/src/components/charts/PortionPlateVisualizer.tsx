@@ -6,6 +6,8 @@ interface PortionPlateVisualizerProps {
   plateMultiplier: number;
   /** Name of the selected food */
   foodName: string;
+  /** Target points for the selected meal (used to calculate grams) */
+  targetPoints?: number;
   /** Callback when close button is clicked */
   onClose?: () => void;
   /** Additional CSS classes */
@@ -26,11 +28,17 @@ const EMPTY_COLOR = '#374151'; // Gray for empty portion
 export function PortionPlateVisualizer({
   plateMultiplier,
   foodName,
+  targetPoints,
   onClose,
   className = '',
 }: PortionPlateVisualizerProps) {
   const isEmpty = !foodName || plateMultiplier <= 0;
   const portionDescription = getPortionDescription(plateMultiplier);
+
+  // Calculate serving grams from target points and plate multiplier
+  const servingGrams = targetPoints && plateMultiplier > 0
+    ? Math.round(targetPoints * plateMultiplier)
+    : null;
 
   // Data for the pie chart - filled portion vs empty
   const filledPercentage = Math.min(plateMultiplier * 100, 100);

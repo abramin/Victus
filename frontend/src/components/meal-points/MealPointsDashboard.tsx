@@ -371,33 +371,22 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
           onNavigate={navigateDate}
           contextText={contextText}
         />
-
-        {/* Day Type Strategy Selector */}
-        <DayTypeSelector
-          selectedDayType={selectedDayType}
-          onSelect={handleDayTypeSelect}
-        />
       </div>
 
       {/* Main Content Grid */}
       <div className={`grid grid-cols-12 gap-6 ${loadingLog ? 'opacity-50 pointer-events-none' : ''}`}>
-        {/* Meal Cards - Left Side */}
-        <div className="col-span-6 space-y-4">
-          {!mealData.hasData ? (
-            <div className="col-span-3 bg-gray-900 rounded-xl p-8 border border-gray-800 text-center">
-              {loadingLog && (
-                <div className="flex justify-center mb-4">
-                  <div className="w-8 h-8 border-4 border-gray-700 border-t-white rounded-full animate-spin" />
-                </div>
-              )}
-              <p className="text-gray-400 mb-4">
-                {emptyTitle}
-              </p>
-              <p className="text-gray-500 text-sm">
-                {emptySubtitle}
-              </p>
-            </div>
-          ) : (
+        {/* Left Side - Inputs (40% = col-span-5) */}
+        <div className="col-span-5 space-y-4">
+          {/* Day Type Selector - Vertical Radio Tiles */}
+          <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">
+            <DayTypeSelector
+              selectedDayType={selectedDayType}
+              onSelect={handleDayTypeSelect}
+            />
+          </div>
+
+          {/* Meal Selection */}
+          {mealData.hasData && (
             <div className="space-y-3">
               <MealCard
                 meal="Breakfast"
@@ -441,6 +430,22 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
             </div>
           )}
 
+          {!mealData.hasData && (
+            <div className="bg-gray-900 rounded-xl p-8 border border-gray-800 text-center">
+              {loadingLog && (
+                <div className="flex justify-center mb-4">
+                  <div className="w-8 h-8 border-4 border-gray-700 border-t-white rounded-full animate-spin" />
+                </div>
+              )}
+              <p className="text-gray-400 mb-4">
+                {emptyTitle}
+              </p>
+              <p className="text-gray-500 text-sm">
+                {emptySubtitle}
+              </p>
+            </div>
+          )}
+
           {/* Supplements Panel - Collapsible */}
           <div className="border border-gray-800 rounded-xl overflow-hidden">
             <button
@@ -481,8 +486,8 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
           </div>
         </div>
 
-        {/* Food Library - Right Side (Full Height) */}
-        <div className="col-span-6 flex flex-col min-h-[600px]">
+        {/* Right Side - Food Library (60% = col-span-7) */}
+        <div className="col-span-7 flex flex-col min-h-[600px]">
           <FoodLibrary
             targetPoints={mealData.hasData ? mealData[selectedMeal].protein + mealData[selectedMeal].carbs + mealData[selectedMeal].fats : 350}
             selectedMeal={selectedMeal}
