@@ -5,6 +5,12 @@ import type { TrainingSession, TrainingConfig } from '../../api/types';
 
 type ActivityStatus = 'on_track' | 'at_risk' | 'secured';
 
+const STATUS_DISPLAY: Record<ActivityStatus, { label: string; className: string }> = {
+  on_track: { label: 'On Track', className: 'text-emerald-400' },
+  at_risk: { label: 'Deficit at Risk', className: 'text-amber-400' },
+  secured: { label: 'Goal Secured', className: 'text-emerald-400' },
+};
+
 interface DeficitMonitorProps {
   plannedSessions: TrainingSession[];
   trainingConfigs: TrainingConfig[];
@@ -77,16 +83,19 @@ export function DeficitMonitor({
   // Rest day - no activity goal
   if (plannedBurn === 0) {
     return (
-      <Panel title="Activity & Deficit">
-        <div className="text-center py-2">
+      <Panel title="Activity & Deficit" padding="md">
+        <div className="text-center py-4">
           <p className="text-gray-400 text-sm">Rest day - no activity goal</p>
+          <p className="text-lg font-semibold text-emerald-400 mt-2">Recovery Day</p>
         </div>
       </Panel>
     );
   }
 
+  const statusDisplay = STATUS_DISPLAY[status];
+
   return (
-    <Panel title="Activity & Deficit">
+    <Panel title="Activity & Deficit" padding="md">
       {/* Enhanced Bullet Chart Visualization */}
       <BulletChart
         actual={actualBurn}
@@ -97,16 +106,23 @@ export function DeficitMonitor({
         animate={status === 'at_risk'}
       />
 
-      {/* Context Text */}
-      <div className="mt-3">
-        {status !== 'secured' && remaining > 0 && (
-          <p className="text-xs text-gray-500">
-            You need to burn <span className="text-gray-400">{remaining} more kcal</span> to "earn" full meals.
+      {/* Large Status Indicator */}
+      <div className="mt-4 pt-4 border-t border-gray-800">
+        <div className="flex items-center justify-between">
+          <p className={`text-lg font-semibold ${statusDisplay.className}`}>
+            {status === 'at_risk' && '⚠️ '}
+            {status === 'secured' && '✓ '}
+            {statusDisplay.label}
           </p>
-        )}
+          {status !== 'secured' && remaining > 0 && (
+            <p className="text-sm text-gray-400">
+              {remaining} kcal to go
+            </p>
+          )}
+        </div>
         {status === 'secured' && (
-          <p className="text-xs text-emerald-400/70">
-            Activity goal reached! Your {totalCalories.toLocaleString()} kcal target is fully earned.
+          <p className="text-xs text-gray-500 mt-1">
+            Your {totalCalories.toLocaleString()} kcal target is fully earned.
           </p>
         )}
       </div>

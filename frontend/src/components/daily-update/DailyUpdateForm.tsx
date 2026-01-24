@@ -1,20 +1,21 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import type {
   CreateDailyLogRequest,
   DailyLog,
   UserProfile,
   TrainingSession,
   TrainingConfig,
+  ActualTrainingSession,
 } from '../../api/types';
 import { DayTargetsPanel } from '../day-view';
 import { calculateMealTargets } from '../targets/mealTargets';
 import { MorningCheckinSection } from './MorningCheckinSection';
 import { DayTypeSelector } from './DayTypeSelector';
-import { DeficitMonitor, WeeklyContextStrip, KitchenCheatSheet } from '../saved-view';
+import { DeficitMonitor, DailyMissionCard, TrainingLogCard } from '../saved-view';
 import { getTrainingConfigs } from '../../api/client';
 import {
   DAY_TYPE_OPTIONS,
-  TRAINING_LABELS,
+  DAY_TYPE_BADGE,
   WEIGHT_MIN_KG,
   WEIGHT_MAX_KG,
   BODY_FAT_MIN_PERCENT,

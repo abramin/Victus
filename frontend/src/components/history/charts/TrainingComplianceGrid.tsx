@@ -37,6 +37,9 @@ const COMPLIANCE_LABELS: Record<ComplianceStatus, string> = {
 };
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const CELL_SIZE_PX = 32;
+const GRID_STYLE = { gridTemplateColumns: `repeat(7, ${CELL_SIZE_PX}px)` };
+const CELL_STYLE = { width: CELL_SIZE_PX, height: CELL_SIZE_PX };
 
 /**
  * Generate array of dates for the last N days, organized by week.
@@ -156,7 +159,7 @@ export function TrainingComplianceGrid({
       {/* Day labels */}
       <div className="flex">
         <div className="w-8" /> {/* Spacer for week column */}
-        <div className="flex-1 grid grid-cols-7 gap-1 text-xs text-slate-500">
+        <div className="grid gap-1 text-xs text-slate-500" style={GRID_STYLE}>
           {DAY_LABELS.map((day) => (
             <div key={day} className="text-center">
               {day}
@@ -177,12 +180,12 @@ export function TrainingComplianceGrid({
             </div>
 
             {/* Day cells */}
-            <div className="flex-1 grid grid-cols-7 gap-1">
+            <div className="grid gap-1" style={GRID_STYLE}>
               {DAY_LABELS.map((_, dayIndex) => {
                 const cell = week.find((c) => c.dayOfWeek === dayIndex);
                 if (!cell) {
                   // Empty cell for partial weeks
-                  return <div key={dayIndex} className="aspect-square" />;
+                  return <div key={dayIndex} className="rounded-sm" style={CELL_STYLE} />;
                 }
 
                 const isSelected = cell.date === selectedDate;
@@ -194,11 +197,12 @@ export function TrainingComplianceGrid({
                     onClick={() => cell.hasData && onSelectDate?.(cell.date)}
                     disabled={!cell.hasData || isFuture}
                     className={`
-                      aspect-square rounded-sm transition-all
+                      rounded-sm transition-all
                       ${isSelected ? 'ring-2 ring-white ring-offset-1 ring-offset-slate-900' : ''}
                       ${cell.hasData && !isFuture ? 'cursor-pointer hover:ring-1 hover:ring-slate-500' : 'cursor-default'}
                     `}
                     style={{
+                      ...CELL_STYLE,
                       backgroundColor: isFuture ? '#0f172a' : COMPLIANCE_COLORS[cell.status],
                       opacity: isFuture ? 0.3 : 1,
                     }}
