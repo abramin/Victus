@@ -53,7 +53,10 @@ export function Modal({ isOpen, onClose, title, children, className = '' }: Moda
         firstFocusable?.focus();
       });
     } else if (previousActiveElement.current) {
-      previousActiveElement.current.focus();
+      // Verify the element is still in the DOM before restoring focus
+      if (document.body.contains(previousActiveElement.current)) {
+        previousActiveElement.current.focus();
+      }
       previousActiveElement.current = null;
     }
   }, [isOpen]);

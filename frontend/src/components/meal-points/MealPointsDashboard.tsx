@@ -380,11 +380,16 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
       </div>
 
       {/* Main Content Grid */}
-      <div className="grid grid-cols-12 gap-6">
+      <div className={`grid grid-cols-12 gap-6 ${loadingLog ? 'opacity-50 pointer-events-none' : ''}`}>
         {/* Meal Cards - Left Side */}
         <div className="col-span-6 space-y-4">
           {!mealData.hasData ? (
             <div className="col-span-3 bg-gray-900 rounded-xl p-8 border border-gray-800 text-center">
+              {loadingLog && (
+                <div className="flex justify-center mb-4">
+                  <div className="w-8 h-8 border-4 border-gray-700 border-t-white rounded-full animate-spin" />
+                </div>
+              )}
               <p className="text-gray-400 mb-4">
                 {emptyTitle}
               </p>

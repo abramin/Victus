@@ -23,6 +23,12 @@ const TRAINING_OPTIONS = [
 
 const DEFAULT_RPE = 5;
 
+const getSessionLoadScore = (session: ActualTrainingSession) => {
+  if (session.type === 'rest') return 0;
+  const rpeValue = session.perceivedIntensity ?? DEFAULT_RPE;
+  return Math.round(session.durationMin * rpeValue);
+};
+
 const getTrainingLabel = (type: TrainingType) =>
   TRAINING_OPTIONS.find((option) => option.value === type)?.label ?? type;
 
@@ -33,6 +39,14 @@ const getLoadTone = (score: number) => {
   if (score <= 200) return { label: 'Moderate Stress', className: 'text-yellow-400' };
   if (score <= 300) return { label: 'High Stress', className: 'text-orange-400' };
   return { label: 'Max Stress', className: 'text-red-400' };
+};
+
+const getDailyLoadTone = (score: number) => {
+  if (score <= 0) return { label: 'Rest Day', className: 'text-gray-400' };
+  if (score <= 150) return { label: 'Light Day', className: 'text-emerald-300' };
+  if (score <= 300) return { label: 'Moderate Day', className: 'text-yellow-300' };
+  if (score <= 450) return { label: 'Hard Day', className: 'text-orange-300' };
+  return { label: 'Max Day', className: 'text-red-400' };
 };
 
 const EVENING_START_HOUR = 18;
@@ -80,6 +94,8 @@ export function LogWorkoutView({ log, onUpdateActual, saving }: LogWorkoutViewPr
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const [isWorkoutExpanded, setIsWorkoutExpanded] = useState(() => isAfterEvening(new Date()));
+  const [isDetailsCollapsed, setIsDetailsCollapsed] = useState(false);
+  const [notesExpanded, setNotesExpanded] = useState<Record<string, boolean>>({});
   const idCounterRef = useRef(0);
 
   const generateId = useCallback(() => {
@@ -120,6 +136,17 @@ export function LogWorkoutView({ log, onUpdateActual, saving }: LogWorkoutViewPr
       setIsWorkoutExpanded(true);
     }
   }, [now]);
+
+  useEffect(() => {
+    setNotesExpanded((prev) => {
+      const next: Record<string, boolean> = {};
+      sessions.forEach((session) => {
+        const hasNotes = (session.notes ?? '').trim().length > 0;
+        next[session._id] = prev[session._id] ?? hasNotes;
+      });
+      return next;
+    });
+  }, [sessions]);
 
   const updateSession = useCallback((id: string, updates: Partial<ActualTrainingSession>) => {
     setSessions((prev) =>
@@ -194,14 +221,31 @@ export function LogWorkoutView({ log, onUpdateActual, saving }: LogWorkoutViewPr
   };
 
   const hasActiveSessions = sessions.some((session) => session.type !== 'rest');
+  const sessionCount = sessions.length;
+  const totalDurationMin = sessions.reduce((sum, session) => sum + session.durationMin, 0);
   const actualSessionCount = log?.actualTrainingSessions?.length ?? 0;
   const actualDurationTotal =
     log?.actualTrainingSessions?.reduce((sum, session) => sum + session.durationMin, 0) ?? 0;
+  const loggedSessionCount = sessionCount || actualSessionCount;
+  const loggedDurationMin = totalDurationMin || actualDurationTotal;
   const hasActualTraining = actualSessionCount > 0;
+  const adherence = log
+    ? getTrainingAdherence(log.plannedTrainingSessions, log.actualTrainingSessions)
+    : null;
+  const loadSource = sessionCount > 0 ? sessions : log?.actualTrainingSessions ?? [];
+  const totalLoadScore = loadSource.reduce((sum, session) => sum + getSessionLoadScore(session), 0);
+  const totalLoadTone = getDailyLoadTone(totalLoadScore);
   const isEvening = isAfterEvening(now);
   const shouldShowWorkoutDetails = isEvening || isWorkoutExpanded || hasActualTraining;
-  const adherence = log ? getTrainingAdherence(log.plannedTrainingSessions, log.actualTrainingSessions) : null;
-  const loadScore = log ? Math.round(log.trainingSummary.totalLoadScore) : 0;
+  const shouldCollapseDetails = hasActualTraining && Boolean(adherence?.isExact);
+
+  useEffect(() => {
+    if (!log) {
+      setIsDetailsCollapsed(false);
+      return;
+    }
+    setIsDetailsCollapsed(shouldCollapseDetails);
+  }, [log, shouldCollapseDetails]);
 
   const todayLabel = now.toLocaleDateString('en-US', {
     weekday: 'long',
@@ -304,12 +348,27 @@ export function LogWorkoutView({ log, onUpdateActual, saving }: LogWorkoutViewPr
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                     <span>Training Logged: {adherence?.label ?? 'Logged'}</span>
-                    <span className="text-emerald-200/70">Load: {loadScore}</span>
+                    <span className={`text-xs font-semibold ${totalLoadTone.className}`}>
+                      Load: {totalLoadScore} ({totalLoadTone.label})
+                    </span>
                   </div>
                   <p className="text-xs text-emerald-200/70 mt-1">
-                    Logged: {actualSessionCount} session{actualSessionCount !== 1 ? 's' : ''}, {actualDurationTotal} min
+                    Logged: {loggedSessionCount} session{loggedSessionCount !== 1 ? 's' : ''}, {loggedDurationMin} min
                   </p>
                 </div>
+                {isDetailsCollapsed && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsDetailsCollapsed(false);
+                      setMode('detail');
+                    }}
+                    className="text-xs text-emerald-100/80 hover:text-white border border-emerald-800/60 px-3 py-1.5 rounded-full transition-colors"
+                    disabled={saving}
+                  >
+                    Edit Details
+                  </button>
+                )}
               </div>
             ) : (
               <div className="flex items-center justify-between">
@@ -356,209 +415,284 @@ export function LogWorkoutView({ log, onUpdateActual, saving }: LogWorkoutViewPr
             </div>
           </div>
 
-          {/* Quick Mode Banner */}
-          {isQuickMode && (
-            <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-4 mb-6">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-sm text-white font-medium">Quick mode: All sessions marked complete</p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Set one intensity for today. Switch to detail mode to edit individual sessions.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setMode('detail')}
-                  className="text-xs text-gray-400 hover:text-white whitespace-nowrap"
-                  disabled={saving}
-                >
-                  Edit details
-                </button>
+          {isDetailsCollapsed ? (
+            <div className="bg-gray-900/50 rounded-xl p-4 border border-gray-800 mb-6">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-medium text-gray-400">Logged Sessions</h3>
+                <span className="text-xs text-gray-500">{loggedDurationMin} min total</span>
               </div>
-              {hasActiveSessions && (
-                <div className="mt-4">
-                  <IntensitySelector
-                    value={globalRpe}
-                    onChange={handleGlobalRpeChange}
-                    disabled={saving}
-                    allowClear={false}
-                  />
-                  <p className="text-xs text-gray-500 mt-2">Applies to all non-rest sessions.</p>
-                </div>
-              )}
+              <div className="space-y-2">
+                {sessions.length === 0 ? (
+                  <span className="text-sm text-gray-500">No sessions logged.</span>
+                ) : (
+                  sessions.map((session, index) => {
+                    const rpeValue =
+                      session.type === 'rest'
+                        ? DEFAULT_RPE
+                        : session.perceivedIntensity ?? DEFAULT_RPE;
+                    const loadScore = getSessionLoadScore(session);
+                    const loadTone = getLoadTone(loadScore);
+                    const trainingLabel = getTrainingLabel(session.type);
+
+                    return (
+                      <div
+                        key={`summary-${session._id}`}
+                        className="flex flex-wrap items-center justify-between gap-2 text-sm"
+                      >
+                        <div className="flex flex-wrap items-center gap-2 text-gray-200">
+                          <span className="text-xs text-gray-500">Session {index + 1}</span>
+                          <span className="font-medium">{trainingLabel}</span>
+                          {session.type !== 'rest' && (
+                            <>
+                              <span className="text-gray-500">•</span>
+                              <span className="text-gray-400">{session.durationMin} min</span>
+                              <span className="text-gray-500">•</span>
+                              <span className="text-gray-400">RPE {rpeValue}</span>
+                            </>
+                          )}
+                        </div>
+                        {session.type !== 'rest' && (
+                          <span className={`text-xs ${loadTone.className}`}>Load {loadScore}</span>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             </div>
-          )}
-
-          {/* Sessions Summary */}
-          <div className="flex justify-between items-center mb-4">
-            <span className="text-gray-400 text-sm">
-              {sessions.filter((s) => s.type !== 'rest').length === 0
-                ? 'Rest day'
-                : `${sessions.length} session${sessions.length > 1 ? 's' : ''}, ${sessions.reduce(
-                    (sum, s) => sum + s.durationMin,
-                    0
-                  )} min total`}
-            </span>
-            {!isQuickMode && sessions.length < 10 && (
-              <button
-                type="button"
-                onClick={addSession}
-                className="text-sm text-white hover:text-gray-300 flex items-center gap-1"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                Add Session
-              </button>
-            )}
-          </div>
-
-          {/* Session List */}
-          <div className="space-y-4">
-            {sessions.map((session, index) => {
-              const rpeValue =
-                session.type === 'rest' ? DEFAULT_RPE : session.perceivedIntensity ?? DEFAULT_RPE;
-              const loadScore =
-                session.type === 'rest' ? 0 : Math.round(session.durationMin * rpeValue);
-              const loadTone = getLoadTone(loadScore);
-              const isEstimatedRpe = session.type !== 'rest' && session.perceivedIntensity === undefined;
-              const trainingLabel = getTrainingLabel(session.type);
-
-              return (
-                <div
-                  key={session._id}
-                  className="bg-gray-900 rounded-xl p-5 border border-gray-800 relative"
-                >
-                  {/* Delete button */}
-                  {!isQuickMode && sessions.length > 1 && (
+          ) : (
+            <>
+              {/* Quick Mode Banner */}
+              {isQuickMode && (
+                <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-4 mb-6">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-sm text-white font-medium">Quick mode: All sessions marked complete</p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Set one intensity for today. Switch to detail mode to edit individual sessions.
+                      </p>
+                    </div>
                     <button
                       type="button"
-                      onClick={() => removeSession(session._id)}
-                      className="absolute top-4 right-4 text-gray-500 hover:text-red-400 p-1"
-                      title="Remove session"
+                      onClick={() => setMode('detail')}
+                      className="text-xs text-gray-400 hover:text-white whitespace-nowrap"
+                      disabled={saving}
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
+                      Edit details
                     </button>
-                  )}
-
-                  {/* Session number */}
-                  <div className="text-xs text-gray-500 mb-3">Session {index + 1}</div>
-
-                  {/* Type and Duration */}
-                  <div className="grid grid-cols-2 gap-4 mb-4">
-                    <div>
-                      <label className="block text-sm text-gray-400 mb-2">Type</label>
-                      <select
-                        value={session.type}
-                        onChange={(e) => {
-                          const newType = e.target.value as TrainingType;
-                          updateSession(session._id, {
-                            type: newType,
-                            durationMin: newType === 'rest' ? 0 : session.durationMin || 30,
-                            perceivedIntensity:
-                              newType === 'rest'
-                                ? undefined
-                                : session.perceivedIntensity ?? (isQuickMode ? globalRpe : undefined),
-                          });
-                        }}
-                        disabled={isQuickMode}
-                        className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-white/20 appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                        style={{
-                          backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
-                          backgroundPosition: 'right 0.5rem center',
-                          backgroundRepeat: 'no-repeat',
-                          backgroundSize: '1.25em 1.25em',
-                        }}
-                      >
-                        {TRAINING_OPTIONS.map((opt) => (
-                          <option key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm text-gray-400 mb-2">Duration</label>
-                      <input
-                        type="number"
-                        value={session.type === 'rest' ? '' : session.durationMin}
-                        onChange={(e) =>
-                          updateSession(session._id, { durationMin: parseInt(e.target.value) || 0 })
-                        }
-                        disabled={isQuickMode || session.type === 'rest'}
-                        placeholder={session.type === 'rest' ? 'N/A' : 'min'}
-                        min={0}
-                        max={480}
-                        step={5}
-                        className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                  </div>
+                  {hasActiveSessions && (
+                    <div className="mt-4">
+                      <IntensitySelector
+                        value={globalRpe}
+                        onChange={handleGlobalRpeChange}
+                        disabled={saving}
+                        allowClear={false}
                       />
-                    </div>
-                  </div>
-
-                  {/* Intensity */}
-                  {session.type !== 'rest' && (
-                    <div className="mb-4">
-                      {isQuickMode ? (
-                        <p className="text-xs text-gray-400">Global RPE {globalRpe} applied.</p>
-                      ) : (
-                        <IntensitySelector
-                          value={session.perceivedIntensity}
-                          onChange={(val) => updateSession(session._id, { perceivedIntensity: val })}
-                          disabled={saving}
-                        />
-                      )}
-                      <div className="mt-2 text-xs text-gray-400">
-                        {trainingLabel} - {session.durationMin}m - RPE {rpeValue}
-                        {isEstimatedRpe && <span className="text-gray-500"> (default)</span>}
-                        <span className={`ml-2 ${loadTone.className}`}>
-                          Load: {loadScore} ({loadTone.label})
-                        </span>
-                      </div>
+                      <p className="text-xs text-gray-500 mt-2">Applies to all non-rest sessions.</p>
                     </div>
                   )}
-
-                  {/* Notes */}
-                  <div>
-                    <label className="block text-sm text-gray-400 mb-2">Notes</label>
-                    <textarea
-                      value={session.notes || ''}
-                      onChange={(e) => updateSession(session._id, { notes: e.target.value })}
-                      placeholder="How did it feel? Any observations..."
-                      rows={2}
-                      disabled={isQuickMode}
-                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/20 resize-none disabled:opacity-50 disabled:cursor-not-allowed"
-                    />
-                  </div>
                 </div>
-              );
-            })}
-          </div>
-
-          {/* Bottom Save Button */}
-          <div className="mt-6 flex justify-end">
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={saving || !hasUnsavedChanges}
-              className={`px-6 py-3 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center gap-2 ${
-                hasUnsavedChanges ? 'bg-white text-black hover:bg-gray-200' : 'bg-gray-700 text-gray-400'
-              }`}
-            >
-              {saving ? (
-                'Saving...'
-              ) : (
-                <>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  Save Workout
-                </>
               )}
-            </button>
-          </div>
+
+              {/* Sessions Summary */}
+              <div className="flex justify-between items-center mb-4">
+                <span className="text-gray-400 text-sm">
+                  {!hasActiveSessions
+                    ? 'Rest day'
+                    : `${sessionCount} session${sessionCount > 1 ? 's' : ''}, ${totalDurationMin} min total`}
+                </span>
+                {!isQuickMode && sessionCount < 10 && (
+                  <button
+                    type="button"
+                    onClick={addSession}
+                    className="text-sm text-white hover:text-gray-300 flex items-center gap-1"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    Add Session
+                  </button>
+                )}
+              </div>
+
+              {/* Session List */}
+              <div className="space-y-4">
+                {sessions.map((session, index) => {
+                  const rpeValue =
+                    session.type === 'rest' ? DEFAULT_RPE : session.perceivedIntensity ?? DEFAULT_RPE;
+                  const loadScore = getSessionLoadScore(session);
+                  const loadTone = getLoadTone(loadScore);
+                  const isEstimatedRpe =
+                    session.type !== 'rest' && session.perceivedIntensity === undefined;
+                  const trainingLabel = getTrainingLabel(session.type);
+                  const hasNotes = (session.notes ?? '').trim().length > 0;
+                  const isNotesVisible = notesExpanded[session._id] || hasNotes;
+
+                  return (
+                    <div
+                      key={session._id}
+                      className="bg-gray-900 rounded-xl p-4 border border-gray-800 relative"
+                    >
+                      {/* Delete button */}
+                      {!isQuickMode && sessions.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeSession(session._id)}
+                          className="absolute top-3 right-3 text-gray-500 hover:text-red-400 p-1"
+                          title="Remove session"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      )}
+
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="text-xs text-gray-500">Session {index + 1}</div>
+                          <div className="mt-1 flex flex-wrap items-center gap-2">
+                            {isQuickMode ? (
+                              <span className="text-sm font-medium text-gray-100">{trainingLabel}</span>
+                            ) : (
+                              <select
+                                value={session.type}
+                                onChange={(e) => {
+                                  const newType = e.target.value as TrainingType;
+                                  updateSession(session._id, {
+                                    type: newType,
+                                    durationMin: newType === 'rest' ? 0 : session.durationMin || 30,
+                                    perceivedIntensity:
+                                      newType === 'rest'
+                                        ? undefined
+                                        : session.perceivedIntensity ??
+                                          (isQuickMode ? globalRpe : undefined),
+                                  });
+                                }}
+                                aria-label="Session type"
+                                className="h-8 pl-2 pr-7 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-white/20 appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                style={{
+                                  backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+                                  backgroundPosition: 'right 0.5rem center',
+                                  backgroundRepeat: 'no-repeat',
+                                  backgroundSize: '1.25em 1.25em',
+                                }}
+                              >
+                                {TRAINING_OPTIONS.map((opt) => (
+                                  <option key={opt.value} value={opt.value}>
+                                    {opt.label}
+                                  </option>
+                                ))}
+                              </select>
+                            )}
+                            <span className="text-gray-500">•</span>
+                            {isQuickMode ? (
+                              <span className="text-sm text-gray-400">
+                                {session.type === 'rest' ? 'Rest day' : `${session.durationMin} min`}
+                              </span>
+                            ) : (
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  value={session.type === 'rest' ? '' : session.durationMin}
+                                  onChange={(e) =>
+                                    updateSession(session._id, {
+                                      durationMin: parseInt(e.target.value) || 0,
+                                    })
+                                  }
+                                  disabled={session.type === 'rest'}
+                                  placeholder={session.type === 'rest' ? 'N/A' : 'min'}
+                                  min={0}
+                                  max={480}
+                                  step={5}
+                                  aria-label="Duration in minutes"
+                                  className="h-8 w-16 px-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                                />
+                                <span className="text-xs text-gray-500">min</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Intensity */}
+                      {session.type !== 'rest' && (
+                        <div className="mt-3">
+                          {isQuickMode ? (
+                            <p className="text-xs text-gray-400">Global RPE {globalRpe} applied.</p>
+                          ) : (
+                            <IntensitySelector
+                              value={session.perceivedIntensity}
+                              onChange={(val) => updateSession(session._id, { perceivedIntensity: val })}
+                              disabled={saving}
+                            />
+                          )}
+                          <div className="mt-2 text-xs text-gray-400">
+                            {trainingLabel} - {session.durationMin}m - RPE {rpeValue}
+                            {isEstimatedRpe && <span className="text-gray-500"> (default)</span>}
+                            <span className={`ml-2 ${loadTone.className}`}>
+                              Load: {loadScore} ({loadTone.label})
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Notes */}
+                      {isNotesVisible ? (
+                        <div className="mt-3">
+                          <label className="block text-sm text-gray-400 mb-2">Notes</label>
+                          <textarea
+                            value={session.notes || ''}
+                            onChange={(e) => updateSession(session._id, { notes: e.target.value })}
+                            placeholder="How did it feel? Any observations..."
+                            rows={2}
+                            disabled={isQuickMode}
+                            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/20 resize-none disabled:opacity-50 disabled:cursor-not-allowed"
+                          />
+                        </div>
+                      ) : (
+                        !isQuickMode && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setNotesExpanded((prev) => ({ ...prev, [session._id]: true }))
+                            }
+                            className="mt-3 text-xs text-gray-400 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled={saving}
+                          >
+                            + Add Note
+                          </button>
+                        )
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Bottom Save Button */}
+              <div className="mt-6 flex justify-end">
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={saving || !hasUnsavedChanges}
+                  className={`px-6 py-3 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center gap-2 ${
+                    hasUnsavedChanges ? 'bg-white text-black hover:bg-gray-200' : 'bg-gray-700 text-gray-400'
+                  }`}
+                >
+                  {saving ? (
+                    'Saving...'
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Save Workout
+                    </>
+                  )}
+                </button>
+              </div>
+            </>
+          )}
         </>
       )}
     </div>

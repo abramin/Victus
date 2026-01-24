@@ -10,6 +10,7 @@ import { MacroDistributionBar } from './MacroDistributionBar';
 import { MealDistributionBar } from './MealDistributionBar';
 import { RecalibrationSettings } from './RecalibrationSettings';
 import { GoalProjectorChart } from './GoalProjectorChart';
+import { shallowEqual } from '../../utils/equality';
 import {
   SEX_OPTIONS,
   GOAL_OPTIONS,
@@ -126,7 +127,7 @@ export function ProfileForm({ initialProfile, onSave, saving, error }: ProfileFo
   // Track if profile has changes compared to initial
   const hasChanges = useMemo(() => {
     if (!initialProfile) return true; // New profile always has "changes"
-    return JSON.stringify(profile) !== JSON.stringify(initialProfile);
+    return !shallowEqual(profile, initialProfile);
   }, [profile, initialProfile]);
 
   const macroRatiosValid = useMemo(() => {

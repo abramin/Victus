@@ -36,6 +36,9 @@ export function IntensitySelector({
 }: IntensitySelectorProps) {
   const displayValue = value ?? DEFAULT_RPE;
   const displayLabel = RPE_LABELS[displayValue];
+  const trackColor =
+    displayValue >= 9 ? '#ef4444' : displayValue >= 7 ? '#f97316' : '#60a5fa';
+  const accentColor = disabled ? '#6b7280' : trackColor;
 
   return (
     <div className="space-y-2">
@@ -65,7 +68,8 @@ export function IntensitySelector({
         value={displayValue}
         onChange={(e) => onChange(parseInt(e.target.value))}
         disabled={disabled}
-        className="w-full accent-white disabled:opacity-50"
+        className="w-full disabled:opacity-50"
+        style={{ accentColor }}
       />
       <div className="flex justify-between text-[11px] text-gray-500">
         {RPE_TICKS.map((tick) => (

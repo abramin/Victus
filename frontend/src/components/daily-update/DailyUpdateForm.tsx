@@ -13,6 +13,7 @@ import { MorningCheckinSection } from './MorningCheckinSection';
 import { DayTypeSelector } from './DayTypeSelector';
 import { DeficitMonitor, DailyMissionCard, TrainingLogCard } from '../saved-view';
 import { getTrainingConfigs } from '../../api/client';
+import { shallowEqual } from '../../utils/equality';
 import {
   DAY_TYPE_BADGE,
   WEIGHT_MIN_KG,
@@ -79,7 +80,7 @@ export function DailyUpdateForm({
   );
 
   const hasChanges = useMemo(() => {
-    return JSON.stringify(formData) !== JSON.stringify(baselineData);
+    return !shallowEqual(formData, baselineData);
   }, [formData, baselineData]);
 
   useEffect(() => {

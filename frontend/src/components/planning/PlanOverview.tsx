@@ -34,7 +34,9 @@ export function PlanOverview() {
 
   const handleRecalibrationSelect = (option: RecalibrationOption) => {
     // TODO: Implement recalibration API call when Slice 18 is complete
-    console.log('Selected recalibration option:', option);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Selected recalibration option:', option);
+    }
     alert(`Recalibration with "${option.type}" will be implemented in Slice 18`);
   };
 
