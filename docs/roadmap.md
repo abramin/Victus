@@ -1,74 +1,80 @@
 # Victus Development Roadmap
 
-**Version:** 2.0
-**Last Updated:** January 1, 2026
+**Version:** 2.1
+**Last Updated:** January 24, 2026
 
 ---
 
 ## Overview
 
-This roadmap outlines the delivery order for all remaining Victus features, aligned with PRD v2.0. Issues are organized into phases with dependency chains respected.
+This roadmap outlines the delivery order for all remaining Victus features, aligned with PRD v2.1. Issues are organized into phases with dependency chains respected.
 
 ## Current State
 
-Slices 1-4 are complete:
+**Foundation (Slices 1-4):** ✅ Complete
 - [x] Slice 1: Project Setup & Infrastructure
 - [x] Slice 2: User Profile Management
 - [x] Slice 3: Basic Daily Log Entry
 - [x] Slice 4: Daily Targets Display
 
+**Phases 1-3, 5:** ✅ Complete (see details below)
+
+**Phase 4 (Long-term Planning):** ❌ Not Started - This is the next major milestone
+
+**Phase 6 (Polish & Release):** ❌ Not Started
+
 ---
 
-## Phase 1: Core Enhancements
+## Phase 1: Core Enhancements ✅ COMPLETE
 
 Foundation improvements before adding new features.
 
-| Order | Issue | Title | Dependencies | Effort |
-|-------|-------|-------|--------------|--------|
-| 1 | #24 | Profile Setup Improvements | Slice 2 | S |
-| 2 | #5 | Day Type System & Training Config | Slice 4 | M |
-| 3 | #31 | Multiple Training Sessions Per Day | Slice 3 | M |
-| 4 | #32 | Supplement Config & Points Calculation | Slice 4, #5 | M |
+| Order | Issue | Title | Dependencies | Effort | Status |
+|-------|-------|-------|--------------|--------|--------|
+| 1 | #24 | Profile Setup Improvements | Slice 2 | S | ✅ Done |
+| 2 | #5 | Day Type System & Training Config | Slice 4 | M | ✅ Done |
+| 3 | #31 | Multiple Training Sessions Per Day | Slice 3 | M | ✅ Done |
+| 4 | #32 | Supplement Config & Points Calculation | Slice 4, #5 | M | ✅ Done |
 
-**Key deliverables:**
+**Key deliverables:** (all implemented)
 - Current weight handling with decimals
 - Derived weekly change calculations
 - Aggressive goal warnings
 - Day type multipliers (protected protein)
 - Training type configurations with MET values
-- **Multiple training sessions per day** (e.g., morning Qigong + afternoon strength)
-- **Corrected points calculation** with supplement deductions (maltodextrin, whey, collagen)
+- Multiple training sessions per day (e.g., morning Qigong + afternoon strength)
+- Corrected points calculation with supplement deductions (maltodextrin, whey, collagen)
 
 ---
 
-## Phase 2: Historical Data & Visualization
+## Phase 2: Historical Data & Visualization ✅ COMPLETE
 
 Build the data foundation for adaptive algorithms.
 
-| Order | Issue | Title | Dependencies | Effort |
-|-------|-------|-------|--------------|--------|
-| 3 | #6 | Weight History & Trend Visualization | Slice 3 | M |
-| 4 | #7 | Actual Training Logging | Slice 3 | S |
+| Order | Issue | Title | Dependencies | Effort | Status |
+|-------|-------|-------|--------------|--------|--------|
+| 3 | #6 | Weight History & Trend Visualization | Slice 3 | M | ✅ Done |
+| 4 | #7 | Actual Training Logging | Slice 3 | S | ✅ Done |
 
-**Key deliverables:**
+**Key deliverables:** (all implemented)
 - Weight chart with trend line (linear regression)
 - Date range toggles (7d, 30d, 90d, all)
-- Actual training logging at end of day
+- Actual training logging at end of day (via dedicated Log Workout view)
 - Planned vs actual comparison
 
 ---
 
-## Phase 3: Adaptive Intelligence
+## Phase 3: Adaptive Intelligence ✅ COMPLETE
 
 Core adaptive algorithms that learn from user data.
 
-| Order | Issue | Title | Dependencies | Effort |
-|-------|-------|-------|--------------|--------|
-| 5 | #8 | Adaptive TDEE Calculation | #6 | L |
-| 6 | #9 | Training Load Tracking (ACR) | #7 | M |
-| 7 | #10 | Recovery & Adaptive Adjustments | #8, #9 | M |
+| Order | Issue | Title | Dependencies | Effort | Status |
+|-------|-------|-------|--------------|--------|--------|
+| 5 | #8 | Adaptive TDEE Calculation | #6 | L | ✅ Done |
+| 6 | #9 | Training Load Tracking (ACR) | #7 | M | ✅ Done |
+| 7 | #10 | Recovery & Adaptive Adjustments | #8, #9 | M | ✅ Done |
 
-**Key deliverables:**
+**Key deliverables:** (all implemented)
 - 4 BMR equation options
 - TDEE source configuration (formula/manual/adaptive) with manual TDEE input
 - Formula TDEE = BMR * 1.2 + exercise calories, stored alongside estimated TDEE
@@ -80,18 +86,18 @@ Core adaptive algorithms that learn from user data.
 
 ---
 
-## Phase 4: Long-Term Planning (NEW in v2.0)
+## Phase 4: Long-Term Planning ❌ NOT STARTED (NEXT MILESTONE)
 
 Major new feature: nutrition plans with dual-track analysis.
 
-| Order | Issue | Title | Dependencies | Effort |
-|-------|-------|-------|--------------|--------|
-| 8 | #27 | Nutrition Plan Creation & Storage | #2, #8 | L |
-| 9 | #28 | Plan Overview & Weekly Targets UI | #27 | M |
-| 10 | #29 | Dual-Track Analysis | #27, #6, #8 | L |
-| 11 | #30 | Recalibration System | #27, #29 | L |
+| Order | Issue | Title | Dependencies | Effort | Status |
+|-------|-------|-------|--------------|--------|--------|
+| 8 | #27 | Nutrition Plan Creation & Storage | #2, #8 | L | ❌ Open |
+| 9 | #28 | Plan Overview & Weekly Targets UI | #27 | M | ❌ Open |
+| 10 | #29 | Dual-Track Analysis | #27, #6, #8 | L | ❌ Open |
+| 11 | #30 | Recalibration System | #27, #29 | L | ❌ Open |
 
-**Key deliverables:**
+**Key deliverables:** (not yet implemented)
 - Plan creation with goal weight and timeframe
 - Weekly targets generation
 - Plan summary card with progress timeline
@@ -102,16 +108,16 @@ Major new feature: nutrition plans with dual-track analysis.
 
 ---
 
-## Phase 5: History & Configuration
+## Phase 5: History & Configuration ✅ COMPLETE
 
 Complete the history view and settings UI.
 
-| Order | Issue | Title | Dependencies | Effort |
-|-------|-------|-------|--------------|--------|
-| 12 | #11 | History Views & Log Details | #6, #7 | M |
-| 13 | #12 | Settings & Configuration UI | #5, #8 | L |
+| Order | Issue | Title | Dependencies | Effort | Status |
+|-------|-------|-------|--------------|--------|--------|
+| 12 | #11 | History Views & Log Details | #6, #7 | M | ✅ Done |
+| 13 | #12 | Settings & Configuration UI | #5, #8 | L | ✅ Done |
 
-**Key deliverables:**
+**Key deliverables:** (all implemented)
 - Weight chart with range toggles and trendline
 - Estimated TDEE + confidence over the same range
 - Planned vs actual training summary
@@ -122,16 +128,16 @@ Complete the history view and settings UI.
 
 ---
 
-## Phase 6: Polish & Release
+## Phase 6: Polish & Release ❌ NOT STARTED
 
 Final polish for production readiness.
 
-| Order | Issue | Title | Dependencies | Effort |
-|-------|-------|-------|--------------|--------|
-| 14 | #13 | Data Export | #6 | S |
-| 15 | #14 | PWA & Mobile Optimization | All | M |
+| Order | Issue | Title | Dependencies | Effort | Status |
+|-------|-------|-------|--------------|--------|--------|
+| 14 | #13 | Data Export | #6 | S | ❌ Open |
+| 15 | #14 | PWA & Mobile Optimization | All | M | ❌ Open |
 
-**Key deliverables:**
+**Key deliverables:** (not yet implemented)
 - CSV and JSON export
 - Service worker for offline
 - Web app manifest
@@ -218,29 +224,47 @@ Slice 4 (Targets Display) ──────────────────
 
 | # | Title | Phase | Status |
 |---|-------|-------|--------|
-| 5 | Day Type System & Training Config | 1 | Open |
-| 31 | Multiple Training Sessions Per Day | 1 | Open |
-| 32 | Supplement Config & Points Calculation | 1 | Open |
-| 6 | Weight History & Trend Visualization | 2 | Open |
-| 7 | Actual Training Logging | 2 | Open |
-| 8 | Adaptive TDEE Calculation | 3 | Open |
-| 9 | Training Load Tracking (ACR) | 3 | Open |
-| 10 | Recovery & Adaptive Adjustments | 3 | Open |
-| 11 | History Views & Log Details | 5 | Open |
-| 12 | Settings & Configuration UI | 5 | Open |
-| 13 | Data Export | 6 | Open |
-| 14 | PWA & Mobile Optimization | 6 | Open |
-| 24 | Profile Setup Improvements | 1 | Open |
-| 27 | Nutrition Plan Creation & Storage | 4 | Open |
-| 28 | Plan Overview & Weekly Targets UI | 4 | Open |
-| 29 | Dual-Track Analysis | 4 | Open |
-| 30 | Recalibration System | 4 | Open |
+| 5 | Day Type System & Training Config | 1 | ✅ Done |
+| 31 | Multiple Training Sessions Per Day | 1 | ✅ Done |
+| 32 | Supplement Config & Points Calculation | 1 | ✅ Done |
+| 6 | Weight History & Trend Visualization | 2 | ✅ Done |
+| 7 | Actual Training Logging | 2 | ✅ Done |
+| 8 | Adaptive TDEE Calculation | 3 | ✅ Done |
+| 9 | Training Load Tracking (ACR) | 3 | ✅ Done |
+| 10 | Recovery & Adaptive Adjustments | 3 | ✅ Done |
+| 11 | History Views & Log Details | 5 | ✅ Done |
+| 12 | Settings & Configuration UI | 5 | ✅ Done |
+| 13 | Data Export | 6 | ❌ Open |
+| 14 | PWA & Mobile Optimization | 6 | ❌ Open |
+| 24 | Profile Setup Improvements | 1 | ✅ Done |
+| 27 | Nutrition Plan Creation & Storage | 4 | ❌ Open |
+| 28 | Plan Overview & Weekly Targets UI | 4 | ❌ Open |
+| 29 | Dual-Track Analysis | 4 | ❌ Open |
+| 30 | Recalibration System | 4 | ❌ Open |
+
+---
+
+## Bonus Features Implemented (Not in Original Roadmap)
+
+The following features were implemented beyond the original scope:
+
+| Feature | Description | PRD Section |
+|---------|-------------|-------------|
+| Cockpit Dashboard | Meal points view with activity tracking | 6.5 |
+| Deficit Monitor | Activity gap tracking with wearable support | 6.5.2 |
+| Weekly Context Strip | 7-day microcycle planning view | 6.5.3 |
+| Kitchen Cheat Sheet | Food reference database (40+ items) | 6.5.4 |
+| Log Workout View | Dedicated actual training logging | 6.6 |
+| Weekly Planning | Pre-plan day types for future dates | 6.7 |
+| Onboarding Flow | 3-step wizard for new users | 6.8 |
+| Active Calories | Wearable calorie data integration | 6.9 |
 
 ---
 
 ## Notes
 
-- **PRD Alignment**: Issues #5, #8, #11, #12, #32 have been aligned with PRD v2.0
+- **PRD Alignment**: All issues aligned with PRD v2.1, bonus features documented in sections 6.5-6.9
 - **Points Calculation Fix**: Issue #32 implements the corrected meal points algorithm from the spreadsheet (PRD Section 4.3) with supplement deductions
-- **Critical Path**: Profile → Day Types → Points Calculation → Weight History → TDEE → Planning → Recalibration
-- **v2.0 Focus**: Phase 4 (Long-Term Planning) is the major new feature set
+- **Critical Path**: Profile → Day Types → Points Calculation → Weight History → TDEE → **Planning → Recalibration** (next)
+- **v2.1 Focus**: Phase 4 (Long-Term Planning) is the next major milestone
+- **Completion Status**: Phases 1, 2, 3, and 5 are 100% complete

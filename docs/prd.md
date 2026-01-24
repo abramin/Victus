@@ -1,12 +1,37 @@
 # Victus PRD (User + Acceptance Criteria Focus)
 ## Adaptive Daily Nutrition Planning App
 
-**Version:** 2.0 (rewrite)  
-**Author:** Alex  
-**Base PRD date:** January 1, 2026  
+**Version:** 2.1
+**Author:** Alex
+**Base PRD date:** January 1, 2026
 **Rewrite date:** 2026-01-23
+**Last updated:** 2026-01-24
 
 This document rewrites the existing PRD into a more user-journey and acceptance-criteria driven spec **without changing any specified behavior**. All numeric constants, formulas, and rounding rules are retained.
+
+---
+
+## Implementation Status Summary
+
+| Feature Area | Status | Notes |
+|--------------|--------|-------|
+| Daily Log & Targets | ✅ Complete | Full calculation pipeline |
+| Multiple Training Sessions | ✅ Complete | 0..N sessions per day |
+| Day Type System | ✅ Complete | Performance/Fatburner/Metabolize |
+| Adaptive TDEE | ✅ Complete | Formula/Manual/Adaptive modes |
+| Training Load (ACR) | ✅ Complete | Acute/Chronic ratio tracking |
+| Recovery Score | ✅ Complete | Rest + ACR + Sleep components |
+| History & Weight Trend | ✅ Complete | Charts, regression, confidence |
+| Profile & Settings | ✅ Complete | Full configuration UI |
+| Cockpit Dashboard | ✅ Complete | *NEW* - Not in original PRD |
+| Log Workout View | ✅ Complete | *NEW* - Separate actual training logging |
+| Weekly Planning | ✅ Complete | *NEW* - Pre-plan day types |
+| Food Reference | ✅ Complete | *NEW* - Kitchen cheat sheet |
+| Long-term Planning | ❌ Not Started | Plan creation, weekly targets |
+| Dual-track Analysis | ❌ Not Started | Variance detection |
+| Recalibration System | ❌ Not Started | Plan adjustment options |
+| Data Export | ❌ Not Started | CSV/JSON export |
+| PWA/Mobile | ❌ Not Started | Offline support, installable |
 
 ---
 
@@ -92,7 +117,9 @@ Victus helps a single user:
 
 ## 3. Functional Requirements with Acceptance Criteria
 
-### 3.1 Daily log creation and editing
+> **Legend:** ✅ = Implemented | 🚧 = Partial | ❌ = Not Started
+
+### 3.1 Daily log creation and editing ✅
 
 **Behavior**
 - A daily log may be created for **today or any past date**.
@@ -115,7 +142,7 @@ Victus helps a single user:
 
 ---
 
-### 3.2 Planned training sessions (multiple per day)
+### 3.2 Planned training sessions (multiple per day) ✅
 
 **Behavior**
 - Daily logs support **0..N planned sessions**.
@@ -133,7 +160,7 @@ Victus helps a single user:
 
 ---
 
-### 3.3 Day type selection
+### 3.3 Day type selection ✅
 
 **Behavior**
 - Day type is **user-selected**, not derived from training type.
@@ -148,7 +175,7 @@ Victus helps a single user:
 
 ---
 
-### 3.4 Daily targets calculation (macros, fruit/veg, water, meal points)
+### 3.4 Daily targets calculation (macros, fruit/veg, water, meal points) ✅
 
 This section defines the “single source of truth” calculation pipeline. All constants and formulas are retained from the existing PRD.
 
@@ -234,7 +261,7 @@ This section defines the “single source of truth” calculation pipeline. All 
 
 ---
 
-### 3.5 Training load and recovery score
+### 3.5 Training load and recovery score ✅
 
 **Behavior**
 - Acute load is last 7 days average; chronic load is last 28 days average; ACR=acute/chronic (retained approach). fileciteturn1file1
@@ -248,7 +275,7 @@ This section defines the “single source of truth” calculation pipeline. All 
 
 ---
 
-### 3.6 Adaptive daily adjustments
+### 3.6 Adaptive daily adjustments ✅
 **Behavior**
 - Adjustments multiply the base kcal factor using:
   - training load (ACR thresholds),
@@ -263,7 +290,7 @@ This section defines the “single source of truth” calculation pipeline. All 
 
 ---
 
-### 3.7 Long-term plan creation and weekly targets
+### 3.7 Long-term plan creation and weekly targets ❌
 
 **Behavior (retained)**
 - A plan is defined by startDate, startWeight, goalWeight, durationWeeks.
@@ -281,7 +308,7 @@ This section defines the “single source of truth” calculation pipeline. All 
 
 ---
 
-### 3.8 Dual-track analysis and recalibration
+### 3.8 Dual-track analysis and recalibration ❌
 
 **Behavior (retained)**
 - Determine currentWeek based on days since plan start (ceil(days/7)).
@@ -327,7 +354,9 @@ This is a proposal for endpoints that map cleanly to the acceptance criteria.
 
 ## 6. UI Requirements (Acceptance Criteria Oriented)
 
-### 6.0 Day-View Component (Reusable)
+> **Legend:** ✅ = Implemented | 🚧 = Partial | ❌ = Not Started
+
+### 6.0 Day-View Component (Reusable) ✅
 The `DayTargetsPanel` is a foundational component used across multiple views to display daily meal targets consistently.
 
 **Purpose**
@@ -406,7 +435,7 @@ The `DayTargetsPanel` is a foundational component used across multiple views to 
 
 ---
 
-### 6.1 Daily check-in screen
+### 6.1 Daily check-in screen ✅
 **Must**
 - Provide required inputs with clear validation (weight, day type).
 - Allow adding/removing planned sessions; each session has type + duration.
@@ -419,7 +448,7 @@ The `DayTargetsPanel` is a foundational component used across multiple views to 
   - adjustment multipliers breakdown
   - fixed deductions applied for points
 
-### 6.2 Targets view (Day-view component)
+### 6.2 Targets view (Day-view component) ✅
 **Must**
 - Display as a reusable `DayTargetsPanel` component that shows:
   - Title and date label
@@ -447,7 +476,7 @@ The `DayTargetsPanel` is a foundational component used across multiple views to 
 - The day type badge uses the correct color scheme and label.
 - Component can be used in multiple contexts (daily targets, plan projection, historical view).
 
-### 6.3 History views
+### 6.3 History views ✅
 **Must**
 - Weight chart with date ranges (7/30/90/all) and trendline.
 - Display `estimatedTDEE` and confidence over the same range.
@@ -492,7 +521,7 @@ Each day cell in the month view must contain:
 - Training context dot is blue for Performance day type, grey otherwise.
 - Daily total calories displayed in bold at bottom of each cell.
 
-### 6.4 Plan views
+### 6.4 Plan views ❌
 **Must**
 - Plan creation form (goal weight, duration weeks, start date).
 - Plan overview with weekly target table and plan vs projection chart.
@@ -503,6 +532,161 @@ Each day cell in the month view must contain:
 - Recalibration options show a short feasibility tag and the implied new parameter (kcal, weeks, or goal). fileciteturn1file17
 
 ---
+
+---
+
+### 6.5 Cockpit Dashboard (Meal Points View) ✅ *NEW*
+
+> **Note:** This feature was implemented beyond the original PRD scope and provides enhanced daily monitoring.
+
+The Cockpit Dashboard is the primary daily view showing meal points, activity tracking, and quick-access planning tools.
+
+**Components**
+
+#### 6.5.1 Meal Points Display
+- Shows today's macro targets converted to meal "points" for easier tracking
+- Three meal cards (Breakfast, Lunch, Dinner) with macro point targets
+- Color-coded day type badge
+- Supplement breakdown showing Whey, Collagen, Intra-workout carbs
+
+#### 6.5.2 Deficit Monitor (Activity Gap Card) ✅
+**Purpose**: Real-time deficit protection by comparing planned vs actual calorie burn.
+
+**Behavior**
+- Calculates planned calorie burn from training sessions using MET formula: `(MET - 1) * weight(kg) * duration(hours)`
+- Tracks active calories burned (from wearables via manual input or API)
+- Computes activity gap: `planned - actual`
+
+**Status Indicators**
+- `on_track`: Actual calories meet or exceed planned
+- `at_risk`: Gap exists, but time remains before 6pm cutoff
+- `secured`: After 6pm and on track
+
+**Acceptance Criteria**
+- Planned burn is calculated from all training sessions for today
+- Actual burn is editable or synced from wearable data
+- Status changes to "at_risk" after 6pm if gap remains
+- Gap displays as positive number when behind, zero when on track
+
+#### 6.5.3 Weekly Context Strip ✅
+**Purpose**: 7-day view for planning and visualizing the training microcycle.
+
+**Behavior**
+- Displays current week (Mon-Sun) with planned day types
+- Each day shows color-coded day type badge (Performance/Fatburner/Metabolize)
+- Clickable days for quick planning changes
+- Past days are dimmed; today is highlighted
+
+**Acceptance Criteria**
+- Clicking a future day opens day type selector
+- Past days cannot be edited (read-only)
+- Today's cell has distinct visual highlight
+- Unplanned days show empty/neutral state
+
+#### 6.5.4 Kitchen Cheat Sheet (Food Reference) ✅
+**Purpose**: Quick reference for food choices organized by macro focus.
+
+**Behavior**
+- Pre-seeded database of 40+ food items
+- Categorized by macro focus: high_carb, high_protein, high_fat
+- Optional plate multiplier for portion estimation
+- Filterable and searchable
+
+**Acceptance Criteria**
+- Foods grouped visually by category
+- Plate multiplier editable by user
+- Search filters items in real-time
+- Categories have distinct color coding
+
+---
+
+### 6.6 Log Workout View ✅ *NEW*
+
+> **Note:** This feature separates actual training logging from the daily check-in flow.
+
+**Purpose**: Dedicated view for logging actual training sessions post-workout, separate from morning planning.
+
+**Behavior**
+- Displays planned sessions for today (from daily check-in)
+- Allows adding actual training sessions with:
+  - Training type (12 types: rest, qigong, walking, gmb, run, row, cycle, hiit, strength, calisthenics, mobility, mixed)
+  - Duration (minutes)
+  - Perceived intensity (RPE 1-10 scale)
+  - Optional notes
+- Supports multiple sessions per day
+- Compares actual vs planned for adherence tracking
+
+**Acceptance Criteria**
+- Only available if a daily log exists for today
+- Planned sessions displayed as read-only reference
+- Actual sessions editable (add/remove/modify)
+- RPE input uses 1-10 scale (default 5 if not specified)
+- Session load calculated using: `loadScore * duration * (RPE/3)`
+- ACR displayed with zone indicator (undertrained/optimal/high/danger)
+
+---
+
+### 6.7 Weekly Planning (Planned Day Types) ✅ *NEW*
+
+**Purpose**: Pre-plan day types for future dates to support structured microcycles.
+
+**Behavior**
+- Create planned day types for any future date
+- View planned day types in calendar format
+- Weekly planning integrated into Cockpit Dashboard via Weekly Context Strip
+
+**API Endpoints**
+- `GET /api/planned-days?start=YYYY-MM-DD&end=YYYY-MM-DD` - List planned days
+- `PUT /api/planned-days/{date}` - Create/update planned day type
+- `DELETE /api/planned-days/{date}` - Remove planned day type
+
+**Acceptance Criteria**
+- Cannot plan day types for past dates
+- Planned day type auto-populates daily check-in when that date arrives
+- Calendar view shows planned days with appropriate badges
+- Changes persist immediately on selection
+
+---
+
+### 6.8 Onboarding Flow ✅ *NEW*
+
+**Purpose**: Guide new users through initial profile setup with a multi-step wizard.
+
+**Steps**
+1. **Basic Information**: Name, age, gender, weight, height
+2. **Activity and Goals**: Activity level, weight change goal (lose/maintain/gain)
+3. **Nutrition Targets**: Daily calories, macro distribution (protein/carbs/fat grams)
+
+**Behavior**
+- Appears on first launch when no profile exists
+- Progress indicator shows current step
+- Back navigation preserves entered data
+- Completion creates profile and redirects to dashboard
+
+**Acceptance Criteria**
+- All required fields validated before proceeding
+- Goal selection affects macro recommendations
+- Weight and height used to calculate BMR suggestions
+- Profile created atomically on final step completion
+
+---
+
+### 6.9 Active Calories Integration ✅ *NEW*
+
+**Purpose**: Support wearable device data for accurate deficit tracking.
+
+**Behavior**
+- `active_calories_burned` field on daily log
+- Manual input or future API sync from wearables
+- Used by Deficit Monitor for gap calculation
+
+**API Endpoint**
+- `PATCH /api/logs/{date}/active-calories` - Update active calories for a date
+
+**Acceptance Criteria**
+- Accepts positive integer values
+- Updates reflected immediately in Deficit Monitor
+- Stored separately from training session calories for clarity
 
 ## 7. Persistence (SQLite reference schema)
 
