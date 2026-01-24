@@ -227,6 +227,16 @@ Feature: User profile management
     And I submit the form
     Then I should see a success message
     And the profile should reflect updated height
+
+  Scenario: Profile save shows backend error and keeps inputs
+    Given the backend is running
+    And a valid profile exists
+    When I visit the home page
+    And I click on the profile nav item
+    And I select Katch-McArdle BMR equation
+    And I submit the form
+    Then I should see the profile save error
+    And the BMR equation should remain "katch_mcardle"
   # =============================================================================
   # SAVE/UPDATE FLOWS
   # =============================================================================

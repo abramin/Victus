@@ -474,6 +474,16 @@ Then("the profile should reflect updated height", () => {
   })
 })
 
+
+Then("I should see the profile save error", () => {
+  cy.get('[data-testid="profile-error"]').should("be.visible")
+})
+
+Then("the BMR equation should remain {string}", (value: string) => {
+  cy.get('[data-testid="bmrEquation-select"], select[name="bmrEquation"]')
+    .first()
+    .should("have.value", value)
+})
 // =============================================================================
 // SAVE/UPDATE FLOW STEPS
 // =============================================================================
