@@ -26,7 +26,7 @@ export function useDailyLog(): UseDailyLogReturn {
     setLoading(true);
     setError(null);
     try {
-      const data = await getTodayLog();
+      const data = await getTodayLog(signal);
       if (signal?.aborted) return;
       setLog(data);
     } catch (err) {

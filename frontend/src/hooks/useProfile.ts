@@ -29,7 +29,7 @@ export function useProfile(): UseProfileReturn {
     setLoading(true);
     setError(null);
     try {
-      const data = await getProfile();
+      const data = await getProfile(controller.signal);
       if (controller.signal.aborted) return;
       setProfile(data);
     } catch (err) {

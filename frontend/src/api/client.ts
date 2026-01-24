@@ -59,8 +59,8 @@ function sanitizePlannedSessions(
   });
 }
 
-export async function getProfile(): Promise<UserProfile | null> {
-  const response = await fetch(`${API_BASE}/profile`);
+export async function getProfile(signal?: AbortSignal): Promise<UserProfile | null> {
+  const response = await fetch(`${API_BASE}/profile`, { signal });
 
   if (response.status === 404) {
     return null;
@@ -69,20 +69,21 @@ export async function getProfile(): Promise<UserProfile | null> {
   return handleResponse<UserProfile>(response);
 }
 
-export async function saveProfile(profile: UserProfile): Promise<UserProfile> {
+export async function saveProfile(profile: UserProfile, signal?: AbortSignal): Promise<UserProfile> {
   const response = await fetch(`${API_BASE}/profile`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(profile),
+    signal,
   });
 
   return handleResponse<UserProfile>(response);
 }
 
-export async function getTodayLog(): Promise<DailyLog | null> {
-  const response = await fetch(`${API_BASE}/logs/today`);
+export async function getTodayLog(signal?: AbortSignal): Promise<DailyLog | null> {
+  const response = await fetch(`${API_BASE}/logs/today`, { signal });
 
   if (response.status === 404) {
     return null;
@@ -91,7 +92,7 @@ export async function getTodayLog(): Promise<DailyLog | null> {
   return handleResponse<DailyLog>(response);
 }
 
-export async function createDailyLog(log: CreateDailyLogRequest): Promise<DailyLog> {
+export async function createDailyLog(log: CreateDailyLogRequest, signal?: AbortSignal): Promise<DailyLog> {
   const payload: CreateDailyLogRequest = {
     ...log,
     plannedTrainingSessions: sanitizePlannedSessions(log.plannedTrainingSessions),
@@ -102,21 +103,24 @@ export async function createDailyLog(log: CreateDailyLogRequest): Promise<DailyL
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(payload),
+    signal,
   });
 
   return handleResponse<DailyLog>(response);
 }
 
-export async function deleteTodayLog(): Promise<void> {
+export async function deleteTodayLog(signal?: AbortSignal): Promise<void> {
   const response = await fetch(`${API_BASE}/logs/today`, {
     method: 'DELETE',
+    signal,
   });
   await handleEmptyResponse(response);
 }
 
 export async function updateActualTraining(
   date: string,
-  request: UpdateActualTrainingRequest
+  request: UpdateActualTrainingRequest,
+  signal?: AbortSignal
 ): Promise<DailyLog> {
   const response = await fetch(`${API_BASE}/logs/${date}/actual-training`, {
     method: 'PATCH',
@@ -124,6 +128,7 @@ export async function updateActualTraining(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(request),
+    signal,
   });
 
   return handleResponse<DailyLog>(response);
@@ -131,7 +136,8 @@ export async function updateActualTraining(
 
 export async function updateActiveCalories(
   date: string,
-  request: UpdateActiveCaloriesRequest
+  request: UpdateActiveCaloriesRequest,
+  signal?: AbortSignal
 ): Promise<DailyLog> {
   const response = await fetch(`${API_BASE}/logs/${date}/active-calories`, {
     method: 'PATCH',
@@ -139,75 +145,81 @@ export async function updateActiveCalories(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(request),
+    signal,
   });
 
   return handleResponse<DailyLog>(response);
 }
 
-export async function getTrainingConfigs(): Promise<TrainingConfig[]> {
-  const response = await fetch(`${API_BASE}/training-configs`);
+export async function getTrainingConfigs(signal?: AbortSignal): Promise<TrainingConfig[]> {
+  const response = await fetch(`${API_BASE}/training-configs`, { signal });
   return handleResponse<TrainingConfig[]>(response);
 }
 
-export async function getWeightTrend(range: WeightTrendRange): Promise<WeightTrendResponse> {
-  const response = await fetch(`${API_BASE}/stats/weight-trend?range=${encodeURIComponent(range)}`);
+export async function getWeightTrend(range: WeightTrendRange, signal?: AbortSignal): Promise<WeightTrendResponse> {
+  const response = await fetch(`${API_BASE}/stats/weight-trend?range=${encodeURIComponent(range)}`, { signal });
   return handleResponse<WeightTrendResponse>(response);
 }
 
-export async function getHistorySummary(range: WeightTrendRange): Promise<HistoryResponse> {
-  const response = await fetch(`${API_BASE}/stats/history?range=${encodeURIComponent(range)}`);
+export async function getHistorySummary(range: WeightTrendRange, signal?: AbortSignal): Promise<HistoryResponse> {
+  const response = await fetch(`${API_BASE}/stats/history?range=${encodeURIComponent(range)}`, { signal });
   return handleResponse<HistoryResponse>(response);
 }
 
-export async function getLogByDate(date: string): Promise<DailyLog> {
-  const response = await fetch(`${API_BASE}/logs/${encodeURIComponent(date)}`);
+export async function getLogByDate(date: string, signal?: AbortSignal): Promise<DailyLog> {
+  const response = await fetch(`${API_BASE}/logs/${encodeURIComponent(date)}`, { signal });
   return handleResponse<DailyLog>(response);
 }
 
-export async function getDailyTargetsRange(startDate: string, endDate: string): Promise<DailyTargetsRangeResponse> {
+export async function getDailyTargetsRange(startDate: string, endDate: string, signal?: AbortSignal): Promise<DailyTargetsRangeResponse> {
   const response = await fetch(
-    `${API_BASE}/logs?start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}`
+    `${API_BASE}/logs?start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}`,
+    { signal }
   );
   return handleResponse<DailyTargetsRangeResponse>(response);
 }
 
 // Planned Day Types API (Cockpit Dashboard)
 
-export async function getPlannedDays(startDate: string, endDate: string): Promise<PlannedDaysResponse> {
+export async function getPlannedDays(startDate: string, endDate: string, signal?: AbortSignal): Promise<PlannedDaysResponse> {
   const response = await fetch(
-    `${API_BASE}/planned-days?start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}`
+    `${API_BASE}/planned-days?start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}`,
+    { signal }
   );
   return handleResponse<PlannedDaysResponse>(response);
 }
 
-export async function upsertPlannedDay(date: string, dayType: DayType): Promise<PlannedDay> {
+export async function upsertPlannedDay(date: string, dayType: DayType, signal?: AbortSignal): Promise<PlannedDay> {
   const response = await fetch(`${API_BASE}/planned-days/${encodeURIComponent(date)}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ dayType }),
+    signal,
   });
   return handleResponse<PlannedDay>(response);
 }
 
-export async function deletePlannedDay(date: string): Promise<void> {
+export async function deletePlannedDay(date: string, signal?: AbortSignal): Promise<void> {
   const response = await fetch(`${API_BASE}/planned-days/${encodeURIComponent(date)}`, {
     method: 'DELETE',
+    signal,
   });
   await handleEmptyResponse(response);
 }
 
 // Food Reference API (Cockpit Dashboard)
 
-export async function getFoodReference(): Promise<FoodReferenceResponse> {
-  const response = await fetch(`${API_BASE}/food-reference`);
+export async function getFoodReference(signal?: AbortSignal): Promise<FoodReferenceResponse> {
+  const response = await fetch(`${API_BASE}/food-reference`, { signal });
   return handleResponse<FoodReferenceResponse>(response);
 }
 
 export async function updateFoodReferencePlateMultiplier(
   id: number,
-  plateMultiplier: number | null
+  plateMultiplier: number | null,
+  signal?: AbortSignal
 ): Promise<void> {
   const response = await fetch(`${API_BASE}/food-reference/${id}`, {
     method: 'PATCH',
@@ -215,6 +227,7 @@ export async function updateFoodReferencePlateMultiplier(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ plateMultiplier }),
+    signal,
   });
   await handleEmptyResponse(response);
 }

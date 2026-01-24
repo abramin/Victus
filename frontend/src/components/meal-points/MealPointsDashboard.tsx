@@ -4,13 +4,14 @@ import type { DailyLog, DayType, UserProfile, TrainingConfig } from '../../api/t
 import { calculateMealTargets } from '../targets/mealTargets';
 import { ActivityGapCard } from './ActivityGapCard';
 import { ActivityTrendChart } from './ActivityTrendChart';
+import { DateNavigator } from './DateNavigator';
+import { DayTypeSelector } from './DayTypeSelector';
 import { MealBreakdownModal } from './MealBreakdownModal';
 import { MealCard } from './MealCard';
 import { SupplementsPanel } from './SupplementsPanel';
 import { toDateKey, isSameDay } from '../../utils';
 import {
   CARB_KCAL_PER_G,
-  DAY_TYPE_OPTIONS,
   FAT_KCAL_PER_G,
   PROTEIN_KCAL_PER_G,
 } from '../../constants';
@@ -86,14 +87,6 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
     setSupplements(prev =>
       prev.map(s => s.id === id ? { ...s, enabled, value } : s)
     );
-  };
-
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    });
   };
 
   const navigateDate = (days: number) => {
@@ -372,52 +365,17 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
         </div>
 
         {/* Date Navigation */}
-        <div className="flex flex-col items-center">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => navigateDate(-1)}
-              className="p-2 text-gray-400 hover:text-white transition-colors"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <span className="text-white font-medium min-w-[140px] text-center">
-              {formatDate(selectedDate)}
-            </span>
-            <button
-              onClick={() => navigateDate(1)}
-              className="p-2 text-gray-400 hover:text-white transition-colors"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-          </div>
-          {contextText && (
-            <p className="text-xs text-gray-400 mt-1">{contextText}</p>
-          )}
-        </div>
+        <DateNavigator
+          selectedDate={selectedDate}
+          onNavigate={navigateDate}
+          contextText={contextText}
+        />
 
         {/* Day Type Strategy Selector */}
-        <div className="flex flex-col items-end">
-          <span className="text-xs text-gray-500 mb-1">Day Strategy</span>
-          <div className="flex items-center gap-1 bg-gray-900 rounded-lg p-1">
-            {DAY_TYPE_OPTIONS.map((dt) => (
-              <button
-                key={dt.value}
-                onClick={() => handleDayTypeSelect(dt.value)}
-                title={dt.description}
-                className={`px-4 py-2 rounded-md text-sm transition-colors ${selectedDayType === dt.value
-                    ? 'bg-blue-600 text-white font-semibold border-2 border-blue-500'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-800'
-                  }`}
-              >
-                {dt.label}
-              </button>
-            ))}
-          </div>
-        </div>
+        <DayTypeSelector
+          selectedDayType={selectedDayType}
+          onSelect={handleDayTypeSelect}
+        />
       </div>
 
       {/* Main Content Grid */}

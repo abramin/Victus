@@ -1,14 +1,15 @@
-import { useState } from 'react';
+import { Routes, Route } from 'react-router-dom';
 import { useProfile } from '../hooks/useProfile';
 import { useDailyLog } from '../hooks/useDailyLog';
 import { OnboardingWizard } from '../components/onboarding';
-import { AppLayout, type NavItem } from '../components/layout';
+import { AppLayout } from '../components/layout';
 import { MealPointsDashboard } from '../components/meal-points';
 import { PlanCalendar } from '../components/plan';
 import { WeightHistory } from '../components/history';
 import { DailyUpdateForm } from '../components/daily-update';
 import { LogWorkoutView } from '../components/training';
 import { ProfileForm } from '../components/settings/ProfileForm';
+import { ErrorBoundary } from '../components/common';
 
 function App() {
   const {
@@ -29,7 +30,6 @@ function App() {
     replace,
     updateActual,
   } = useDailyLog();
-  const [currentNav, setCurrentNav] = useState<NavItem>('meal-points');
 
   // Loading state
   if (profileLoading || logLoading) {
@@ -74,50 +74,52 @@ function App() {
 
   // Main app with sidebar
   return (
-    <AppLayout currentNav={currentNav} onNavChange={setCurrentNav}>
-      {currentNav === 'meal-points' && (
-        <MealPointsDashboard log={log} profile={profile} />
-      )}
-
-      {currentNav === 'plan' && (
-        <PlanCalendar profile={profile} />
-      )}
-
-      {currentNav === 'history' && (
-        <WeightHistory profile={profile} />
-      )}
-
-      {currentNav === 'daily-update' && (
-        <DailyUpdateForm
-          onSubmit={create}
-          onReplace={replace}
-          saving={logSaving}
-          error={logSaveError}
-          profile={profile}
-          log={log}
-        />
-      )}
-
-      {currentNav === 'log-workout' && (
-        <LogWorkoutView
-          log={log}
-          onUpdateActual={updateActual}
-          saving={logSaving}
-        />
-      )}
-
-      {currentNav === 'profile' && (
-        <div className="p-6 max-w-6xl mx-auto">
-          <h1 className="text-2xl font-semibold text-white mb-6">Profile Settings</h1>
-          <ProfileForm
-            initialProfile={profile}
-            onSave={save}
-            saving={profileSaving}
-            error={saveError}
+    <ErrorBoundary>
+      <AppLayout>
+        <Routes>
+          <Route path="/" element={<MealPointsDashboard log={log} profile={profile} />} />
+          <Route path="/plan" element={<PlanCalendar profile={profile} />} />
+          <Route path="/history" element={<WeightHistory profile={profile} />} />
+          <Route
+            path="/daily-update"
+            element={
+              <DailyUpdateForm
+                onSubmit={create}
+                onReplace={replace}
+                saving={logSaving}
+                error={logSaveError}
+                profile={profile}
+                log={log}
+              />
+            }
           />
-        </div>
-      )}
-    </AppLayout>
+          <Route
+            path="/log-workout"
+            element={
+              <LogWorkoutView
+                log={log}
+                onUpdateActual={updateActual}
+                saving={logSaving}
+              />
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <div className="p-6 max-w-6xl mx-auto">
+                <h1 className="text-2xl font-semibold text-white mb-6">Profile Settings</h1>
+                <ProfileForm
+                  initialProfile={profile}
+                  onSave={save}
+                  saving={profileSaving}
+                  error={saveError}
+                />
+              </div>
+            }
+          />
+        </Routes>
+      </AppLayout>
+    </ErrorBoundary>
   );
 }
 

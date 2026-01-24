@@ -1,13 +1,16 @@
+import { NavLink } from 'react-router-dom';
+
 export type NavItem = 'meal-points' | 'plan' | 'history' | 'daily-update' | 'log-workout' | 'profile';
 
 interface SidebarProps {
-  currentNav: NavItem;
-  onNavChange: (nav: NavItem) => void;
+  currentNav?: NavItem;
+  onNavChange?: (nav: NavItem) => void;
 }
 
-const NAV_ITEMS: { id: NavItem; label: string; icon: React.ReactNode }[] = [
+const NAV_ITEMS: { id: NavItem; path: string; label: string; icon: React.ReactNode }[] = [
   {
     id: 'meal-points',
+    path: '/',
     label: 'Meal Points',
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -17,6 +20,7 @@ const NAV_ITEMS: { id: NavItem; label: string; icon: React.ReactNode }[] = [
   },
   {
     id: 'plan',
+    path: '/plan',
     label: 'Plan',
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -26,6 +30,7 @@ const NAV_ITEMS: { id: NavItem; label: string; icon: React.ReactNode }[] = [
   },
   {
     id: 'history',
+    path: '/history',
     label: 'History',
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -35,6 +40,7 @@ const NAV_ITEMS: { id: NavItem; label: string; icon: React.ReactNode }[] = [
   },
   {
     id: 'daily-update',
+    path: '/daily-update',
     label: 'Daily Update',
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -44,6 +50,7 @@ const NAV_ITEMS: { id: NavItem; label: string; icon: React.ReactNode }[] = [
   },
   {
     id: 'log-workout',
+    path: '/log-workout',
     label: 'Log Workout',
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -53,6 +60,7 @@ const NAV_ITEMS: { id: NavItem; label: string; icon: React.ReactNode }[] = [
   },
   {
     id: 'profile',
+    path: '/profile',
     label: 'Profile',
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -81,19 +89,22 @@ export function Sidebar({ currentNav, onNavChange }: SidebarProps) {
       {/* Navigation */}
       <nav className="flex-1 p-3 space-y-1" data-testid="sidebar-nav">
         {NAV_ITEMS.map((item) => (
-          <button
+          <NavLink
             key={item.id}
-            onClick={() => onNavChange(item.id)}
+            to={item.path}
             data-testid={`nav-${item.id}`}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-              currentNav === item.id
-                ? 'bg-gray-800 text-white'
-                : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
-            }`}
+            onClick={() => onNavChange?.(item.id)}
+            className={({ isActive }) =>
+              `w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                isActive
+                  ? 'bg-gray-800 text-white'
+                  : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+              }`
+            }
           >
             {item.icon}
             {item.label}
-          </button>
+          </NavLink>
         ))}
       </nav>
     </aside>
