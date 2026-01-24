@@ -231,6 +231,12 @@ export interface HistoryPoint {
   estimatedTDEE: number;
   tdeeConfidence: number;
   hasTraining: boolean;
+
+  // Per-day training details for compliance tracking
+  plannedSessionCount: number;
+  actualSessionCount: number;
+  plannedDurationMin: number;
+  actualDurationMin: number;
 }
 
 export interface TrainingSummaryRange {

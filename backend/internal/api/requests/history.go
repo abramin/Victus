@@ -12,6 +12,12 @@ type HistoryPointResponse struct {
 	EstimatedTDEE  int     `json:"estimatedTDEE"`
 	TDEEConfidence float64 `json:"tdeeConfidence"`
 	HasTraining    bool    `json:"hasTraining"`
+
+	// Per-day training details for compliance tracking
+	PlannedSessionCount int `json:"plannedSessionCount"`
+	ActualSessionCount  int `json:"actualSessionCount"`
+	PlannedDurationMin  int `json:"plannedDurationMin"`
+	ActualDurationMin   int `json:"actualDurationMin"`
 }
 
 type HistoryTrainingSummaryResponse struct {
@@ -39,11 +45,15 @@ func HistoryToResponse(summary *domain.HistorySummary) HistoryResponse {
 	points := make([]HistoryPointResponse, len(summary.Points))
 	for i, point := range summary.Points {
 		points[i] = HistoryPointResponse{
-			Date:           point.Date,
-			WeightKg:       point.WeightKg,
-			EstimatedTDEE:  point.EstimatedTDEE,
-			TDEEConfidence: point.TDEEConfidence,
-			HasTraining:    point.HasTraining,
+			Date:                point.Date,
+			WeightKg:            point.WeightKg,
+			EstimatedTDEE:       point.EstimatedTDEE,
+			TDEEConfidence:      point.TDEEConfidence,
+			HasTraining:         point.HasTraining,
+			PlannedSessionCount: point.PlannedSessionCount,
+			ActualSessionCount:  point.ActualSessionCount,
+			PlannedDurationMin:  point.PlannedDurationMin,
+			ActualDurationMin:   point.ActualDurationMin,
 		}
 	}
 

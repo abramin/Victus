@@ -212,8 +212,15 @@ func (s *DailyLogService) GetHistorySummary(ctx context.Context, startDate, endD
 	var plannedSummary domain.TrainingSummaryAggregate
 	var actualSummary domain.TrainingSummaryAggregate
 
-	// Track which dates have actual training sessions
-	trainingDates := make(map[string]bool)
+	// Track per-day training details
+	type dayTrainingInfo struct {
+		HasTraining        bool
+		PlannedSessionCount int
+		ActualSessionCount  int
+		PlannedDurationMin  int
+		ActualDurationMin   int
+	}
+	trainingByDate := make(map[string]dayTrainingInfo)
 
 	if len(points) > 0 {
 		rangeStart := startDate
@@ -236,10 +243,20 @@ func (s *DailyLogService) GetHistorySummary(ctx context.Context, startDate, endD
 			for _, sd := range sessionsData {
 				plannedSessions = append(plannedSessions, sd.PlannedSessions...)
 				actualSessions = append(actualSessions, sd.ActualSessions...)
-				// Mark dates that have actual training
-				if len(sd.ActualSessions) > 0 {
-					trainingDates[sd.Date] = true
+
+				// Calculate per-day details
+				info := dayTrainingInfo{
+					HasTraining:         len(sd.ActualSessions) > 0,
+					PlannedSessionCount: len(sd.PlannedSessions),
+					ActualSessionCount:  len(sd.ActualSessions),
 				}
+				for _, sess := range sd.PlannedSessions {
+					info.PlannedDurationMin += sess.DurationMin
+				}
+				for _, sess := range sd.ActualSessions {
+					info.ActualDurationMin += sess.DurationMin
+				}
+				trainingByDate[sd.Date] = info
 			}
 
 			plannedSummary = aggregateTrainingSummary(plannedSessions)
@@ -247,9 +264,15 @@ func (s *DailyLogService) GetHistorySummary(ctx context.Context, startDate, endD
 		}
 	}
 
-	// Update points with training markers
+	// Update points with training details
 	for i := range points {
-		points[i].HasTraining = trainingDates[points[i].Date]
+		if info, ok := trainingByDate[points[i].Date]; ok {
+			points[i].HasTraining = info.HasTraining
+			points[i].PlannedSessionCount = info.PlannedSessionCount
+			points[i].ActualSessionCount = info.ActualSessionCount
+			points[i].PlannedDurationMin = info.PlannedDurationMin
+			points[i].ActualDurationMin = info.ActualDurationMin
+		}
 	}
 
 	return &domain.HistorySummary{
