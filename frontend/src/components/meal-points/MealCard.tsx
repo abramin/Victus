@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { Panel } from '../common/Panel';
+import { MacroGauges } from './MacroGauges';
 import type { DraftedFood, MacroSpent } from './types';
 import { CARB_KCAL_PER_G, PROTEIN_KCAL_PER_G, FAT_KCAL_PER_G } from '../../constants';
 import type { FoodCategory, MacroPoints } from '../../api/types';
@@ -98,61 +99,6 @@ function MacroStackedBar({ proteinKcal, carbKcal, fatKcal, totalBudgetKcal }: Ma
   );
 }
 
-/** Individual macro progress bar with overflow support */
-interface MacroProgressBarProps {
-  macro: 'protein' | 'carbs' | 'fats';
-  target: number;
-  spent: number;
-}
-
-const MACRO_CONFIG = {
-  protein: { color: 'bg-purple-500', overflowColor: 'bg-red-500', label: 'P' },
-  carbs: { color: 'bg-orange-500', overflowColor: 'bg-red-500', label: 'C' },
-  fats: { color: 'bg-gray-400', overflowColor: 'bg-red-500', label: 'F' },
-} as const;
-
-function MacroProgressBar({ macro, target, spent }: MacroProgressBarProps) {
-  const percentage = target > 0 ? (spent / target) * 100 : 0;
-  const isOverflow = percentage > 100;
-  const config = MACRO_CONFIG[macro];
-
-  return (
-    <div className="flex items-center gap-2">
-      <span className="text-xs text-gray-500 w-4 font-medium">{config.label}</span>
-      <div className="flex-1 h-2 bg-gray-700 rounded-full overflow-hidden">
-        <motion.div
-          className={`h-full ${isOverflow ? config.overflowColor : config.color}`}
-          initial={{ width: 0 }}
-          animate={{ width: `${Math.min(percentage, 100)}%` }}
-          transition={{ duration: 0.3 }}
-        />
-      </div>
-      <span className={`text-xs tabular-nums w-12 text-right ${isOverflow ? 'text-red-400' : 'text-gray-400'}`}>
-        {spent}/{target}
-      </span>
-    </div>
-  );
-}
-
-/** Three separate macro progress bars */
-interface MacroGaugesProps {
-  macroTargets: MacroPoints;
-  macroSpent: MacroSpent;
-}
-
-function MacroGauges({ macroTargets, macroSpent }: MacroGaugesProps) {
-  return (
-    <div className="space-y-2">
-      <div className="text-xs text-gray-400 uppercase tracking-wide">Macro Progress</div>
-      <div className="space-y-1.5">
-        <MacroProgressBar macro="protein" target={macroTargets.protein} spent={macroSpent.protein} />
-        <MacroProgressBar macro="carbs" target={macroTargets.carbs} spent={macroSpent.carbs} />
-        <MacroProgressBar macro="fats" target={macroTargets.fats} spent={macroSpent.fats} />
-      </div>
-    </div>
-  );
-}
-
 /** Get dominant macro category for visual indicator */
 function getMacroDominantColor(category: FoodCategory): string {
   switch (category) {
@@ -243,7 +189,7 @@ export function MealCard({
 
         {/* Macro visualization - separate gauges when data available, stacked bar otherwise */}
         {macroTargets && macroSpent ? (
-          <MacroGauges macroTargets={macroTargets} macroSpent={macroSpent} />
+          <MacroGauges targets={macroTargets} spent={macroSpent} />
         ) : (
           <MacroStackedBar
             proteinKcal={proteinKcal}

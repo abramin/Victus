@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import type { MacroPoints } from '../../api/types';
-import type { MacroSpent, MacroRemaining, GhostPreview } from './types';
+import type { MacroSpent, GhostPreview } from './types';
 
 type MacroType = 'protein' | 'carbs' | 'fats';
 type FilterTab = 'all' | 'carb' | 'protein' | 'fat';
@@ -190,7 +190,7 @@ function MacroGauge({
 interface MacroGaugesProps {
   targets: MacroPoints | null;
   spent: MacroSpent;
-  activeFilter: FilterTab;
+  activeFilter?: FilterTab;
   ghostPreview?: GhostPreview | null;
   className?: string;
 }
@@ -198,7 +198,7 @@ interface MacroGaugesProps {
 export function MacroGauges({
   targets,
   spent,
-  activeFilter,
+  activeFilter = 'all',
   ghostPreview,
   className = '',
 }: MacroGaugesProps) {

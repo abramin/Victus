@@ -156,20 +156,22 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
 
   // Handler for updating active calories burned
   const handleActiveCaloriesChange = useCallback(async (calories: number | null) => {
-    if (!selectedLog) return;
+    const logDate = selectedLog?.date;
+    if (!logDate) return;
 
     setActiveCaloriesUpdating(true);
     try {
-      const updatedLog = await updateActiveCalories(selectedLog.date, {
+      const updatedLog = await updateActiveCalories(logDate, {
         activeCaloriesBurned: calories,
       });
-      setSelectedLog(updatedLog);
+      // Only update if still viewing same date
+      setSelectedLog(prev => prev?.date === logDate ? updatedLog : prev);
     } catch {
       // Silently fail - user can retry
     } finally {
       setActiveCaloriesUpdating(false);
     }
-  }, [selectedLog]);
+  }, [selectedLog?.date]);
 
   // Auto-enable intra-workout carbs for performance workouts
   useEffect(() => {
