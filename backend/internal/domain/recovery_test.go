@@ -17,18 +17,23 @@ func TestRecoverySuite(t *testing.T) {
 }
 
 func (s *RecoverySuite) TestRecoveryScore() {
+	// New weights after RHR component: Rest (35), ACR (30), Sleep (20), RHR (15)
+	// Tests without RHR data will have RHR component = 0
+
 	s.Run("optimal ACR and good sleep gives high score", func() {
 		input := RecoveryScoreInput{
 			RestDaysLast7:     3,  // Max rest points
 			ACR:               1.0, // Optimal zone
 			AvgSleepQualityL7: 80,  // Good sleep
+			// No RHR data - gets full 15 points (no penalty for not tracking)
 		}
 		result := CalculateRecoveryScore(input)
 
-		s.InDelta(40.0, result.RestComponent, 0.01, "3 rest days should give max 40 points")
-		s.InDelta(35.0, result.ACRComponent, 0.01, "Optimal ACR should give max 35 points")
-		s.InDelta(20.0, result.SleepComponent, 0.01, "80% sleep should give 20 points")
-		s.InDelta(95.0, result.Score, 0.01, "Total should be 95")
+		s.InDelta(35.0, result.RestComponent, 0.01, "3 rest days should give max 35 points")
+		s.InDelta(30.0, result.ACRComponent, 0.01, "Optimal ACR should give max 30 points")
+		s.InDelta(16.0, result.SleepComponent, 0.01, "80% sleep should give 16 points")
+		s.InDelta(15.0, result.RHRComponent, 0.01, "No RHR data should give full 15 points")
+		s.InDelta(96.0, result.Score, 0.01, "Total should be 35+30+16+15=96")
 	})
 
 	s.Run("no rest days reduces score", func() {
@@ -36,11 +41,12 @@ func (s *RecoverySuite) TestRecoveryScore() {
 			RestDaysLast7:     0,
 			ACR:               1.0,
 			AvgSleepQualityL7: 80,
+			// No RHR data - gets full 15 points
 		}
 		result := CalculateRecoveryScore(input)
 
 		s.Equal(0.0, result.RestComponent, "0 rest days should give 0 points")
-		s.InDelta(55.0, result.Score, 0.01, "Total should be 35+20=55")
+		s.InDelta(61.0, result.Score, 0.01, "Total should be 0+30+16+15=61")
 	})
 
 	s.Run("high ACR reduces score", func() {
@@ -51,12 +57,12 @@ func (s *RecoverySuite) TestRecoveryScore() {
 		}
 		result := CalculateRecoveryScore(input)
 
-		// Rest: 2/3 * 40 = 26.67
-		// ACR: danger zone (1.6) gives ~66% (0.7 - 0.1*0.4 = 0.66) * 35 = 23.1
-		// Sleep: 70/100 * 25 = 17.5
-		s.InDelta(26.67, result.RestComponent, 0.1)
+		// Rest: 2/3 * 35 = 23.33
+		// ACR: danger zone (1.6) gives ~66% (0.7 - 0.1*0.4 = 0.66) * 30 = 19.8
+		// Sleep: 70/100 * 20 = 14
+		s.InDelta(23.33, result.RestComponent, 0.1)
 		s.Less(result.ACRComponent, 25.0, "Danger zone ACR should reduce points")
-		s.InDelta(17.5, result.SleepComponent, 0.01)
+		s.InDelta(14.0, result.SleepComponent, 0.01)
 	})
 
 	s.Run("undertrained ACR reduces score", func() {
@@ -80,7 +86,8 @@ func (s *RecoverySuite) TestRecoveryScore() {
 		}
 		result := CalculateRecoveryScore(input)
 
-		s.InDelta(7.5, result.SleepComponent, 0.01, "30% sleep should give 7.5 points")
+		// Sleep: 30/100 * 20 = 6
+		s.InDelta(6.0, result.SleepComponent, 0.01, "30% sleep should give 6 points")
 	})
 
 	s.Run("score is clamped to 0", func() {
@@ -115,11 +122,13 @@ func (s *RecoverySuite) TestRecoveryScore() {
 		}
 		result := CalculateRecoveryScore(input)
 
-		s.InDelta(40.0, result.RestComponent, 0.01, "Rest above 3 should cap at 40")
+		s.InDelta(35.0, result.RestComponent, 0.01, "Rest above 3 should cap at 35")
 	})
 }
 
 func (s *RecoverySuite) TestACRZones() {
+	// ACR max points is now 30 (was 35)
+
 	s.Run("ACR in optimal zone (0.8-1.3) gives full points", func() {
 		for _, acr := range []float64{0.8, 1.0, 1.2, 1.3} {
 			input := RecoveryScoreInput{
@@ -128,7 +137,7 @@ func (s *RecoverySuite) TestACRZones() {
 				AvgSleepQualityL7: 0,
 			}
 			result := CalculateRecoveryScore(input)
-			s.InDelta(35.0, result.ACRComponent, 0.01, "ACR %.1f should give full 35 points", acr)
+			s.InDelta(30.0, result.ACRComponent, 0.01, "ACR %.1f should give full 30 points", acr)
 		}
 	})
 
@@ -140,8 +149,8 @@ func (s *RecoverySuite) TestACRZones() {
 		}
 		result := CalculateRecoveryScore(input)
 
-		// 0.65 -> 0.5 + (0.65-0.5)/0.3*0.5 = 0.5 + 0.25 = 0.75 -> 26.25 points
-		s.InDelta(26.25, result.ACRComponent, 0.5)
+		// 0.65 -> 0.5 + (0.65-0.5)/0.3*0.5 = 0.5 + 0.25 = 0.75 -> 0.75 * 30 = 22.5 points
+		s.InDelta(22.5, result.ACRComponent, 0.5)
 	})
 
 	s.Run("ACR in high zone (1.3-1.5) reduces points", func() {
@@ -152,8 +161,8 @@ func (s *RecoverySuite) TestACRZones() {
 		}
 		result := CalculateRecoveryScore(input)
 
-		// 1.4 -> 1.0 - (1.4-1.3)/0.2*0.3 = 1.0 - 0.15 = 0.85 -> 29.75 points
-		s.InDelta(29.75, result.ACRComponent, 0.5)
+		// 1.4 -> 1.0 - (1.4-1.3)/0.2*0.3 = 1.0 - 0.15 = 0.85 -> 0.85 * 30 = 25.5 points
+		s.InDelta(25.5, result.ACRComponent, 0.5)
 	})
 
 	s.Run("ACR above 1.5 (danger zone) significantly reduces points", func() {
@@ -164,8 +173,8 @@ func (s *RecoverySuite) TestACRZones() {
 		}
 		result := CalculateRecoveryScore(input)
 
-		// 2.0 -> 0.7 - (2.0-1.5)*0.4 = 0.7 - 0.2 = 0.5 -> 17.5 points
-		s.InDelta(17.5, result.ACRComponent, 0.5)
+		// 2.0 -> 0.7 - (2.0-1.5)*0.4 = 0.7 - 0.2 = 0.5 -> 0.5 * 30 = 15 points
+		s.InDelta(15.0, result.ACRComponent, 0.5)
 	})
 
 	s.Run("very low ACR (<0.5) gives minimum points", func() {
@@ -176,8 +185,106 @@ func (s *RecoverySuite) TestACRZones() {
 		}
 		result := CalculateRecoveryScore(input)
 
-		// < 0.5 gives 0.3 ratio -> 10.5 points
-		s.InDelta(10.5, result.ACRComponent, 0.01)
+		// < 0.5 gives 0.3 ratio -> 0.3 * 30 = 9 points
+		s.InDelta(9.0, result.ACRComponent, 0.01)
+	})
+}
+
+func (s *RecoverySuite) TestRHRComponent() {
+	// Note: When RHR data is not available, the implementation gives full points (15)
+	// to avoid penalizing users who don't track RHR.
+
+	s.Run("no RHR data gives full points (no penalty)", func() {
+		input := RecoveryScoreInput{
+			RestDaysLast7:     0,
+			ACR:               0,
+			AvgSleepQualityL7: 0,
+			// CurrentRHR and AvgRHRLast30 not set
+		}
+		result := CalculateRecoveryScore(input)
+		s.Equal(15.0, result.RHRComponent, "No RHR data should give full 15 points")
+	})
+
+	s.Run("RHR within 5% deviation gives full points", func() {
+		avg := 60.0
+		current := 62 // 3.3% deviation
+		input := RecoveryScoreInput{
+			RestDaysLast7:     0,
+			ACR:               0,
+			AvgSleepQualityL7: 0,
+			CurrentRHR:        &current,
+			AvgRHRLast30:      &avg,
+		}
+		result := CalculateRecoveryScore(input)
+		s.InDelta(15.0, result.RHRComponent, 0.01, "RHR within 5% should give full 15 points")
+	})
+
+	s.Run("RHR 10% elevated gives partial points", func() {
+		avg := 60.0
+		current := 66 // 10% deviation
+		input := RecoveryScoreInput{
+			RestDaysLast7:     0,
+			ACR:               0,
+			AvgSleepQualityL7: 0,
+			CurrentRHR:        &current,
+			AvgRHRLast30:      &avg,
+		}
+		result := CalculateRecoveryScore(input)
+		// 10% deviation: ratio = (10% - 5%) / 10% = 0.5
+		// Points = 15 * (1 - 0.5 * 0.5) = 15 * 0.75 = 11.25 points
+		s.InDelta(11.25, result.RHRComponent, 0.5, "RHR 10% elevated should give ~11.25 points")
+	})
+
+	s.Run("RHR 15% elevated gives half points", func() {
+		avg := 60.0
+		current := 69 // 15% deviation
+		input := RecoveryScoreInput{
+			RestDaysLast7:     0,
+			ACR:               0,
+			AvgSleepQualityL7: 0,
+			CurrentRHR:        &current,
+			AvgRHRLast30:      &avg,
+		}
+		result := CalculateRecoveryScore(input)
+		// At exactly 15%: ratio = 1.0, points = 15 * (1 - 0.5) = 7.5
+		s.InDelta(7.5, result.RHRComponent, 0.5, "RHR 15% elevated should give ~7.5 points")
+	})
+
+	s.Run("RHR 30% elevated gives zero points", func() {
+		avg := 60.0
+		current := 78 // 30% deviation
+		input := RecoveryScoreInput{
+			RestDaysLast7:     0,
+			ACR:               0,
+			AvgSleepQualityL7: 0,
+			CurrentRHR:        &current,
+			AvgRHRLast30:      &avg,
+		}
+		result := CalculateRecoveryScore(input)
+		// >15% deviation: linear decrease from 7.5 to 0
+		// ratio = min((30% - 15%) / 15%, 1.0) = 1.0
+		// Points = 15 * 0.5 * (1 - 1.0) = 0
+		s.InDelta(0.0, result.RHRComponent, 0.01, "RHR 30% elevated should give 0 points")
+	})
+
+	s.Run("complete recovery score with RHR", func() {
+		avg := 60.0
+		current := 60 // 0% deviation - full points
+		input := RecoveryScoreInput{
+			RestDaysLast7:     3,
+			ACR:               1.0,
+			AvgSleepQualityL7: 80,
+			CurrentRHR:        &current,
+			AvgRHRLast30:      &avg,
+		}
+		result := CalculateRecoveryScore(input)
+
+		// Rest: 35, ACR: 30, Sleep: 16, RHR: 15 = 96
+		s.InDelta(35.0, result.RestComponent, 0.01)
+		s.InDelta(30.0, result.ACRComponent, 0.01)
+		s.InDelta(16.0, result.SleepComponent, 0.01)
+		s.InDelta(15.0, result.RHRComponent, 0.01)
+		s.InDelta(96.0, result.Score, 0.01)
 	})
 }
 

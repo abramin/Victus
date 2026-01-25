@@ -1,5 +1,6 @@
 import type { DailyTargets, MacroPoints, DayType, RecoveryScoreBreakdown, AdjustmentMultipliers } from '../../api/types';
 import { Card } from '../common/Card';
+import { BMRPrecisionBadge } from '../settings/BMRPrecisionBadge';
 
 interface DailyTargetsDisplayProps {
   targets: DailyTargets;
@@ -7,6 +8,8 @@ interface DailyTargetsDisplayProps {
   date: string;
   recoveryScore?: RecoveryScoreBreakdown;
   adjustmentMultipliers?: AdjustmentMultipliers;
+  bmrPrecisionMode?: boolean;
+  bodyFatUsedDate?: string;
 }
 
 function DayTypeBadge({ dayType }: { dayType: DayType }) {
@@ -139,21 +142,29 @@ function RecoveryScoreDisplay({ recoveryScore }: { recoveryScore: RecoveryScoreB
         <RecoveryScoreBar
           label="Rest Days"
           score={recoveryScore.restComponent}
-          maxScore={40}
+          maxScore={35}
           color="bg-blue-500"
         />
         <RecoveryScoreBar
           label="ACR Zone"
           score={recoveryScore.acrComponent}
-          maxScore={35}
+          maxScore={30}
           color="bg-purple-500"
         />
         <RecoveryScoreBar
           label="Sleep Quality"
           score={recoveryScore.sleepComponent}
-          maxScore={25}
+          maxScore={20}
           color="bg-cyan-500"
         />
+        {recoveryScore.rhrComponent !== undefined && (
+          <RecoveryScoreBar
+            label="Heart Rate"
+            score={recoveryScore.rhrComponent}
+            maxScore={15}
+            color="bg-red-500"
+          />
+        )}
       </div>
     </div>
   );
@@ -244,7 +255,7 @@ function MacroSummary({ targets }: { targets: DailyTargets }) {
   );
 }
 
-export function DailyTargetsDisplay({ targets, estimatedTDEE, date, recoveryScore, adjustmentMultipliers }: DailyTargetsDisplayProps) {
+export function DailyTargetsDisplay({ targets, estimatedTDEE, date, recoveryScore, adjustmentMultipliers, bmrPrecisionMode, bodyFatUsedDate }: DailyTargetsDisplayProps) {
   const formattedDate = new Date(date).toLocaleDateString('en-US', {
     weekday: 'long',
     year: 'numeric',
@@ -289,7 +300,7 @@ export function DailyTargetsDisplay({ targets, estimatedTDEE, date, recoveryScor
             <div className="text-sm text-slate-400">Vegetables</div>
           </div>
           <div>
-            <div className="text-2xl font-bold text-cyan-400">{targets.waterL}L</div>
+            <div className="text-2xl font-bold text-cyan-400">{targets.waterL.toFixed(1)}L</div>
             <div className="text-sm text-slate-400">Water</div>
           </div>
         </div>
@@ -316,12 +327,19 @@ export function DailyTargetsDisplay({ targets, estimatedTDEE, date, recoveryScor
       )}
 
       {/* TDEE Info */}
-      <div className="text-center text-sm text-slate-500">
-        Estimated TDEE: {estimatedTDEE} kcal
-        {adjustmentMultipliers && adjustmentMultipliers.total !== 1 && (
-          <span className="ml-2">
-            (adjusted by {((adjustmentMultipliers.total - 1) * 100).toFixed(0)}%)
-          </span>
+      <div className="text-center space-y-2">
+        <div className="text-sm text-slate-500">
+          Estimated TDEE: {estimatedTDEE} kcal
+          {adjustmentMultipliers && adjustmentMultipliers.total !== 1 && (
+            <span className="ml-2">
+              (adjusted by {((adjustmentMultipliers.total - 1) * 100).toFixed(0)}%)
+            </span>
+          )}
+        </div>
+        {bmrPrecisionMode && (
+          <div className="flex justify-center">
+            <BMRPrecisionBadge active={bmrPrecisionMode} bodyFatDate={bodyFatUsedDate} />
+          </div>
         )}
       </div>
     </div>

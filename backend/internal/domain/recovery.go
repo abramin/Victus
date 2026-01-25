@@ -12,9 +12,10 @@ const (
 
 // Recovery Score component weights (total = 100).
 const (
-	RestComponentMax  = 40.0 // Rest days contribution
-	ACRComponentMax   = 35.0 // ACR zone contribution
-	SleepComponentMax = 25.0 // Sleep quality contribution
+	RestComponentMax  = 35.0 // Rest days contribution
+	ACRComponentMax   = 30.0 // ACR zone contribution
+	SleepComponentMax = 20.0 // Sleep quality contribution
+	RHRComponentMax   = 15.0 // RHR deviation contribution
 )
 
 // Rest days threshold for maximum recovery score.
@@ -22,17 +23,20 @@ const RestDaysForMaxScore = 3
 
 // RecoveryScoreInput contains data for recovery score calculation.
 type RecoveryScoreInput struct {
-	RestDaysLast7     int     // Number of rest days in last 7 days
-	ACR               float64 // Acute:Chronic Workload Ratio
-	AvgSleepQualityL7 float64 // Average sleep quality (1-100) over last 7 days
+	RestDaysLast7     int      // Number of rest days in last 7 days
+	ACR               float64  // Acute:Chronic Workload Ratio
+	AvgSleepQualityL7 float64  // Average sleep quality (1-100) over last 7 days
+	CurrentRHR        *int     // Today's resting heart rate (nil if not available)
+	AvgRHRLast30      *float64 // 30-day RHR average (nil if not available)
 }
 
 // RecoveryScore represents the calculated recovery state with component breakdown.
 type RecoveryScore struct {
 	Score          float64 // Total score 0-100, clamped
-	RestComponent  float64 // Rest days component (0-40)
-	ACRComponent   float64 // ACR zone component (0-35)
-	SleepComponent float64 // Sleep quality component (0-25)
+	RestComponent  float64 // Rest days component (0-35)
+	ACRComponent   float64 // ACR zone component (0-30)
+	SleepComponent float64 // Sleep quality component (0-20)
+	RHRComponent   float64 // RHR deviation component (0-15)
 }
 
 // AdjustmentInput contains data for calculating daily adjustment multipliers.
@@ -55,22 +59,26 @@ type AdjustmentMultipliers struct {
 // CalculateRecoveryScore computes the recovery score from historical data.
 // The score is clamped to [0, 100] as per PRD 3.5.
 func CalculateRecoveryScore(input RecoveryScoreInput) RecoveryScore {
-	// Rest days component (0-40 points)
-	// Linear scaling: 0 days = 0 points, 3+ days = 40 points
+	// Rest days component (0-35 points)
+	// Linear scaling: 0 days = 0 points, 3+ days = 35 points
 	restRatio := math.Min(float64(input.RestDaysLast7)/float64(RestDaysForMaxScore), 1.0)
 	restComponent := restRatio * RestComponentMax
 
-	// ACR component (0-35 points)
+	// ACR component (0-30 points)
 	acrRatio := calculateACRRecoveryRatio(input.ACR)
 	acrComponent := acrRatio * ACRComponentMax
 
-	// Sleep quality component (0-25 points)
-	// Maps average sleep quality (1-100) to 0-25 points
+	// Sleep quality component (0-20 points)
+	// Maps average sleep quality (1-100) to 0-20 points
 	sleepRatio := math.Max(0, math.Min(input.AvgSleepQualityL7/100.0, 1.0))
 	sleepComponent := sleepRatio * SleepComponentMax
 
+	// RHR component (0-15 points)
+	// Based on deviation from 30-day average
+	rhrComponent := calculateRHRComponent(input.CurrentRHR, input.AvgRHRLast30)
+
 	// Calculate total and clamp to [0, 100]
-	total := restComponent + acrComponent + sleepComponent
+	total := restComponent + acrComponent + sleepComponent + rhrComponent
 	total = math.Max(0, math.Min(total, 100))
 
 	return RecoveryScore{
@@ -78,6 +86,44 @@ func CalculateRecoveryScore(input RecoveryScoreInput) RecoveryScore {
 		RestComponent:  restComponent,
 		ACRComponent:   acrComponent,
 		SleepComponent: sleepComponent,
+		RHRComponent:   rhrComponent,
+	}
+}
+
+// calculateRHRComponent calculates the RHR deviation component (0-15 points).
+// Scoring:
+// - ≤5% deviation from average: 15 points (excellent)
+// - 5-15% deviation: 7.5-15 points (linear decrease)
+// - >15% deviation: 0-7.5 points (linear decrease to 0)
+// Returns 15 points (full score) if RHR data is not available.
+func calculateRHRComponent(currentRHR *int, avgRHR *float64) float64 {
+	// If RHR data is not available, give full score (don't penalize)
+	if currentRHR == nil || avgRHR == nil || *avgRHR <= 0 {
+		return RHRComponentMax
+	}
+
+	// Calculate percentage deviation
+	deviation := (float64(*currentRHR) - *avgRHR) / *avgRHR
+
+	// We care about elevated RHR (positive deviation) more than low RHR
+	// Low RHR is generally good, so use absolute value but bias toward positive
+	if deviation < 0 {
+		deviation = math.Abs(deviation) * 0.5 // Low RHR penalized less
+	}
+
+	// Scoring based on deviation percentage
+	switch {
+	case deviation <= 0.05:
+		// ≤5% deviation: full score
+		return RHRComponentMax
+	case deviation <= 0.15:
+		// 5-15% deviation: linear decrease from 15 to 7.5
+		ratio := (deviation - 0.05) / 0.10 // 0 to 1 as deviation goes from 5% to 15%
+		return RHRComponentMax * (1 - ratio*0.5)
+	default:
+		// >15% deviation: linear decrease from 7.5 to 0
+		ratio := math.Min((deviation-0.15)/0.15, 1.0) // 0 to 1 as deviation goes from 15% to 30%
+		return RHRComponentMax * 0.5 * (1 - ratio)
 	}
 }
 

@@ -13,6 +13,12 @@ type HistoryPoint struct {
 	ActualSessionCount  int
 	PlannedDurationMin  int
 	ActualDurationMin   int
+
+	// Annotated history: aggregated notes from training sessions
+	Notes string
+
+	// Body composition: for lean mass vs fat mass visualization
+	BodyFatPercent *float64
 }
 
 // TrainingSummaryAggregate provides aggregate training totals over a range.

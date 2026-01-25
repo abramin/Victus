@@ -107,9 +107,10 @@ export interface TrainingSummary {
 // RecoveryScoreBreakdown contains recovery score with component breakdown.
 export interface RecoveryScoreBreakdown {
   score: number;          // Total score 0-100
-  restComponent: number;  // Rest days component (0-40)
-  acrComponent: number;   // ACR zone component (0-35)
-  sleepComponent: number; // Sleep quality component (0-25)
+  restComponent: number;  // Rest days component (0-35)
+  acrComponent: number;   // ACR zone component (0-30)
+  sleepComponent: number; // Sleep quality component (0-20)
+  rhrComponent?: number;  // RHR deviation component (0-15)
 }
 
 // AdjustmentMultipliers contains adjustment factors for daily TDEE.
@@ -177,6 +178,8 @@ export interface DailyLog {
   recoveryScore?: RecoveryScoreBreakdown;       // Recovery score breakdown
   adjustmentMultipliers?: AdjustmentMultipliers; // Adjustment multipliers breakdown
   activeCaloriesBurned?: number;                // User-entered active calories from wearable
+  bmrPrecisionMode?: boolean;                   // True if Katch-McArdle auto-selected using recent body fat
+  bodyFatUsedDate?: string;                     // Date of body fat measurement used for precision BMR
   createdAt?: string;
   updatedAt?: string;
 }
@@ -239,6 +242,14 @@ export interface HistoryPoint {
   actualSessionCount: number;
   plannedDurationMin: number;
   actualDurationMin: number;
+
+  // Annotated history: notes from training sessions
+  notes?: string;
+
+  // Body composition for lean mass vs fat mass visualization
+  bodyFatPercent?: number;
+  leanMassKg?: number;
+  fatMassKg?: number;
 }
 
 export interface TrainingSummaryRange {

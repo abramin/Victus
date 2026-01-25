@@ -39,13 +39,25 @@ func (s *DailyLogService) Create(ctx context.Context, input domain.DailyLogInput
 		return nil, err
 	}
 
-	// Calculate formula-based TDEE first
-	formulaTDEE := domain.CalculateEstimatedTDEE(
-		profile,
-		log.WeightKg,
-		log.PlannedSessions,
-		now,
-	)
+	// Check for recent body fat data for BMR auto-tuning (Precision Mode)
+	// This enables Katch-McArdle equation which is more accurate when body fat is known
+	const bmrBodyFatLookbackDays = 7
+	recentBodyFat, bodyFatDate, _ := s.logStore.GetRecentBodyFat(ctx, log.Date, bmrBodyFatLookbackDays)
+
+	// Use auto-tune for BMR calculation
+	bmrEquation := profile.BMREquation
+	if bmrEquation == "" {
+		bmrEquation = domain.BMREquationMifflinStJeor
+	}
+	bmrResult := domain.CalculateBMRWithAutoTune(profile, log.WeightKg, now, bmrEquation, recentBodyFat, bodyFatDate)
+
+	// Store precision mode metadata
+	log.BMRPrecisionMode = bmrResult.IsPrecisionMode
+	log.BodyFatUsedDate = bmrResult.BodyFatDate
+
+	// Calculate formula-based TDEE using the auto-tuned BMR
+	exerciseCalories := domain.CalculateTotalExerciseCalories(log.PlannedSessions, log.WeightKg)
+	formulaTDEE := int(bmrResult.BMR*1.2 + exerciseCalories)
 	log.FormulaTDEE = formulaTDEE
 
 	// Try to calculate adaptive TDEE if profile uses adaptive source
@@ -69,7 +81,7 @@ func (s *DailyLogService) Create(ctx context.Context, input domain.DailyLogInput
 	log.DataPointsUsed = dataPointsUsed
 
 	// Calculate recovery score and adjustment multipliers
-	recoveryScore, adjustmentMultipliers := s.calculateRecoveryAndAdjustments(ctx, log.Date, int(log.SleepQuality))
+	recoveryScore, adjustmentMultipliers := s.calculateRecoveryAndAdjustments(ctx, log.Date, int(log.SleepQuality), log.RestingHeartRate)
 
 	if recoveryScore != nil {
 		log.RecoveryScore = recoveryScore
@@ -212,13 +224,14 @@ func (s *DailyLogService) GetHistorySummary(ctx context.Context, startDate, endD
 	var plannedSummary domain.TrainingSummaryAggregate
 	var actualSummary domain.TrainingSummaryAggregate
 
-	// Track per-day training details
+	// Track per-day training details including notes
 	type dayTrainingInfo struct {
-		HasTraining        bool
+		HasTraining         bool
 		PlannedSessionCount int
 		ActualSessionCount  int
 		PlannedDurationMin  int
 		ActualDurationMin   int
+		Notes               string // Aggregated notes from training sessions
 	}
 	trainingByDate := make(map[string]dayTrainingInfo)
 
@@ -253,8 +266,20 @@ func (s *DailyLogService) GetHistorySummary(ctx context.Context, startDate, endD
 				for _, sess := range sd.PlannedSessions {
 					info.PlannedDurationMin += sess.DurationMin
 				}
-				for _, sess := range sd.ActualSessions {
+				// Aggregate notes from actual sessions (or planned if no actual)
+				var noteParts []string
+				sessionsToCheck := sd.ActualSessions
+				if len(sessionsToCheck) == 0 {
+					sessionsToCheck = sd.PlannedSessions
+				}
+				for _, sess := range sessionsToCheck {
 					info.ActualDurationMin += sess.DurationMin
+					if sess.Notes != "" {
+						noteParts = append(noteParts, sess.Notes)
+					}
+				}
+				if len(noteParts) > 0 {
+					info.Notes = joinNotes(noteParts)
 				}
 				trainingByDate[sd.Date] = info
 			}
@@ -264,7 +289,7 @@ func (s *DailyLogService) GetHistorySummary(ctx context.Context, startDate, endD
 		}
 	}
 
-	// Update points with training details
+	// Update points with training details and notes
 	for i := range points {
 		if info, ok := trainingByDate[points[i].Date]; ok {
 			points[i].HasTraining = info.HasTraining
@@ -272,6 +297,7 @@ func (s *DailyLogService) GetHistorySummary(ctx context.Context, startDate, endD
 			points[i].ActualSessionCount = info.ActualSessionCount
 			points[i].PlannedDurationMin = info.PlannedDurationMin
 			points[i].ActualDurationMin = info.ActualDurationMin
+			points[i].Notes = info.Notes
 		}
 	}
 
@@ -367,10 +393,27 @@ func aggregateTrainingSummary(sessions []domain.TrainingSession) domain.Training
 	}
 }
 
+// joinNotes combines multiple note strings into a single string.
+// Uses semicolon separator for multiple notes.
+func joinNotes(notes []string) string {
+	if len(notes) == 0 {
+		return ""
+	}
+	if len(notes) == 1 {
+		return notes[0]
+	}
+	result := notes[0]
+	for i := 1; i < len(notes); i++ {
+		result += "; " + notes[i]
+	}
+	return result
+}
+
 // calculateRecoveryAndAdjustments computes recovery score and adjustment multipliers
 // using historical training and sleep data. Returns nil for both if insufficient data.
-func (s *DailyLogService) calculateRecoveryAndAdjustments(ctx context.Context, date string, todaySleepQuality int) (*domain.RecoveryScore, *domain.AdjustmentMultipliers) {
+func (s *DailyLogService) calculateRecoveryAndAdjustments(ctx context.Context, date string, todaySleepQuality int, currentRHR *int) (*domain.RecoveryScore, *domain.AdjustmentMultipliers) {
 	const recoveryLookbackDays = 7
+	const rhrLookbackDays = 30
 
 	// Parse target date
 	targetDate, err := time.Parse("2006-01-02", date)
@@ -411,6 +454,12 @@ func (s *DailyLogService) calculateRecoveryAndAdjustments(ctx context.Context, d
 		avgSleepQuality = totalSleepQuality / float64(len(sleepData))
 	}
 
+	// Fetch 30-day RHR average for recovery score calculation
+	var avgRHR *float64
+	if currentRHR != nil {
+		avgRHR, _ = s.logStore.GetRHRAverage(ctx, date, rhrLookbackDays)
+	}
+
 	// Analyze session patterns for rest days and yesterday's max load
 	patternData := make([]domain.SessionPatternData, len(sessionsData))
 	for i, sd := range sessionsData {
@@ -434,6 +483,8 @@ func (s *DailyLogService) calculateRecoveryAndAdjustments(ctx context.Context, d
 		RestDaysLast7:     pattern.RestDays,
 		ACR:               trainingLoadResult.ACR,
 		AvgSleepQualityL7: avgSleepQuality,
+		CurrentRHR:        currentRHR,
+		AvgRHRLast30:      avgRHR,
 	}
 	recoveryScore := domain.CalculateRecoveryScore(recoveryInput)
 

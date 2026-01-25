@@ -265,7 +265,7 @@ func (s *DailyLogStore) ListWeights(ctx context.Context, startDate string) ([]do
 // If startDate is empty, all samples are returned.
 func (s *DailyLogStore) ListHistoryPoints(ctx context.Context, startDate string) ([]domain.HistoryPoint, error) {
 	query := `
-		SELECT log_date, weight_kg, COALESCE(estimated_tdee, 0), COALESCE(tdee_confidence, 0)
+		SELECT log_date, weight_kg, COALESCE(estimated_tdee, 0), COALESCE(tdee_confidence, 0), body_fat_percent
 		FROM daily_logs
 	`
 	var args []interface{}
@@ -284,13 +284,18 @@ func (s *DailyLogStore) ListHistoryPoints(ctx context.Context, startDate string)
 	var points []domain.HistoryPoint
 	for rows.Next() {
 		var point domain.HistoryPoint
+		var bodyFatPercent sql.NullFloat64
 		if err := rows.Scan(
 			&point.Date,
 			&point.WeightKg,
 			&point.EstimatedTDEE,
 			&point.TDEEConfidence,
+			&bodyFatPercent,
 		); err != nil {
 			return nil, err
+		}
+		if bodyFatPercent.Valid {
+			point.BodyFatPercent = &bodyFatPercent.Float64
 		}
 		points = append(points, point)
 	}
@@ -442,6 +447,49 @@ func (s *DailyLogStore) UpdateActiveCaloriesBurned(ctx context.Context, date str
 	return nil
 }
 
+// GetRecentBodyFat returns the most recent body fat measurement within the lookback period.
+// Returns nil values if no body fat data exists within the period.
+// The beforeDate is exclusive (looks for data before this date).
+func (s *DailyLogStore) GetRecentBodyFat(ctx context.Context, beforeDate string, lookbackDays int) (*float64, *string, error) {
+	const query = `
+		SELECT body_fat_percent, log_date
+		FROM daily_logs
+		WHERE log_date < ?
+		  AND body_fat_percent IS NOT NULL
+		ORDER BY log_date DESC
+		LIMIT 1
+	`
+
+	var bodyFat float64
+	var date string
+
+	err := s.db.QueryRowContext(ctx, query, beforeDate).Scan(&bodyFat, &date)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil, nil
+	}
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Check if the date is within the lookback period
+	beforeDateParsed, err := time.Parse("2006-01-02", beforeDate)
+	if err != nil {
+		return nil, nil, err
+	}
+	dateParsed, err := time.Parse("2006-01-02", date)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	daysDiff := int(beforeDateParsed.Sub(dateParsed).Hours() / 24)
+	if daysDiff > lookbackDays {
+		// Body fat data is too old
+		return nil, nil, nil
+	}
+
+	return &bodyFat, &date, nil
+}
+
 // GetRecoveryData returns sleep quality data for the last N days before (and including) endDate.
 // Results are ordered by date ascending (oldest first).
 func (s *DailyLogStore) GetRecoveryData(ctx context.Context, endDate string, days int) ([]RecoveryDataPoint, error) {
@@ -478,4 +526,42 @@ func (s *DailyLogStore) GetRecoveryData(ctx context.Context, endDate string, day
 	}
 
 	return points, nil
+}
+
+// GetRHRAverage returns the average resting heart rate over the specified number of days.
+// The beforeDate is exclusive - it looks at data before this date.
+// Returns nil if no RHR data exists within the period.
+func (s *DailyLogStore) GetRHRAverage(ctx context.Context, beforeDate string, days int) (*float64, error) {
+	const query = `
+		SELECT AVG(resting_heart_rate)
+		FROM daily_logs
+		WHERE log_date < ?
+		  AND resting_heart_rate IS NOT NULL
+		ORDER BY log_date DESC
+		LIMIT ?
+	`
+
+	// SQLite doesn't support LIMIT in AVG subquery directly, so we use a subquery
+	const avgQuery = `
+		SELECT AVG(rhr) FROM (
+			SELECT resting_heart_rate as rhr
+			FROM daily_logs
+			WHERE log_date < ?
+			  AND resting_heart_rate IS NOT NULL
+			ORDER BY log_date DESC
+			LIMIT ?
+		)
+	`
+
+	var avg sql.NullFloat64
+	err := s.db.QueryRowContext(ctx, avgQuery, beforeDate, days).Scan(&avg)
+	if err != nil {
+		return nil, err
+	}
+
+	if !avg.Valid {
+		return nil, nil
+	}
+
+	return &avg.Float64, nil
 }

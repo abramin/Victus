@@ -78,10 +78,11 @@ type TrainingLoadResponse struct {
 
 // RecoveryScoreResponse contains recovery score with component breakdown.
 type RecoveryScoreResponse struct {
-	Score          float64 `json:"score"`          // Total score 0-100
-	RestComponent  float64 `json:"restComponent"`  // Rest days component (0-40)
-	ACRComponent   float64 `json:"acrComponent"`   // ACR zone component (0-35)
-	SleepComponent float64 `json:"sleepComponent"` // Sleep quality component (0-25)
+	Score          float64 `json:"score"`                    // Total score 0-100
+	RestComponent  float64 `json:"restComponent"`            // Rest days component (0-35)
+	ACRComponent   float64 `json:"acrComponent"`             // ACR zone component (0-30)
+	SleepComponent float64 `json:"sleepComponent"`           // Sleep quality component (0-20)
+	RHRComponent   float64 `json:"rhrComponent,omitempty"`   // RHR deviation component (0-15)
 }
 
 // AdjustmentMultipliersResponse contains adjustment factors for daily TDEE.
@@ -157,6 +158,8 @@ type DailyLogResponse struct {
 	RecoveryScore           *RecoveryScoreResponse          `json:"recoveryScore,omitempty"`         // Recovery score breakdown
 	AdjustmentMultipliers   *AdjustmentMultipliersResponse  `json:"adjustmentMultipliers,omitempty"` // Adjustment multipliers breakdown
 	ActiveCaloriesBurned    *int                            `json:"activeCaloriesBurned,omitempty"`  // User-entered active calories from wearable
+	BMRPrecisionMode        bool                            `json:"bmrPrecisionMode,omitempty"`      // True if Katch-McArdle auto-selected using recent body fat
+	BodyFatUsedDate         *string                         `json:"bodyFatUsedDate,omitempty"`       // Date of body fat measurement used for precision BMR
 	CreatedAt               string                          `json:"createdAt,omitempty"`
 	UpdatedAt               string                          `json:"updatedAt,omitempty"`
 }
@@ -241,6 +244,7 @@ func RecoveryScoreToResponse(r *domain.RecoveryScore) *RecoveryScoreResponse {
 		RestComponent:  r.RestComponent,
 		ACRComponent:   r.ACRComponent,
 		SleepComponent: r.SleepComponent,
+		RHRComponent:   r.RHRComponent,
 	}
 }
 
@@ -417,6 +421,8 @@ func DailyLogToResponseWithTrainingLoad(d *domain.DailyLog, trainingLoad *domain
 		RecoveryScore:         RecoveryScoreToResponse(d.RecoveryScore),
 		AdjustmentMultipliers: AdjustmentMultipliersToResponse(d.AdjustmentMultipliers),
 		ActiveCaloriesBurned:  d.ActiveCaloriesBurned,
+		BMRPrecisionMode:      d.BMRPrecisionMode,
+		BodyFatUsedDate:       d.BodyFatUsedDate,
 	}
 
 	if !d.CreatedAt.IsZero() {

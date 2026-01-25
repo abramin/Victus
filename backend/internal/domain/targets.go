@@ -301,6 +301,50 @@ func calculateHarrisBenedict(sex Sex, weightKg, heightCm, age float64) float64 {
 	return 447.593 + (9.247 * weightKg) + (3.098 * heightCm) - (4.330 * age)
 }
 
+// BMRCalculationResult contains the BMR value and metadata about how it was calculated.
+type BMRCalculationResult struct {
+	BMR             float64     // Calculated BMR in kcal/day
+	EquationUsed    BMREquation // The equation that was actually used
+	IsPrecisionMode bool        // True if auto-tuned to Katch-McArdle using recent body fat
+	BodyFatUsed     *float64    // The body fat percentage used (nil if not applicable)
+	BodyFatDate     *string     // The date of the body fat measurement used
+}
+
+// CalculateBMRWithAutoTune calculates BMR with smart auto-tuning.
+// If recentBodyFat is provided (from a recent measurement), it automatically uses
+// the Katch-McArdle equation which is more accurate when body fat is known.
+// This enables "Precision BMR Mode" for users who track body fat.
+func CalculateBMRWithAutoTune(profile *UserProfile, weightKg float64, now time.Time,
+	equation BMREquation, recentBodyFat *float64, bodyFatDate *string) BMRCalculationResult {
+
+	// Auto-tune: if recent body fat is available, use Katch-McArdle for precision
+	if recentBodyFat != nil && *recentBodyFat > 0 {
+		bmr := calculateKatchMcArdle(weightKg, *recentBodyFat)
+		return BMRCalculationResult{
+			BMR:             bmr,
+			EquationUsed:    BMREquationKatchMcArdle,
+			IsPrecisionMode: true,
+			BodyFatUsed:     recentBodyFat,
+			BodyFatDate:     bodyFatDate,
+		}
+	}
+
+	// Use the standard calculation
+	bmr := CalculateBMR(profile, weightKg, now, equation)
+	actualEquation := equation
+	if actualEquation == "" {
+		actualEquation = BMREquationMifflinStJeor
+	}
+
+	return BMRCalculationResult{
+		BMR:             bmr,
+		EquationUsed:    actualEquation,
+		IsPrecisionMode: false,
+		BodyFatUsed:     nil,
+		BodyFatDate:     nil,
+	}
+}
+
 // =============================================================================
 // EVIDENCE-BASED PROTEIN RECOMMENDATIONS
 // =============================================================================

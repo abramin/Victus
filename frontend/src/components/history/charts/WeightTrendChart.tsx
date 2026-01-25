@@ -1,4 +1,5 @@
 import { useMemo, useState, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import {
   ComposedChart,
   Line,
@@ -29,6 +30,7 @@ interface ChartDataPoint {
   isOutlier: boolean;
   hasTraining: boolean;
   trendWeight?: number;
+  notes?: string;
 }
 
 /**
@@ -126,6 +128,7 @@ export function WeightTrendChart({
         isOutlier,
         hasTraining: point.hasTraining,
         trendWeight,
+        notes: point.notes,
       };
     });
 
@@ -202,6 +205,49 @@ export function WeightTrendChart({
                 return [value, name];
               }}
               labelFormatter={(date: string) => formatShortDate(date)}
+              content={({ active, payload, label }) => {
+                if (!active || !payload || payload.length === 0) return null;
+                const data = payload[0]?.payload as ChartDataPoint | undefined;
+                if (!data) return null;
+
+                return (
+                  <div
+                    style={{
+                      backgroundColor: '#1e293b',
+                      border: '1px solid #334155',
+                      borderRadius: '8px',
+                      boxShadow: '0 4px 6px rgba(0,0,0,0.3)',
+                      padding: '8px 12px',
+                    }}
+                  >
+                    <p style={{ color: '#94a3b8', fontSize: 12, marginBottom: 4 }}>
+                      {formatShortDate(label)}
+                    </p>
+                    <p style={{ color: '#f1f5f9', fontSize: 13 }}>
+                      Weight: {data.weight.toFixed(1)} kg
+                    </p>
+                    {data.trendWeight && (
+                      <p style={{ color: '#f97316', fontSize: 13 }}>
+                        Trend: {data.trendWeight.toFixed(1)} kg
+                      </p>
+                    )}
+                    {data.notes && (
+                      <p
+                        style={{
+                          color: '#f97316',
+                          fontSize: 12,
+                          fontStyle: 'italic',
+                          marginTop: 6,
+                          maxWidth: 200,
+                          whiteSpace: 'pre-wrap',
+                        }}
+                      >
+                        📝 {data.notes}
+                      </p>
+                    )}
+                  </div>
+                );
+              }}
             />
 
             {/* Trend line */}
@@ -228,6 +274,49 @@ export function WeightTrendChart({
                 const { cx, cy, payload } = props;
                 if (!payload || payload.weightDisplay === null) return null;
                 const isSelected = payload.date === selectedDate;
+                const hasNotes = !!payload.notes;
+
+                // Pulsing marker for days with notes
+                if (hasNotes) {
+                  return (
+                    <g key={payload.date}>
+                      {/* Pulsing outer ring */}
+                      <motion.circle
+                        cx={cx}
+                        cy={cy}
+                        r={8}
+                        fill="none"
+                        stroke="#f97316"
+                        strokeWidth={2}
+                        initial={{ scale: 0.8, opacity: 0.8 }}
+                        animate={{ scale: 1.3, opacity: 0 }}
+                        transition={{
+                          duration: 1.5,
+                          repeat: Infinity,
+                          ease: 'easeOut',
+                        }}
+                      />
+                      {/* Main dot */}
+                      <circle
+                        cx={cx}
+                        cy={cy}
+                        r={isSelected ? 6 : 5}
+                        fill={isSelected ? '#f97316' : '#fff'}
+                        stroke="#f97316"
+                        strokeWidth={2}
+                        style={{ cursor: onSelectDate ? 'pointer' : 'default' }}
+                      />
+                      {/* Note indicator */}
+                      <circle
+                        cx={cx}
+                        cy={cy - 10}
+                        r={3}
+                        fill="#f97316"
+                      />
+                    </g>
+                  );
+                }
+
                 return (
                   <circle
                     key={payload.date}
@@ -314,6 +403,12 @@ export function WeightTrendChart({
             <span className="w-4 h-0.5 bg-orange-500" style={{ borderTop: '2px dashed #f97316' }}></span>
             <span>Trend</span>
           </div>
+          {chartData.some((d) => d.notes) && (
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-orange-500 animate-pulse"></span>
+              <span>Notes</span>
+            </div>
+          )}
         </div>
         {brushRange && (
           <span className="text-slate-500">
