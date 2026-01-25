@@ -313,6 +313,14 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
     return `${label} +${nonRestSessions.length - 1} (${totalDuration}min total)`;
   };
 
+  // Refetch calendar data helper - used after optimistic update failures
+  const refetchCalendarData = useCallback(async () => {
+    const startDate = toDateKey(new Date(year, month, 1));
+    const endDate = toDateKey(new Date(year, month + 1, 0));
+    const response = await getDailyTargetsRange(startDate, endDate);
+    setRangeData(response.days);
+  }, [year, month]);
+
   // Drag source handlers for visual feedback
   const handleDragStart = useCallback((date: string) => {
     setDragSource(date);
@@ -371,12 +379,9 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
     } catch (error) {
       // Revert on error - refetch data
       console.error('Failed to swap day types:', error);
-      const startDate = toDateKey(new Date(year, month, 1));
-      const endDate = toDateKey(new Date(year, month + 1, 0));
-      const response = await getDailyTargetsRange(startDate, endDate);
-      setRangeData(response.days);
+      await refetchCalendarData();
     }
-  }, [rangeData, year, month]);
+  }, [rangeData, refetchCalendarData]);
 
   // Handle day type change from the quick selector
   const handleDayTypeChange = useCallback(async (date: string, newDayType: DayType) => {
@@ -401,12 +406,9 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
     } catch (error) {
       // Revert on error - refetch data
       console.error('Failed to update day type:', error);
-      const startDate = toDateKey(new Date(year, month, 1));
-      const endDate = toDateKey(new Date(year, month + 1, 0));
-      const response = await getDailyTargetsRange(startDate, endDate);
-      setRangeData(response.days);
+      await refetchCalendarData();
     }
-  }, [year, month]);
+  }, [refetchCalendarData]);
 
   const openDayDialog = (dayData: DayData) => {
     if (!dayData.hasData) {

@@ -1,5 +1,12 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import type { FastingProtocol, MealRatios } from '../../api/types';
+import type { FastingProtocol } from '../../api/types';
+import { EatingWindowSlider } from './EatingWindowSlider';
+
+const PROTOCOL_WINDOW_MINUTES: Record<FastingProtocol, number> = {
+  standard: 12 * 60,  // 720
+  '16_8': 8 * 60,     // 480
+  '20_4': 4 * 60,     // 240
+};
 
 export interface FastingProtocolOption {
   value: FastingProtocol;
@@ -41,16 +48,13 @@ interface FastingProtocolSelectorProps {
   protocol: FastingProtocol;
   eatingWindowStart: string;
   eatingWindowEnd: string;
-  mealRatios: MealRatios;
   onProtocolChange: (protocol: FastingProtocol) => void;
   onWindowChange: (start: string, end: string) => void;
-  onMealRatiosChange: (ratios: MealRatios) => void;
 }
 
 export function FastingProtocolSelector({
   protocol,
   eatingWindowStart,
-  eatingWindowEnd,
   onProtocolChange,
   onWindowChange,
 }: FastingProtocolSelectorProps) {
@@ -67,7 +71,6 @@ export function FastingProtocolSelector({
     onProtocolChange(newProtocol);
   };
 
-  const currentOption = FASTING_PROTOCOL_OPTIONS.find(o => o.value === protocol);
   const showCaloriesBanked = protocol !== 'standard';
 
   return (
@@ -135,7 +138,7 @@ export function FastingProtocolSelector({
         )}
       </AnimatePresence>
 
-      {/* Eating Window Time Pickers */}
+      {/* Eating Window Slider */}
       <AnimatePresence>
         {protocol !== 'standard' && (
           <motion.div
@@ -145,39 +148,11 @@ export function FastingProtocolSelector({
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <div className="space-y-3 pt-2">
-              <label className="text-sm font-medium text-slate-400">Eating Window</label>
-              <div className="flex items-center gap-3">
-                <div className="flex-1">
-                  <label className="text-xs text-slate-500 block mb-1">Opens at</label>
-                  <input
-                    type="time"
-                    value={eatingWindowStart}
-                    onChange={(e) => onWindowChange(e.target.value, eatingWindowEnd)}
-                    className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-white text-sm
-                      focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <div className="text-slate-500 pt-5">to</div>
-                <div className="flex-1">
-                  <label className="text-xs text-slate-500 block mb-1">Closes at</label>
-                  <input
-                    type="time"
-                    value={eatingWindowEnd}
-                    onChange={(e) => onWindowChange(eatingWindowStart, e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-white text-sm
-                      focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-              <div className="text-xs text-slate-500">
-                {currentOption && (
-                  <>
-                    {currentOption.value === '16_8' ? '16 hours fasting, 8 hours eating' : '20 hours fasting, 4 hours eating'}
-                  </>
-                )}
-              </div>
-            </div>
+            <EatingWindowSlider
+              windowDurationMinutes={PROTOCOL_WINDOW_MINUTES[protocol]}
+              startTime={eatingWindowStart}
+              onStartTimeChange={onWindowChange}
+            />
           </motion.div>
         )}
       </AnimatePresence>
