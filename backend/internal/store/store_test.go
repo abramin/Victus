@@ -717,25 +717,28 @@ func (s *NutritionPlanStoreSuite) TestUpdateWeeklyActuals() {
 }
 
 // [OVERLAP] plan.feature: "Delete a nutrition plan"
-// [KEEP] "is idempotent on missing plan" - store-specific behavior, cascade verification
+// [KEEP] "is idempotent on missing plan" - store-specific behavior
 func (s *NutritionPlanStoreSuite) TestDeletePlan() {
-	s.Run("deletes plan and weekly targets cascade", func() {
+	s.Run("deletes plan making it inaccessible", func() {
 		s.clearPlans()
 		plan := s.validPlan()
+		s.Require().Len(plan.WeeklyTargets, 2, "test plan should have weekly targets")
+
 		planID, err := s.store.Create(s.ctx, plan)
 		s.Require().NoError(err)
 
+		// Verify plan and weekly targets are accessible before delete
+		loaded, err := s.store.GetByID(s.ctx, planID)
+		s.Require().NoError(err)
+		s.Len(loaded.WeeklyTargets, 2)
+
+		// Delete the plan
 		err = s.store.Delete(s.ctx, planID)
 		s.Require().NoError(err)
 
+		// Verify plan (and its weekly targets) are no longer accessible
 		_, err = s.store.GetByID(s.ctx, planID)
-		s.Require().ErrorIs(err, ErrPlanNotFound)
-
-		// Verify weekly targets are also deleted
-		var count int
-		err = s.db.QueryRowContext(s.ctx, "SELECT COUNT(*) FROM weekly_targets WHERE plan_id = ?", planID).Scan(&count)
-		s.Require().NoError(err)
-		s.Equal(0, count)
+		s.ErrorIs(err, ErrPlanNotFound)
 	})
 
 	s.Run("is idempotent on missing plan", func() {

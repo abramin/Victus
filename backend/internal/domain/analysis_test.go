@@ -3,92 +3,99 @@ package domain
 import (
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/suite"
 )
 
-func TestCalculateDualTrackAnalysis_BasicVariance(t *testing.T) {
-	// Create a test plan with weekly targets
-	// 5 kg loss over 10 weeks = 0.5 kg/week = safe deficit
-	plan := createTestPlan(t, "2026-01-01", 90.0, 85.0, 10)
+// Justification: Dual-track analysis contains numeric invariants for variance
+// calculations and recalibration logic that are pure domain functions.
 
-	// Week 1 projected weight for 90->85 in 10 weeks = 90 + (-0.5) = 89.5
-	tests := []struct {
-		name                string
-		actualWeight        float64
-		tolerance           float64
-		wantRecalibration   bool
-		wantVariancePercent float64
-	}{
-		{
-			name:                "within tolerance - exact match",
-			actualWeight:        89.5, // Week 1 projected weight
-			tolerance:           3,
-			wantRecalibration:   false,
-			wantVariancePercent: 0,
-		},
-		{
-			name:                "within tolerance - slightly over",
-			actualWeight:        90.0, // ~0.5% over projected 89.5
-			tolerance:           3,
-			wantRecalibration:   false,
-			wantVariancePercent: 0.56, // (90-89.5)/89.5 * 100
-		},
-		{
-			name:                "outside tolerance - 5% over",
-			actualWeight:        94.0, // ~5% over projected 89.5
-			tolerance:           3,
-			wantRecalibration:   true,
-			wantVariancePercent: 5.03, // (94-89.5)/89.5 * 100
-		},
-		{
-			name:                "outside tolerance - just over 3%",
-			actualWeight:        92.2, // slightly over 3% over 89.5
-			tolerance:           3,
-			wantRecalibration:   true,
-			wantVariancePercent: 3.02,
-		},
-		{
-			name:                "custom tolerance 5% - within",
-			actualWeight:        93.0, // ~3.9% over
-			tolerance:           5,
-			wantRecalibration:   false,
-			wantVariancePercent: 3.91,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Analysis date is in week 1
-			analysisDate := mustParseDate("2026-01-05")
-
-			input := AnalysisInput{
-				Plan:             plan,
-				ActualWeightKg:   tt.actualWeight,
-				TolerancePercent: tt.tolerance,
-				AnalysisDate:     analysisDate,
-			}
-
-			result, err := CalculateDualTrackAnalysis(input)
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-
-			if result.RecalibrationNeeded != tt.wantRecalibration {
-				t.Errorf("RecalibrationNeeded = %v, want %v", result.RecalibrationNeeded, tt.wantRecalibration)
-			}
-
-			// Allow some floating point tolerance
-			if diff := result.VariancePercent - tt.wantVariancePercent; diff > 0.1 || diff < -0.1 {
-				t.Errorf("VariancePercent = %.2f, want ~%.2f", result.VariancePercent, tt.wantVariancePercent)
-			}
-		})
-	}
+type AnalysisSuite struct {
+	suite.Suite
+	basePlan *NutritionPlan
 }
 
-func TestCalculateDualTrackAnalysis_CurrentWeek(t *testing.T) {
-	// 5 kg loss over 10 weeks = safe deficit
-	plan := createTestPlan(t, "2026-01-01", 90.0, 85.0, 10)
+func TestAnalysisSuite(t *testing.T) {
+	suite.Run(t, new(AnalysisSuite))
+}
 
-	tests := []struct {
+func (s *AnalysisSuite) SetupTest() {
+	// Default plan: 5 kg loss over 10 weeks = 0.5 kg/week = safe deficit
+	s.basePlan = s.createTestPlan("2026-01-01", 90.0, 85.0, 10)
+}
+
+func (s *AnalysisSuite) TestVarianceCalculation() {
+	// Week 1 projected weight for 90->85 in 10 weeks = 90 + (-0.5) = 89.5
+	analysisDate := s.mustParseDate("2026-01-05")
+
+	s.Run("exact match shows zero variance", func() {
+		input := AnalysisInput{
+			Plan:             s.basePlan,
+			ActualWeightKg:   89.5,
+			TolerancePercent: 3,
+			AnalysisDate:     analysisDate,
+		}
+		result, err := CalculateDualTrackAnalysis(input)
+		s.Require().NoError(err)
+		s.False(result.RecalibrationNeeded)
+		s.InDelta(0, result.VariancePercent, 0.1)
+	})
+
+	s.Run("slightly over projected stays within tolerance", func() {
+		input := AnalysisInput{
+			Plan:             s.basePlan,
+			ActualWeightKg:   90.0, // ~0.5% over projected 89.5
+			TolerancePercent: 3,
+			AnalysisDate:     analysisDate,
+		}
+		result, err := CalculateDualTrackAnalysis(input)
+		s.Require().NoError(err)
+		s.False(result.RecalibrationNeeded)
+		s.InDelta(0.56, result.VariancePercent, 0.1)
+	})
+
+	s.Run("5% over triggers recalibration", func() {
+		input := AnalysisInput{
+			Plan:             s.basePlan,
+			ActualWeightKg:   94.0,
+			TolerancePercent: 3,
+			AnalysisDate:     analysisDate,
+		}
+		result, err := CalculateDualTrackAnalysis(input)
+		s.Require().NoError(err)
+		s.True(result.RecalibrationNeeded)
+		s.InDelta(5.03, result.VariancePercent, 0.1)
+	})
+
+	s.Run("just over 3% triggers recalibration", func() {
+		input := AnalysisInput{
+			Plan:             s.basePlan,
+			ActualWeightKg:   92.2,
+			TolerancePercent: 3,
+			AnalysisDate:     analysisDate,
+		}
+		result, err := CalculateDualTrackAnalysis(input)
+		s.Require().NoError(err)
+		s.True(result.RecalibrationNeeded)
+		s.InDelta(3.02, result.VariancePercent, 0.1)
+	})
+
+	s.Run("custom 5% tolerance accepts larger variance", func() {
+		input := AnalysisInput{
+			Plan:             s.basePlan,
+			ActualWeightKg:   93.0, // ~3.9% over
+			TolerancePercent: 5,
+			AnalysisDate:     analysisDate,
+		}
+		result, err := CalculateDualTrackAnalysis(input)
+		s.Require().NoError(err)
+		s.False(result.RecalibrationNeeded)
+		s.InDelta(3.91, result.VariancePercent, 0.1)
+	})
+}
+
+func (s *AnalysisSuite) TestCurrentWeekCalculation() {
+	cases := []struct {
 		name         string
 		analysisDate string
 		wantWeek     int
@@ -101,292 +108,215 @@ func TestCalculateDualTrackAnalysis_CurrentWeek(t *testing.T) {
 		{"week 10", "2026-03-05", 10},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tc := range cases {
+		s.Run(tc.name, func() {
 			input := AnalysisInput{
-				Plan:             plan,
+				Plan:             s.basePlan,
 				ActualWeightKg:   89.0,
 				TolerancePercent: 3,
-				AnalysisDate:     mustParseDate(tt.analysisDate),
+				AnalysisDate:     s.mustParseDate(tc.analysisDate),
 			}
-
 			result, err := CalculateDualTrackAnalysis(input)
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-
-			if result.CurrentWeek != tt.wantWeek {
-				t.Errorf("CurrentWeek = %d, want %d", result.CurrentWeek, tt.wantWeek)
-			}
+			s.Require().NoError(err)
+			s.Equal(tc.wantWeek, result.CurrentWeek)
 		})
 	}
 }
 
-func TestCalculateDualTrackAnalysis_PlanEnded(t *testing.T) {
-	// 2 kg loss over 4 weeks = safe deficit
-	plan := createTestPlan(t, "2026-01-01", 90.0, 88.0, 4)
-
-	// Analysis date after plan ends
-	input := AnalysisInput{
-		Plan:             plan,
-		ActualWeightKg:   85.0,
-		TolerancePercent: 3,
-		AnalysisDate:     mustParseDate("2026-02-15"), // Well after 4 weeks
-	}
-
-	_, err := CalculateDualTrackAnalysis(input)
-	if err != ErrPlanEnded {
-		t.Errorf("expected ErrPlanEnded, got %v", err)
-	}
-}
-
-func TestCalculateDualTrackAnalysis_PlanNotStarted(t *testing.T) {
-	// 2 kg loss over 4 weeks = safe deficit
-	plan := createTestPlan(t, "2026-02-01", 90.0, 88.0, 4)
-
-	// Analysis date before plan starts
-	input := AnalysisInput{
-		Plan:             plan,
-		ActualWeightKg:   90.0,
-		TolerancePercent: 3,
-		AnalysisDate:     mustParseDate("2026-01-15"),
-	}
-
-	_, err := CalculateDualTrackAnalysis(input)
-	if err != ErrPlanNotStarted {
-		t.Errorf("expected ErrPlanNotStarted, got %v", err)
-	}
-}
-
-func TestCalculateDualTrackAnalysis_RecalibrationOptions(t *testing.T) {
-	// 5 kg loss over 10 weeks = safe deficit
-	plan := createTestPlan(t, "2026-01-01", 90.0, 85.0, 10)
-
-	// Analysis date in week 3 with significant variance
-	// Week 3 projected: 90 - (0.5 * 3) = 88.5 kg
-	input := AnalysisInput{
-		Plan:             plan,
-		ActualWeightKg:   92.0, // Should be ~88.5, so significantly behind
-		TolerancePercent: 3,
-		AnalysisDate:     mustParseDate("2026-01-17"),
-	}
-
-	result, err := CalculateDualTrackAnalysis(input)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if !result.RecalibrationNeeded {
-		t.Fatal("expected recalibration to be needed")
-	}
-
-	if len(result.Options) != 4 {
-		t.Fatalf("expected 4 recalibration options, got %d", len(result.Options))
-	}
-
-	// Verify all option types are present
-	optionTypes := make(map[RecalibrationOptionType]bool)
-	for _, opt := range result.Options {
-		optionTypes[opt.Type] = true
-
-		// Verify each option has required fields
-		if opt.FeasibilityTag == "" {
-			t.Errorf("option %s missing feasibility tag", opt.Type)
+func (s *AnalysisSuite) TestPlanBoundaryErrors() {
+	s.Run("analysis after plan ends returns ErrPlanEnded", func() {
+		plan := s.createTestPlan("2026-01-01", 90.0, 88.0, 4)
+		input := AnalysisInput{
+			Plan:             plan,
+			ActualWeightKg:   85.0,
+			TolerancePercent: 3,
+			AnalysisDate:     s.mustParseDate("2026-02-15"),
 		}
-		if opt.NewParameter == "" {
-			t.Errorf("option %s missing new parameter", opt.Type)
-		}
-		if opt.Impact == "" {
-			t.Errorf("option %s missing impact", opt.Type)
-		}
-	}
+		_, err := CalculateDualTrackAnalysis(input)
+		s.ErrorIs(err, ErrPlanEnded)
+	})
 
-	expectedTypes := []RecalibrationOptionType{
-		RecalibrationIncreaseDeficit,
-		RecalibrationExtendTimeline,
-		RecalibrationReviseGoal,
-		RecalibrationKeepCurrent,
-	}
-
-	for _, expected := range expectedTypes {
-		if !optionTypes[expected] {
-			t.Errorf("missing option type: %s", expected)
+	s.Run("analysis before plan starts returns ErrPlanNotStarted", func() {
+		plan := s.createTestPlan("2026-02-01", 90.0, 88.0, 4)
+		input := AnalysisInput{
+			Plan:             plan,
+			ActualWeightKg:   90.0,
+			TolerancePercent: 3,
+			AnalysisDate:     s.mustParseDate("2026-01-15"),
 		}
-	}
+		_, err := CalculateDualTrackAnalysis(input)
+		s.ErrorIs(err, ErrPlanNotStarted)
+	})
 }
 
-func TestCalculateDualTrackAnalysis_PlanProjection(t *testing.T) {
-	// 5 kg loss over 10 weeks = safe deficit
-	plan := createTestPlan(t, "2026-01-01", 90.0, 85.0, 10)
-
-	input := AnalysisInput{
-		Plan:             plan,
-		ActualWeightKg:   89.0,
-		TolerancePercent: 3,
-		AnalysisDate:     mustParseDate("2026-01-05"),
-	}
-
-	result, err := CalculateDualTrackAnalysis(input)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	// Should have 11 projection points (week 0 + 10 weeks)
-	if len(result.PlanProjection) != 11 {
-		t.Errorf("expected 11 plan projection points, got %d", len(result.PlanProjection))
-	}
-
-	// First point should be start weight
-	if result.PlanProjection[0].WeightKg != 90.0 {
-		t.Errorf("first projection point weight = %.1f, want 90.0", result.PlanProjection[0].WeightKg)
-	}
-
-	// Last point should be goal weight (or close to it)
-	lastWeight := result.PlanProjection[len(result.PlanProjection)-1].WeightKg
-	if lastWeight < 84.5 || lastWeight > 85.5 {
-		t.Errorf("last projection point weight = %.1f, want ~85.0", lastWeight)
-	}
-}
-
-func TestCalculateDualTrackAnalysis_TrendProjection(t *testing.T) {
-	// 5 kg loss over 10 weeks = safe deficit (0.5 kg/week)
-	plan := createTestPlan(t, "2026-01-01", 90.0, 85.0, 10)
-
-	// Provide weight trend data
-	trend := &WeightTrend{
-		WeeklyChangeKg: -0.4, // Losing 0.4 kg/week (slower than plan's -0.5 kg/week)
-		RSquared:       0.9,
-		StartWeightKg:  90.0,
-		EndWeightKg:    88.8,
-	}
-
-	input := AnalysisInput{
-		Plan:             plan,
-		ActualWeightKg:   88.5,
-		TolerancePercent: 3,
-		WeightTrend:      trend,
-		AnalysisDate:     mustParseDate("2026-01-17"), // Week 3
-	}
-
-	result, err := CalculateDualTrackAnalysis(input)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if len(result.TrendProjection) == 0 {
-		t.Error("expected trend projection points")
-	}
-
-	// Verify trend projection uses the trend's weekly change
-	if len(result.TrendProjection) >= 2 {
-		point1 := result.TrendProjection[0]
-		point2 := result.TrendProjection[1]
-		weeklyChange := point2.WeightKg - point1.WeightKg
-
-		// Should be approximately -0.4 kg/week
-		if weeklyChange < -0.5 || weeklyChange > -0.3 {
-			t.Errorf("trend projection weekly change = %.2f, want ~-0.4", weeklyChange)
+func (s *AnalysisSuite) TestRecalibrationOptions() {
+	s.Run("generates all four option types when recalibration needed", func() {
+		// Analysis date in week 3 with significant variance
+		// Week 3 projected: 90 - (0.5 * 3) = 88.5 kg
+		input := AnalysisInput{
+			Plan:             s.basePlan,
+			ActualWeightKg:   92.0, // Should be ~88.5, so significantly behind
+			TolerancePercent: 3,
+			AnalysisDate:     s.mustParseDate("2026-01-17"),
 		}
-	}
+
+		result, err := CalculateDualTrackAnalysis(input)
+		s.Require().NoError(err)
+		s.True(result.RecalibrationNeeded)
+		s.Len(result.Options, 4)
+
+		// Verify all option types are present
+		optionTypes := make(map[RecalibrationOptionType]bool)
+		for _, opt := range result.Options {
+			optionTypes[opt.Type] = true
+			s.NotEmpty(opt.FeasibilityTag, "option %s missing feasibility tag", opt.Type)
+			s.NotEmpty(opt.NewParameter, "option %s missing new parameter", opt.Type)
+			s.NotEmpty(opt.Impact, "option %s missing impact", opt.Type)
+		}
+
+		expectedTypes := []RecalibrationOptionType{
+			RecalibrationIncreaseDeficit,
+			RecalibrationExtendTimeline,
+			RecalibrationReviseGoal,
+			RecalibrationKeepCurrent,
+		}
+		for _, expected := range expectedTypes {
+			s.True(optionTypes[expected], "missing option type: %s", expected)
+		}
+	})
 }
 
-func TestCalculateDualTrackAnalysis_DefaultTolerance(t *testing.T) {
-	// 5 kg loss over 10 weeks = safe deficit
-	plan := createTestPlan(t, "2026-01-01", 90.0, 85.0, 10)
+func (s *AnalysisSuite) TestPlanProjection() {
+	s.Run("generates projection points from start to goal", func() {
+		input := AnalysisInput{
+			Plan:             s.basePlan,
+			ActualWeightKg:   89.0,
+			TolerancePercent: 3,
+			AnalysisDate:     s.mustParseDate("2026-01-05"),
+		}
 
-	input := AnalysisInput{
-		Plan:             plan,
-		ActualWeightKg:   89.0,
-		TolerancePercent: 0, // Should default to 3%
-		AnalysisDate:     mustParseDate("2026-01-05"),
-	}
+		result, err := CalculateDualTrackAnalysis(input)
+		s.Require().NoError(err)
 
-	result, err := CalculateDualTrackAnalysis(input)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+		// Should have 11 projection points (week 0 + 10 weeks)
+		s.Len(result.PlanProjection, 11)
 
-	if result.TolerancePercent != 3 {
-		t.Errorf("TolerancePercent = %.1f, want 3.0 (default)", result.TolerancePercent)
-	}
+		// First point should be start weight
+		s.Equal(90.0, result.PlanProjection[0].WeightKg)
+
+		// Last point should be goal weight (or close to it)
+		lastWeight := result.PlanProjection[len(result.PlanProjection)-1].WeightKg
+		s.InDelta(85.0, lastWeight, 0.5)
+	})
 }
 
-func TestGenerateRecalibrationOptions_FeasibilityTags(t *testing.T) {
-	// Test that feasibility tags are assigned appropriately
-	tests := []struct {
-		name             string
-		startWeight      float64
-		goalWeight       float64
-		durationWeeks    int
-		currentWeek      int
-		actualWeight     float64
-		expectAmbitious  bool // At least one option should be ambitious
-	}{
-		{
-			name:            "minor variance",
-			startWeight:     90,
-			goalWeight:      85, // 5 kg over 10 weeks = safe deficit
-			durationWeeks:   10,
-			currentWeek:     5,
-			actualWeight:    88.5, // Slightly behind (should be ~87.5)
-			expectAmbitious: false,
-		},
-		{
-			name:            "major variance",
-			startWeight:     90,
-			goalWeight:      85, // 5 kg over 10 weeks = safe deficit
-			durationWeeks:   10,
-			currentWeek:     8,
-			actualWeight:    90, // Very behind with only 2 weeks left (should be ~86)
-			expectAmbitious: true,
-		},
-	}
+func (s *AnalysisSuite) TestTrendProjection() {
+	s.Run("uses weight trend for future projection", func() {
+		trend := &WeightTrend{
+			WeeklyChangeKg: -0.4, // Losing 0.4 kg/week (slower than plan's -0.5 kg/week)
+			RSquared:       0.9,
+			StartWeightKg:  90.0,
+			EndWeightKg:    88.8,
+		}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			plan := createTestPlan(t, "2026-01-01", tt.startWeight, tt.goalWeight, tt.durationWeeks)
+		input := AnalysisInput{
+			Plan:             s.basePlan,
+			ActualWeightKg:   88.5,
+			TolerancePercent: 3,
+			WeightTrend:      trend,
+			AnalysisDate:     s.mustParseDate("2026-01-17"), // Week 3
+		}
 
-			// Calculate analysis date for the specified current week
-			analysisDate := plan.StartDate.AddDate(0, 0, (tt.currentWeek-1)*7+3)
+		result, err := CalculateDualTrackAnalysis(input)
+		s.Require().NoError(err)
+		s.NotEmpty(result.TrendProjection)
 
-			input := AnalysisInput{
-				Plan:             plan,
-				ActualWeightKg:   tt.actualWeight,
-				TolerancePercent: 1, // Low tolerance to trigger recalibration
-				AnalysisDate:     analysisDate,
+		// Verify trend projection uses the trend's weekly change
+		if len(result.TrendProjection) >= 2 {
+			point1 := result.TrendProjection[0]
+			point2 := result.TrendProjection[1]
+			weeklyChange := point2.WeightKg - point1.WeightKg
+			s.InDelta(-0.4, weeklyChange, 0.1)
+		}
+	})
+}
+
+func (s *AnalysisSuite) TestDefaultTolerance() {
+	s.Run("zero tolerance defaults to 3%", func() {
+		input := AnalysisInput{
+			Plan:             s.basePlan,
+			ActualWeightKg:   89.0,
+			TolerancePercent: 0,
+			AnalysisDate:     s.mustParseDate("2026-01-05"),
+		}
+
+		result, err := CalculateDualTrackAnalysis(input)
+		s.Require().NoError(err)
+		s.Equal(3.0, result.TolerancePercent)
+	})
+}
+
+func (s *AnalysisSuite) TestFeasibilityTags() {
+	s.Run("all options have valid feasibility tags", func() {
+		input := AnalysisInput{
+			Plan:             s.basePlan,
+			ActualWeightKg:   92.0, // Triggers recalibration
+			TolerancePercent: 3,
+			AnalysisDate:     s.mustParseDate("2026-01-17"),
+		}
+
+		result, err := CalculateDualTrackAnalysis(input)
+		s.Require().NoError(err)
+		s.True(result.RecalibrationNeeded)
+
+		validTags := map[FeasibilityTag]bool{
+			FeasibilityAchievable: true,
+			FeasibilityModerate:   true,
+			FeasibilityAmbitious:  true,
+		}
+
+		for _, opt := range result.Options {
+			s.True(validTags[opt.FeasibilityTag], "option %s has invalid tag: %s", opt.Type, opt.FeasibilityTag)
+		}
+	})
+
+	s.Run("major variance late in plan produces ambitious options", func() {
+		plan := s.createTestPlan("2026-01-01", 90.0, 85.0, 10)
+		// Week 8 with only 2 weeks left, should be ~86
+		analysisDate := plan.StartDate.AddDate(0, 0, 7*7+3)
+
+		input := AnalysisInput{
+			Plan:             plan,
+			ActualWeightKg:   90.0, // Very behind - no progress at all
+			TolerancePercent: 1,
+			AnalysisDate:     analysisDate,
+		}
+
+		result, err := CalculateDualTrackAnalysis(input)
+		s.Require().NoError(err)
+
+		hasAmbitious := false
+		for _, opt := range result.Options {
+			if opt.FeasibilityTag == FeasibilityAmbitious {
+				hasAmbitious = true
+				break
 			}
-
-			result, err := CalculateDualTrackAnalysis(input)
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-
-			hasAmbitious := false
-			for _, opt := range result.Options {
-				if opt.FeasibilityTag == FeasibilityAmbitious {
-					hasAmbitious = true
-					break
-				}
-			}
-
-			if tt.expectAmbitious && !hasAmbitious {
-				t.Error("expected at least one ambitious option")
-			}
-		})
-	}
+		}
+		s.True(hasAmbitious, "expected at least one ambitious option when major variance late in plan")
+	})
 }
 
-// Helper functions
+// --- Helper methods ---
 
-func createTestPlan(t *testing.T, startDateStr string, startWeight, goalWeight float64, durationWeeks int) *NutritionPlan {
-	t.Helper()
+func (s *AnalysisSuite) createTestPlan(startDateStr string, startWeight, goalWeight float64, durationWeeks int) *NutritionPlan {
+	s.T().Helper()
 
-	startDate := mustParseDate(startDateStr)
+	startDate := s.mustParseDate(startDateStr)
 
 	profile := &UserProfile{
 		HeightCM:               175,
 		Sex:                    "male",
-		BirthDate:              mustParseDate("1990-01-01"),
+		BirthDate:              s.mustParseDate("1990-01-01"),
 		CurrentWeightKg:        startWeight,
 		BMREquation:            BMREquationMifflinStJeor,
 		CarbRatio:              0.45,
@@ -403,19 +333,15 @@ func createTestPlan(t *testing.T, startDateStr string, startWeight, goalWeight f
 	}
 
 	plan, err := NewNutritionPlan(input, profile, startDate)
-	if err != nil {
-		t.Fatalf("failed to create test plan: %v", err)
-	}
+	s.Require().NoError(err)
 
 	plan.ID = 1 // Set a test ID
 
 	return plan
 }
 
-func mustParseDate(s string) time.Time {
-	t, err := time.Parse("2006-01-02", s)
-	if err != nil {
-		panic(err)
-	}
+func (s *AnalysisSuite) mustParseDate(dateStr string) time.Time {
+	t, err := time.Parse("2006-01-02", dateStr)
+	s.Require().NoError(err)
 	return t
 }
