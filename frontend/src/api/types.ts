@@ -180,6 +180,7 @@ export interface DailyLog {
   activeCaloriesBurned?: number;                // User-entered active calories from wearable
   bmrPrecisionMode?: boolean;                   // True if Katch-McArdle auto-selected using recent body fat
   bodyFatUsedDate?: string;                     // Date of body fat measurement used for precision BMR
+  notes?: string;                               // Daily notes/observations
   createdAt?: string;
   updatedAt?: string;
 }
@@ -193,6 +194,7 @@ export interface CreateDailyLogRequest {
   sleepHours?: number;
   plannedTrainingSessions: TrainingSession[];
   dayType: DayType;
+  notes?: string;
 }
 
 export interface UpdateActualTrainingRequest {

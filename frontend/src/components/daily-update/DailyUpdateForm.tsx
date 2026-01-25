@@ -14,6 +14,8 @@ import { DayTypeSelector } from './DayTypeSelector';
 import { DeficitMonitor, DailyMissionCard, TrainingLogCard } from '../saved-view';
 import { getTrainingConfigs } from '../../api/client';
 import { shallowEqual } from '../../utils/equality';
+import { ReadinessGauge } from '../recovery';
+import { BMRPrecisionBadge } from '../settings/BMRPrecisionBadge';
 import {
   DAY_TYPE_BADGE,
   WEIGHT_MIN_KG,
@@ -43,6 +45,7 @@ const INITIAL_FORM_DATA: CreateDailyLogRequest = {
   sleepQuality: 50,
   plannedTrainingSessions: [{ type: 'rest', durationMin: 0 }],
   dayType: 'fatburner',
+  notes: '',
 };
 
 const stripSessionOrder = (sessions: TrainingSession[]) =>
@@ -57,6 +60,7 @@ const buildFormDataFromLog = (log: DailyLog): CreateDailyLogRequest => ({
   sleepHours: log.sleepHours,
   plannedTrainingSessions: stripSessionOrder(log.plannedTrainingSessions),
   dayType: log.dayType,
+  notes: log.notes ?? '',
 });
 
 export function DailyUpdateForm({
@@ -372,6 +376,8 @@ export function DailyUpdateForm({
             <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
               <h3 className="text-white font-medium mb-4">Notes</h3>
               <textarea
+                value={formData.notes ?? ''}
+                onChange={(e) => updateFormData({ notes: e.target.value })}
                 placeholder="How did you feel today? Any observations?"
                 rows={3}
                 className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/20 resize-none"
@@ -508,14 +514,31 @@ export function DailyUpdateForm({
                   </span>
                 </div>
               </div>
-              {(log?.bodyFatPercent || log?.restingHeartRate || log?.sleepHours) && (
-                <div className="flex flex-wrap gap-x-4 gap-y-1 mt-4 pt-4 border-t border-gray-800 text-sm text-gray-400">
+              {(log?.bodyFatPercent || log?.restingHeartRate || log?.sleepHours || log?.bmrPrecisionMode) && (
+                <div className="flex flex-wrap gap-x-4 gap-y-2 mt-4 pt-4 border-t border-gray-800 text-sm text-gray-400 items-center">
                   {log?.bodyFatPercent && <span>Body Fat: {log.bodyFatPercent}%</span>}
                   {log?.restingHeartRate && <span>HR: {log.restingHeartRate} bpm</span>}
                   {log?.sleepHours && <span>Slept: {log.sleepHours}h</span>}
+                  {log?.bmrPrecisionMode && (
+                    <BMRPrecisionBadge active={true} bodyFatDate={log.bodyFatUsedDate} />
+                  )}
                 </div>
               )}
             </div>
+
+            {/* Readiness Gauge */}
+            {log?.recoveryScore && (
+              <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
+                <h3 className="text-white font-medium mb-4">Recovery Readiness</h3>
+                <div className="flex justify-center">
+                  <ReadinessGauge
+                    score={log.recoveryScore.score}
+                    components={log.recoveryScore}
+                    showNudge={log.recoveryScore.score < 50}
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Training Log Card with Completion Checkboxes */}
             {log && (

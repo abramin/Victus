@@ -58,6 +58,8 @@ func RunMigrations(db *sql.DB) error {
 		addActiveCaloriesBurnedColumn,
 		// Plan name column for user-defined plan names
 		addPlanNameColumn,
+		// Daily log notes for LLM pattern recognition
+		addDailyLogNotesColumn,
 	}
 
 	for _, migration := range alterMigrations {
@@ -232,6 +234,9 @@ const addActiveCaloriesBurnedColumn = `ALTER TABLE daily_logs ADD COLUMN active_
 
 // Plan name column for user-defined plan names (Single Source of Truth feature)
 const addPlanNameColumn = `ALTER TABLE nutrition_plans ADD COLUMN name TEXT DEFAULT ''`
+
+// Daily log notes column for LLM pattern recognition
+const addDailyLogNotesColumn = `ALTER TABLE daily_logs ADD COLUMN notes TEXT DEFAULT ''`
 
 // Training sessions table for multiple sessions per day (Issue #31)
 const createTrainingSessionsTable = `
