@@ -4,7 +4,7 @@ import type {
   UserProfile,
   WeightTrendRange,
 } from '../../api/types';
-import { ApiError, getLogByDate } from '../../api/client';
+import { getLogByDate } from '../../api/client';
 import { useHistorySummary } from '../../hooks/useHistorySummary';
 import { Card } from '../common/Card';
 import { HistoryLogModal } from './HistoryLogModal';
@@ -14,6 +14,7 @@ import {
   MetabolicHealthChart,
   TrainingCalendarHeatmap,
   TrainingVolumeChart,
+  CompositionChart,
 } from './charts';
 
 const RANGE_OPTIONS: { label: string; value: WeightTrendRange }[] = [
@@ -24,6 +25,8 @@ const RANGE_OPTIONS: { label: string; value: WeightTrendRange }[] = [
 ];
 
 const RECENT_LOG_LIMIT = 8;
+
+type ChartView = 'weight' | 'composition';
 
 /** Get trend confidence label and color based on R² value */
 function getTrendConfidence(rSquared: number): { label: string; color: string; emoji: string } {
@@ -52,6 +55,7 @@ export function WeightHistory({ profile }: { profile: UserProfile }) {
   const [selectedLog, setSelectedLog] = useState<DailyLog | null>(null);
   const [logLoading, setLogLoading] = useState(false);
   const [logError, setLogError] = useState<string | null>(null);
+  const [chartView, setChartView] = useState<ChartView>('weight');
   const activeDateRef = useRef<string | null>(null);
 
   const points = data?.points ?? [];
@@ -73,6 +77,12 @@ export function WeightHistory({ profile }: { profile: UserProfile }) {
     };
   }, [latest, points.length, rangeChange, trend]);
 
+  // Check if enough composition data exists to show toggle (at least 3 points with body fat)
+  const hasCompositionData = useMemo(() => {
+    const pointsWithBodyFat = points.filter((p) => p.bodyFatPercent !== undefined);
+    return pointsWithBodyFat.length >= 3;
+  }, [points]);
+
   const handleSelectDate = async (date: string) => {
     setSelectedDate(date);
     setLogLoading(true);
@@ -83,13 +93,9 @@ export function WeightHistory({ profile }: { profile: UserProfile }) {
       // Ignore response if user selected a different date while loading
       if (activeDateRef.current !== date) return;
       setSelectedLog(log);
-    } catch (err) {
+    } catch {
       if (activeDateRef.current !== date) return;
-      if (err instanceof ApiError) {
-        setLogError(err.message);
-      } else {
-        setLogError('Failed to load log details');
-      }
+      setLogError('Failed to load log details');
       setSelectedLog(null);
     } finally {
       if (activeDateRef.current === date) {
@@ -134,7 +140,35 @@ export function WeightHistory({ profile }: { profile: UserProfile }) {
       </div>
 
       {/* Weight Trend Card (Hero Chart) */}
-      <Card title="Weight Trend">
+      <Card
+        title={chartView === 'weight' ? 'Weight Trend' : 'Body Composition'}
+        headerRight={
+          hasCompositionData ? (
+            <div className="flex items-center gap-1 bg-slate-900 rounded-lg p-1 border border-slate-800">
+              <button
+                onClick={() => setChartView('weight')}
+                className={`px-3 py-1 rounded text-xs transition-colors ${
+                  chartView === 'weight'
+                    ? 'bg-slate-700 text-white'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Weight
+              </button>
+              <button
+                onClick={() => setChartView('composition')}
+                className={`px-3 py-1 rounded text-xs transition-colors ${
+                  chartView === 'composition'
+                    ? 'bg-slate-700 text-white'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Composition
+              </button>
+            </div>
+          ) : undefined
+        }
+      >
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
           <div className="bg-slate-900/70 rounded-lg border border-slate-800 p-4">
             <p className="text-xs text-slate-500 mb-1">Latest</p>
@@ -172,12 +206,20 @@ export function WeightHistory({ profile }: { profile: UserProfile }) {
         )}
         {!loading && !error && (
           <div data-testid="weight-chart">
-            <WeightTrendChart
-              points={points}
-              trend={trend}
-              onSelectDate={handleSelectDate}
-              selectedDate={selectedDate}
-            />
+            {chartView === 'weight' ? (
+              <WeightTrendChart
+                points={points}
+                trend={trend}
+                onSelectDate={handleSelectDate}
+                selectedDate={selectedDate}
+              />
+            ) : (
+              <CompositionChart
+                points={points}
+                onSelectDate={handleSelectDate}
+                selectedDate={selectedDate}
+              />
+            )}
             {recentPoints.length > 0 && (
               <div className="mt-4 border-t border-slate-800 pt-4">
                 <p className="text-xs text-slate-500 font-medium">Recent Daily Logs</p>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
-import { ApiError, getLogByDate, getTrainingConfigs, updateActiveCalories } from '../../api/client';
+import { getLogByDate, getTrainingConfigs, updateActiveCalories } from '../../api/client';
 import type { DailyLog, DayType, UserProfile, TrainingConfig } from '../../api/types';
 import { calculateMealTargets } from '../targets/mealTargets';
 import { DateNavigator } from './DateNavigator';
@@ -116,12 +116,8 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
         if (!isActive) return;
         setSelectedLog(data);
       })
-      .catch((err) => {
+      .catch(() => {
         if (!isActive) return;
-        if (err instanceof ApiError && err.status === 404) {
-          setSelectedLog(null);
-          return;
-        }
         setSelectedLog(null);
         setLogError('Failed to load daily log');
       })
@@ -192,7 +188,7 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
         )
       );
     }
-  }, [selectedLog?.date]);
+  }, [selectedLog]);
 
   const supplementConfig = useMemo(() => {
     const config = { maltodextrinG: 0, wheyG: 0, collagenG: 0 };
@@ -258,8 +254,8 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
     supplementConfig,
   ]);
 
-  // Plate Builder hook for meal drafting
-  const plateBuilder = usePlateBuilder(
+  // Memoize plate builder data to avoid infinite re-renders
+  const plateBuilderData = useMemo(() => (
     mealData.hasData
       ? {
           breakfast: mealData.breakfast,
@@ -267,7 +263,10 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
           dinner: mealData.dinner,
         }
       : null
-  );
+  ), [mealData]);
+
+  // Plate Builder hook for meal drafting
+  const plateBuilder = usePlateBuilder(plateBuilderData);
 
   // Calculate grams and kcal per meal
   const mealGramsAndKcal = useMemo(() => {
@@ -417,6 +416,8 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
                 spentPoints={plateBuilder.drafts.breakfast.spentPoints}
                 onRemoveFood={(index) => plateBuilder.removeFoodFromMeal('breakfast', index)}
                 onClearDraft={() => plateBuilder.clearMealDraft('breakfast')}
+                macroTargets={mealData.breakfast}
+                macroSpent={plateBuilder.drafts.breakfast.spentByMacro}
               />
               <MealCard
                 meal="Lunch"
@@ -434,6 +435,8 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
                 spentPoints={plateBuilder.drafts.lunch.spentPoints}
                 onRemoveFood={(index) => plateBuilder.removeFoodFromMeal('lunch', index)}
                 onClearDraft={() => plateBuilder.clearMealDraft('lunch')}
+                macroTargets={mealData.lunch}
+                macroSpent={plateBuilder.drafts.lunch.spentByMacro}
               />
               <MealCard
                 meal="Dinner"
@@ -451,6 +454,8 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
                 spentPoints={plateBuilder.drafts.dinner.spentPoints}
                 onRemoveFood={(index) => plateBuilder.removeFoodFromMeal('dinner', index)}
                 onClearDraft={() => plateBuilder.clearMealDraft('dinner')}
+                macroTargets={mealData.dinner}
+                macroSpent={plateBuilder.drafts.dinner.spentByMacro}
               />
             </div>
           )}
@@ -519,6 +524,9 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
             className="flex-1 min-h-0"
             onFoodSelect={(food) => plateBuilder.openFoodModal(food, selectedMeal)}
             remainingPoints={plateBuilder.drafts[selectedMeal].remainingPoints}
+            macroTargets={mealData.hasData ? mealData[selectedMeal] : null}
+            macroSpent={plateBuilder.drafts[selectedMeal].spentByMacro}
+            onCalculateGhostPreview={(food) => plateBuilder.calculateGhostPreview(food, selectedMeal)}
           />
         </div>
       </div>
@@ -528,6 +536,8 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
         modalState={plateBuilder.modalState}
         existingFoods={plateBuilder.drafts[plateBuilder.modalState.mealId].foods}
         targetPoints={plateBuilder.getMealTargetPoints(plateBuilder.modalState.mealId)}
+        macroTargets={mealData.hasData ? mealData[plateBuilder.modalState.mealId] : null}
+        macroSpent={plateBuilder.drafts[plateBuilder.modalState.mealId].spentByMacro}
         onClose={plateBuilder.closeFoodModal}
         onConfirm={plateBuilder.confirmFoodAddition}
         onFillPercentageChange={plateBuilder.setFillPercentage}

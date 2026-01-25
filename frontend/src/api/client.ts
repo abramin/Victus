@@ -171,8 +171,13 @@ export async function getHistorySummary(range: WeightTrendRange, signal?: AbortS
   return handleResponse<HistoryResponse>(response);
 }
 
-export async function getLogByDate(date: string, signal?: AbortSignal): Promise<DailyLog> {
+export async function getLogByDate(date: string, signal?: AbortSignal): Promise<DailyLog | null> {
   const response = await fetch(`${API_BASE}/logs/${encodeURIComponent(date)}`, { signal });
+
+  if (response.status === 404) {
+    return null;
+  }
+
   return handleResponse<DailyLog>(response);
 }
 
