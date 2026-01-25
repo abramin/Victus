@@ -220,6 +220,83 @@ func (s *NutritionPlanStore) UpdateWeeklyActuals(ctx context.Context, planID int
 	return nil
 }
 
+// UpdatePlan updates a nutrition plan and replaces its weekly targets.
+// Used during recalibration to apply new goals, duration, or calorie targets.
+func (s *NutritionPlanStore) UpdatePlan(ctx context.Context, plan *domain.NutritionPlan) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// Update plan fields
+	const updatePlanQuery = `
+		UPDATE nutrition_plans
+		SET goal_weight_kg = ?, duration_weeks = ?,
+			required_weekly_change_kg = ?, required_daily_deficit_kcal = ?,
+			updated_at = datetime('now')
+		WHERE id = ?
+	`
+
+	result, err := tx.ExecContext(ctx, updatePlanQuery,
+		plan.GoalWeightKg,
+		plan.DurationWeeks,
+		plan.RequiredWeeklyChangeKg,
+		plan.RequiredDailyDeficitKcal,
+		plan.ID,
+	)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return ErrPlanNotFound
+	}
+
+	// Delete existing weekly targets
+	_, err = tx.ExecContext(ctx, "DELETE FROM weekly_targets WHERE plan_id = ?", plan.ID)
+	if err != nil {
+		return err
+	}
+
+	// Insert new weekly targets
+	const insertTargetQuery = `
+		INSERT INTO weekly_targets (
+			plan_id, week_number, start_date, end_date,
+			projected_weight_kg, projected_tdee, target_intake_kcal,
+			target_carbs_g, target_protein_g, target_fats_g,
+			actual_weight_kg, actual_intake_kcal, days_logged
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`
+
+	for _, target := range plan.WeeklyTargets {
+		_, err := tx.ExecContext(ctx, insertTargetQuery,
+			plan.ID,
+			target.WeekNumber,
+			target.StartDate.Format("2006-01-02"),
+			target.EndDate.Format("2006-01-02"),
+			target.ProjectedWeightKg,
+			target.ProjectedTDEE,
+			target.TargetIntakeKcal,
+			target.TargetCarbsG,
+			target.TargetProteinG,
+			target.TargetFatsG,
+			target.ActualWeightKg,
+			target.ActualIntakeKcal,
+			target.DaysLogged,
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
+}
+
 // Delete removes a nutrition plan and its weekly targets (cascade).
 func (s *NutritionPlanStore) Delete(ctx context.Context, id int64) error {
 	_, err := s.db.ExecContext(ctx, "DELETE FROM nutrition_plans WHERE id = ?", id)

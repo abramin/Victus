@@ -14,7 +14,7 @@ import type { CreatePlanRequest, RecalibrationOption } from '../../api/types';
 
 export function PlanOverview() {
   const { profile, loading: profileLoading } = useProfile();
-  const { plan, loading: planLoading, creating, createError, create, complete, abandon, pause, resume } = usePlan();
+  const { plan, loading: planLoading, creating, createError, create, complete, abandon, pause, resume, recalibrate } = usePlan();
   const { analysis, loading: analysisLoading, error: analysisError } = usePlanAnalysis();
   const { log } = useDailyLog();
 
@@ -46,13 +46,11 @@ export function PlanOverview() {
     await resume();
   };
 
-  const handleRecalibrationSelect = (option: RecalibrationOption) => {
-    // TODO: Implement recalibration API call when Slice 18 is complete
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Selected recalibration option:', option);
+  const handleRecalibrationSelect = async (option: RecalibrationOption) => {
+    const success = await recalibrate(option.type);
+    if (success) {
+      setShowAdjustModal(false);
     }
-    alert(`Recalibration with "${option.type}" will be implemented in Slice 18`);
-    setShowAdjustModal(false);
   };
 
   if (loading) {

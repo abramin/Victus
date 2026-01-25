@@ -33,7 +33,8 @@ body {
   /* Softer blues for links, status, progress bars */
   --color-blue-300: #86a9d6;
   --color-blue-400: #6f95c9;
-  --color-blue-500: #5a84be; /* primary blue (muted) */
+  --color-blue-500: #5a84be;
+  /* primary blue (muted) */
   --color-blue-600: #4a73ab;
 
   /* Softer greens for success/completed states */

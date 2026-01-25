@@ -304,6 +304,22 @@ export async function resumePlan(id: number, signal?: AbortSignal): Promise<void
   await handleEmptyResponse(response);
 }
 
+export async function recalibratePlan(
+  id: number,
+  type: 'increase_deficit' | 'extend_timeline' | 'revise_goal' | 'keep_current',
+  signal?: AbortSignal
+): Promise<NutritionPlan> {
+  const response = await fetch(`${API_BASE}/plans/${id}/recalibrate`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ type }),
+    signal,
+  });
+  return handleResponse<NutritionPlan>(response);
+}
+
 export async function deletePlan(id: number, signal?: AbortSignal): Promise<void> {
   const response = await fetch(`${API_BASE}/plans/${id}`, {
     method: 'DELETE',

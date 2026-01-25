@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { getActivePlan, createPlan, completePlan, abandonPlan, pausePlan, resumePlan, ApiError } from '../api/client';
-import type { NutritionPlan, CreatePlanRequest } from '../api/types';
+import { getActivePlan, createPlan, completePlan, abandonPlan, pausePlan, resumePlan, recalibratePlan, ApiError } from '../api/client';
+import type { NutritionPlan, CreatePlanRequest, RecalibrationOptionType } from '../api/types';
 
 interface UsePlanReturn {
   plan: NutritionPlan | null;
@@ -13,6 +13,7 @@ interface UsePlanReturn {
   abandon: () => Promise<boolean>;
   pause: () => Promise<boolean>;
   resume: () => Promise<boolean>;
+  recalibrate: (optionType: RecalibrationOptionType) => Promise<boolean>;
   refresh: () => Promise<void>;
 }
 
@@ -139,5 +140,21 @@ export function usePlan(): UsePlanReturn {
     }
   }, [plan, refresh]);
 
-  return { plan, loading, creating, error, createError, create, complete, abandon, pause, resume, refresh };
+  const recalibrate = useCallback(async (optionType: RecalibrationOptionType): Promise<boolean> => {
+    if (!plan) return false;
+    try {
+      await recalibratePlan(plan.id, optionType);
+      await refresh();
+      return true;
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message);
+      } else {
+        setError('Failed to recalibrate plan');
+      }
+      return false;
+    }
+  }, [plan, refresh]);
+
+  return { plan, loading, creating, error, createError, create, complete, abandon, pause, resume, recalibrate, refresh };
 }
