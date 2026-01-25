@@ -511,7 +511,7 @@ func migratePlanStatusCancelledToAbandoned(db *sql.DB) error {
 			duration_weeks INTEGER NOT NULL CHECK (duration_weeks BETWEEN 4 AND 104),
 			required_weekly_change_kg REAL NOT NULL,
 			required_daily_deficit_kcal REAL NOT NULL,
-			status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'completed', 'abandoned')),
+			status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'completed', 'abandoned', 'paused')),
 			created_at TEXT NOT NULL DEFAULT (datetime('now')),
 			updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 		)

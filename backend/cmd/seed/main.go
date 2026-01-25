@@ -40,16 +40,16 @@ func main() {
 
 	config := SeedConfig{
 		DBPath:        dbPath,
-		StartDate:     time.Now().AddDate(0, 0, -28), // Start 4 weeks ago
-		WeeksOfData:   4,
-		InitialWeight: 78.0,  // kg - realistic starting weight
-		UserHeight:    175.0, // cm
+		StartDate:     time.Now().AddDate(0, 0, -30), // Start 30 days ago
+		WeeksOfData:   5,                             // 5 weeks covers 30+ days
+		InitialWeight: 78.0,                          // kg - realistic starting weight
+		UserHeight:    175.0,                         // cm
 		UserBirthDate: time.Date(1990, 5, 15, 0, 0, 0, 0, time.UTC),
 		UserSex:       "male",
 		UserGoal:      "lose_weight",
 	}
 
-	fmt.Println("🌱 Seeding Victus database with 4 weeks of data...")
+	fmt.Println("🌱 Seeding Victus database with 30 days of data...")
 	fmt.Printf("Database: %s\n", config.DBPath)
 	fmt.Printf("Start Date: %s\n", config.StartDate.Format("2006-01-02"))
 
@@ -61,19 +61,38 @@ func main() {
 }
 
 func seedDatabase(db *sql.DB, config SeedConfig) error {
-	// Clear existing data to allow fresh seed
+	// Clear existing data to allow fresh seed (order matters for foreign keys)
 	_, _ = db.Exec("DELETE FROM training_sessions")
 	_, _ = db.Exec("DELETE FROM daily_logs")
 	_, _ = db.Exec("DELETE FROM user_profile")
+	_, _ = db.Exec("DELETE FROM weekly_targets")
+	_, _ = db.Exec("DELETE FROM nutrition_plans")
+	_, _ = db.Exec("DELETE FROM planned_day_types")
 
 	// Create or clear existing profile
 	if err := createUserProfile(db, config); err != nil {
 		return fmt.Errorf("failed to create user profile: %w", err)
 	}
 
-	// Generate daily logs for 4 weeks
-	if err := generateDailyLogs(db, config); err != nil {
+	// Generate daily logs for 30 days
+	dayTypes, err := generateDailyLogs(db, config)
+	if err != nil {
 		return fmt.Errorf("failed to generate daily logs: %w", err)
+	}
+
+	// Create nutrition plan with weekly targets
+	if err := createNutritionPlan(db, config); err != nil {
+		return fmt.Errorf("failed to create nutrition plan: %w", err)
+	}
+
+	// Seed historical plans (completed and abandoned)
+	if err := seedPlanHistory(db, config); err != nil {
+		return fmt.Errorf("failed to seed plan history: %w", err)
+	}
+
+	// Seed planned day types for past and future
+	if err := seedPlannedDayTypes(db, config, dayTypes); err != nil {
+		return fmt.Errorf("failed to seed planned day types: %w", err)
 	}
 
 	return nil
@@ -131,18 +150,20 @@ func createUserProfile(db *sql.DB, config SeedConfig) error {
 	return nil
 }
 
-func generateDailyLogs(db *sql.DB, config SeedConfig) error {
+func generateDailyLogs(db *sql.DB, config SeedConfig) (map[string]string, error) {
 	rand.Seed(time.Now().UnixNano())
 
-	totalDays := config.WeeksOfData * 7
+	totalDays := 30 // Fixed at 30 days
 	currentWeight := config.InitialWeight
+	dayTypes := make(map[string]string) // Track day types for planned_day_types seeding
 
-	// Training plan: mix of intensity levels throughout the week
+	// Training plan: mix of intensity levels throughout the week (5 weeks)
 	trainingPatterns := [][]string{
-		{"strength", "rest", "run", "strength", "mobility", "cycle", "strength"}, // Week 1
-		{"rest", "row", "strength", "mobility", "hiit", "strength", "strength"},  // Week 2
-		{"strength", "strength", "rest", "run", "strength", "mobility", "cycle"}, // Week 3
-		{"hiit", "strength", "mobility", "strength", "rest", "row", "strength"},  // Week 4
+		{"strength", "rest", "run", "strength", "mobility", "cycle", "strength"},    // Week 1
+		{"rest", "row", "strength", "mobility", "hiit", "strength", "strength"},     // Week 2
+		{"strength", "strength", "rest", "run", "strength", "mobility", "cycle"},    // Week 3
+		{"hiit", "strength", "mobility", "strength", "rest", "row", "strength"},     // Week 4
+		{"strength", "run", "rest", "calisthenics", "mobility", "hiit", "strength"}, // Week 5
 	}
 
 	for day := 0; day < totalDays; day++ {
@@ -183,6 +204,9 @@ func generateDailyLogs(db *sql.DB, config SeedConfig) error {
 			dayType = "metabolize"
 		}
 
+		// Track day type for planned_day_types seeding
+		dayTypes[dateStr] = dayType
+
 		// Estimated TDEE (varies 2100-2500 based on day type)
 		estimatedTDEE := 2300
 		switch dayType {
@@ -203,6 +227,28 @@ func generateDailyLogs(db *sql.DB, config SeedConfig) error {
 		// Log macro targets based on day type (mock calculated values)
 		carbTargetG, proteinTargetG, fatTargetG := getMacroTargets(estimatedTDEE)
 
+		// Active calories from wearable (~50% of days have this data)
+		var activeCalories *int
+		if rand.Float64() < 0.5 {
+			cal := 200 + rand.Intn(400) // 200-600 active calories
+			activeCalories = &cal
+		}
+
+		// Water intake: 1.5-3.5L (higher on training days)
+		waterL := 2.0 + rand.Float64()*1.0
+		if trainingType != "rest" {
+			waterL += 0.5
+		}
+
+		// Fruit/veggies: realistic variance around targets (600g fruit, 500g veggie)
+		fruitG := 450 + rand.Intn(250)  // 450-700g (targeting 600g)
+		veggiesG := 350 + rand.Intn(250) // 350-600g (targeting 500g)
+
+		// TDEE confidence grows over time (adaptive learning simulation)
+		tdeeConfidence := 0.3 + (float64(day)/30.0)*0.55 // 0.3 → 0.85
+		dataPointsUsed := day + 1
+		formulaTdee := estimatedTDEE - rand.Intn(100) + 50 // Slight variance from estimated
+
 		// Insert daily log
 		logID, err := insertDailyLog(db, dailyLogParams{
 			date:                dateStr,
@@ -218,23 +264,51 @@ func generateDailyLogs(db *sql.DB, config SeedConfig) error {
 			proteinTargetG:      proteinTargetG,
 			fatTargetG:          fatTargetG,
 			estimatedTDEE:       estimatedTDEE,
+			activeCalories:      activeCalories,
+			waterL:              waterL,
+			fruitG:              fruitG,
+			veggiesG:            veggiesG,
+			tdeeConfidence:      tdeeConfidence,
+			dataPointsUsed:      dataPointsUsed,
+			formulaTdee:         formulaTdee,
 		})
 		if err != nil {
-			return fmt.Errorf("failed to insert daily log for %s: %w", dateStr, err)
+			return nil, fmt.Errorf("failed to insert daily log for %s: %w", dateStr, err)
 		}
 
-		// Insert training sessions (some days have multiple)
+		// Insert planned training sessions
 		if trainingType != "rest" {
 			if err := insertTrainingSession(db, logID, trainingType, durationMin, true); err != nil {
-				return fmt.Errorf("failed to insert training session for %s (type=%s): %w", dateStr, trainingType, err)
+				return nil, fmt.Errorf("failed to insert planned training session for %s (type=%s): %w", dateStr, trainingType, err)
 			}
 
-			// 30% chance of a secondary session (usually lower intensity)
+			// 30% chance of a secondary planned session (usually lower intensity)
 			if rand.Float64() < 0.3 {
 				secondaryType := getSecondaryTraining(trainingType)
 				secondaryDuration := rand.Intn(30) + 15
 				if err := insertTrainingSession(db, logID, secondaryType, secondaryDuration, true); err != nil {
-					return fmt.Errorf("failed to insert secondary training session for %s (type=%s): %w", dateStr, secondaryType, err)
+					return nil, fmt.Errorf("failed to insert secondary planned training session for %s (type=%s): %w", dateStr, secondaryType, err)
+				}
+			}
+
+			// Insert actual training sessions (~80% compliance)
+			if rand.Float64() < 0.8 {
+				// Actual duration varies slightly from planned (±10 min)
+				actualDuration := durationMin + rand.Intn(21) - 10
+				if actualDuration < 10 {
+					actualDuration = 10
+				}
+				if err := insertTrainingSession(db, logID, trainingType, actualDuration, false); err != nil {
+					return nil, fmt.Errorf("failed to insert actual training session for %s (type=%s): %w", dateStr, trainingType, err)
+				}
+			}
+		} else {
+			// 10% chance of unplanned training on rest days
+			if rand.Float64() < 0.1 {
+				unplannedType := getSecondaryTraining("rest")
+				unplannedDuration := rand.Intn(30) + 20
+				if err := insertTrainingSession(db, logID, unplannedType, unplannedDuration, false); err != nil {
+					return nil, fmt.Errorf("failed to insert unplanned training session for %s (type=%s): %w", dateStr, unplannedType, err)
 				}
 			}
 		}
@@ -244,7 +318,7 @@ func generateDailyLogs(db *sql.DB, config SeedConfig) error {
 		}
 	}
 
-	return nil
+	return dayTypes, nil
 }
 
 type dailyLogParams struct {
@@ -256,11 +330,19 @@ type dailyLogParams struct {
 	sleepHours          float64
 	dayType             string
 	trainingType        string
+	activeCalories      *int
 	trainingDurationMin int
 	carbTargetG         int
 	proteinTargetG      int
 	fatTargetG          int
 	estimatedTDEE       int
+	// New nutritional tracking fields
+	waterL         float64
+	fruitG         int
+	veggiesG       int
+	tdeeConfidence float64
+	dataPointsUsed int
+	formulaTdee    int
 }
 
 func insertDailyLog(db *sql.DB, params dailyLogParams) (int64, error) {
@@ -273,8 +355,9 @@ func insertDailyLog(db *sql.DB, params dailyLogParams) (int64, error) {
 		breakfast_carb_points, breakfast_protein_points, breakfast_fat_points,
 		lunch_carb_points, lunch_protein_points, lunch_fat_points,
 		dinner_carb_points, dinner_protein_points, dinner_fat_points,
-		day_type, estimated_tdee,
-		tdee_source_used, tdee_confidence, data_points_used,
+		day_type, estimated_tdee, active_calories_burned,
+		water_l, fruit_g, veggies_g,
+		tdee_source_used, tdee_confidence, data_points_used, formula_tdee,
 		created_at, updated_at
 	) VALUES (
 		?, ?, ?, ?,
@@ -284,8 +367,9 @@ func insertDailyLog(db *sql.DB, params dailyLogParams) (int64, error) {
 		?, ?, ?,
 		?, ?, ?,
 		?, ?, ?,
-		?, ?,
-		'formula', 0, 0,
+		?, ?, ?,
+		?, ?, ?,
+		'formula', ?, ?, ?,
 		?, ?
 	)`
 
@@ -316,7 +400,9 @@ func insertDailyLog(db *sql.DB, params dailyLogParams) (int64, error) {
 		carbPerMeal.breakfast, proteinPerMeal.breakfast, fatPerMeal.breakfast,
 		carbPerMeal.lunch, proteinPerMeal.lunch, fatPerMeal.lunch,
 		carbPerMeal.dinner, proteinPerMeal.dinner, fatPerMeal.dinner,
-		params.dayType, params.estimatedTDEE,
+		params.dayType, params.estimatedTDEE, params.activeCalories,
+		params.waterL, params.fruitG, params.veggiesG,
+		params.tdeeConfidence, params.dataPointsUsed, params.formulaTdee,
 		now, now,
 	)
 
@@ -330,9 +416,9 @@ func insertDailyLog(db *sql.DB, params dailyLogParams) (int64, error) {
 func insertTrainingSession(db *sql.DB, logID int64, trainingType string, durationMin int, isPlanned bool) error {
 	query := `
 	INSERT INTO training_sessions (
-		daily_log_id, session_order, is_planned, training_type, duration_min, perceived_intensity, created_at
+		daily_log_id, session_order, is_planned, training_type, duration_min, perceived_intensity, notes, created_at
 	) VALUES (
-		?, ?, ?, ?, ?, ?, ?
+		?, ?, ?, ?, ?, ?, ?, ?
 	)`
 
 	// Get current max order for this log
@@ -353,7 +439,23 @@ func insertTrainingSession(db *sql.DB, logID int64, trainingType string, duratio
 	intensity := rand.Intn(4) + 6 // RPE 6-9 (realistic training intensity)
 	now := time.Now().UTC().Format("2006-01-02 15:04:05")
 
-	_, err = db.Exec(query, logID, order, plannedInt, trainingType, durationMin, intensity, now)
+	// Add notes to ~20% of actual (non-planned) sessions
+	var notes *string
+	if !isPlanned && rand.Float64() < 0.2 {
+		sessionNotes := []string{
+			"Felt strong today",
+			"Recovery session - took it easy",
+			"New PR on deadlift!",
+			"Tired but pushed through",
+			"Great energy, increased weights",
+			"Focused on form today",
+			"Short on time, high intensity",
+		}
+		note := sessionNotes[rand.Intn(len(sessionNotes))]
+		notes = &note
+	}
+
+	_, err = db.Exec(query, logID, order, plannedInt, trainingType, durationMin, intensity, notes, now)
 	return err
 }
 
@@ -419,4 +521,261 @@ func clampFloat(value, min, max float64) float64 {
 		return max
 	}
 	return value
+}
+
+// createNutritionPlan creates a 12-week nutrition plan with weekly targets
+func createNutritionPlan(db *sql.DB, config SeedConfig) error {
+	now := time.Now().UTC()
+	planStartDate := config.StartDate.Format("2006-01-02")
+	createdAt := now.Format("2006-01-02 15:04:05")
+
+	startWeight := config.InitialWeight
+	goalWeight := 72.0
+	durationWeeks := 12
+	weeklyChange := (goalWeight - startWeight) / float64(durationWeeks)
+	dailyDeficit := weeklyChange * 7700 / 7 // 7700 kcal per kg of fat
+
+	query := `
+	INSERT INTO nutrition_plans (
+		name, start_date, start_weight_kg, goal_weight_kg, duration_weeks,
+		required_weekly_change_kg, required_daily_deficit_kcal, status,
+		created_at, updated_at
+	) VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)`
+
+	result, err := db.Exec(query,
+		"Weight Loss Plan",
+		planStartDate, startWeight, goalWeight, durationWeeks,
+		weeklyChange, dailyDeficit,
+		createdAt, createdAt,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to insert nutrition plan: %w", err)
+	}
+
+	planID, err := result.LastInsertId()
+	if err != nil {
+		return fmt.Errorf("failed to get plan ID: %w", err)
+	}
+
+	// Create weekly targets for all 12 weeks
+	for week := 1; week <= durationWeeks; week++ {
+		weekStartDate := config.StartDate.AddDate(0, 0, (week-1)*7)
+		weekEndDate := weekStartDate.AddDate(0, 0, 6)
+
+		projectedWeight := startWeight + float64(week)*weeklyChange
+		projectedTDEE := 2300 // Base TDEE
+		targetIntake := projectedTDEE + int(dailyDeficit)
+		targetCarbs := int((float64(targetIntake) * 0.45) / 4)
+		targetProtein := int((float64(targetIntake) * 0.30) / 4)
+		targetFat := int((float64(targetIntake) * 0.25) / 9)
+
+		// Simulate actual data for completed weeks (weeks 1-4)
+		// Week 5 is partial (in progress), weeks 6-12 are future projections
+		var actualWeight, actualIntake interface{}
+		daysLogged := 0
+		if week <= 4 {
+			// Completed weeks with full actual data
+			actualW := projectedWeight + (rand.Float64()-0.5)*0.8
+			actualI := targetIntake + rand.Intn(200) - 100
+			actualWeight = actualW
+			actualIntake = actualI
+			daysLogged = 7
+		} else if week == 5 {
+			// Current week - partial data (2 days logged so far)
+			actualW := projectedWeight + (rand.Float64()-0.5)*0.5
+			actualI := targetIntake + rand.Intn(100) - 50
+			actualWeight = actualW
+			actualIntake = actualI
+			daysLogged = 2
+		}
+		// weeks 6-12: no actual data (future projections only)
+
+		weekQuery := `
+		INSERT INTO weekly_targets (
+			plan_id, week_number, start_date, end_date,
+			projected_weight_kg, projected_tdee, target_intake_kcal,
+			target_carbs_g, target_protein_g, target_fats_g,
+			actual_weight_kg, actual_intake_kcal, days_logged,
+			created_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+
+		_, err := db.Exec(weekQuery,
+			planID, week, weekStartDate.Format("2006-01-02"), weekEndDate.Format("2006-01-02"),
+			projectedWeight, projectedTDEE, targetIntake,
+			targetCarbs, targetProtein, targetFat,
+			actualWeight, actualIntake, daysLogged,
+			createdAt,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to insert weekly target for week %d: %w", week, err)
+		}
+	}
+
+	fmt.Printf("✓ Nutrition plan with %d weekly targets created\n", durationWeeks)
+	return nil
+}
+
+// seedPlannedDayTypes seeds planned day types for past 30 days and future 7 days
+func seedPlannedDayTypes(db *sql.DB, config SeedConfig, actualDayTypes map[string]string) error {
+	now := time.Now()
+	createdAt := now.UTC().Format("2006-01-02 15:04:05")
+
+	query := `
+	INSERT INTO planned_day_types (plan_date, day_type, created_at, updated_at)
+	VALUES (?, ?, ?, ?)`
+
+	// Insert past 30 days (matching actual day types)
+	for dateStr, dayType := range actualDayTypes {
+		_, err := db.Exec(query, dateStr, dayType, createdAt, createdAt)
+		if err != nil {
+			return fmt.Errorf("failed to insert planned day type for %s: %w", dateStr, err)
+		}
+	}
+
+	// Insert future 7 days with planned day types
+	dayTypes := []string{"performance", "fatburner", "metabolize"}
+	for i := 1; i <= 7; i++ {
+		futureDate := now.AddDate(0, 0, i)
+		dateStr := futureDate.Format("2006-01-02")
+		// Distribute day types: more performance on training days
+		dayType := dayTypes[i%3]
+		if i == 7 { // Sunday = rest/metabolize
+			dayType = "metabolize"
+		}
+
+		_, err := db.Exec(query, dateStr, dayType, createdAt, createdAt)
+		if err != nil {
+			return fmt.Errorf("failed to insert future planned day type for %s: %w", dateStr, err)
+		}
+	}
+
+	fmt.Printf("✓ Planned day types seeded (30 past + 7 future days)\n")
+	return nil
+}
+
+// seedPlanHistory creates historical nutrition plans (completed and abandoned)
+func seedPlanHistory(db *sql.DB, config SeedConfig) error {
+	now := time.Now().UTC()
+	createdAt := now.Format("2006-01-02 15:04:05")
+
+	// Plan 1: Completed 8-week plan (ended 2 months ago)
+	completedStartDate := config.StartDate.AddDate(0, -3, 0) // Started 3 months ago
+	completedStartWeight := 82.0
+	completedGoalWeight := 78.0
+	completedDuration := 8
+	completedWeeklyChange := (completedGoalWeight - completedStartWeight) / float64(completedDuration)
+	completedDailyDeficit := completedWeeklyChange * 7700 / 7
+
+	query := `
+	INSERT INTO nutrition_plans (
+		name, start_date, start_weight_kg, goal_weight_kg, duration_weeks,
+		required_weekly_change_kg, required_daily_deficit_kcal, status,
+		created_at, updated_at
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+
+	result, err := db.Exec(query,
+		"Summer Cut 2025",
+		completedStartDate.Format("2006-01-02"), completedStartWeight, completedGoalWeight, completedDuration,
+		completedWeeklyChange, completedDailyDeficit, "completed",
+		createdAt, createdAt,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to insert completed plan: %w", err)
+	}
+
+	completedPlanID, _ := result.LastInsertId()
+
+	// Add weekly targets for completed plan (all 8 weeks with actual data)
+	for week := 1; week <= completedDuration; week++ {
+		weekStartDate := completedStartDate.AddDate(0, 0, (week-1)*7)
+		weekEndDate := weekStartDate.AddDate(0, 0, 6)
+		projectedWeight := completedStartWeight + float64(week)*completedWeeklyChange
+		projectedTDEE := 2400
+		targetIntake := projectedTDEE + int(completedDailyDeficit)
+
+		// All weeks completed with actual data
+		actualWeight := projectedWeight + (rand.Float64()-0.5)*0.6
+		actualIntake := targetIntake + rand.Intn(150) - 75
+
+		weekQuery := `
+		INSERT INTO weekly_targets (
+			plan_id, week_number, start_date, end_date,
+			projected_weight_kg, projected_tdee, target_intake_kcal,
+			target_carbs_g, target_protein_g, target_fats_g,
+			actual_weight_kg, actual_intake_kcal, days_logged,
+			created_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+
+		_, err := db.Exec(weekQuery,
+			completedPlanID, week, weekStartDate.Format("2006-01-02"), weekEndDate.Format("2006-01-02"),
+			projectedWeight, projectedTDEE, targetIntake,
+			int((float64(targetIntake)*0.45)/4), int((float64(targetIntake)*0.30)/4), int((float64(targetIntake)*0.25)/9),
+			actualWeight, actualIntake, 7,
+			createdAt,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to insert weekly target for completed plan week %d: %w", week, err)
+		}
+	}
+
+	// Plan 2: Abandoned 6-week plan (started but stopped after 3 weeks)
+	abandonedStartDate := config.StartDate.AddDate(0, -5, 0) // Started 5 months ago
+	abandonedStartWeight := 85.0
+	abandonedGoalWeight := 75.0
+	abandonedDuration := 6
+	abandonedWeeklyChange := (abandonedGoalWeight - abandonedStartWeight) / float64(abandonedDuration)
+	abandonedDailyDeficit := abandonedWeeklyChange * 7700 / 7
+
+	result, err = db.Exec(query,
+		"New Year Resolution",
+		abandonedStartDate.Format("2006-01-02"), abandonedStartWeight, abandonedGoalWeight, abandonedDuration,
+		abandonedWeeklyChange, abandonedDailyDeficit, "abandoned",
+		createdAt, createdAt,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to insert abandoned plan: %w", err)
+	}
+
+	abandonedPlanID, _ := result.LastInsertId()
+
+	// Add weekly targets for abandoned plan (only 3 weeks have data)
+	for week := 1; week <= abandonedDuration; week++ {
+		weekStartDate := abandonedStartDate.AddDate(0, 0, (week-1)*7)
+		weekEndDate := weekStartDate.AddDate(0, 0, 6)
+		projectedWeight := abandonedStartWeight + float64(week)*abandonedWeeklyChange
+		projectedTDEE := 2500
+		targetIntake := projectedTDEE + int(abandonedDailyDeficit)
+
+		var actualWeight, actualIntake interface{}
+		daysLogged := 0
+		if week <= 3 {
+			// Only first 3 weeks have data (then abandoned)
+			actualWeight = projectedWeight + (rand.Float64()-0.5)*1.0
+			actualIntake = targetIntake + rand.Intn(300) - 150 // More variance (struggled with compliance)
+			daysLogged = 7 - rand.Intn(2) // 5-7 days logged (inconsistent)
+		}
+
+		weekQuery := `
+		INSERT INTO weekly_targets (
+			plan_id, week_number, start_date, end_date,
+			projected_weight_kg, projected_tdee, target_intake_kcal,
+			target_carbs_g, target_protein_g, target_fats_g,
+			actual_weight_kg, actual_intake_kcal, days_logged,
+			created_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+
+		_, err := db.Exec(weekQuery,
+			abandonedPlanID, week, weekStartDate.Format("2006-01-02"), weekEndDate.Format("2006-01-02"),
+			projectedWeight, projectedTDEE, targetIntake,
+			int((float64(targetIntake)*0.45)/4), int((float64(targetIntake)*0.30)/4), int((float64(targetIntake)*0.25)/9),
+			actualWeight, actualIntake, daysLogged,
+			createdAt,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to insert weekly target for abandoned plan week %d: %w", week, err)
+		}
+	}
+
+	fmt.Println("✓ Plan history seeded (1 completed, 1 abandoned)")
+	return nil
 }

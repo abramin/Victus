@@ -22,6 +22,9 @@ go test -run TestName ./...   # Run a single test by name
 cd frontend
 npm run dev                   # Dev server (port 5173)
 npm run build                 # Production build
+npm run test                  # Run unit tests (vitest watch mode)
+npm run test:run              # Run unit tests once
+npm run test:coverage         # Run tests with coverage
 ```
 
 ### E2E Tests (Cypress + Cucumber)
@@ -35,6 +38,7 @@ cd frontend && npm run e2e:run   # Run Cypress headless
 ```bash
 docker compose up --build     # Start full stack with Docker
 make test                     # Run backend tests
+make seed                     # Seed database with 4 weeks of test data
 ```
 
 ## Architecture
@@ -67,7 +71,19 @@ api/ → service/ → store/ → db/
 - `GET /api/health` - Health check
 - `GET/PUT/DELETE /api/profile` - User profile CRUD
 - `POST /api/logs` - Create daily log with calculated targets
+- `GET /api/logs` - Get logs by date range
 - `GET/DELETE /api/logs/today` - Today's log operations
+- `GET /api/logs/{date}` - Get log by date
+- `PATCH /api/logs/{date}/actual-training` - Update actual training sessions
+- `GET /api/training-configs` - Get training type configurations (MET, load scores)
+- `GET /api/stats/weight-trend` - Weight trend with regression analysis
+- `GET /api/stats/history` - Historical summary with training compliance
+- `GET/PUT/DELETE /api/planned-days/{date}` - Planned day types for calendar
+- `GET/PATCH /api/food-reference/{id}` - Food reference library
+- `POST/GET /api/plans` - Nutrition plan CRUD
+- `GET /api/plans/active` - Get active plan
+- `GET /api/plans/{id}/analysis` - Dual-track variance analysis
+- `POST /api/plans/{id}/recalibrate` - Apply recalibration strategy
 
 ### Frontend Structure
 - `src/pages/` - Page components (App.tsx is main entry)
@@ -107,6 +123,7 @@ Custom Claude commands in `.claude/commands/` for code review:
 - `/testing-review` - Test coverage and quality
 - `/qa` - OpenAPI contract completeness
 - `/adaptive-model` - Model and data integrity
+- `/frontend-review` - React/TypeScript correctness, accessibility, performance
 
 ## Go Style Guidelines
 

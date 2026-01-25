@@ -26,9 +26,11 @@ type DailyLog struct {
 	TDEESourceUsed    TDEESource // Which TDEE source was used for this day's calculations
 	TDEEConfidence        float64               // Confidence level 0-1 for adaptive TDEE (0 means not adaptive)
 	DataPointsUsed        int                   // Number of data points used for adaptive calculation
-	RecoveryScore         *RecoveryScore        // Recovery score breakdown (nil if not calculated)
+	RecoveryScore         *RecoveryScore         // Recovery score breakdown (nil if not calculated)
 	AdjustmentMultipliers *AdjustmentMultipliers // Adjustment multipliers breakdown (nil if not calculated)
 	ActiveCaloriesBurned  *int                   // User-entered active calories from wearable
+	BMRPrecisionMode      bool                   // True if Katch-McArdle was auto-selected using recent body fat
+	BodyFatUsedDate       *string                // Date of body fat measurement used for precision BMR
 	CreatedAt             time.Time
 	UpdatedAt             time.Time
 }

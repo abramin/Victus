@@ -320,7 +320,7 @@ export function DayTargetsPanel({
         {waterL !== undefined && (
           <div className="bg-gray-950/70 rounded-xl border border-gray-800 px-5 py-4">
             <span className="text-gray-400">Water</span>
-            <span className="text-white font-medium ml-2">{waterL}L</span>
+            <span className="text-white font-medium ml-2">{waterL.toFixed(1)}L</span>
           </div>
         )}
       </div>

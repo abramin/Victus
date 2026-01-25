@@ -1,9 +1,11 @@
-import { useState, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { Panel } from '../common/Panel';
 import { PortionPlateVisualizer } from '../charts';
 import { getFoodReference } from '../../api/client';
-import type { FoodReference, FoodCategory } from '../../api/types';
+import { MacroGauges } from './MacroGauges';
+import type { FoodReference, FoodCategory, MacroPoints } from '../../api/types';
+import type { MacroSpent, GhostPreview } from './types';
 
 interface FoodLibraryProps {
   targetPoints: number;
@@ -12,6 +14,10 @@ interface FoodLibraryProps {
   // Plate Builder integration
   onFoodSelect?: (food: FoodReference) => void;
   remainingPoints?: number;
+  // Per-macro tracking
+  macroTargets?: MacroPoints | null;
+  macroSpent?: MacroSpent;
+  onCalculateGhostPreview?: (food: FoodReference) => GhostPreview;
 }
 
 type FilterTab = 'all' | 'carb' | 'protein' | 'fat';
@@ -69,6 +75,9 @@ export function FoodLibrary({
   className = '',
   onFoodSelect,
   remainingPoints,
+  macroTargets,
+  macroSpent,
+  onCalculateGhostPreview,
 }: FoodLibraryProps) {
   // Use remaining points if provided, otherwise use full target
   const effectivePoints = remainingPoints ?? targetPoints;
@@ -79,9 +88,17 @@ export function FoodLibrary({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFood, setSelectedFood] = useState<FoodReference | null>(null);
   const [hoveredFood, setHoveredFood] = useState<FoodReference | null>(null);
+  const [ghostPreview, setGhostPreview] = useState<GhostPreview | null>(null);
 
   // Display food is either hovered (takes priority) or selected
   const displayFood = hoveredFood || selectedFood;
+
+  // Default spent if not provided
+  const effectiveSpent: MacroSpent = macroSpent ?? {
+    protein: 0,
+    carbs: 0,
+    fats: 0,
+  };
 
   useEffect(() => {
     const fetchFoods = async () => {
@@ -115,6 +132,34 @@ export function FoodLibrary({
     return { grams: servingG, display: `${servingG}g` };
   };
 
+  // Get macro-specific feedback for a food item
+  const getMacroFeedback = (
+    food: FoodReference
+  ): { text: string; fits: boolean; macroLabel: string } | null => {
+    if (!macroTargets) return null;
+
+    const macroType =
+      food.category === 'high_protein'
+        ? 'protein'
+        : food.category === 'high_carb'
+          ? 'carbs'
+          : 'fats';
+    const macroLabel =
+      macroType === 'protein' ? 'Prot' : macroType === 'carbs' ? 'Carb' : 'Fat';
+
+    const remaining = macroTargets[macroType] - effectiveSpent[macroType];
+    const estimatedPoints = Math.round(
+      effectivePoints * (food.plateMultiplier ?? 0)
+    );
+    const fits = estimatedPoints <= remaining;
+
+    return {
+      text: `${estimatedPoints} ${macroLabel} Pts`,
+      fits,
+      macroLabel,
+    };
+  };
+
   const handleFoodClick = (food: FoodReference) => {
     if (onFoodSelect) {
       // Plate Builder mode: open modal instead of toggling selection
@@ -125,9 +170,17 @@ export function FoodLibrary({
     }
   };
 
-  const handleFoodHover = (food: FoodReference | null) => {
-    setHoveredFood(food);
-  };
+  const handleFoodHover = useCallback(
+    (food: FoodReference | null) => {
+      setHoveredFood(food);
+      if (food && onCalculateGhostPreview) {
+        setGhostPreview(onCalculateGhostPreview(food));
+      } else {
+        setGhostPreview(null);
+      }
+    },
+    [onCalculateGhostPreview]
+  );
 
   const handleCloseVisualizer = () => {
     setSelectedFood(null);
@@ -164,26 +217,37 @@ export function FoodLibrary({
         />
       </div>
 
-      {/* Target Context Header - Prominent */}
+      {/* Target Context Header with Macro Gauges */}
       <div className="mb-4 p-3 bg-gray-800/50 rounded-lg border border-gray-700">
-        <div className="text-sm text-gray-400">
+        <div className="text-sm text-gray-400 mb-2">
           Showing portions for <span className="text-white font-semibold">{capitalizeFirst(selectedMeal)}</span>
         </div>
-        {remainingPoints !== undefined && remainingPoints < targetPoints ? (
+        {macroTargets ? (
+          <MacroGauges
+            targets={macroTargets}
+            spent={effectiveSpent}
+            activeFilter={activeFilter}
+            ghostPreview={ghostPreview}
+          />
+        ) : remainingPoints !== undefined && remainingPoints < targetPoints ? (
           <div className="text-lg text-cyan-400 font-bold">
             Remaining: {remainingPoints} pts
             <span className="text-gray-500 text-sm ml-2">(of {targetPoints})</span>
           </div>
         ) : (
-          <div className="text-lg text-emerald-400 font-bold">
-            Target: {targetPoints} pts
+          <div className="text-center py-2">
+            <div className="text-gray-400 text-sm">
+              Complete your Daily Update to see personalized targets
+            </div>
           </div>
         )}
       </div>
 
       {/* Search Input */}
       <div className="mb-3">
+        <label htmlFor="food-search" className="sr-only">Search foods</label>
         <input
+          id="food-search"
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
@@ -249,11 +313,23 @@ export function FoodLibrary({
               {/* Food Name & Serving Info */}
               <div className="flex-1 min-w-0">
                 <div className="text-gray-200 truncate font-medium">{food.foodItem}</div>
-                {suggestion.grams > 0 && (
-                  <div className="text-xs text-gray-500 mt-0.5">
-                    Eat <span className="text-cyan-400 font-semibold">{suggestion.display}</span> → Hits Target
-                  </div>
-                )}
+                {suggestion.grams > 0 && (() => {
+                  const feedback = getMacroFeedback(food);
+                  if (feedback) {
+                    return (
+                      <div className={`text-xs mt-0.5 ${feedback.fits ? 'text-gray-500' : 'text-amber-500'}`}>
+                        Eat <span className={feedback.fits ? 'text-cyan-400' : 'text-amber-400'}>{suggestion.display}</span>
+                        <span className="mx-1">•</span>
+                        {feedback.fits ? '✓' : '⚠️'} {feedback.text}
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className="text-xs text-gray-500 mt-0.5">
+                      Eat <span className="text-cyan-400 font-semibold">{suggestion.display}</span> → Hits Target
+                    </div>
+                  );
+                })()}
               </div>
               
               {/* Multiplier Badge */}

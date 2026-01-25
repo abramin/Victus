@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -214,6 +215,7 @@ func (s *Server) recalibratePlan(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "validation_error", err.Error())
 			return
 		}
+		log.Printf("recalibratePlan error: %v", err)
 		writeError(w, http.StatusInternalServerError, "internal_error", "")
 		return
 	}

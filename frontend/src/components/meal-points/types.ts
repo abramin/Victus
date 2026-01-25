@@ -9,11 +9,29 @@ export interface DraftedFood {
   grams: number;
 }
 
+/** Per-macro remaining points for a meal */
+export interface MacroRemaining {
+  protein: number;
+  carbs: number;
+  fats: number;
+}
+
+/** Per-macro spent points for a meal */
+export interface MacroSpent {
+  protein: number;
+  carbs: number;
+  fats: number;
+}
+
 /** Draft state for a single meal */
 export interface MealDraft {
   foods: DraftedFood[];
   spentPoints: number;
   remainingPoints: number;
+  /** Per-macro spent points */
+  spentByMacro: MacroSpent;
+  /** Per-macro remaining points */
+  remainingByMacro: MacroRemaining;
 }
 
 /** Complete draft state for all meals */
@@ -25,4 +43,11 @@ export interface FoodModalState {
   food: FoodReference | null;
   mealId: MealId;
   fillPercentage: number; // 0-100
+}
+
+/** Ghost preview state for hover interactions */
+export interface GhostPreview {
+  macroType: 'protein' | 'carbs' | 'fats';
+  pointsToConsume: number;
+  wouldOverflow: boolean;
 }
