@@ -29,6 +29,16 @@ function generateSessionId(): string {
 }
 
 /**
+ * Format a Date as YYYY-MM-DD in local timezone.
+ */
+function formatLocalDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
  * Hook to manage the workout planner state.
  * Handles draft sessions, week navigation, and drag state.
  */
@@ -40,7 +50,7 @@ export function usePlannerState() {
     const diff = today.getDate() - day + (day === 0 ? -6 : 1);
     const monday = new Date(today);
     monday.setDate(diff);
-    return monday.toISOString().split('T')[0];
+    return formatLocalDate(monday);
   });
 
   // Draft sessions for each day
@@ -64,7 +74,7 @@ export function usePlannerState() {
     for (let i = 0; i < 7; i++) {
       const d = new Date(monday);
       d.setDate(monday.getDate() + i);
-      dates.push(d.toISOString().split('T')[0]);
+      dates.push(formatLocalDate(d));
     }
     return dates;
   }, [weekStartDate]);
@@ -73,13 +83,13 @@ export function usePlannerState() {
   const goToPreviousWeek = useCallback(() => {
     const current = new Date(weekStartDate + 'T00:00:00');
     current.setDate(current.getDate() - 7);
-    setWeekStartDate(current.toISOString().split('T')[0]);
+    setWeekStartDate(formatLocalDate(current));
   }, [weekStartDate]);
 
   const goToNextWeek = useCallback(() => {
     const current = new Date(weekStartDate + 'T00:00:00');
     current.setDate(current.getDate() + 7);
-    setWeekStartDate(current.toISOString().split('T')[0]);
+    setWeekStartDate(formatLocalDate(current));
   }, [weekStartDate]);
 
   const goToCurrentWeek = useCallback(() => {
@@ -88,7 +98,7 @@ export function usePlannerState() {
     const diff = today.getDate() - day + (day === 0 ? -6 : 1);
     const monday = new Date(today);
     monday.setDate(diff);
-    setWeekStartDate(monday.toISOString().split('T')[0]);
+    setWeekStartDate(formatLocalDate(monday));
   }, []);
 
   // Session management
