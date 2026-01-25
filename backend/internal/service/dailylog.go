@@ -378,6 +378,18 @@ func (s *DailyLogService) GetDailyTargetsRangeWithSessions(ctx context.Context, 
 	return result, nil
 }
 
+// GetLogWithTrainingLoad retrieves a daily log by date with its training load metrics.
+// Returns the log and training load (nil if unavailable). The training load is supplementary -
+// errors fetching it are swallowed and nil is returned.
+func (s *DailyLogService) GetLogWithTrainingLoad(ctx context.Context, date string) (*domain.DailyLog, *domain.TrainingLoadResult, error) {
+	log, err := s.GetByDate(ctx, date)
+	if err != nil {
+		return nil, nil, err
+	}
+	trainingLoad, _ := s.GetTrainingLoadMetrics(ctx, log.Date, log.ActualSessions, log.PlannedSessions)
+	return log, trainingLoad, nil
+}
+
 // GetTrainingLoadMetrics calculates ACR metrics for a given date.
 // Uses up to 28 days of historical data for chronic load calculation.
 // The todayLoad is calculated from the provided actual/planned sessions.

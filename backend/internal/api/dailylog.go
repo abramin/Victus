@@ -90,7 +90,7 @@ func (s *Server) getLogByDate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log, err := s.dailyLogService.GetByDate(r.Context(), date)
+	log, trainingLoad, err := s.dailyLogService.GetLogWithTrainingLoad(r.Context(), date)
 	if errors.Is(err, store.ErrDailyLogNotFound) {
 		writeError(w, http.StatusNotFound, "not_found", "No log exists for this date")
 		return
@@ -98,11 +98,6 @@ func (s *Server) getLogByDate(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal_error", "")
 		return
-	}
-
-	trainingLoad, err := s.dailyLogService.GetTrainingLoadMetrics(r.Context(), log.Date, log.ActualSessions, log.PlannedSessions)
-	if err != nil {
-		trainingLoad = nil
 	}
 
 	w.Header().Set("Content-Type", "application/json")

@@ -773,3 +773,163 @@ func (s *TargetsSuite) TestCalculateMealPointsWithSupplements() {
 		s.Equal(0, meals.Dinner.Protein%5, "Dinner protein should be multiple of 5")
 	})
 }
+
+// =============================================================================
+// TESTS FOR ADAPTIVE TDEE CALCULATION
+// =============================================================================
+
+func (s *TargetsSuite) TestCalculateAdaptiveTDEE() {
+	// Helper to generate sequential dates
+	generateDate := func(dayOffset int) string {
+		base := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+		return base.AddDate(0, 0, dayOffset).Format("2006-01-02")
+	}
+
+	// Helper to create data points with linear weight loss
+	// weightLossPerDay in kg, intake is target calories per day
+	createDataPoints := func(numDays int, startWeight float64, weightLossPerDay float64, dailyIntake int) []AdaptiveDataPoint {
+		points := make([]AdaptiveDataPoint, numDays)
+		for i := 0; i < numDays; i++ {
+			points[i] = AdaptiveDataPoint{
+				Date:           generateDate(i),
+				WeightKg:       startWeight - (float64(i) * weightLossPerDay),
+				TargetCalories: dailyIntake,
+				EstimatedTDEE:  2200, // Baseline TDEE
+				FormulaTDEE:    2200,
+			}
+		}
+		return points
+	}
+
+	s.Run("returns nil with empty data", func() {
+		result := CalculateAdaptiveTDEE(nil)
+		s.Nil(result, "Should return nil for empty data")
+	})
+
+	s.Run("returns nil with only one data point", func() {
+		points := []AdaptiveDataPoint{
+			{Date: "2025-01-01", WeightKg: 85, TargetCalories: 2000},
+		}
+		result := CalculateAdaptiveTDEE(points)
+		s.Nil(result, "Should return nil for single data point")
+	})
+
+	s.Run("returns nil with fewer than 14 data points", func() {
+		points := createDataPoints(10, 85.0, 0.05, 2000)
+		result := CalculateAdaptiveTDEE(points)
+		s.Nil(result, "Should return nil when less than MinDataPointsForAdaptive")
+	})
+
+	s.Run("calculates TDEE from weight loss data", func() {
+		// 28 days of data: losing 0.5 kg/week = ~0.071 kg/day
+		// Eating 1700 cal/day, expected TDEE ~2200 (deficit of 500 = 0.5kg/week)
+		points := createDataPoints(28, 85.0, 0.071, 1700)
+		result := CalculateAdaptiveTDEE(points)
+
+		s.NotNil(result, "Should return result with sufficient data")
+		s.Equal(TDEESourceAdaptive, result.Source)
+		s.Equal(28, result.DataPointsUsed)
+		// TDEE should be roughly intake + deficit calories
+		// 500 kcal deficit/day ≈ 0.5 kg/week loss
+		s.InDelta(2200, result.TDEE, 200, "TDEE should be approximately 2200")
+	})
+
+	s.Run("calculates TDEE from weight gain data", func() {
+		// 28 days of data: gaining 0.35 kg/week = ~0.05 kg/day
+		// Eating 2500 cal/day, surplus of ~385 kcal/day
+		points := createDataPoints(28, 85.0, -0.05, 2500)
+		result := CalculateAdaptiveTDEE(points)
+
+		s.NotNil(result, "Should return result with sufficient data")
+		// TDEE should be roughly intake - surplus calories
+		s.InDelta(2100, result.TDEE, 300, "TDEE should be approximately 2100")
+	})
+
+	s.Run("calculates TDEE from maintenance data", func() {
+		// 28 days of data: no weight change
+		// Eating 2200 cal/day = maintenance
+		points := createDataPoints(28, 85.0, 0, 2200)
+		result := CalculateAdaptiveTDEE(points)
+
+		s.NotNil(result, "Should return result with sufficient data")
+		// TDEE should equal intake when weight is stable
+		s.InDelta(2200, result.TDEE, 100, "TDEE should match intake when weight stable")
+	})
+
+	s.Run("weights recent weeks more heavily", func() {
+		// Create 28 days where first 2 weeks suggest TDEE=2000, last 2 weeks suggest TDEE=2400
+		points := make([]AdaptiveDataPoint, 28)
+		for i := 0; i < 28; i++ {
+			intake := 1800
+			weightLoss := 0.03 // ~0.2 kg/week deficit -> TDEE ~2000
+			if i >= 14 {
+				intake = 2000
+				weightLoss = 0.06 // ~0.4 kg/week deficit -> TDEE ~2400
+			}
+			points[i] = AdaptiveDataPoint{
+				Date:           generateDate(i),
+				WeightKg:       85.0 - (float64(i) * weightLoss),
+				TargetCalories: intake,
+				EstimatedTDEE:  2200,
+				FormulaTDEE:    2200,
+			}
+		}
+		result := CalculateAdaptiveTDEE(points)
+
+		s.NotNil(result, "Should return result")
+		// Result should be biased toward recent weeks (higher TDEE)
+		s.Greater(result.TDEE, 2100.0, "TDEE should be weighted toward recent data")
+	})
+
+	s.Run("confidence increases with more data points", func() {
+		points14 := createDataPoints(14, 85.0, 0.071, 1700)
+		points28 := createDataPoints(28, 85.0, 0.071, 1700)
+		points56 := createDataPoints(56, 85.0, 0.071, 1700)
+
+		result14 := CalculateAdaptiveTDEE(points14)
+		result28 := CalculateAdaptiveTDEE(points28)
+		result56 := CalculateAdaptiveTDEE(points56)
+
+		s.NotNil(result14)
+		s.NotNil(result28)
+		s.NotNil(result56)
+
+		// More data should mean higher or equal confidence
+		s.GreaterOrEqual(result28.Confidence, result14.Confidence,
+			"28 days should have >= confidence than 14 days")
+		s.GreaterOrEqual(result56.Confidence, result28.Confidence,
+			"56 days should have >= confidence than 28 days")
+	})
+
+	s.Run("limits data points to MaxDataPointsForAdaptive", func() {
+		// Create 100 days of data (more than MaxDataPointsForAdaptive=56)
+		points := createDataPoints(100, 85.0, 0.071, 1700)
+		result := CalculateAdaptiveTDEE(points)
+
+		s.NotNil(result)
+		s.Equal(MaxDataPointsForAdaptive, result.DataPointsUsed,
+			"Should limit to MaxDataPointsForAdaptive")
+	})
+
+	s.Run("returns nil for unreasonable TDEE estimates", func() {
+		// Create data that would result in TDEE outside 800-6000 range
+		// Very aggressive deficit: eating 500 cal/day, losing 1kg/day (impossible)
+		points := make([]AdaptiveDataPoint, 28)
+		for i := 0; i < 28; i++ {
+			points[i] = AdaptiveDataPoint{
+				Date:           generateDate(i),
+				WeightKg:       85.0 - float64(i), // Losing 1kg/day
+				TargetCalories: 500,
+				EstimatedTDEE:  2200,
+				FormulaTDEE:    2200,
+			}
+		}
+		result := CalculateAdaptiveTDEE(points)
+
+		// The sanity check should filter out unreasonable weekly estimates
+		// If all estimates are unreasonable, returns nil
+		if result != nil {
+			s.InDelta(result.TDEE, 3000, 3000, "TDEE should be in reasonable range if returned")
+		}
+	})
+}

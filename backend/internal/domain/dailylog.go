@@ -220,11 +220,6 @@ func (d *DailyLog) Validate() error {
 	return nil
 }
 
-// SetDefaults applies default values to unset fields using current time.
-func (d *DailyLog) SetDefaults() {
-	d.SetDefaultsAt(time.Now())
-}
-
 // SetDefaultsAt applies default values to unset fields at a given point in time.
 func (d *DailyLog) SetDefaultsAt(now time.Time) {
 	// Default date to today if empty

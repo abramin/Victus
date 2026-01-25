@@ -648,6 +648,76 @@ func adherencePenalty(avgAdjustment float64) float64 {
 	return penalty
 }
 
+// weeklyTDEEEstimate holds the result of a single week's TDEE calculation.
+type weeklyTDEEEstimate struct {
+	tdee           float64 // Estimated TDEE for this week
+	recencyWeight  float64 // Weight for weighted average (higher = more recent)
+	adherenceError float64 // Absolute difference between expected and observed deficit
+}
+
+// calculateWeeklyTDEE computes the TDEE estimate for a single week window.
+// Uses a two-week window for weight change (startIdx to endIdx) but only
+// the first week's intake data. Returns nil if the estimate is invalid.
+func calculateWeeklyTDEE(dataPoints []AdaptiveDataPoint, startIdx, endIdx, weekNum, numWeeks int) *weeklyTDEEEstimate {
+	if endIdx > len(dataPoints) {
+		endIdx = len(dataPoints)
+	}
+	if startIdx >= endIdx {
+		return nil
+	}
+
+	// Calculate weight change over the two-week period
+	startWeight := dataPoints[startIdx].WeightKg
+	endWeight := dataPoints[endIdx-1].WeightKg
+	weightChangeKg := startWeight - endWeight // Positive = weight loss
+
+	// Calculate average daily intake for the first week
+	var totalCalories float64
+	var totalBaseline float64
+	daysInWeek := 0
+	baselineCount := 0
+	for i := startIdx; i < startIdx+7 && i < len(dataPoints); i++ {
+		totalCalories += float64(dataPoints[i].TargetCalories)
+		daysInWeek++
+		baseline := pointBaselineTDEE(dataPoints[i])
+		if baseline > 0 {
+			totalBaseline += baseline
+			baselineCount++
+		}
+	}
+
+	if daysInWeek == 0 {
+		return nil
+	}
+
+	avgDailyIntake := totalCalories / float64(daysInWeek)
+	avgBaseline := 0.0
+	if baselineCount > 0 {
+		avgBaseline = totalBaseline / float64(baselineCount)
+	}
+
+	// Calculate TDEE from energy balance
+	daysBetween := daysBetweenDates(dataPoints[startIdx].Date, dataPoints[endIdx-1].Date)
+	if daysBetween <= 0 {
+		return nil
+	}
+
+	dailyCalorieDeficit := (weightChangeKg / daysBetween) * 7700.0
+	adjustedIntake, adjustmentAbs := adjustIntake(avgDailyIntake, avgBaseline, dailyCalorieDeficit)
+	estimatedTDEE := adjustedIntake + dailyCalorieDeficit
+
+	// Sanity check - TDEE should be reasonable (800-6000 range)
+	if estimatedTDEE < 800 || estimatedTDEE > 6000 {
+		return nil
+	}
+
+	return &weeklyTDEEEstimate{
+		tdee:           estimatedTDEE,
+		recencyWeight:  float64(weekNum+1) / float64(numWeeks),
+		adherenceError: adjustmentAbs,
+	}
+}
+
 // calculateAdaptiveConfidence computes confidence level for adaptive TDEE calculation.
 // Based on data point count, consistency of estimates (CV), and adherence error penalty.
 func calculateAdaptiveConfidence(dataPointCount int, weeklyTDEEEstimates []float64, adaptiveTDEE float64, adherenceErrorSum float64, adherenceSamples int) float64 {
@@ -758,85 +828,36 @@ func CalculateAdaptiveTDEE(dataPoints []AdaptiveDataPoint) *AdaptiveTDEEResult {
 		return nil
 	}
 
-	var weeklyTDEEEstimates []float64
-	var weights []float64 // For weighted average - recent weeks count more
-	var adherenceErrorSum float64
-	var adherenceSamples int
-
+	// Calculate TDEE estimate for each week
+	var estimates []weeklyTDEEEstimate
 	for week := 0; week < numWeeks-1; week++ {
 		startIdx := week * 7
 		endIdx := (week + 2) * 7 // Two-week window for weight change
-
-		if endIdx > len(dataPoints) {
-			endIdx = len(dataPoints)
-		}
-
-		// Calculate weight change over the two-week period
-		startWeight := dataPoints[startIdx].WeightKg
-		endWeight := dataPoints[endIdx-1].WeightKg
-		weightChangeKg := startWeight - endWeight // Positive = weight loss
-
-		// Calculate average daily intake for the first week
-		var totalCalories float64
-		var totalBaseline float64
-		daysInWeek := 0
-		baselineCount := 0
-		for i := startIdx; i < startIdx+7 && i < len(dataPoints); i++ {
-			totalCalories += float64(dataPoints[i].TargetCalories)
-			daysInWeek++
-			baseline := pointBaselineTDEE(dataPoints[i])
-			if baseline > 0 {
-				totalBaseline += baseline
-				baselineCount++
-			}
-		}
-
-		if daysInWeek == 0 {
-			continue
-		}
-
-		avgDailyIntake := totalCalories / float64(daysInWeek)
-		avgBaseline := 0.0
-		if baselineCount > 0 {
-			avgBaseline = totalBaseline / float64(baselineCount)
-		}
-
-		// Calculate TDEE from energy balance
-		// Calories per kg of body weight change ≈ 7700 kcal
-		daysBetween := daysBetweenDates(dataPoints[startIdx].Date, dataPoints[endIdx-1].Date)
-		if daysBetween <= 0 {
-			continue
-		}
-		dailyCalorieDeficit := (weightChangeKg / daysBetween) * 7700.0
-		adjustedIntake, adjustmentAbs := adjustIntake(avgDailyIntake, avgBaseline, dailyCalorieDeficit)
-		estimatedTDEE := adjustedIntake + dailyCalorieDeficit
-
-		// Sanity check - TDEE should be reasonable (800-6000 range)
-		if estimatedTDEE >= 800 && estimatedTDEE <= 6000 {
-			weeklyTDEEEstimates = append(weeklyTDEEEstimates, estimatedTDEE)
-			adherenceErrorSum += adjustmentAbs
-			adherenceSamples++
-			// More recent weeks get higher weight
-			recencyWeight := float64(week+1) / float64(numWeeks)
-			weights = append(weights, recencyWeight)
+		estimate := calculateWeeklyTDEE(dataPoints, startIdx, endIdx, week, numWeeks)
+		if estimate != nil {
+			estimates = append(estimates, *estimate)
 		}
 	}
 
-	if len(weeklyTDEEEstimates) == 0 {
+	if len(estimates) == 0 {
 		return nil
 	}
 
 	// Calculate weighted average TDEE
 	var weightedSum float64
 	var totalWeight float64
-	for i, tdee := range weeklyTDEEEstimates {
-		weightedSum += tdee * weights[i]
-		totalWeight += weights[i]
+	var adherenceErrorSum float64
+	tdeeValues := make([]float64, len(estimates))
+	for i, est := range estimates {
+		weightedSum += est.tdee * est.recencyWeight
+		totalWeight += est.recencyWeight
+		adherenceErrorSum += est.adherenceError
+		tdeeValues[i] = est.tdee
 	}
 	adaptiveTDEE := weightedSum / totalWeight
 
 	// Calculate confidence from data quality, consistency, and adherence
-	confidence := calculateAdaptiveConfidence(len(dataPoints), weeklyTDEEEstimates, adaptiveTDEE, adherenceErrorSum, adherenceSamples)
+	confidence := calculateAdaptiveConfidence(len(dataPoints), tdeeValues, adaptiveTDEE, adherenceErrorSum, len(estimates))
 
 	return &AdaptiveTDEEResult{
 		TDEE:           math.Round(adaptiveTDEE),
