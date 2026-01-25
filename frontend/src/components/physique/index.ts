@@ -1,0 +1,1 @@
+export { PhysiqueDashboard } from './PhysiqueDashboard';

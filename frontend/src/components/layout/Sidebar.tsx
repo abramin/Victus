@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom';
 
-export type NavItem = 'today' | 'kitchen' | 'strategy' | 'schedule' | 'workout-planner' | 'history' | 'log-workout' | 'profile';
+export type NavItem = 'today' | 'kitchen' | 'strategy' | 'schedule' | 'workout-planner' | 'physique' | 'history' | 'log-workout' | 'profile';
 
 interface SidebarProps {
   currentNav?: NavItem;
@@ -56,6 +56,16 @@ const NAV_ITEMS: { id: NavItem; path: string; label: string; icon: React.ReactNo
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 6v12M15 6v12" />
+      </svg>
+    ),
+  },
+  {
+    id: 'physique',
+    path: '/physique',
+    label: 'Body Status',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
       </svg>
     ),
   },

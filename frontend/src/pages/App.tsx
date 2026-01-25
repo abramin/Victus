@@ -13,6 +13,7 @@ import { LogWorkoutView } from '../components/training';
 import { ProfileForm } from '../components/settings/ProfileForm';
 import { ErrorBoundary } from '../components/common';
 import { WorkoutPlanner } from '../components/workout-planner';
+import { PhysiqueDashboard } from '../components/physique';
 
 function App() {
   const {
@@ -110,6 +111,8 @@ function App() {
           <Route path="/schedule" element={<PlanCalendar profile={profile} />} />
           {/* Workout Planner - Tactical Drag-and-Drop */}
           <Route path="/workout-planner" element={<WorkoutPlanner />} />
+          {/* Body Status - Muscle Fatigue Map */}
+          <Route path="/physique" element={<PhysiqueDashboard />} />
           <Route path="/history" element={<WeightHistory profile={profile} />} />
           <Route
             path="/log-workout"

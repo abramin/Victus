@@ -410,3 +410,19 @@ export async function applySessionLoad(
   });
   return handleResponse<SessionFatigueReport>(response);
 }
+
+// Simpler fatigue application without requiring a session ID
+export async function applyFatigue(
+  request: ApplyLoadRequest,
+  signal?: AbortSignal
+): Promise<SessionFatigueReport> {
+  const response = await fetch(`${API_BASE}/fatigue/apply`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(request),
+    signal,
+  });
+  return handleResponse<SessionFatigueReport>(response);
+}

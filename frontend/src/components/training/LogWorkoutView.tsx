@@ -3,7 +3,10 @@ import { RadialIntensitySelector } from './RadialIntensitySelector';
 import { TrainingTypeCards } from './TrainingTypeCards';
 import { SessionReceipt } from './SessionReceipt';
 import { ActualVsPlannedComparison } from './ActualVsPlannedComparison';
-import type { DailyLog, ActualTrainingSession, TrainingSession, TrainingType } from '../../api/types';
+import { ArchetypeSelector } from '../body-map/ArchetypeSelector';
+import { SessionReportModal } from '../body-map/SessionReportModal';
+import { applyFatigue } from '../../api/client';
+import type { DailyLog, ActualTrainingSession, TrainingSession, TrainingType, Archetype, SessionFatigueReport } from '../../api/types';
 import { TRAINING_LABELS } from '../../constants';
 
 type SessionWithId = Omit<ActualTrainingSession, 'sessionOrder'> & { _id: string };
@@ -109,6 +112,9 @@ export function LogWorkoutView({ log, onUpdateActual, saving }: LogWorkoutViewPr
   const [notesExpanded, setNotesExpanded] = useState<Record<string, boolean>>({});
   const [showReceipt, setShowReceipt] = useState(false);
   const [savedLoadScore, setSavedLoadScore] = useState(0);
+  const [selectedArchetype, setSelectedArchetype] = useState<Archetype | null>(null);
+  const [fatigueReport, setFatigueReport] = useState<SessionFatigueReport | null>(null);
+  const [showFatigueReport, setShowFatigueReport] = useState(false);
   const idCounterRef = useRef(0);
 
   const generateId = useCallback(() => {
@@ -208,11 +214,40 @@ export function LogWorkoutView({ log, onUpdateActual, saving }: LogWorkoutViewPr
     const result = await onUpdateActual(sessionsWithoutId);
     if (result) {
       setHasUnsavedChanges(false);
-      // Calculate total load score and show receipt
-      const totalLoad = sessions.reduce((sum, session) => sum + getSessionLoadScore(session), 0);
-      if (totalLoad > 0) {
-        setSavedLoadScore(totalLoad);
-        setShowReceipt(true);
+
+      // Calculate aggregated values for fatigue
+      const activeSessions = sessions.filter(s => s.type !== 'rest');
+      const totalDuration = activeSessions.reduce((sum, s) => sum + s.durationMin, 0);
+      const rpeValues = activeSessions.map(s => s.perceivedIntensity ?? DEFAULT_RPE);
+      const avgRpe = rpeValues.length > 0
+        ? Math.round(rpeValues.reduce((a, b) => a + b, 0) / rpeValues.length)
+        : DEFAULT_RPE;
+
+      // If archetype selected, apply fatigue and show detailed report
+      if (selectedArchetype && totalDuration > 0) {
+        try {
+          const report = await applyFatigue({
+            archetype: selectedArchetype,
+            durationMin: totalDuration,
+            rpe: avgRpe,
+          });
+          setFatigueReport(report);
+          setShowFatigueReport(true);
+        } catch {
+          // If fatigue apply fails, fall back to simple receipt
+          const totalLoad = sessions.reduce((sum, session) => sum + getSessionLoadScore(session), 0);
+          if (totalLoad > 0) {
+            setSavedLoadScore(totalLoad);
+            setShowReceipt(true);
+          }
+        }
+      } else {
+        // No archetype selected, show simple receipt
+        const totalLoad = sessions.reduce((sum, session) => sum + getSessionLoadScore(session), 0);
+        if (totalLoad > 0) {
+          setSavedLoadScore(totalLoad);
+          setShowReceipt(true);
+        }
       }
     }
   };
@@ -726,6 +761,32 @@ export function LogWorkoutView({ log, onUpdateActual, saving }: LogWorkoutViewPr
                 })}
               </div>
 
+              {/* Archetype Selector - only show if there are active sessions */}
+              {hasActiveSessions && (
+                <div className="mt-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-medium text-gray-400">Workout Type (Optional)</h3>
+                    {selectedArchetype && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedArchetype(null)}
+                        className="text-xs text-gray-500 hover:text-gray-300"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                  <ArchetypeSelector
+                    selected={selectedArchetype}
+                    onSelect={setSelectedArchetype}
+                    disabled={saving}
+                  />
+                  <p className="text-xs text-gray-500 mt-2">
+                    Select a workout type to track muscle fatigue on the Body Map.
+                  </p>
+                </div>
+              )}
+
               {/* Bottom Save Button */}
               <div className="mt-6 flex justify-end">
                 <button
@@ -758,6 +819,16 @@ export function LogWorkoutView({ log, onUpdateActual, saving }: LogWorkoutViewPr
         loadScore={savedLoadScore}
         isVisible={showReceipt}
         onComplete={() => setShowReceipt(false)}
+      />
+
+      {/* Fatigue Report Modal (when archetype selected) */}
+      <SessionReportModal
+        report={fatigueReport}
+        isVisible={showFatigueReport}
+        onClose={() => {
+          setShowFatigueReport(false);
+          setFatigueReport(null);
+        }}
       />
     </div>
   );

@@ -74,6 +74,7 @@ func NewServer(db *sql.DB) *Server {
 	// Body status / fatigue routes (Adaptive Load feature)
 	mux.HandleFunc("GET /api/body-status", srv.getBodyStatus)
 	mux.HandleFunc("GET /api/archetypes", srv.getArchetypes)
+	mux.HandleFunc("POST /api/fatigue/apply", srv.applyFatigueByParams)
 	mux.HandleFunc("POST /api/sessions/{id}/apply-load", srv.applySessionLoad)
 
 	// Stats routes
