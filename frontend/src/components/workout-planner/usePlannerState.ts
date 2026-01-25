@@ -1,7 +1,31 @@
 import { useState, useCallback, useMemo } from 'react';
 import type { DayType, TrainingConfig, TrainingType } from '../../api/types';
+import { upsertPlannedDay } from '../../api/client';
 import { calculateSessionLoad } from './loadCalculations';
 import type { PlannedSessionDraft } from './DayDropZone';
+
+/**
+ * Infer day type from training sessions.
+ * - Strength/calisthenics/hiit → performance
+ * - Cardio (run/row/cycle/walking) → fatburner
+ * - Other (qigong/mobility/gmb) → metabolize
+ * - Mixed sessions → performance (default to higher intensity)
+ */
+function inferDayType(sessions: PlannedSessionDraft[]): DayType {
+  if (sessions.length === 0) return 'metabolize';
+
+  const hasStrength = sessions.some(s =>
+    ['strength', 'calisthenics', 'hiit', 'mixed'].includes(s.trainingType)
+  );
+  if (hasStrength) return 'performance';
+
+  const hasCardio = sessions.some(s =>
+    ['run', 'row', 'cycle', 'walking'].includes(s.trainingType)
+  );
+  if (hasCardio) return 'fatburner';
+
+  return 'metabolize';
+}
 
 /**
  * A day's planned sessions in draft state.
@@ -66,6 +90,10 @@ export function usePlannerState() {
 
   // Configuration modal state
   const [configuringSession, setConfiguringSession] = useState<ConfiguringSession | null>(null);
+
+  // Save status
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Week dates calculation
   const weekDates = useMemo(() => {
@@ -191,6 +219,48 @@ export function usePlannerState() {
     setHasUnsavedChanges(false);
   }, []);
 
+  // Save plan to backend
+  const savePlan = useCallback(async () => {
+    if (draftDays.size === 0) return;
+
+    setIsSaving(true);
+    setSaveError(null);
+
+    try {
+      // Get all dates in the current week
+      const datesWithSessions = new Set(draftDays.keys());
+
+      // Save each day that has sessions
+      const savePromises: Promise<void>[] = [];
+
+      for (const [date, dayData] of draftDays) {
+        if (dayData.sessions.length > 0) {
+          // Infer day type from sessions or use explicit day type
+          const dayType = dayData.dayType || inferDayType(dayData.sessions);
+          savePromises.push(
+            upsertPlannedDay(date, dayType).then(() => {})
+          );
+        }
+      }
+
+      // Also delete planned days for dates that had sessions removed
+      for (const date of weekDates) {
+        if (!datesWithSessions.has(date)) {
+          // Only delete if there were changes (we don't track original state yet)
+          // For now, skip deletion to avoid removing existing plans
+        }
+      }
+
+      await Promise.all(savePromises);
+      setHasUnsavedChanges(false);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save plan');
+      throw err; // Re-throw so caller can handle
+    } finally {
+      setIsSaving(false);
+    }
+  }, [draftDays, weekDates]);
+
   return {
     // Week state
     weekStartDate,
@@ -211,6 +281,9 @@ export function usePlannerState() {
     getDayLoad,
     weekLoads,
     resetDraft,
+    savePlan,
+    isSaving,
+    saveError,
 
     // Drag state
     isDragging,

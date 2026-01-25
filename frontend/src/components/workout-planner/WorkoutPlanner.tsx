@@ -33,6 +33,9 @@ export function WorkoutPlanner() {
     removeSession,
     weekLoads,
     resetDraft,
+    savePlan,
+    isSaving,
+    saveError,
     isDragging,
     activeDragType,
     handleDragStart,
@@ -86,6 +89,15 @@ export function WorkoutPlanner() {
     [configuringSession, addSession, setConfiguringSession]
   );
 
+  // Handle save plan
+  const handleSavePlan = useCallback(async () => {
+    try {
+      await savePlan();
+    } catch {
+      // Error is already captured in saveError state
+    }
+  }, [savePlan]);
+
   // Format week display
   const weekDisplay = formatWeekRange(weekStartDate);
 
@@ -135,21 +147,25 @@ export function WorkoutPlanner() {
 
           {/* Actions */}
           <div className="flex items-center gap-3">
-            {hasUnsavedChanges && (
+            {saveError && (
+              <span className="text-xs text-red-400">{saveError}</span>
+            )}
+            {hasUnsavedChanges && !saveError && (
               <span className="text-xs text-amber-400">Unsaved changes</span>
             )}
             <button
               onClick={resetDraft}
-              disabled={!hasUnsavedChanges}
+              disabled={!hasUnsavedChanges || isSaving}
               className="px-3 py-1.5 text-sm font-medium text-gray-400 hover:text-white bg-gray-800 hover:bg-gray-700 rounded-lg border border-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Reset
             </button>
             <button
-              disabled={!hasUnsavedChanges}
+              onClick={handleSavePlan}
+              disabled={!hasUnsavedChanges || isSaving}
               className="px-4 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Save Plan
+              {isSaving ? 'Saving...' : 'Save Plan'}
             </button>
           </div>
         </div>
