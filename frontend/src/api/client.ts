@@ -5,6 +5,7 @@ import type {
   CreateDailyLogRequest,
   UpdateActualTrainingRequest,
   UpdateActiveCaloriesRequest,
+  UpdateFastingOverrideRequest,
   TrainingConfig,
   WeightTrendRange,
   WeightTrendResponse,
@@ -19,6 +20,10 @@ import type {
   CreatePlanRequest,
   WeeklyTarget,
   DualTrackAnalysis,
+  BodyStatus,
+  ArchetypeConfig,
+  SessionFatigueReport,
+  ApplyLoadRequest,
 } from './types';
 
 const API_BASE = '/api';
@@ -145,6 +150,23 @@ export async function updateActiveCalories(
   signal?: AbortSignal
 ): Promise<DailyLog> {
   const response = await fetch(`${API_BASE}/logs/${date}/active-calories`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(request),
+    signal,
+  });
+
+  return handleResponse<DailyLog>(response);
+}
+
+export async function updateFastingOverride(
+  date: string,
+  request: UpdateFastingOverrideRequest,
+  signal?: AbortSignal
+): Promise<DailyLog> {
+  const response = await fetch(`${API_BASE}/logs/${date}/fasting-override`, {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
@@ -359,4 +381,32 @@ export async function getPlanAnalysis(id: number, date?: string, signal?: AbortS
     : `${API_BASE}/plans/${id}/analysis`;
   const response = await fetch(url, { signal });
   return handleResponse<DualTrackAnalysis>(response);
+}
+
+// Body Status / Fatigue API (Adaptive Load feature)
+
+export async function getBodyStatus(signal?: AbortSignal): Promise<BodyStatus> {
+  const response = await fetch(`${API_BASE}/body-status`, { signal });
+  return handleResponse<BodyStatus>(response);
+}
+
+export async function getArchetypes(signal?: AbortSignal): Promise<ArchetypeConfig[]> {
+  const response = await fetch(`${API_BASE}/archetypes`, { signal });
+  return handleResponse<ArchetypeConfig[]>(response);
+}
+
+export async function applySessionLoad(
+  sessionId: number,
+  request: ApplyLoadRequest,
+  signal?: AbortSignal
+): Promise<SessionFatigueReport> {
+  const response = await fetch(`${API_BASE}/sessions/${sessionId}/apply-load`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(request),
+    signal,
+  });
+  return handleResponse<SessionFatigueReport>(response);
 }

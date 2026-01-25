@@ -16,6 +16,7 @@ import { getTrainingConfigs } from '../../api/client';
 import { shallowEqual } from '../../utils/equality';
 import { ReadinessGauge } from '../recovery';
 import { BMRPrecisionBadge } from '../settings/BMRPrecisionBadge';
+import { MetabolicTimer } from '../fasting';
 import {
   DAY_TYPE_BADGE,
   WEIGHT_MIN_KG,
@@ -535,6 +536,19 @@ export function DailyUpdateForm({
                     score={log.recoveryScore.score}
                     components={log.recoveryScore}
                     showNudge={log.recoveryScore.score < 50}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Metabolic Timer - Only show for fasting protocols */}
+            {profile.fastingProtocol && profile.fastingProtocol !== 'standard' && (
+              <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
+                <div className="flex justify-center">
+                  <MetabolicTimer
+                    protocol={profile.fastingProtocol}
+                    eatingWindowStart={profile.eatingWindowStart ?? '12:00'}
+                    eatingWindowEnd={profile.eatingWindowEnd ?? '20:00'}
                   />
                 </div>
               </div>

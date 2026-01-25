@@ -50,6 +50,9 @@ type CreateProfileRequest struct {
 	TDEESource             string                  `json:"tdeeSource,omitempty"`             // formula (default), manual, or adaptive
 	ManualTDEE             *float64                `json:"manualTDEE,omitempty"`             // User-provided TDEE value (used when tdeeSource is "manual")
 	RecalibrationTolerance *float64                `json:"recalibrationTolerance,omitempty"` // Plan variance tolerance percentage (1-10%)
+	FastingProtocol        string                  `json:"fastingProtocol,omitempty"`        // standard (default), 16_8, or 20_4
+	EatingWindowStart      string                  `json:"eatingWindowStart,omitempty"`      // HH:MM format (e.g., "12:00")
+	EatingWindowEnd        string                  `json:"eatingWindowEnd,omitempty"`        // HH:MM format (e.g., "20:00")
 }
 
 // MealRatiosResponse represents meal distribution ratios in API responses.
@@ -96,6 +99,10 @@ type ProfileResponse struct {
 	TDEESource             string                   `json:"tdeeSource"`             // formula, manual, or adaptive
 	ManualTDEE             *float64                 `json:"manualTDEE,omitempty"`   // User-provided TDEE (when tdeeSource is "manual")
 	RecalibrationTolerance float64                  `json:"recalibrationTolerance"` // Plan variance tolerance percentage (1-10%, default 3%)
+	FastingProtocol        string                   `json:"fastingProtocol"`        // standard, 16_8, or 20_4
+	EatingWindowStart      string                   `json:"eatingWindowStart"`      // HH:MM format
+	EatingWindowEnd        string                   `json:"eatingWindowEnd"`        // HH:MM format
+	EffectiveMealRatios    MealRatiosResponse       `json:"effectiveMealRatios"`    // Meal ratios adjusted for fasting protocol
 	CreatedAt              string                   `json:"createdAt,omitempty"`
 	UpdatedAt              string                   `json:"updatedAt,omitempty"`
 }
@@ -179,6 +186,19 @@ func ProfileFromRequest(req CreateProfileRequest) (*domain.UserProfile, error) {
 	if req.RecalibrationTolerance != nil {
 		profile.RecalibrationTolerance = *req.RecalibrationTolerance
 	}
+	if req.FastingProtocol != "" {
+		fastingProtocol, err := domain.ParseFastingProtocol(req.FastingProtocol)
+		if err != nil {
+			return nil, err
+		}
+		profile.FastingProtocol = fastingProtocol
+	}
+	if req.EatingWindowStart != "" {
+		profile.EatingWindowStart = req.EatingWindowStart
+	}
+	if req.EatingWindowEnd != "" {
+		profile.EatingWindowEnd = req.EatingWindowEnd
+	}
 
 	return profile, nil
 }
@@ -215,6 +235,17 @@ func ProfileToResponse(p *domain.UserProfile) ProfileResponse {
 		BMREquation:            string(p.BMREquation),
 		TDEESource:             string(p.TDEESource),
 		RecalibrationTolerance: p.RecalibrationTolerance,
+		FastingProtocol:        string(p.FastingProtocol),
+		EatingWindowStart:      p.EatingWindowStart,
+		EatingWindowEnd:        p.EatingWindowEnd,
+	}
+
+	// Include effective meal ratios (adjusted for fasting protocol)
+	effectiveRatios := p.GetEffectiveMealRatios()
+	resp.EffectiveMealRatios = MealRatiosResponse{
+		Breakfast: effectiveRatios.Breakfast,
+		Lunch:     effectiveRatios.Lunch,
+		Dinner:    effectiveRatios.Dinner,
 	}
 
 	// Include optional fields only if set

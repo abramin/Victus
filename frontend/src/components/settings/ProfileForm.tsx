@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import type { UserProfile, Sex, Goal, BMREquation, TDEESource, NutritionPlan } from '../../api/types';
+import type { UserProfile, Sex, Goal, BMREquation, TDEESource, NutritionPlan, FastingProtocol, MealRatios } from '../../api/types';
 import { Card } from '../common/Card';
 import { NumberInput } from '../common/NumberInput';
 import { Select } from '../common/Select';
@@ -8,6 +8,7 @@ import { SelectorCard } from '../common/SelectorCard';
 import { ContextualSlider, BODY_FAT_ZONES } from '../common/ContextualSlider';
 import { MacroDistributionBar } from './MacroDistributionBar';
 import { MealDistributionBar } from './MealDistributionBar';
+import { FastingProtocolSelector, FASTING_PROTOCOL_OPTIONS } from './FastingProtocolSelector';
 import { RecalibrationSettings } from './RecalibrationSettings';
 import { GoalProjectorChart } from './GoalProjectorChart';
 import { LockedGoalsBanner } from './LockedGoalsBanner';
@@ -77,6 +78,9 @@ const DEFAULT_PROFILE: UserProfile = {
   bmrEquation: 'mifflin_st_jeor',
   tdeeSource: 'formula',
   recalibrationTolerance: RECALIBRATION_TOLERANCE_DEFAULT,
+  fastingProtocol: 'standard',
+  eatingWindowStart: '08:00',
+  eatingWindowEnd: '20:00',
 };
 
 export function ProfileForm({ initialProfile, onSave, saving, error, activePlan }: ProfileFormProps) {
@@ -559,15 +563,104 @@ export function ProfileForm({ initialProfile, onSave, saving, error, activePlan 
             />
           </Card>
 
+          {/* Fasting Protocol Section */}
+          <Card title="Eating Window">
+            <FastingProtocolSelector
+              protocol={profile.fastingProtocol || 'standard'}
+              eatingWindowStart={profile.eatingWindowStart || '08:00'}
+              eatingWindowEnd={profile.eatingWindowEnd || '20:00'}
+              onProtocolChange={(protocol) => updateProfile({ fastingProtocol: protocol })}
+              onWindowChange={(start, end) => updateProfile({ eatingWindowStart: start, eatingWindowEnd: end })}
+            />
+          </Card>
+
           {/* Meal Distribution Section */}
           <Card>
-            <MealDistributionBar
-              breakfast={profile.mealRatios.breakfast}
-              lunch={profile.mealRatios.lunch}
-              dinner={profile.mealRatios.dinner}
-              onChange={(b, l, d) => updateProfile({ mealRatios: { breakfast: b, lunch: l, dinner: d } })}
-              error={validationErrors.mealRatios}
-            />
+            {profile.fastingProtocol === 'standard' || !profile.fastingProtocol ? (
+              <MealDistributionBar
+                breakfast={profile.mealRatios.breakfast}
+                lunch={profile.mealRatios.lunch}
+                dinner={profile.mealRatios.dinner}
+                onChange={(b, l, d) => updateProfile({ mealRatios: { breakfast: b, lunch: l, dinner: d } })}
+                error={validationErrors.mealRatios}
+              />
+            ) : (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-medium text-slate-200">Effective Meal Distribution</h3>
+                  <span className="text-sm text-green-400">✓ 100%</span>
+                </div>
+                <p className="text-xs text-slate-500">
+                  {profile.fastingProtocol === '16_8'
+                    ? 'Breakfast calories are automatically redistributed to Lunch and Dinner'
+                    : 'All calories are consolidated into the Dinner window'}
+                </p>
+                {/* Static display for fasting protocols */}
+                <div className="relative h-12 rounded-lg overflow-hidden">
+                  {profile.fastingProtocol === '16_8' ? (
+                    <>
+                      <div
+                        className="absolute top-0 h-full bg-slate-600/50 flex items-center justify-center"
+                        style={{ left: 0, width: '0%' }}
+                      />
+                      <div
+                        className="absolute top-0 h-full bg-emerald-500/80 flex items-center justify-center"
+                        style={{ left: '0%', width: '50%' }}
+                      >
+                        <span className="text-xs font-medium text-white drop-shadow-sm">Lunch 50%</span>
+                      </div>
+                      <div
+                        className="absolute top-0 h-full bg-indigo-500/80 flex items-center justify-center"
+                        style={{ left: '50%', width: '50%' }}
+                      >
+                        <span className="text-xs font-medium text-white drop-shadow-sm">Dinner 50%</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div
+                      className="absolute top-0 h-full bg-indigo-500/80 flex items-center justify-center w-full"
+                    >
+                      <span className="text-xs font-medium text-white drop-shadow-sm">Dinner 100%</span>
+                    </div>
+                  )}
+                </div>
+                {/* Legend */}
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="flex items-center justify-center gap-2">
+                    <div className="w-3 h-3 rounded bg-slate-600/50" />
+                    <span className="text-sm text-slate-500 line-through">Breakfast</span>
+                    <span className="text-sm font-medium text-slate-500">0%</span>
+                  </div>
+                  {profile.fastingProtocol === '16_8' ? (
+                    <>
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="w-3 h-3 rounded bg-emerald-500/80" />
+                        <span className="text-sm text-slate-300">Lunch</span>
+                        <span className="text-sm font-medium text-slate-200">50%</span>
+                      </div>
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="w-3 h-3 rounded bg-indigo-500/80" />
+                        <span className="text-sm text-slate-300">Dinner</span>
+                        <span className="text-sm font-medium text-slate-200">50%</span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="w-3 h-3 rounded bg-slate-600/50" />
+                        <span className="text-sm text-slate-500 line-through">Lunch</span>
+                        <span className="text-sm font-medium text-slate-500">0%</span>
+                      </div>
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="w-3 h-3 rounded bg-indigo-500/80" />
+                        <span className="text-sm text-slate-300">Dinner</span>
+                        <span className="text-sm font-medium text-slate-200">100%</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
           </Card>
 
           {/* Fruit/Veggie Targets */}

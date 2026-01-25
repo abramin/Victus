@@ -24,6 +24,11 @@ func RunMigrations(db *sql.DB) error {
 		createFoodReferenceTable,
 		createNutritionPlansTable,
 		createWeeklyTargetsTable,
+		// Adaptive Load & Body Map feature
+		createMuscleGroupsTable,
+		createTrainingArchetypesTable,
+		createMuscleFatigueTable,
+		createFatigueEventsTable,
 	}
 
 	for i, migration := range migrations {
@@ -60,6 +65,14 @@ func RunMigrations(db *sql.DB) error {
 		addPlanNameColumn,
 		// Daily log notes for LLM pattern recognition
 		addDailyLogNotesColumn,
+		// Fasting protocol (Intermittent Fasting feature)
+		addFastingProtocolColumn,
+		addEatingWindowStartColumn,
+		addEatingWindowEndColumn,
+		addFastingOverrideColumn,
+		addFastedItemsKcalColumn,
+		// Adaptive Load & Body Map feature
+		addArchetypeIDColumn,
 	}
 
 	for _, migration := range alterMigrations {
@@ -238,6 +251,18 @@ const addPlanNameColumn = `ALTER TABLE nutrition_plans ADD COLUMN name TEXT DEFA
 // Daily log notes column for LLM pattern recognition
 const addDailyLogNotesColumn = `ALTER TABLE daily_logs ADD COLUMN notes TEXT DEFAULT ''`
 
+// Fasting protocol columns (Intermittent Fasting feature)
+const addFastingProtocolColumn = `ALTER TABLE user_profile ADD COLUMN fasting_protocol TEXT NOT NULL DEFAULT 'standard'`
+const addEatingWindowStartColumn = `ALTER TABLE user_profile ADD COLUMN eating_window_start TEXT NOT NULL DEFAULT '08:00'`
+const addEatingWindowEndColumn = `ALTER TABLE user_profile ADD COLUMN eating_window_end TEXT NOT NULL DEFAULT '20:00'`
+
+// Daily log fasting override for "break fast early" feature
+const addFastingOverrideColumn = `ALTER TABLE daily_logs ADD COLUMN fasting_override TEXT`
+const addFastedItemsKcalColumn = `ALTER TABLE daily_logs ADD COLUMN fasted_items_kcal INTEGER DEFAULT 0`
+
+// Adaptive Load & Body Map feature - archetype column for training sessions
+const addArchetypeIDColumn = `ALTER TABLE training_sessions ADD COLUMN archetype_id INTEGER REFERENCES training_archetypes(id)`
+
 // Training sessions table for multiple sessions per day (Issue #31)
 const createTrainingSessionsTable = `
 CREATE TABLE IF NOT EXISTS training_sessions (
@@ -387,6 +412,85 @@ CREATE TABLE IF NOT EXISTS weekly_targets (
 
 CREATE INDEX IF NOT EXISTS idx_weekly_targets_plan ON weekly_targets(plan_id);
 CREATE INDEX IF NOT EXISTS idx_weekly_targets_dates ON weekly_targets(start_date, end_date);
+`
+
+// Muscle Groups table for body map visualization (Adaptive Load feature)
+const createMuscleGroupsTable = `
+CREATE TABLE IF NOT EXISTS muscle_groups (
+    id INTEGER PRIMARY KEY,
+    name TEXT UNIQUE NOT NULL,
+    display_name TEXT NOT NULL,
+    svg_path_id TEXT NOT NULL
+);
+
+-- Seed 15 muscle groups for body map
+INSERT OR IGNORE INTO muscle_groups (id, name, display_name, svg_path_id) VALUES
+    (1, 'chest', 'Chest', 'muscle-chest'),
+    (2, 'front_delt', 'Front Delts', 'muscle-front-delt'),
+    (3, 'triceps', 'Triceps', 'muscle-triceps'),
+    (4, 'side_delt', 'Side Delts', 'muscle-side-delt'),
+    (5, 'lats', 'Lats', 'muscle-lats'),
+    (6, 'traps', 'Traps', 'muscle-traps'),
+    (7, 'biceps', 'Biceps', 'muscle-biceps'),
+    (8, 'rear_delt', 'Rear Delts', 'muscle-rear-delt'),
+    (9, 'forearms', 'Forearms', 'muscle-forearms'),
+    (10, 'quads', 'Quads', 'muscle-quads'),
+    (11, 'glutes', 'Glutes', 'muscle-glutes'),
+    (12, 'hamstrings', 'Hamstrings', 'muscle-hamstrings'),
+    (13, 'calves', 'Calves', 'muscle-calves'),
+    (14, 'lower_back', 'Lower Back', 'muscle-lower-back'),
+    (15, 'core', 'Core/Abs', 'muscle-core');
+`
+
+// Training Archetypes table for workout pattern-based fatigue (Adaptive Load feature)
+const createTrainingArchetypesTable = `
+CREATE TABLE IF NOT EXISTS training_archetypes (
+    id INTEGER PRIMARY KEY,
+    name TEXT UNIQUE NOT NULL,
+    display_name TEXT NOT NULL,
+    muscle_coefficients TEXT NOT NULL
+);
+
+-- Seed 8 workout archetypes with muscle coefficients (JSON)
+INSERT OR IGNORE INTO training_archetypes (id, name, display_name, muscle_coefficients) VALUES
+    (1, 'push', 'Push', '{"chest":1.0,"front_delt":1.0,"triceps":0.7,"side_delt":0.7,"core":0.4}'),
+    (2, 'pull', 'Pull', '{"lats":1.0,"traps":1.0,"biceps":0.7,"rear_delt":0.7,"forearms":0.4}'),
+    (3, 'legs', 'Legs', '{"quads":1.0,"glutes":1.0,"hamstrings":0.7,"calves":0.7,"lower_back":0.4}'),
+    (4, 'upper', 'Upper Body', '{"chest":0.7,"lats":0.7,"front_delt":0.7,"traps":0.5,"biceps":0.5,"triceps":0.5}'),
+    (5, 'lower', 'Lower Body', '{"quads":0.8,"glutes":0.8,"hamstrings":0.8,"calves":0.6,"lower_back":0.4}'),
+    (6, 'full_body', 'Full Body', '{"chest":0.5,"lats":0.5,"quads":0.5,"glutes":0.5,"front_delt":0.4,"hamstrings":0.4,"core":0.4}'),
+    (7, 'cardio_impact', 'Cardio (Impact)', '{"calves":1.0,"hamstrings":1.0,"quads":0.7,"glutes":0.7,"core":0.4}'),
+    (8, 'cardio_low', 'Cardio (Low Impact)', '{"quads":0.5,"glutes":0.5,"hamstrings":0.3,"calves":0.3}');
+`
+
+// Muscle Fatigue table for current fatigue state (Adaptive Load feature)
+const createMuscleFatigueTable = `
+CREATE TABLE IF NOT EXISTS muscle_fatigue (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    muscle_group_id INTEGER NOT NULL,
+    fatigue_percent REAL NOT NULL DEFAULT 0 CHECK (fatigue_percent BETWEEN 0 AND 100),
+    last_updated TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (muscle_group_id) REFERENCES muscle_groups(id),
+    UNIQUE(muscle_group_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_muscle_fatigue_muscle ON muscle_fatigue(muscle_group_id);
+`
+
+// Fatigue Events table for historical tracking (Adaptive Load feature)
+const createFatigueEventsTable = `
+CREATE TABLE IF NOT EXISTS fatigue_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    training_session_id INTEGER NOT NULL,
+    archetype_id INTEGER NOT NULL,
+    total_load REAL NOT NULL,
+    applied_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (training_session_id) REFERENCES training_sessions(id) ON DELETE CASCADE,
+    FOREIGN KEY (archetype_id) REFERENCES training_archetypes(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_fatigue_events_session ON fatigue_events(training_session_id);
+CREATE INDEX IF NOT EXISTS idx_fatigue_events_applied ON fatigue_events(applied_at);
 `
 
 // migrateTrainingSessionsConstraint fixes the unique constraint on training_sessions

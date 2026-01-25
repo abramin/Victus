@@ -62,6 +62,7 @@ func (s *DailyLogStore) GetByDate(ctx context.Context, date string) (*domain.Dai
 			COALESCE(estimated_tdee, 0), COALESCE(formula_tdee, 0),
 			COALESCE(tdee_source_used, 'formula'), COALESCE(tdee_confidence, 0), COALESCE(data_points_used, 0),
 			active_calories_burned, COALESCE(notes, ''),
+			fasting_override, COALESCE(fasted_items_kcal, 0),
 			created_at, updated_at
 		FROM daily_logs
 		WHERE log_date = ?
@@ -73,6 +74,7 @@ func (s *DailyLogStore) GetByDate(ctx context.Context, date string) (*domain.Dai
 		heartRate            sql.NullInt64
 		sleepHours           sql.NullFloat64
 		activeCaloriesBurned sql.NullInt64
+		fastingOverride      sql.NullString
 		createdAt            string
 		updatedAt            string
 	)
@@ -93,6 +95,7 @@ func (s *DailyLogStore) GetByDate(ctx context.Context, date string) (*domain.Dai
 		&log.EstimatedTDEE, &log.FormulaTDEE,
 		&log.TDEESourceUsed, &log.TDEEConfidence, &log.DataPointsUsed,
 		&activeCaloriesBurned, &log.Notes,
+		&fastingOverride, &log.FastedItemsKcal,
 		&createdAt, &updatedAt,
 	)
 
@@ -117,6 +120,10 @@ func (s *DailyLogStore) GetByDate(ctx context.Context, date string) (*domain.Dai
 	if activeCaloriesBurned.Valid {
 		acb := int(activeCaloriesBurned.Int64)
 		log.ActiveCaloriesBurned = &acb
+	}
+	if fastingOverride.Valid {
+		fp := domain.FastingProtocol(fastingOverride.String)
+		log.FastingOverride = &fp
 	}
 
 	// Parse timestamps
@@ -576,4 +583,57 @@ func (s *DailyLogStore) GetRHRAverage(ctx context.Context, beforeDate string, da
 	}
 
 	return &avg.Float64, nil
+}
+
+// UpdateFastingOverride updates the fasting override for a given date.
+// Pass nil to clear the override (revert to profile default).
+// Returns ErrDailyLogNotFound if no log exists for that date.
+func (s *DailyLogStore) UpdateFastingOverride(ctx context.Context, date string, override *string) error {
+	const query = `
+		UPDATE daily_logs
+		SET fasting_override = ?, updated_at = datetime('now')
+		WHERE log_date = ?
+	`
+
+	result, err := s.db.ExecContext(ctx, query, override, date)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return ErrDailyLogNotFound
+	}
+
+	return nil
+}
+
+// UpdateFastedItemsKcal updates the fasted items kcal for a given date.
+// Returns ErrDailyLogNotFound if no log exists for that date.
+func (s *DailyLogStore) UpdateFastedItemsKcal(ctx context.Context, date string, kcal int) error {
+	const query = `
+		UPDATE daily_logs
+		SET fasted_items_kcal = ?, updated_at = datetime('now')
+		WHERE log_date = ?
+	`
+
+	result, err := s.db.ExecContext(ctx, query, kcal, date)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return ErrDailyLogNotFound
+	}
+
+	return nil
 }

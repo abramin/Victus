@@ -45,6 +45,8 @@ var (
 	ErrInvalidTDEESource             = newValidationError("TDEE source must be 'formula', 'manual', or 'adaptive'")
 	ErrInvalidManualTDEE             = newValidationError("manual TDEE must be between 800 and 10000 kcal when source is 'manual'")
 	ErrInvalidRecalibrationTolerance = newValidationError("recalibration tolerance must be between 1 and 10%")
+	ErrInvalidFastingProtocol        = newValidationError("fasting protocol must be 'standard', '16_8', or '20_4'")
+	ErrInvalidEatingWindow           = newValidationError("eating window times must be in HH:MM format")
 )
 
 // DailyLog validation errors
@@ -82,4 +84,10 @@ var (
 	ErrPlanEnded              = newValidationError("plan has ended - current week exceeds plan duration")
 	ErrPlanNotStarted         = newValidationError("plan has not started yet")
 	ErrInsufficientWeightData = newValidationError("insufficient weight data for analysis - need at least 7 days of logs")
+)
+
+// Fatigue/Body Map errors
+var (
+	ErrInvalidMuscleGroup = newValidationError("invalid muscle group")
+	ErrInvalidArchetype   = newValidationError("invalid workout archetype")
 )

@@ -28,8 +28,12 @@ type UserProfile struct {
 	TDEESource             TDEESource  // How TDEE is determined: formula, manual, or adaptive
 	ManualTDEE             float64     // User-provided TDEE value (used when TDEESource is "manual")
 	RecalibrationTolerance float64     // Plan variance tolerance percentage (1-10%, default 3%)
-	CreatedAt              time.Time
-	UpdatedAt              time.Time
+	// Fasting protocol (Intermittent Fasting feature)
+	FastingProtocol   FastingProtocol // standard, 16_8, or 20_4
+	EatingWindowStart string          // HH:MM format (e.g., "12:00")
+	EatingWindowEnd   string          // HH:MM format (e.g., "20:00")
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 }
 
 // NewUserProfile creates a new UserProfile with the given required fields.
@@ -176,12 +180,35 @@ func (p *UserProfile) ValidateAt(now time.Time) error {
 		return ErrInvalidSupplement
 	}
 
+	// Fasting protocol validation (empty is allowed, defaults to standard)
+	if p.FastingProtocol != "" && !ValidFastingProtocols[p.FastingProtocol] {
+		return ErrInvalidFastingProtocol
+	}
+
+	// Eating window validation (must be HH:MM format if provided)
+	if p.EatingWindowStart != "" && !isValidTimeFormat(p.EatingWindowStart) {
+		return ErrInvalidEatingWindow
+	}
+	if p.EatingWindowEnd != "" && !isValidTimeFormat(p.EatingWindowEnd) {
+		return ErrInvalidEatingWindow
+	}
+
 	return nil
 }
 
 // floatEquals compares two floats with tolerance
 func floatEquals(a, b, tolerance float64) bool {
 	return math.Abs(a-b) < tolerance
+}
+
+// isValidTimeFormat checks if a string is in HH:MM format (00:00 to 23:59)
+func isValidTimeFormat(s string) bool {
+	if len(s) != 5 || s[2] != ':' {
+		return false
+	}
+	hour := (s[0]-'0')*10 + (s[1] - '0')
+	min := (s[3]-'0')*10 + (s[4] - '0')
+	return hour <= 23 && min <= 59 && s[0] >= '0' && s[0] <= '2' && s[1] >= '0' && s[1] <= '9' && s[3] >= '0' && s[3] <= '5' && s[4] >= '0' && s[4] <= '9'
 }
 
 // SetDefaults applies default values to unset fields
@@ -225,5 +252,43 @@ func (p *UserProfile) SetDefaults() {
 
 	if p.RecalibrationTolerance == 0 {
 		p.RecalibrationTolerance = 3 // Default 3% tolerance
+	}
+
+	if p.FastingProtocol == "" {
+		p.FastingProtocol = FastingProtocolStandard
+	}
+
+	if p.EatingWindowStart == "" {
+		p.EatingWindowStart = "08:00"
+	}
+
+	if p.EatingWindowEnd == "" {
+		p.EatingWindowEnd = "20:00"
+	}
+}
+
+// GetEffectiveMealRatios returns meal ratios adjusted for the fasting protocol.
+// For 16:8, breakfast is skipped and redistributed to lunch/dinner (50/50 split).
+// For 20:4, breakfast and lunch are skipped and all calories go to dinner.
+func (p *UserProfile) GetEffectiveMealRatios() MealRatios {
+	switch p.FastingProtocol {
+	case FastingProtocol168:
+		// 16:8 Leangains: Skip breakfast, redistribute to lunch/dinner
+		breakfastShare := p.MealRatios.Breakfast
+		return MealRatios{
+			Breakfast: 0,
+			Lunch:     p.MealRatios.Lunch + (breakfastShare * 0.5),
+			Dinner:    p.MealRatios.Dinner + (breakfastShare * 0.5),
+		}
+	case FastingProtocol204:
+		// 20:4 Warrior: Skip breakfast and lunch, all to dinner
+		return MealRatios{
+			Breakfast: 0,
+			Lunch:     0,
+			Dinner:    1.0,
+		}
+	default:
+		// Standard: Use configured meal ratios
+		return p.MealRatios
 	}
 }

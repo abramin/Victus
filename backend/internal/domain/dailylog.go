@@ -32,6 +32,8 @@ type DailyLog struct {
 	BMRPrecisionMode      bool                   // True if Katch-McArdle was auto-selected using recent body fat
 	BodyFatUsedDate       *string                // Date of body fat measurement used for precision BMR
 	Notes                 string                 // Daily notes/observations for LLM pattern recognition
+	FastingOverride       *FastingProtocol       // Override for fasting protocol (nil = use profile default)
+	FastedItemsKcal       int                    // Calories logged during fasting window (for <50kcal exception)
 	CreatedAt             time.Time
 	UpdatedAt             time.Time
 }

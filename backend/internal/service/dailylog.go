@@ -194,6 +194,23 @@ func (s *DailyLogService) UpdateActiveCaloriesBurned(ctx context.Context, date s
 	return s.GetByDate(ctx, date)
 }
 
+// UpdateFastingOverride updates the fasting override for a given date.
+// Pass nil to clear the override (revert to profile default).
+// Returns store.ErrDailyLogNotFound if no log exists for that date.
+func (s *DailyLogService) UpdateFastingOverride(ctx context.Context, date string, override *string) (*domain.DailyLog, error) {
+	// Validate the fasting protocol if provided
+	if override != nil {
+		if _, err := domain.ParseFastingProtocol(*override); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := s.logStore.UpdateFastingOverride(ctx, date, override); err != nil {
+		return nil, err
+	}
+	return s.GetByDate(ctx, date)
+}
+
 // GetWeightTrend returns weight samples and regression trend for the given start date.
 // If startDate is empty, all samples are returned.
 func (s *DailyLogService) GetWeightTrend(ctx context.Context, startDate string) ([]domain.WeightSample, *domain.WeightTrend, error) {

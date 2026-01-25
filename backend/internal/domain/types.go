@@ -182,6 +182,36 @@ func ParseTDEESource(s string) (TDEESource, error) {
 	return t, nil
 }
 
+// FastingProtocol represents the intermittent fasting protocol.
+type FastingProtocol string
+
+const (
+	FastingProtocolStandard FastingProtocol = "standard" // Normal 3-meal eating pattern
+	FastingProtocol168      FastingProtocol = "16_8"     // 16:8 Leangains (skip breakfast)
+	FastingProtocol204      FastingProtocol = "20_4"     // 20:4 Warrior (skip breakfast + lunch)
+)
+
+// ValidFastingProtocols contains all valid fasting protocol values.
+var ValidFastingProtocols = map[FastingProtocol]bool{
+	FastingProtocolStandard: true,
+	FastingProtocol168:      true,
+	FastingProtocol204:      true,
+}
+
+// ParseFastingProtocol safely converts a string to FastingProtocol with validation.
+// Returns ErrInvalidFastingProtocol if the string is not a valid protocol.
+// Empty string is allowed and returns empty FastingProtocol (defaults will apply).
+func ParseFastingProtocol(s string) (FastingProtocol, error) {
+	if s == "" {
+		return "", nil
+	}
+	p := FastingProtocol(s)
+	if !ValidFastingProtocols[p] {
+		return "", ErrInvalidFastingProtocol
+	}
+	return p, nil
+}
+
 // SleepQuality represents sleep quality score (1-100).
 type SleepQuality int
 

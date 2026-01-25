@@ -2,6 +2,7 @@ export type Sex = 'male' | 'female';
 export type Goal = 'lose_weight' | 'maintain' | 'gain_weight';
 export type TDEESource = 'formula' | 'manual' | 'adaptive';
 export type BMREquation = 'mifflin_st_jeor' | 'katch_mcardle' | 'oxford_henry' | 'harris_benedict';
+export type FastingProtocol = 'standard' | '16_8' | '20_4';
 
 export interface MealRatios {
   breakfast: number;
@@ -43,6 +44,10 @@ export interface UserProfile {
   tdeeSource?: TDEESource;      // formula (default), manual, or adaptive
   manualTDEE?: number;          // User-provided TDEE (when tdeeSource is 'manual')
   recalibrationTolerance?: number; // Plan variance tolerance percentage (1-10%, default 3%)
+  fastingProtocol?: FastingProtocol;  // standard (default), 16_8, or 20_4
+  eatingWindowStart?: string;          // HH:MM format (e.g., "12:00")
+  eatingWindowEnd?: string;            // HH:MM format (e.g., "20:00")
+  effectiveMealRatios?: MealRatios;    // Meal ratios adjusted for fasting protocol
   createdAt?: string;
   updatedAt?: string;
 }
@@ -181,6 +186,8 @@ export interface DailyLog {
   bmrPrecisionMode?: boolean;                   // True if Katch-McArdle auto-selected using recent body fat
   bodyFatUsedDate?: string;                     // Date of body fat measurement used for precision BMR
   notes?: string;                               // Daily notes/observations
+  fastingOverride?: FastingProtocol;            // Override for fasting protocol (nil = use profile default)
+  fastedItemsKcal?: number;                     // Calories logged during fasting window
   createdAt?: string;
   updatedAt?: string;
 }
@@ -203,6 +210,10 @@ export interface UpdateActualTrainingRequest {
 
 export interface UpdateActiveCaloriesRequest {
   activeCaloriesBurned: number | null;
+}
+
+export interface UpdateFastingOverrideRequest {
+  fastingOverride: FastingProtocol | null;
 }
 
 // Training Config Types
@@ -388,4 +399,79 @@ export interface DualTrackAnalysis {
   planProjection: ProjectionPoint[];
   trendProjection?: ProjectionPoint[];
   landingPoint?: LandingPointProjection;
+}
+
+// Body Map / Fatigue Types (Adaptive Load feature)
+export type MuscleGroup =
+  | 'chest'
+  | 'front_delt'
+  | 'triceps'
+  | 'side_delt'
+  | 'lats'
+  | 'traps'
+  | 'biceps'
+  | 'rear_delt'
+  | 'forearms'
+  | 'quads'
+  | 'glutes'
+  | 'hamstrings'
+  | 'calves'
+  | 'lower_back'
+  | 'core';
+
+export type Archetype =
+  | 'push'
+  | 'pull'
+  | 'legs'
+  | 'upper'
+  | 'lower'
+  | 'full_body'
+  | 'cardio_impact'
+  | 'cardio_low';
+
+export type FatigueStatus = 'fresh' | 'stimulated' | 'fatigued' | 'overreached';
+
+export interface MuscleFatigue {
+  muscleGroupId: number;
+  muscle: MuscleGroup;
+  displayName: string;
+  fatiguePercent: number;
+  status: FatigueStatus;
+  color: string;
+  lastUpdated?: string;
+}
+
+export interface BodyStatus {
+  muscles: MuscleFatigue[];
+  overallScore: number;
+  asOfTime: string;
+}
+
+export interface FatigueInjection {
+  muscle: MuscleGroup;
+  displayName: string;
+  injectedPercent: number;
+  newTotal: number;
+  status: FatigueStatus;
+}
+
+export interface SessionFatigueReport {
+  sessionId: number;
+  archetype: Archetype;
+  totalLoad: number;
+  injections: FatigueInjection[];
+  appliedAt: string;
+}
+
+export interface ArchetypeConfig {
+  id: number;
+  name: Archetype;
+  displayName: string;
+  coefficients: Record<MuscleGroup, number>;
+}
+
+export interface ApplyLoadRequest {
+  archetype: Archetype;
+  durationMin: number;
+  rpe?: number;
 }

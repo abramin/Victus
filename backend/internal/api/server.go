@@ -21,6 +21,7 @@ type Server struct {
 	trainingConfigService *service.TrainingConfigService
 	planService           *service.NutritionPlanService
 	analysisService       *service.AnalysisService
+	fatigueService        *service.FatigueService
 	plannedDayTypeStore   *store.PlannedDayTypeStore
 	foodReferenceStore    *store.FoodReferenceStore
 }
@@ -34,6 +35,7 @@ func NewServer(db *sql.DB) *Server {
 	planStore := store.NewNutritionPlanStore(db)
 	plannedDayTypeStore := store.NewPlannedDayTypeStore(db)
 	foodReferenceStore := store.NewFoodReferenceStore(db)
+	fatigueStore := store.NewFatigueStore(db)
 
 	mux := http.NewServeMux()
 	srv := &Server{
@@ -43,6 +45,7 @@ func NewServer(db *sql.DB) *Server {
 		trainingConfigService: service.NewTrainingConfigService(trainingConfigStore),
 		planService:           service.NewNutritionPlanService(planStore, profileStore),
 		analysisService:       service.NewAnalysisService(planStore, profileStore, dailyLogStore),
+		fatigueService:        service.NewFatigueService(fatigueStore),
 		plannedDayTypeStore:   plannedDayTypeStore,
 		foodReferenceStore:    foodReferenceStore,
 	}
@@ -63,9 +66,15 @@ func NewServer(db *sql.DB) *Server {
 	mux.HandleFunc("DELETE /api/logs/today", srv.deleteTodayLog)
 	mux.HandleFunc("PATCH /api/logs/{date}/actual-training", srv.updateActualTraining)
 	mux.HandleFunc("PATCH /api/logs/{date}/active-calories", srv.updateActiveCalories)
+	mux.HandleFunc("PATCH /api/logs/{date}/fasting-override", srv.updateFastingOverride)
 
 	// Training config routes
 	mux.HandleFunc("GET /api/training-configs", srv.getTrainingConfigs)
+
+	// Body status / fatigue routes (Adaptive Load feature)
+	mux.HandleFunc("GET /api/body-status", srv.getBodyStatus)
+	mux.HandleFunc("GET /api/archetypes", srv.getArchetypes)
+	mux.HandleFunc("POST /api/sessions/{id}/apply-load", srv.applySessionLoad)
 
 	// Stats routes
 	mux.HandleFunc("GET /api/stats/weight-trend", srv.getWeightTrend)

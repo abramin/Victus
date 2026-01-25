@@ -25,6 +25,12 @@ interface MealCardProps {
   // Per-macro tracking for separate gauges
   macroTargets?: MacroPoints;
   macroSpent?: MacroSpent;
+  // Fasting protocol props
+  isFasting?: boolean;
+  bankedKcal?: number;
+  fastedItemsKcal?: number;
+  onBreakFastEarly?: () => void;
+  onLogFastedItem?: () => void;
 }
 
 interface MacroStackedBarProps {
@@ -129,6 +135,11 @@ export function MealCard({
   onClearDraft,
   macroTargets,
   macroSpent,
+  isFasting = false,
+  bankedKcal = 0,
+  fastedItemsKcal = 0,
+  onBreakFastEarly,
+  onLogFastedItem,
 }: MealCardProps) {
   const totalPoints = carbPoints + proteinPoints + fatPoints;
   const hasDraftedFoods = draftedFoods.length > 0;
@@ -150,6 +161,93 @@ export function MealCard({
   const proteinKcal = hasDraftedFoods ? (proteinPoints / totalPoints) * consumedKcal : 0;
   const carbKcal = hasDraftedFoods ? (carbPoints / totalPoints) * consumedKcal : 0;
   const fatKcal = hasDraftedFoods ? (fatPoints / totalPoints) * consumedKcal : 0;
+  // Ghost card state for fasting
+  if (isFasting) {
+    const fastedItemsWarning = fastedItemsKcal >= 40;
+    const fastedItemsExceeded = fastedItemsKcal >= 50;
+
+    return (
+      <div className="w-full transition-all duration-200 rounded-xl opacity-50 grayscale">
+        <Panel className="bg-gray-800/40 border border-gray-700/50">
+          {/* Header Row with Lock Icon */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              {/* Lock Icon */}
+              <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+              <h3 className="text-gray-400 font-medium">{meal}</h3>
+            </div>
+          </div>
+
+          {/* Fasting Status */}
+          <div className="text-center py-6 space-y-3">
+            <motion.div
+              animate={{ opacity: [0.5, 1, 0.5] }}
+              transition={{ duration: 2, repeat: Infinity }}
+              className="text-xs uppercase tracking-wider text-blue-400 font-medium"
+            >
+              Fasting Window Active
+            </motion.div>
+
+            <div className="text-white text-lg font-semibold">
+              {bankedKcal > 0 && (
+                <span className="text-emerald-400">{Math.round(bankedKcal)} kcal</span>
+              )}
+              <span className="text-gray-500 text-sm font-normal"> banked for later</span>
+            </div>
+
+            {/* Fasted items tracker (coffee exception) */}
+            {fastedItemsKcal > 0 && (
+              <div className={`text-xs ${fastedItemsExceeded ? 'text-red-400' : fastedItemsWarning ? 'text-amber-400' : 'text-gray-500'}`}>
+                {fastedItemsKcal}/50 kcal logged during fast
+                {fastedItemsExceeded && ' (fast broken)'}
+              </div>
+            )}
+          </div>
+
+          {/* Actions */}
+          <div className="pt-3 border-t border-gray-700/50 space-y-2">
+            {/* Log Coffee/Supps Button (Coffee Exception) */}
+            {!fastedItemsExceeded && onLogFastedItem && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onLogFastedItem();
+                }}
+                className="w-full text-xs text-gray-500 hover:text-gray-300 py-1.5 transition-colors flex items-center justify-center gap-1"
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                Log Coffee/Supps (&lt;50kcal)
+              </button>
+            )}
+
+            {/* Break Fast Early Button */}
+            {onBreakFastEarly && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onBreakFastEarly();
+                }}
+                className="w-full text-xs text-amber-500/70 hover:text-amber-400 py-1.5 transition-colors flex items-center justify-center gap-1"
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
+                </svg>
+                Break Fast Early?
+              </button>
+            )}
+          </div>
+        </Panel>
+      </div>
+    );
+  }
+
+  // Normal (non-fasting) card state
   return (
     <div
       role="button"
@@ -208,7 +306,7 @@ export function MealCard({
                 const macroColor = getMacroDominantColor(df.food.category);
                 // Estimate calories for this food item (simplified - should be from actual data)
                 const itemKcal = Math.round((df.allocatedPoints / totalPoints) * consumedKcal);
-                
+
                 return (
                   <div key={index} className="flex items-center justify-between text-sm group">
                     <div className="flex items-center gap-2 min-w-0">

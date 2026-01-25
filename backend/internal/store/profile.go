@@ -37,6 +37,7 @@ func (s *ProfileStore) Get(ctx context.Context) (*domain.UserProfile, error) {
 			COALESCE(maltodextrin_g, 0), COALESCE(whey_g, 0), COALESCE(collagen_g, 0),
 			COALESCE(tdee_source, 'formula'), COALESCE(manual_tdee, 0),
 			COALESCE(recalibration_tolerance, 3),
+			COALESCE(fasting_protocol, 'standard'), COALESCE(eating_window_start, '08:00'), COALESCE(eating_window_end, '20:00'),
 			created_at, updated_at
 		FROM user_profile
 		WHERE id = 1
@@ -63,6 +64,7 @@ func (s *ProfileStore) Get(ctx context.Context) (*domain.UserProfile, error) {
 		&p.SupplementConfig.MaltodextrinG, &p.SupplementConfig.WheyG, &p.SupplementConfig.CollagenG,
 		&p.TDEESource, &p.ManualTDEE,
 		&p.RecalibrationTolerance,
+		&p.FastingProtocol, &p.EatingWindowStart, &p.EatingWindowEnd,
 		&createdAt, &updatedAt,
 	)
 
@@ -106,6 +108,7 @@ func (s *ProfileStore) Upsert(ctx context.Context, p *domain.UserProfile) error 
 			maltodextrin_g, whey_g, collagen_g,
 			tdee_source, manual_tdee,
 			recalibration_tolerance,
+			fasting_protocol, eating_window_start, eating_window_end,
 			created_at, updated_at
 		) VALUES (
 			1, ?, ?, ?, ?,
@@ -118,6 +121,7 @@ func (s *ProfileStore) Upsert(ctx context.Context, p *domain.UserProfile) error 
 			?, ?, ?,
 			?, ?,
 			?,
+			?, ?, ?,
 			datetime('now'), datetime('now')
 		)
 		ON CONFLICT(id) DO UPDATE SET
@@ -148,6 +152,9 @@ func (s *ProfileStore) Upsert(ctx context.Context, p *domain.UserProfile) error 
 			tdee_source = excluded.tdee_source,
 			manual_tdee = excluded.manual_tdee,
 			recalibration_tolerance = excluded.recalibration_tolerance,
+			fasting_protocol = excluded.fasting_protocol,
+			eating_window_start = excluded.eating_window_start,
+			eating_window_end = excluded.eating_window_end,
 			updated_at = datetime('now')
 	`
 
@@ -172,6 +179,7 @@ func (s *ProfileStore) Upsert(ctx context.Context, p *domain.UserProfile) error 
 		p.SupplementConfig.MaltodextrinG, p.SupplementConfig.WheyG, p.SupplementConfig.CollagenG,
 		p.TDEESource, p.ManualTDEE,
 		p.RecalibrationTolerance,
+		p.FastingProtocol, p.EatingWindowStart, p.EatingWindowEnd,
 	)
 
 	return err

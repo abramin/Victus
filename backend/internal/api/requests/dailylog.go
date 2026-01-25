@@ -31,6 +31,11 @@ type UpdateActiveCaloriesRequest struct {
 	ActiveCaloriesBurned *int `json:"activeCaloriesBurned"`
 }
 
+// UpdateFastingOverrideRequest is the request body for PATCH /api/logs/:date/fasting-override.
+type UpdateFastingOverrideRequest struct {
+	FastingOverride *string `json:"fastingOverride"` // "standard", "16_8", "20_4", or null to clear
+}
+
 // CreateDailyLogRequest is the request body for POST /api/logs.
 type CreateDailyLogRequest struct {
 	Date                    string                   `json:"date,omitempty"`
@@ -162,6 +167,8 @@ type DailyLogResponse struct {
 	BMRPrecisionMode        bool                            `json:"bmrPrecisionMode,omitempty"`      // True if Katch-McArdle auto-selected using recent body fat
 	BodyFatUsedDate         *string                         `json:"bodyFatUsedDate,omitempty"`       // Date of body fat measurement used for precision BMR
 	Notes                   string                          `json:"notes,omitempty"`                 // Daily notes/observations
+	FastingOverride         *string                         `json:"fastingOverride,omitempty"`       // Override for fasting protocol (nil = use profile)
+	FastedItemsKcal         int                             `json:"fastedItemsKcal"`                 // Calories logged during fasting window
 	CreatedAt               string                          `json:"createdAt,omitempty"`
 	UpdatedAt               string                          `json:"updatedAt,omitempty"`
 }
@@ -427,6 +434,13 @@ func DailyLogToResponseWithTrainingLoad(d *domain.DailyLog, trainingLoad *domain
 		BMRPrecisionMode:      d.BMRPrecisionMode,
 		BodyFatUsedDate:       d.BodyFatUsedDate,
 		Notes:                 d.Notes,
+		FastedItemsKcal:       d.FastedItemsKcal,
+	}
+
+	// Include fasting override if set
+	if d.FastingOverride != nil {
+		fo := string(*d.FastingOverride)
+		resp.FastingOverride = &fo
 	}
 
 	if !d.CreatedAt.IsZero() {
