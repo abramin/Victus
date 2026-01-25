@@ -296,6 +296,7 @@ export interface WeeklyTarget {
 
 export interface NutritionPlan {
   id: number;
+  name?: string; // User-defined plan name (e.g., "Summer Cut")
   startDate: string;
   startWeightKg: number;
   goalWeightKg: number;
@@ -311,6 +312,7 @@ export interface NutritionPlan {
 
 export interface NutritionPlanSummary {
   id: number;
+  name?: string; // User-defined plan name
   startDate: string;
   startWeightKg: number;
   goalWeightKg: number;
@@ -324,6 +326,7 @@ export interface NutritionPlanSummary {
 }
 
 export interface CreatePlanRequest {
+  name?: string; // User-defined plan name (optional)
   startDate: string;
   startWeightKg: number;
   goalWeightKg: number;

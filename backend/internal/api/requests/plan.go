@@ -8,10 +8,11 @@ import (
 
 // CreatePlanRequest is the request body for POST /api/plans.
 type CreatePlanRequest struct {
-	StartDate     string  `json:"startDate"`     // YYYY-MM-DD format
-	StartWeightKg float64 `json:"startWeightKg"` // Starting weight in kg
-	GoalWeightKg  float64 `json:"goalWeightKg"`  // Target weight in kg
-	DurationWeeks int     `json:"durationWeeks"` // Duration in weeks (4-104)
+	Name          string  `json:"name,omitempty"` // User-defined plan name (optional)
+	StartDate     string  `json:"startDate"`      // YYYY-MM-DD format
+	StartWeightKg float64 `json:"startWeightKg"`  // Starting weight in kg
+	GoalWeightKg  float64 `json:"goalWeightKg"`   // Target weight in kg
+	DurationWeeks int     `json:"durationWeeks"`  // Duration in weeks (4-104)
 }
 
 // WeeklyTargetResponse represents a single week's targets in API responses.
@@ -33,6 +34,7 @@ type WeeklyTargetResponse struct {
 // PlanResponse is the response body for plan endpoints.
 type PlanResponse struct {
 	ID                       int64                  `json:"id"`
+	Name                     string                 `json:"name,omitempty"`
 	StartDate                string                 `json:"startDate"`
 	StartWeightKg            float64                `json:"startWeightKg"`
 	GoalWeightKg             float64                `json:"goalWeightKg"`
@@ -49,6 +51,7 @@ type PlanResponse struct {
 // PlanSummaryResponse is a condensed plan response for list endpoints.
 type PlanSummaryResponse struct {
 	ID                     int64   `json:"id"`
+	Name                   string  `json:"name,omitempty"`
 	StartDate              string  `json:"startDate"`
 	StartWeightKg          float64 `json:"startWeightKg"`
 	GoalWeightKg           float64 `json:"goalWeightKg"`
@@ -61,6 +64,7 @@ type PlanSummaryResponse struct {
 // PlanInputFromRequest converts a CreatePlanRequest to a NutritionPlanInput.
 func PlanInputFromRequest(req CreatePlanRequest) domain.NutritionPlanInput {
 	return domain.NutritionPlanInput{
+		Name:          req.Name,
 		StartDate:     req.StartDate,
 		StartWeightKg: req.StartWeightKg,
 		GoalWeightKg:  req.GoalWeightKg,
@@ -72,6 +76,7 @@ func PlanInputFromRequest(req CreatePlanRequest) domain.NutritionPlanInput {
 func PlanToResponse(p *domain.NutritionPlan, now time.Time) PlanResponse {
 	resp := PlanResponse{
 		ID:                       p.ID,
+		Name:                     p.Name,
 		StartDate:                p.StartDate.Format("2006-01-02"),
 		StartWeightKg:            p.StartWeightKg,
 		GoalWeightKg:             p.GoalWeightKg,
@@ -114,6 +119,7 @@ func PlanToResponse(p *domain.NutritionPlan, now time.Time) PlanResponse {
 func PlanToSummaryResponse(p *domain.NutritionPlan, now time.Time) PlanSummaryResponse {
 	return PlanSummaryResponse{
 		ID:                     p.ID,
+		Name:                   p.Name,
 		StartDate:              p.StartDate.Format("2006-01-02"),
 		StartWeightKg:          p.StartWeightKg,
 		GoalWeightKg:           p.GoalWeightKg,

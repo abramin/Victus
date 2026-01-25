@@ -13,7 +13,7 @@ import { AdjustStrategyModal } from './AdjustStrategyModal';
 import type { CreatePlanRequest, RecalibrationOption } from '../../api/types';
 
 export function PlanOverview() {
-  const { profile, loading: profileLoading } = useProfile();
+  const { profile, loading: profileLoading, save: saveProfile } = useProfile();
   const { plan, loading: planLoading, creating, createError, create, complete, abandon, pause, resume, recalibrate } = usePlan();
   const { analysis, loading: analysisLoading, error: analysisError } = usePlanAnalysis();
   const { log } = useDailyLog();
@@ -23,7 +23,24 @@ export function PlanOverview() {
   const loading = profileLoading || planLoading;
 
   const handleCreatePlan = async (request: CreatePlanRequest) => {
-    await create(request);
+    const newPlan = await create(request);
+
+    // Sync profile goals with plan values after successful creation
+    if (newPlan && profile) {
+      const goalDirection =
+        newPlan.goalWeightKg < (profile.currentWeightKg || newPlan.startWeightKg)
+          ? 'lose_weight'
+          : newPlan.goalWeightKg > (profile.currentWeightKg || newPlan.startWeightKg)
+            ? 'gain_weight'
+            : 'maintain';
+
+      await saveProfile({
+        ...profile,
+        targetWeightKg: newPlan.goalWeightKg,
+        timeframeWeeks: newPlan.durationWeeks,
+        goal: goalDirection,
+      });
+    }
   };
 
   const handleComplete = async () => {

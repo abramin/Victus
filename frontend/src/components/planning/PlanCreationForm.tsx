@@ -4,6 +4,7 @@ import { Card } from '../common/Card';
 import { NumberInput } from '../common/NumberInput';
 import { Button } from '../common/Button';
 import { ContextualSlider } from '../common/ContextualSlider';
+import { GoalProjectorChart } from '../settings/GoalProjectorChart';
 import {
   KCAL_PER_KG,
   PLAN_DURATION_MIN_WEEKS,
@@ -97,6 +98,7 @@ export function PlanCreationForm({
   const minStartDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
   // Primary inputs
+  const [planName, setPlanName] = useState('');
   const [startDate, setStartDate] = useState(today);
   const [startWeight, setStartWeight] = useState(currentWeight || 80);
   const [goalWeight, setGoalWeight] = useState(currentWeight ? currentWeight - 5 : 75);
@@ -212,6 +214,7 @@ export function PlanCreationForm({
     if (!analysis.isSafe) return;
 
     await onSubmit({
+      name: planName || undefined,
       startDate,
       startWeightKg: startWeight,
       goalWeightKg: goalWeight,
@@ -225,6 +228,24 @@ export function PlanCreationForm({
   return (
     <Card title="Plan Simulator">
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Plan Name */}
+        <div className="space-y-1">
+          <label htmlFor="planName" className="block text-sm font-medium text-slate-300">
+            Plan Name <span className="text-slate-500">(optional)</span>
+          </label>
+          <input
+            type="text"
+            id="planName"
+            value={planName}
+            onChange={(e) => setPlanName(e.target.value)}
+            placeholder="e.g., Summer Cut, Lean Bulk 2026"
+            maxLength={50}
+            className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-md text-white
+              placeholder:text-slate-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent
+              focus:ring-offset-2 focus:ring-offset-slate-900"
+          />
+        </div>
+
         {/* Starting Point Section */}
         <div className="space-y-3">
           <h3 className="text-sm font-medium text-slate-400 uppercase tracking-wide">
@@ -275,6 +296,23 @@ export function PlanCreationForm({
             </p>
           )}
         </div>
+
+        {/* Goal Trajectory Visualization */}
+        {!analysis.isMaintain && (
+          <div className="p-4 bg-slate-800/30 rounded-lg border border-slate-700">
+            <GoalProjectorChart
+              currentWeight={startWeight}
+              targetWeight={goalWeight}
+              timeframeWeeks={analysis.durationWeeks}
+              onTargetWeightChange={handleGoalWeightChange}
+              minWeight={WEIGHT_MIN_KG}
+              maxWeight={WEIGHT_MAX_KG}
+              minWeeks={PLAN_DURATION_MIN_WEEKS}
+              maxWeeks={PLAN_DURATION_MAX_WEEKS}
+              readOnly
+            />
+          </div>
+        )}
 
         {/* Strategy Section */}
         {!analysis.isMaintain && (

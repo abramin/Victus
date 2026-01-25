@@ -13,12 +13,13 @@ interface GoalProjectorChartProps {
   currentWeight: number;
   targetWeight: number;
   timeframeWeeks: number;
-  onTargetWeightChange: (weight: number) => void;
-  onTimeframeChange: (weeks: number) => void;
+  onTargetWeightChange?: (weight: number) => void;
+  onTimeframeChange?: (weeks: number) => void;
   minWeight?: number;
   maxWeight?: number;
   minWeeks?: number;
   maxWeeks?: number;
+  readOnly?: boolean; // When true, hides interactive controls
 }
 
 // Weekly change thresholds for color coding (kg/week)
@@ -49,6 +50,7 @@ export function GoalProjectorChart({
   maxWeight = 200,
   minWeeks = 4,
   maxWeeks = 104,
+  readOnly = false,
 }: GoalProjectorChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -97,10 +99,11 @@ export function GoalProjectorChart({
   // Handle drag on the goal point
   const handleMouseDown = useCallback(
     (type: 'weight' | 'time') => {
+      if (readOnly) return;
       setIsDragging(true);
       setDragType(type);
     },
-    []
+    [readOnly]
   );
 
   const handleMouseMove = useCallback(
@@ -219,70 +222,89 @@ export function GoalProjectorChart({
           </LineChart>
         </ResponsiveContainer>
 
-        {/* Draggable goal point overlay */}
-        <div
-          className="absolute w-6 h-6 -translate-x-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing z-10"
-          style={{
-            right: '20px',
-            top: `${20 + (1 - (targetWeight - yDomain[0]) / (yDomain[1] - yDomain[0])) * (192 - 50)}px`,
-          }}
-          onMouseDown={() => handleMouseDown('weight')}
-        >
+        {/* Draggable goal point overlay - hidden in readOnly mode */}
+        {!readOnly && (
           <div
-            className="w-6 h-6 rounded-full border-2 border-white shadow-lg flex items-center justify-center"
-            style={{ backgroundColor: lineColor }}
+            className="absolute w-6 h-6 -translate-x-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing z-10"
+            style={{
+              right: '20px',
+              top: `${20 + (1 - (targetWeight - yDomain[0]) / (yDomain[1] - yDomain[0])) * (192 - 50)}px`,
+            }}
+            onMouseDown={() => handleMouseDown('weight')}
           >
-            <div className="w-2 h-2 rounded-full bg-white" />
+            <div
+              className="w-6 h-6 rounded-full border-2 border-white shadow-lg flex items-center justify-center"
+              style={{ backgroundColor: lineColor }}
+            >
+              <div className="w-2 h-2 rounded-full bg-white" />
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
-      {/* Adjustment controls */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="p-3 bg-slate-800/50 rounded-lg border border-slate-700">
-          <div className="text-xs text-slate-400 mb-1">Target Weight</div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => onTargetWeightChange(Math.max(minWeight, targetWeight - 0.5))}
-              className="w-8 h-8 rounded bg-slate-700 hover:bg-slate-600 text-white text-lg font-bold"
-            >
-              −
-            </button>
-            <span className="flex-1 text-center text-lg font-semibold text-white">
+      {/* Adjustment controls - interactive or read-only based on mode */}
+      {readOnly ? (
+        /* Read-only display */
+        <div className="grid grid-cols-2 gap-3">
+          <div className="p-3 bg-slate-800/30 rounded-lg border border-slate-700/50">
+            <div className="text-xs text-slate-500 mb-1">Target Weight</div>
+            <div className="text-lg font-semibold text-slate-300">
               {targetWeight.toFixed(1)} kg
-            </span>
-            <button
-              type="button"
-              onClick={() => onTargetWeightChange(Math.min(maxWeight, targetWeight + 0.5))}
-              className="w-8 h-8 rounded bg-slate-700 hover:bg-slate-600 text-white text-lg font-bold"
-            >
-              +
-            </button>
+            </div>
+          </div>
+          <div className="p-3 bg-slate-800/30 rounded-lg border border-slate-700/50">
+            <div className="text-xs text-slate-500 mb-1">End Date ({timeframeWeeks} weeks)</div>
+            <div className="text-lg font-semibold text-slate-300">{endDate}</div>
           </div>
         </div>
+      ) : (
+        /* Interactive controls */
+        <div className="grid grid-cols-2 gap-3">
+          <div className="p-3 bg-slate-800/50 rounded-lg border border-slate-700">
+            <div className="text-xs text-slate-400 mb-1">Target Weight</div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => onTargetWeightChange?.(Math.max(minWeight, targetWeight - 0.5))}
+                className="w-8 h-8 rounded bg-slate-700 hover:bg-slate-600 text-white text-lg font-bold"
+              >
+                −
+              </button>
+              <span className="flex-1 text-center text-lg font-semibold text-white">
+                {targetWeight.toFixed(1)} kg
+              </span>
+              <button
+                type="button"
+                onClick={() => onTargetWeightChange?.(Math.min(maxWeight, targetWeight + 0.5))}
+                className="w-8 h-8 rounded bg-slate-700 hover:bg-slate-600 text-white text-lg font-bold"
+              >
+                +
+              </button>
+            </div>
+          </div>
 
-        <div className="p-3 bg-slate-800/50 rounded-lg border border-slate-700">
-          <div className="text-xs text-slate-400 mb-1">End Date ({timeframeWeeks} weeks)</div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => onTimeframeChange(Math.max(minWeeks, timeframeWeeks - 1))}
-              className="w-8 h-8 rounded bg-slate-700 hover:bg-slate-600 text-white text-lg font-bold"
-            >
-              −
-            </button>
-            <span className="flex-1 text-center text-lg font-semibold text-white">{endDate}</span>
-            <button
-              type="button"
-              onClick={() => onTimeframeChange(Math.min(maxWeeks, timeframeWeeks + 1))}
-              className="w-8 h-8 rounded bg-slate-700 hover:bg-slate-600 text-white text-lg font-bold"
-            >
-              +
-            </button>
+          <div className="p-3 bg-slate-800/50 rounded-lg border border-slate-700">
+            <div className="text-xs text-slate-400 mb-1">End Date ({timeframeWeeks} weeks)</div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => onTimeframeChange?.(Math.max(minWeeks, timeframeWeeks - 1))}
+                className="w-8 h-8 rounded bg-slate-700 hover:bg-slate-600 text-white text-lg font-bold"
+              >
+                −
+              </button>
+              <span className="flex-1 text-center text-lg font-semibold text-white">{endDate}</span>
+              <button
+                type="button"
+                onClick={() => onTimeframeChange?.(Math.min(maxWeeks, timeframeWeeks + 1))}
+                className="w-8 h-8 rounded bg-slate-700 hover:bg-slate-600 text-white text-lg font-bold"
+              >
+                +
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import type { UserProfile, Sex, Goal, BMREquation, TDEESource } from '../../api/types';
+import type { UserProfile, Sex, Goal, BMREquation, TDEESource, NutritionPlan } from '../../api/types';
 import { Card } from '../common/Card';
 import { NumberInput } from '../common/NumberInput';
 import { Select } from '../common/Select';
@@ -10,6 +10,7 @@ import { MacroDistributionBar } from './MacroDistributionBar';
 import { MealDistributionBar } from './MealDistributionBar';
 import { RecalibrationSettings } from './RecalibrationSettings';
 import { GoalProjectorChart } from './GoalProjectorChart';
+import { LockedGoalsBanner } from './LockedGoalsBanner';
 import { shallowEqual } from '../../utils/equality';
 import {
   SEX_OPTIONS,
@@ -53,6 +54,7 @@ interface ProfileFormProps {
   onSave: (profile: UserProfile) => Promise<boolean>;
   saving: boolean;
   error: string | null;
+  activePlan?: NutritionPlan | null; // When present, goals are locked
 }
 
 const DEFAULT_PROFILE: UserProfile = {
@@ -77,9 +79,20 @@ const DEFAULT_PROFILE: UserProfile = {
   recalibrationTolerance: RECALIBRATION_TOLERANCE_DEFAULT,
 };
 
-export function ProfileForm({ initialProfile, onSave, saving, error }: ProfileFormProps) {
+export function ProfileForm({ initialProfile, onSave, saving, error, activePlan }: ProfileFormProps) {
   const [profile, setProfile] = useState<UserProfile>(initialProfile || DEFAULT_PROFILE);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+
+  // Goals are locked when there's an active or paused plan
+  const isGoalsLocked = !!(activePlan && (activePlan.status === 'active' || activePlan.status === 'paused'));
+
+  // Calculate plan end date for display
+  const planEndDate = useMemo(() => {
+    if (!activePlan) return '';
+    const endDate = new Date(activePlan.startDate);
+    endDate.setDate(endDate.getDate() + activePlan.durationWeeks * 7);
+    return endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }, [activePlan]);
 
   useEffect(() => {
     if (initialProfile) {
@@ -333,20 +346,33 @@ export function ProfileForm({ initialProfile, onSave, saving, error }: ProfileFo
           {/* Goals Section */}
           <Card title="Goals">
             <div className="space-y-6">
+              {/* Locked Goals Banner - shown when active plan exists */}
+              {isGoalsLocked && activePlan && (
+                <LockedGoalsBanner
+                  planName={activePlan.name}
+                  targetWeight={activePlan.goalWeightKg}
+                  endDate={planEndDate}
+                  currentWeek={activePlan.currentWeek}
+                  totalWeeks={activePlan.durationWeeks}
+                />
+              )}
+
               {/* Goal Type Selector Cards */}
-              <SelectorCard
-                label="Primary Goal"
-                value={profile.goal}
-                onChange={(v) => updateProfile({ goal: v as Goal })}
-                options={[
-                  { value: 'lose_weight', label: 'Lose Weight', description: 'Calorie Deficit', icon: '📉' },
-                  { value: 'maintain', label: 'Maintain', description: 'TDEE Match', icon: '⚖️' },
-                  { value: 'gain_weight', label: 'Gain Muscle', description: 'Surplus', icon: '💪' },
-                ]}
-                columns={3}
-                error={validationErrors.goal}
-                testId="goal-select"
-              />
+              <div className={isGoalsLocked ? 'opacity-60 pointer-events-none' : ''}>
+                <SelectorCard
+                  label="Primary Goal"
+                  value={profile.goal}
+                  onChange={(v) => updateProfile({ goal: v as Goal })}
+                  options={[
+                    { value: 'lose_weight', label: 'Lose Weight', description: 'Calorie Deficit', icon: '📉' },
+                    { value: 'maintain', label: 'Maintain', description: 'TDEE Match', icon: '⚖️' },
+                    { value: 'gain_weight', label: 'Gain Muscle', description: 'Surplus', icon: '💪' },
+                  ]}
+                  columns={3}
+                  error={validationErrors.goal}
+                  testId="goal-select"
+                />
+              </div>
 
               {/* Current Weight Input */}
               <NumberInput
@@ -362,8 +388,22 @@ export function ProfileForm({ initialProfile, onSave, saving, error }: ProfileFo
                 testId="currentWeight-input"
               />
 
-              {/* Goal Projector Chart - Only for non-maintain goals */}
-              {profile.goal !== 'maintain' && profile.currentWeightKg > 0 && (
+              {/* Goal Projector Chart - Locked read-only mode when plan active */}
+              {isGoalsLocked && activePlan && profile.currentWeightKg > 0 && (
+                <div className="p-4 bg-slate-800/30 rounded-lg border border-slate-700">
+                  <GoalProjectorChart
+                    currentWeight={profile.currentWeightKg}
+                    targetWeight={activePlan.goalWeightKg}
+                    timeframeWeeks={activePlan.durationWeeks}
+                    readOnly
+                    minWeight={WEIGHT_MIN_KG}
+                    maxWeight={WEIGHT_MAX_KG}
+                  />
+                </div>
+              )}
+
+              {/* Goal Projector Chart - Editable mode when no plan */}
+              {!isGoalsLocked && profile.goal !== 'maintain' && profile.currentWeightKg > 0 && (
                 <div className="p-4 bg-slate-800/30 rounded-lg border border-slate-700">
                   <GoalProjectorChart
                     currentWeight={profile.currentWeightKg}
@@ -380,7 +420,7 @@ export function ProfileForm({ initialProfile, onSave, saving, error }: ProfileFo
               )}
 
               {/* Fallback inputs for maintain goal or when chart isn't shown */}
-              {profile.goal === 'maintain' && (
+              {!isGoalsLocked && profile.goal === 'maintain' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <NumberInput
                     label="Target Weight"
@@ -397,8 +437,8 @@ export function ProfileForm({ initialProfile, onSave, saving, error }: ProfileFo
                 </div>
               )}
 
-              {/* Aggressive Goal Warning */}
-              {aggressiveGoalWarning && (
+              {/* Aggressive Goal Warning - only show when not locked */}
+              {!isGoalsLocked && aggressiveGoalWarning && (
                 <div className="p-3 bg-amber-900/50 border border-amber-700 rounded-md" data-testid="aggressive-goal-warning">
                   <p className="text-sm text-amber-300">{aggressiveGoalWarning}</p>
                 </div>

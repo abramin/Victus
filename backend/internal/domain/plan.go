@@ -38,17 +38,18 @@ func ParsePlanStatus(s string) (PlanStatus, error) {
 // NutritionPlan represents a long-term nutrition plan with weekly targets.
 // A plan defines a goal weight, duration, and generates weekly milestones.
 type NutritionPlan struct {
-	ID                    int64
-	StartDate             time.Time
-	StartWeightKg         float64
-	GoalWeightKg          float64
-	DurationWeeks         int
-	RequiredWeeklyChangeKg float64 // Calculated: (goalWeight - startWeight) / durationWeeks
+	ID                       int64
+	Name                     string // User-defined plan name (e.g., "Summer Cut")
+	StartDate                time.Time
+	StartWeightKg            float64
+	GoalWeightKg             float64
+	DurationWeeks            int
+	RequiredWeeklyChangeKg   float64 // Calculated: (goalWeight - startWeight) / durationWeeks
 	RequiredDailyDeficitKcal float64 // Calculated: requiredWeeklyChange * 7700 / 7
-	Status                PlanStatus
-	WeeklyTargets         []WeeklyTarget
-	CreatedAt             time.Time
-	UpdatedAt             time.Time
+	Status                   PlanStatus
+	WeeklyTargets            []WeeklyTarget
+	CreatedAt                time.Time
+	UpdatedAt                time.Time
 }
 
 // WeeklyTarget represents the projected targets for a single week of a plan.
@@ -71,6 +72,7 @@ type WeeklyTarget struct {
 
 // NutritionPlanInput contains the required fields to create a new plan.
 type NutritionPlanInput struct {
+	Name           string  // User-defined plan name (optional)
 	StartDate      string  // YYYY-MM-DD format
 	StartWeightKg  float64
 	GoalWeightKg   float64
@@ -94,11 +96,12 @@ func NewNutritionPlan(input NutritionPlanInput, profile *UserProfile, now time.T
 	}
 
 	plan := &NutritionPlan{
-		StartDate:      startDate,
-		StartWeightKg:  input.StartWeightKg,
-		GoalWeightKg:   input.GoalWeightKg,
-		DurationWeeks:  input.DurationWeeks,
-		Status:         PlanStatusActive,
+		Name:          input.Name,
+		StartDate:     startDate,
+		StartWeightKg: input.StartWeightKg,
+		GoalWeightKg:  input.GoalWeightKg,
+		DurationWeeks: input.DurationWeeks,
+		Status:        PlanStatusActive,
 	}
 
 	if err := plan.Validate(now); err != nil {

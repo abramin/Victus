@@ -1,6 +1,7 @@
 import { Routes, Route } from 'react-router-dom';
 import { useProfile } from '../hooks/useProfile';
 import { useDailyLog } from '../hooks/useDailyLog';
+import { usePlan } from '../hooks/usePlan';
 import { OnboardingWizard } from '../components/onboarding';
 import { AppLayout } from '../components/layout';
 import { MealPointsDashboard } from '../components/meal-points';
@@ -31,6 +32,8 @@ function App() {
     replace,
     updateActual,
   } = useDailyLog();
+
+  const { plan: activePlan } = usePlan();
 
   // Loading state
   if (profileLoading || logLoading) {
@@ -125,6 +128,7 @@ function App() {
                   onSave={save}
                   saving={profileSaving}
                   error={saveError}
+                  activePlan={activePlan}
                 />
               </div>
             }

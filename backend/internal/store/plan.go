@@ -48,13 +48,14 @@ func (s *NutritionPlanStore) Create(ctx context.Context, plan *domain.NutritionP
 	// Insert plan
 	const planQuery = `
 		INSERT INTO nutrition_plans (
-			start_date, start_weight_kg, goal_weight_kg, duration_weeks,
+			name, start_date, start_weight_kg, goal_weight_kg, duration_weeks,
 			required_weekly_change_kg, required_daily_deficit_kcal, status,
 			created_at, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
 	`
 
 	result, err := tx.ExecContext(ctx, planQuery,
+		plan.Name,
 		plan.StartDate.Format("2006-01-02"),
 		plan.StartWeightKg,
 		plan.GoalWeightKg,
@@ -111,7 +112,7 @@ func (s *NutritionPlanStore) Create(ctx context.Context, plan *domain.NutritionP
 func (s *NutritionPlanStore) GetByID(ctx context.Context, id int64) (*domain.NutritionPlan, error) {
 	const query = `
 		SELECT
-			id, start_date, start_weight_kg, goal_weight_kg, duration_weeks,
+			id, COALESCE(name, ''), start_date, start_weight_kg, goal_weight_kg, duration_weeks,
 			required_weekly_change_kg, required_daily_deficit_kcal, status,
 			created_at, updated_at
 		FROM nutrition_plans
@@ -123,6 +124,7 @@ func (s *NutritionPlanStore) GetByID(ctx context.Context, id int64) (*domain.Nut
 
 	err := s.db.QueryRowContext(ctx, query, id).Scan(
 		&plan.ID,
+		&plan.Name,
 		&startDate,
 		&plan.StartWeightKg,
 		&plan.GoalWeightKg,
@@ -307,7 +309,7 @@ func (s *NutritionPlanStore) Delete(ctx context.Context, id int64) error {
 func (s *NutritionPlanStore) ListAll(ctx context.Context) ([]*domain.NutritionPlan, error) {
 	const query = `
 		SELECT
-			id, start_date, start_weight_kg, goal_weight_kg, duration_weeks,
+			id, COALESCE(name, ''), start_date, start_weight_kg, goal_weight_kg, duration_weeks,
 			required_weekly_change_kg, required_daily_deficit_kcal, status,
 			created_at, updated_at
 		FROM nutrition_plans
@@ -327,6 +329,7 @@ func (s *NutritionPlanStore) ListAll(ctx context.Context) ([]*domain.NutritionPl
 
 		err := rows.Scan(
 			&plan.ID,
+			&plan.Name,
 			&startDate,
 			&plan.StartWeightKg,
 			&plan.GoalWeightKg,
