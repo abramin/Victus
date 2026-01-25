@@ -696,7 +696,7 @@ export function LogWorkoutView({ log, onUpdateActual, saving }: LogWorkoutViewPr
                           )}
 
                           {/* Load Output: Hero metric card */}
-                          <div className="text-center mt-4 p-3 bg-slate-800 rounded-lg border border-slate-700">
+                          <div className="text-center mt-6 p-3 bg-slate-800 rounded-lg border border-slate-700">
                             <div className="flex items-center justify-center gap-2">
                               <span className="text-lg">⚡</span>
                               <span className="text-xl font-bold text-white">LOAD: {loadScore}</span>

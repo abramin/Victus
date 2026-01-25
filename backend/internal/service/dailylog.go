@@ -211,6 +211,17 @@ func (s *DailyLogService) UpdateFastingOverride(ctx context.Context, date string
 	return s.GetByDate(ctx, date)
 }
 
+// UpsertHealthKitMetrics creates or updates a daily log with HealthKit data.
+// If a log exists for the date, only non-nil fields are updated.
+// If no log exists, a new minimal log is created with defaults.
+// Weight is required to create a new log; returns store.ErrWeightRequired if missing.
+func (s *DailyLogService) UpsertHealthKitMetrics(ctx context.Context, date string, metrics store.HealthKitMetrics) (*domain.DailyLog, error) {
+	if err := s.logStore.UpsertHealthKitMetrics(ctx, date, metrics); err != nil {
+		return nil, err
+	}
+	return s.GetByDate(ctx, date)
+}
+
 // GetWeightTrend returns weight samples and regression trend for the given start date.
 // If startDate is empty, all samples are returned.
 func (s *DailyLogService) GetWeightTrend(ctx context.Context, startDate string) ([]domain.WeightSample, *domain.WeightTrend, error) {

@@ -62,6 +62,8 @@ func main() {
 
 func seedDatabase(db *sql.DB, config SeedConfig) error {
 	// Clear existing data to allow fresh seed (order matters for foreign keys)
+	_, _ = db.Exec("DELETE FROM fatigue_events")
+	_, _ = db.Exec("DELETE FROM muscle_fatigue")
 	_, _ = db.Exec("DELETE FROM training_sessions")
 	_, _ = db.Exec("DELETE FROM daily_logs")
 	_, _ = db.Exec("DELETE FROM user_profile")
@@ -75,7 +77,7 @@ func seedDatabase(db *sql.DB, config SeedConfig) error {
 	}
 
 	// Generate daily logs for 30 days
-	dayTypes, err := generateDailyLogs(db, config)
+	dayTypes, fatigueSessions, err := generateDailyLogs(db, config)
 	if err != nil {
 		return fmt.Errorf("failed to generate daily logs: %w", err)
 	}
@@ -93,6 +95,11 @@ func seedDatabase(db *sql.DB, config SeedConfig) error {
 	// Seed planned day types for past and future
 	if err := seedPlannedDayTypes(db, config, dayTypes); err != nil {
 		return fmt.Errorf("failed to seed planned day types: %w", err)
+	}
+
+	// Seed fatigue events and muscle fatigue state
+	if err := seedFatigueData(db, fatigueSessions); err != nil {
+		return fmt.Errorf("failed to seed fatigue data: %w", err)
 	}
 
 	return nil
@@ -150,12 +157,13 @@ func createUserProfile(db *sql.DB, config SeedConfig) error {
 	return nil
 }
 
-func generateDailyLogs(db *sql.DB, config SeedConfig) (map[string]string, error) {
+func generateDailyLogs(db *sql.DB, config SeedConfig) (map[string]string, []trainingSessionResult, error) {
 	rand.Seed(time.Now().UnixNano())
 
 	totalDays := 30 // Fixed at 30 days
 	currentWeight := config.InitialWeight
-	dayTypes := make(map[string]string) // Track day types for planned_day_types seeding
+	dayTypes := make(map[string]string)               // Track day types for planned_day_types seeding
+	fatigueSessions := []trainingSessionResult{}      // Track actual sessions for fatigue processing
 
 	// Training plan: mix of intensity levels throughout the week (5 weeks)
 	trainingPatterns := [][]string{
@@ -273,21 +281,21 @@ func generateDailyLogs(db *sql.DB, config SeedConfig) (map[string]string, error)
 			formulaTdee:         formulaTdee,
 		})
 		if err != nil {
-			return nil, fmt.Errorf("failed to insert daily log for %s: %w", dateStr, err)
+			return nil, nil, fmt.Errorf("failed to insert daily log for %s: %w", dateStr, err)
 		}
 
 		// Insert planned training sessions
 		if trainingType != "rest" {
-			if err := insertTrainingSession(db, logID, trainingType, durationMin, true); err != nil {
-				return nil, fmt.Errorf("failed to insert planned training session for %s (type=%s): %w", dateStr, trainingType, err)
+			if _, err := insertTrainingSession(db, logID, trainingType, durationMin, true, date); err != nil {
+				return nil, nil, fmt.Errorf("failed to insert planned training session for %s (type=%s): %w", dateStr, trainingType, err)
 			}
 
 			// 30% chance of a secondary planned session (usually lower intensity)
 			if rand.Float64() < 0.3 {
 				secondaryType := getSecondaryTraining(trainingType)
 				secondaryDuration := rand.Intn(30) + 15
-				if err := insertTrainingSession(db, logID, secondaryType, secondaryDuration, true); err != nil {
-					return nil, fmt.Errorf("failed to insert secondary planned training session for %s (type=%s): %w", dateStr, secondaryType, err)
+				if _, err := insertTrainingSession(db, logID, secondaryType, secondaryDuration, true, date); err != nil {
+					return nil, nil, fmt.Errorf("failed to insert secondary planned training session for %s (type=%s): %w", dateStr, secondaryType, err)
 				}
 			}
 
@@ -298,8 +306,12 @@ func generateDailyLogs(db *sql.DB, config SeedConfig) (map[string]string, error)
 				if actualDuration < 10 {
 					actualDuration = 10
 				}
-				if err := insertTrainingSession(db, logID, trainingType, actualDuration, false); err != nil {
-					return nil, fmt.Errorf("failed to insert actual training session for %s (type=%s): %w", dateStr, trainingType, err)
+				sessionResult, err := insertTrainingSession(db, logID, trainingType, actualDuration, false, date)
+				if err != nil {
+					return nil, nil, fmt.Errorf("failed to insert actual training session for %s (type=%s): %w", dateStr, trainingType, err)
+				}
+				if sessionResult != nil {
+					fatigueSessions = append(fatigueSessions, *sessionResult)
 				}
 			}
 		} else {
@@ -307,8 +319,12 @@ func generateDailyLogs(db *sql.DB, config SeedConfig) (map[string]string, error)
 			if rand.Float64() < 0.1 {
 				unplannedType := getSecondaryTraining("rest")
 				unplannedDuration := rand.Intn(30) + 20
-				if err := insertTrainingSession(db, logID, unplannedType, unplannedDuration, false); err != nil {
-					return nil, fmt.Errorf("failed to insert unplanned training session for %s (type=%s): %w", dateStr, unplannedType, err)
+				sessionResult, err := insertTrainingSession(db, logID, unplannedType, unplannedDuration, false, date)
+				if err != nil {
+					return nil, nil, fmt.Errorf("failed to insert unplanned training session for %s (type=%s): %w", dateStr, unplannedType, err)
+				}
+				if sessionResult != nil {
+					fatigueSessions = append(fatigueSessions, *sessionResult)
 				}
 			}
 		}
@@ -318,7 +334,7 @@ func generateDailyLogs(db *sql.DB, config SeedConfig) (map[string]string, error)
 		}
 	}
 
-	return dayTypes, nil
+	return dayTypes, fatigueSessions, nil
 }
 
 type dailyLogParams struct {
@@ -413,12 +429,21 @@ func insertDailyLog(db *sql.DB, params dailyLogParams) (int64, error) {
 	return result.LastInsertId()
 }
 
-func insertTrainingSession(db *sql.DB, logID int64, trainingType string, durationMin int, isPlanned bool) error {
+// trainingSessionResult holds info about an inserted session for fatigue processing
+type trainingSessionResult struct {
+	sessionID   int64
+	archetypeID int
+	durationMin int
+	rpe         int
+	sessionTime time.Time
+}
+
+func insertTrainingSession(db *sql.DB, logID int64, trainingType string, durationMin int, isPlanned bool, sessionDate time.Time) (*trainingSessionResult, error) {
 	query := `
 	INSERT INTO training_sessions (
-		daily_log_id, session_order, is_planned, training_type, duration_min, perceived_intensity, notes, created_at
+		daily_log_id, session_order, is_planned, training_type, duration_min, perceived_intensity, notes, archetype_id, created_at
 	) VALUES (
-		?, ?, ?, ?, ?, ?, ?, ?
+		?, ?, ?, ?, ?, ?, ?, ?, ?
 	)`
 
 	// Get current max order for this log
@@ -432,7 +457,7 @@ func insertTrainingSession(db *sql.DB, logID int64, trainingType string, duratio
 		logID, plannedInt,
 	).Scan(&maxOrder)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	order := maxOrder + 1
@@ -455,8 +480,34 @@ func insertTrainingSession(db *sql.DB, logID int64, trainingType string, duratio
 		notes = &note
 	}
 
-	_, err = db.Exec(query, logID, order, plannedInt, trainingType, durationMin, intensity, notes, now)
-	return err
+	// Map training type to archetype
+	archetypeID := mapTrainingTypeToArchetype(trainingType)
+	var archetypeIDPtr *int
+	if archetypeID > 0 {
+		archetypeIDPtr = &archetypeID
+	}
+
+	result, err := db.Exec(query, logID, order, plannedInt, trainingType, durationMin, intensity, notes, archetypeIDPtr, now)
+	if err != nil {
+		return nil, err
+	}
+
+	sessionID, err := result.LastInsertId()
+	if err != nil {
+		return nil, err
+	}
+
+	// Only return result for actual (non-planned) sessions with valid archetypes
+	if !isPlanned && archetypeID > 0 {
+		return &trainingSessionResult{
+			sessionID:   sessionID,
+			archetypeID: archetypeID,
+			durationMin: durationMin,
+			rpe:         intensity,
+			sessionTime: sessionDate,
+		}, nil
+	}
+	return nil, nil
 }
 
 func getTrainingDuration(trainingType string) int {
@@ -521,6 +572,202 @@ func clampFloat(value, min, max float64) float64 {
 		return max
 	}
 	return value
+}
+
+// Archetype IDs match the database seeded values in migrations.go
+const (
+	archetypePush        = 1
+	archetypePull        = 2
+	archetypeLegs        = 3
+	archetypeUpper       = 4
+	archetypeLower       = 5
+	archetypeFullBody    = 6
+	archetypeCardioImpact = 7
+	archetypeCardioLow   = 8
+)
+
+// strengthRotation tracks which archetype to use for strength sessions (cycles through push/pull/legs)
+var strengthRotationIndex = 0
+
+// mapTrainingTypeToArchetype converts a training type to an archetype ID
+func mapTrainingTypeToArchetype(trainingType string) int {
+	switch trainingType {
+	case "strength":
+		// Rotate through push, pull, legs for strength sessions
+		archetypes := []int{archetypePush, archetypePull, archetypeLegs}
+		idx := strengthRotationIndex % 3
+		strengthRotationIndex++
+		return archetypes[idx]
+	case "run":
+		return archetypeCardioImpact
+	case "cycle":
+		return archetypeCardioLow
+	case "row":
+		return archetypePull
+	case "hiit":
+		return archetypeFullBody
+	case "mobility":
+		return archetypeCardioLow
+	case "calisthenics":
+		return archetypeFullBody
+	case "walking":
+		return archetypeCardioLow
+	case "qigong":
+		return archetypeCardioLow
+	case "gmb":
+		return archetypeFullBody
+	case "rest":
+		return 0 // No archetype for rest
+	default:
+		return archetypeFullBody // Default fallback
+	}
+}
+
+// muscleCoefficients maps archetype IDs to muscle fatigue coefficients
+// These match the JSON values in training_archetypes table
+var muscleCoefficients = map[int]map[string]float64{
+	archetypePush: {
+		"chest": 1.0, "front_delt": 1.0, "triceps": 0.7, "side_delt": 0.7, "core": 0.4,
+	},
+	archetypePull: {
+		"lats": 1.0, "traps": 1.0, "biceps": 0.7, "rear_delt": 0.7, "forearms": 0.4,
+	},
+	archetypeLegs: {
+		"quads": 1.0, "glutes": 1.0, "hamstrings": 0.7, "calves": 0.7, "lower_back": 0.4,
+	},
+	archetypeUpper: {
+		"chest": 0.7, "lats": 0.7, "front_delt": 0.7, "traps": 0.5, "biceps": 0.5, "triceps": 0.5,
+	},
+	archetypeLower: {
+		"quads": 0.8, "glutes": 0.8, "hamstrings": 0.8, "calves": 0.6, "lower_back": 0.4,
+	},
+	archetypeFullBody: {
+		"chest": 0.5, "lats": 0.5, "quads": 0.5, "glutes": 0.5, "front_delt": 0.4, "hamstrings": 0.4, "core": 0.4,
+	},
+	archetypeCardioImpact: {
+		"calves": 1.0, "hamstrings": 1.0, "quads": 0.7, "glutes": 0.7, "core": 0.4,
+	},
+	archetypeCardioLow: {
+		"quads": 0.5, "glutes": 0.5, "hamstrings": 0.3, "calves": 0.3,
+	},
+}
+
+// muscleGroupIDs maps muscle names to their database IDs (from migrations.go)
+var muscleGroupIDs = map[string]int{
+	"chest":      1,
+	"front_delt": 2,
+	"triceps":    3,
+	"side_delt":  4,
+	"lats":       5,
+	"traps":      6,
+	"biceps":     7,
+	"rear_delt":  8,
+	"forearms":   9,
+	"quads":      10,
+	"glutes":     11,
+	"hamstrings": 12,
+	"calves":     13,
+	"lower_back": 14,
+	"core":       15,
+}
+
+// seedFatigueData processes training sessions and populates fatigue_events and muscle_fatigue tables
+func seedFatigueData(db *sql.DB, sessions []trainingSessionResult) error {
+	if len(sessions) == 0 {
+		fmt.Println("⚠ No training sessions to process for fatigue")
+		return nil
+	}
+
+	// Sort sessions by time (should already be in order, but ensure)
+	// Sessions are already chronological from generateDailyLogs
+
+	// Track current fatigue state per muscle (muscle_name -> fatigue_percent)
+	muscleFatigue := make(map[string]float64)
+	lastUpdateTime := sessions[0].sessionTime
+
+	// Decay rate: 2% per hour (from domain/fatigue.go)
+	const decayPerHour = 2.0
+
+	// Process each session chronologically
+	for _, session := range sessions {
+		// Calculate total load: duration × (RPE/10) / 10
+		totalLoad := float64(session.durationMin) * (float64(session.rpe) / 10.0) / 10.0
+
+		// Get muscle coefficients for this archetype
+		coefficients := muscleCoefficients[session.archetypeID]
+		if coefficients == nil {
+			continue
+		}
+
+		// Calculate hours elapsed since last update
+		hoursElapsed := session.sessionTime.Sub(lastUpdateTime).Hours()
+
+		// Apply decay to all muscles
+		for muscle := range muscleFatigue {
+			decayed := muscleFatigue[muscle] - (hoursElapsed * decayPerHour)
+			if decayed < 0 {
+				decayed = 0
+			}
+			muscleFatigue[muscle] = decayed
+		}
+
+		// Apply fatigue injection from this session
+		for muscle, coefficient := range coefficients {
+			injectionPercent := totalLoad * coefficient * 100.0
+			currentFatigue := muscleFatigue[muscle]
+			newFatigue := currentFatigue + injectionPercent
+			if newFatigue > 100 {
+				newFatigue = 100
+			}
+			muscleFatigue[muscle] = newFatigue
+		}
+
+		// Insert fatigue event record
+		eventQuery := `
+			INSERT INTO fatigue_events (training_session_id, archetype_id, total_load, applied_at)
+			VALUES (?, ?, ?, ?)`
+		appliedAt := session.sessionTime.Format("2006-01-02 15:04:05")
+		_, err := db.Exec(eventQuery, session.sessionID, session.archetypeID, totalLoad, appliedAt)
+		if err != nil {
+			return fmt.Errorf("failed to insert fatigue event for session %d: %w", session.sessionID, err)
+		}
+
+		lastUpdateTime = session.sessionTime
+	}
+
+	// Apply final decay from last session to now
+	now := time.Now()
+	hoursElapsed := now.Sub(lastUpdateTime).Hours()
+	for muscle := range muscleFatigue {
+		decayed := muscleFatigue[muscle] - (hoursElapsed * decayPerHour)
+		if decayed < 0 {
+			decayed = 0
+		}
+		muscleFatigue[muscle] = decayed
+	}
+
+	// Insert current muscle fatigue state
+	fatigueQuery := `
+		INSERT INTO muscle_fatigue (muscle_group_id, fatigue_percent, last_updated)
+		VALUES (?, ?, datetime('now'))`
+
+	musclesWithFatigue := 0
+	for muscle, fatigue := range muscleFatigue {
+		if fatigue > 0 {
+			muscleID := muscleGroupIDs[muscle]
+			if muscleID == 0 {
+				continue
+			}
+			_, err := db.Exec(fatigueQuery, muscleID, fatigue)
+			if err != nil {
+				return fmt.Errorf("failed to insert muscle fatigue for %s: %w", muscle, err)
+			}
+			musclesWithFatigue++
+		}
+	}
+
+	fmt.Printf("✓ Fatigue data seeded (%d events, %d muscles with fatigue)\n", len(sessions), musclesWithFatigue)
+	return nil
 }
 
 // createNutritionPlan creates a 12-week nutrition plan with weekly targets

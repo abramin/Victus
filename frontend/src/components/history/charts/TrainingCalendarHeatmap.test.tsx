@@ -48,20 +48,20 @@ describe('TrainingCalendarHeatmap', () => {
 
     render(<TrainingCalendarHeatmap points={points} />);
 
-    const streakCard = screen.getByText('Current Streak').closest('div')?.parentElement;
-    expect(streakCard).toBeTruthy();
-    expect(within(streakCard as HTMLElement).getByText('2 Days')).toBeInTheDocument();
+    // Stats are now inline badges - find by adjacent text content
+    expect(screen.getByText('day streak')).toBeInTheDocument();
+    expect(screen.getByText('completion')).toBeInTheDocument();
+    expect(screen.getByText('sessions')).toBeInTheDocument();
 
-    const completionCard = screen.getByText('Completion Rate').closest('div')?.parentElement;
-    expect(completionCard).toBeTruthy();
-    expect(within(completionCard as HTMLElement).getByText('67%')).toBeInTheDocument();
+    // Check specific values - streak and sessions both show "2", completion shows "67%"
+    expect(screen.getByText('67%')).toBeInTheDocument();
 
-    const sessionsCard = screen.getByText('Total Sessions').closest('div')?.parentElement;
-    expect(sessionsCard).toBeTruthy();
-    expect(within(sessionsCard as HTMLElement).getByText('2')).toBeInTheDocument();
+    // Both "2" values should be present (streak and sessions)
+    const twoValues = screen.getAllByText('2');
+    expect(twoValues).toHaveLength(2);
   });
 
-  it('renders statuses and allows selecting data cells', () => {
+  it('renders day pills and allows selecting data cells', () => {
     const points = [
       makePoint({ date: '2026-07-15', plannedDurationMin: 60, actualDurationMin: 60 }),
       makePoint({ date: '2026-07-14', plannedDurationMin: 60, actualDurationMin: 30 }),
@@ -79,17 +79,69 @@ describe('TrainingCalendarHeatmap', () => {
     const onSelectDate = vi.fn();
     render(<TrainingCalendarHeatmap points={points} onSelectDate={onSelectDate} />);
 
+    // Check that partial cell exists and is clickable
     const partialCell = screen.getByLabelText('2026-07-14: partial');
     expect(partialCell).not.toBeDisabled();
     fireEvent.click(partialCell);
     expect(onSelectDate).toHaveBeenCalledWith('2026-07-14');
 
+    // Check other statuses exist
     expect(screen.getByLabelText('2026-07-13: missed')).toBeInTheDocument();
     expect(screen.getByLabelText('2026-07-12: rest')).toBeInTheDocument();
 
+    // No-data cells (outside the points range) should be disabled
     const noDataCell = screen.getByLabelText('2026-07-11: no-data');
     expect(noDataCell).toBeDisabled();
     fireEvent.click(noDataCell);
-    expect(onSelectDate).toHaveBeenCalledTimes(1);
+    expect(onSelectDate).toHaveBeenCalledTimes(1); // Still just 1 from earlier
+  });
+
+  it('shows "Today" label for current date', () => {
+    const points = [
+      makePoint({ date: '2026-07-15', plannedDurationMin: 60, actualDurationMin: 60 }),
+    ];
+
+    render(<TrainingCalendarHeatmap points={points} />);
+
+    // "Today" should appear as a label
+    expect(screen.getByText('Today')).toBeInTheDocument();
+
+    // Today's cell should have special styling (emerald ring)
+    const todayCell = screen.getByLabelText('2026-07-15: completed');
+    expect(todayCell).toHaveClass('ring-emerald-500/70');
+  });
+
+  it('displays duration for training days', () => {
+    const points = [
+      makePoint({ date: '2026-07-15', plannedDurationMin: 60, actualDurationMin: 45 }),
+      makePoint({ date: '2026-07-14', plannedDurationMin: 60, actualDurationMin: 90 }),
+    ];
+
+    render(<TrainingCalendarHeatmap points={points} />);
+
+    // Duration should be shown as "Xm" format
+    expect(screen.getByText('45m')).toBeInTheDocument();
+    expect(screen.getByText('90m')).toBeInTheDocument();
+  });
+
+  it('renders legend with status colors', () => {
+    render(<TrainingCalendarHeatmap points={[]} />);
+
+    expect(screen.getByText('Trained')).toBeInTheDocument();
+    expect(screen.getByText('Missed')).toBeInTheDocument();
+    expect(screen.getByText('Rest')).toBeInTheDocument();
+    expect(screen.getByText('No Data')).toBeInTheDocument();
+  });
+
+  it('highlights selected date', () => {
+    const points = [
+      makePoint({ date: '2026-07-15', plannedDurationMin: 60, actualDurationMin: 60 }),
+      makePoint({ date: '2026-07-14', plannedDurationMin: 60, actualDurationMin: 60 }),
+    ];
+
+    render(<TrainingCalendarHeatmap points={points} selectedDate="2026-07-14" />);
+
+    const selectedCell = screen.getByLabelText('2026-07-14: completed');
+    expect(selectedCell).toHaveClass('ring-white');
   });
 });

@@ -65,13 +65,13 @@ export function RadialIntensitySelector({
   const displayLabel = RPE_LABELS[displayValue];
   const scoreColor = getRpeColor(displayValue);
 
-  // SVG dimensions - increased height to accommodate labels above arc
+  // SVG dimensions - sized to contain the arc and all labels within bounds
   const width = 220;
-  const height = 140;
+  const height = 165;
   const strokeWidth = 12;
   const centerX = width / 2;
-  const centerY = height - 10;
-  const radius = Math.min(centerX, centerY) - strokeWidth / 2 - 25; // Reduced to make room for labels
+  const centerY = 70;
+  const radius = 60;
 
   // Arc geometry (half circle from left to right)
   const startAngle = Math.PI; // 180 degrees (left)
@@ -100,7 +100,7 @@ export function RadialIntensitySelector({
     const angle = Math.PI * (1 - normalized);
     const innerRadius = radius - strokeWidth / 2 - 2;
     const outerRadius = radius + strokeWidth / 2 + 4;
-    const labelRadius = radius + strokeWidth / 2 + 18;
+    const labelRadius = radius + strokeWidth / 2 + 20;
 
     return {
       innerX: centerX + innerRadius * Math.cos(angle),
@@ -267,25 +267,22 @@ export function RadialIntensitySelector({
 
         {/* Touch target (invisible, 44px for accessibility) */}
         <motion.circle
-          cx={scoreX}
-          cy={scoreY}
           r={22}
           fill="transparent"
           className={disabled ? 'cursor-not-allowed' : 'cursor-grab active:cursor-grabbing'}
+          initial={{ cx: scoreX, cy: scoreY }}
           animate={{ cx: scoreX, cy: scoreY }}
           transition={{ duration: isDragging ? 0.05 : 0.3, ease: 'easeOut' }}
         />
 
         {/* Visible indicator dot */}
         <motion.circle
-          cx={scoreX}
-          cy={scoreY}
           r={strokeWidth / 2 + 3}
           fill={scoreColor}
           stroke="white"
           strokeWidth={2}
           className="pointer-events-none"
-          initial={{ opacity: 0 }}
+          initial={{ opacity: 0, cx: scoreX, cy: scoreY }}
           animate={{ opacity: 1, cx: scoreX, cy: scoreY }}
           transition={{ duration: isDragging ? 0.05 : 0.3, ease: 'easeOut' }}
           style={{ filter: 'drop-shadow(0 0 4px rgba(0,0,0,0.5))' }}

@@ -164,6 +164,7 @@ type DailyLogResponse struct {
 	RecoveryScore           *RecoveryScoreResponse          `json:"recoveryScore,omitempty"`         // Recovery score breakdown
 	AdjustmentMultipliers   *AdjustmentMultipliersResponse  `json:"adjustmentMultipliers,omitempty"` // Adjustment multipliers breakdown
 	ActiveCaloriesBurned    *int                            `json:"activeCaloriesBurned,omitempty"`  // User-entered active calories from wearable
+	Steps                   *int                            `json:"steps,omitempty"`                 // Daily step count from wearable
 	BMRPrecisionMode        bool                            `json:"bmrPrecisionMode,omitempty"`      // True if Katch-McArdle auto-selected using recent body fat
 	BodyFatUsedDate         *string                         `json:"bodyFatUsedDate,omitempty"`       // Date of body fat measurement used for precision BMR
 	Notes                   string                          `json:"notes,omitempty"`                 // Daily notes/observations
@@ -431,6 +432,7 @@ func DailyLogToResponseWithTrainingLoad(d *domain.DailyLog, trainingLoad *domain
 		RecoveryScore:         RecoveryScoreToResponse(d.RecoveryScore),
 		AdjustmentMultipliers: AdjustmentMultipliersToResponse(d.AdjustmentMultipliers),
 		ActiveCaloriesBurned:  d.ActiveCaloriesBurned,
+		Steps:                 d.Steps,
 		BMRPrecisionMode:      d.BMRPrecisionMode,
 		BodyFatUsedDate:       d.BodyFatUsedDate,
 		Notes:                 d.Notes,

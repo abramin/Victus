@@ -67,6 +67,7 @@ func NewServer(db *sql.DB) *Server {
 	mux.HandleFunc("PATCH /api/logs/{date}/actual-training", srv.updateActualTraining)
 	mux.HandleFunc("PATCH /api/logs/{date}/active-calories", srv.updateActiveCalories)
 	mux.HandleFunc("PATCH /api/logs/{date}/fasting-override", srv.updateFastingOverride)
+	mux.HandleFunc("PATCH /api/logs/{date}/health-sync", srv.syncHealthData)
 
 	// Training config routes
 	mux.HandleFunc("GET /api/training-configs", srv.getTrainingConfigs)

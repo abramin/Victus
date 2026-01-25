@@ -282,10 +282,10 @@ export function WeightHistory({ profile }: { profile: UserProfile }) {
         )}
       </Card>
 
-      {/* Training Consistency (Calendar Heatmap) */}
+      {/* Training Consistency (Day Strip) */}
       <Card title="Training Consistency">
         <p className="text-xs text-slate-500 mb-4">
-          6-month training activity. Color intensity shows training load. Click a day to view details.
+          Recent training activity. Click a day to view details.
         </p>
         {loading && (
           <div className="h-48 bg-slate-900/60 rounded-lg border border-slate-800 flex items-center justify-center text-slate-500 text-sm">

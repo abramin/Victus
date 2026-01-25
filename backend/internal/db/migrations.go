@@ -61,6 +61,8 @@ func RunMigrations(db *sql.DB) error {
 		addRecalibrationToleranceColumn,
 		// Active calories burned for Deficit Protection feature
 		addActiveCaloriesBurnedColumn,
+		// Steps count for Victus Sync (HealthKit integration)
+		addStepsColumn,
 		// Plan name column for user-defined plan names
 		addPlanNameColumn,
 		// Daily log notes for LLM pattern recognition
@@ -244,6 +246,9 @@ const addFormulaTDEEColumn = `ALTER TABLE daily_logs ADD COLUMN formula_tdee INT
 
 // Active calories burned for Deficit Protection feature
 const addActiveCaloriesBurnedColumn = `ALTER TABLE daily_logs ADD COLUMN active_calories_burned INTEGER`
+
+// Steps count for Victus Sync (HealthKit integration)
+const addStepsColumn = `ALTER TABLE daily_logs ADD COLUMN steps INTEGER`
 
 // Plan name column for user-defined plan names (Single Source of Truth feature)
 const addPlanNameColumn = `ALTER TABLE nutrition_plans ADD COLUMN name TEXT DEFAULT ''`

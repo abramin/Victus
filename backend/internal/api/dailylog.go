@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	stdlog "log"
 	"net/http"
 	"time"
 
@@ -216,6 +217,7 @@ func (s *Server) updateActualTraining(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "validation_error", err.Error())
 			return
 		}
+		stdlog.Printf("ERROR: UpdateActualTraining failed for date %s: %v", date, err)
 		writeError(w, http.StatusInternalServerError, "internal_error", "")
 		return
 	}
@@ -253,6 +255,42 @@ func (s *Server) updateFastingOverride(w http.ResponseWriter, r *http.Request) {
 		}
 		if isValidationError(err) {
 			writeError(w, http.StatusBadRequest, "validation_error", err.Error())
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "internal_error", "")
+		return
+	}
+
+	// Calculate training load metrics (ACR)
+	trainingLoad, err := s.dailyLogService.GetTrainingLoadMetrics(r.Context(), log.Date, log.ActualSessions, log.PlannedSessions)
+	if err != nil {
+		trainingLoad = nil
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(requests.DailyLogToResponseWithTrainingLoad(log, trainingLoad))
+}
+
+// syncHealthData handles PATCH /api/logs/{date}/health-sync
+// Upserts health metrics from HealthKit. Creates a minimal log if none exists.
+func (s *Server) syncHealthData(w http.ResponseWriter, r *http.Request) {
+	date := r.PathValue("date")
+	if date == "" {
+		writeError(w, http.StatusBadRequest, "missing_date", "Date parameter is required")
+		return
+	}
+
+	var req requests.HealthSyncRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json", "Could not parse request body as JSON")
+		return
+	}
+
+	metrics := req.ToHealthKitMetrics()
+	log, err := s.dailyLogService.UpsertHealthKitMetrics(r.Context(), date, metrics)
+	if err != nil {
+		if errors.Is(err, store.ErrWeightRequired) {
+			writeError(w, http.StatusBadRequest, "weight_required", "Weight is required to create a new daily log")
 			return
 		}
 		writeError(w, http.StatusInternalServerError, "internal_error", "")

@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	"victus/internal/domain"
@@ -61,7 +63,7 @@ func (s *DailyLogStore) GetByDate(ctx context.Context, date string) (*domain.Dai
 			COALESCE(fruit_g, 0), COALESCE(veggies_g, 0), COALESCE(water_l, 0), COALESCE(day_type, 'fatburner'),
 			COALESCE(estimated_tdee, 0), COALESCE(formula_tdee, 0),
 			COALESCE(tdee_source_used, 'formula'), COALESCE(tdee_confidence, 0), COALESCE(data_points_used, 0),
-			active_calories_burned, COALESCE(notes, ''),
+			active_calories_burned, steps, COALESCE(notes, ''),
 			fasting_override, COALESCE(fasted_items_kcal, 0),
 			created_at, updated_at
 		FROM daily_logs
@@ -74,6 +76,7 @@ func (s *DailyLogStore) GetByDate(ctx context.Context, date string) (*domain.Dai
 		heartRate            sql.NullInt64
 		sleepHours           sql.NullFloat64
 		activeCaloriesBurned sql.NullInt64
+		steps                sql.NullInt64
 		fastingOverride      sql.NullString
 		createdAt            string
 		updatedAt            string
@@ -94,7 +97,7 @@ func (s *DailyLogStore) GetByDate(ctx context.Context, date string) (*domain.Dai
 		&log.CalculatedTargets.WaterL, &log.CalculatedTargets.DayType,
 		&log.EstimatedTDEE, &log.FormulaTDEE,
 		&log.TDEESourceUsed, &log.TDEEConfidence, &log.DataPointsUsed,
-		&activeCaloriesBurned, &log.Notes,
+		&activeCaloriesBurned, &steps, &log.Notes,
 		&fastingOverride, &log.FastedItemsKcal,
 		&createdAt, &updatedAt,
 	)
@@ -120,6 +123,10 @@ func (s *DailyLogStore) GetByDate(ctx context.Context, date string) (*domain.Dai
 	if activeCaloriesBurned.Valid {
 		acb := int(activeCaloriesBurned.Int64)
 		log.ActiveCaloriesBurned = &acb
+	}
+	if steps.Valid {
+		s := int(steps.Int64)
+		log.Steps = &s
 	}
 	if fastingOverride.Valid {
 		fp := domain.FastingProtocol(fastingOverride.String)
@@ -633,6 +640,159 @@ func (s *DailyLogStore) UpdateFastedItemsKcal(ctx context.Context, date string, 
 
 	if rowsAffected == 0 {
 		return ErrDailyLogNotFound
+	}
+
+	return nil
+}
+
+// HealthKitMetrics represents health data synced from HealthKit.
+// All fields are optional - only non-nil values will be updated.
+type HealthKitMetrics struct {
+	Steps                *int
+	ActiveCaloriesBurned *int
+	RestingHeartRate     *int
+	SleepHours           *float64
+	WeightKg             *float64
+	BodyFatPercent       *float64
+}
+
+// ErrWeightRequired is returned when trying to create a new log without weight.
+var ErrWeightRequired = errors.New("weight is required to create a new daily log")
+
+// UpsertHealthKitMetrics creates or updates a daily log with HealthKit data.
+// If a log exists for the date, only non-nil fields are updated.
+// If no log exists, a new minimal log is created with defaults.
+// Weight is required to create a new log; returns ErrWeightRequired if missing.
+func (s *DailyLogStore) UpsertHealthKitMetrics(ctx context.Context, date string, metrics HealthKitMetrics) error {
+	// Check if log exists
+	_, err := s.GetIDByDate(ctx, date)
+	if err != nil && !errors.Is(err, ErrDailyLogNotFound) {
+		return err
+	}
+
+	logExists := err == nil
+
+	if logExists {
+		// Update existing log with provided metrics
+		return s.updateHealthKitMetrics(ctx, date, metrics)
+	}
+
+	// Create new log - weight is required
+	if metrics.WeightKg == nil {
+		return ErrWeightRequired
+	}
+
+	return s.createMinimalLog(ctx, date, metrics)
+}
+
+// updateHealthKitMetrics updates only the non-nil fields for an existing log.
+func (s *DailyLogStore) updateHealthKitMetrics(ctx context.Context, date string, metrics HealthKitMetrics) error {
+	// Build dynamic update query based on which fields are provided
+	var setClauses []string
+	var args []interface{}
+
+	if metrics.Steps != nil {
+		setClauses = append(setClauses, "steps = ?")
+		args = append(args, *metrics.Steps)
+	}
+	if metrics.ActiveCaloriesBurned != nil {
+		setClauses = append(setClauses, "active_calories_burned = ?")
+		args = append(args, *metrics.ActiveCaloriesBurned)
+	}
+	if metrics.RestingHeartRate != nil {
+		setClauses = append(setClauses, "resting_heart_rate = ?")
+		args = append(args, *metrics.RestingHeartRate)
+	}
+	if metrics.SleepHours != nil {
+		setClauses = append(setClauses, "sleep_hours = ?")
+		args = append(args, *metrics.SleepHours)
+	}
+	if metrics.WeightKg != nil {
+		setClauses = append(setClauses, "weight_kg = ?")
+		args = append(args, *metrics.WeightKg)
+	}
+	if metrics.BodyFatPercent != nil {
+		setClauses = append(setClauses, "body_fat_percent = ?")
+		args = append(args, *metrics.BodyFatPercent)
+	}
+
+	if len(setClauses) == 0 {
+		// Nothing to update
+		return nil
+	}
+
+	// Always update updated_at
+	setClauses = append(setClauses, "updated_at = datetime('now')")
+
+	query := fmt.Sprintf("UPDATE daily_logs SET %s WHERE log_date = ?",
+		strings.Join(setClauses, ", "))
+	args = append(args, date)
+
+	result, err := s.db.ExecContext(ctx, query, args...)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return ErrDailyLogNotFound
+	}
+
+	return nil
+}
+
+// createMinimalLog creates a new daily log with HealthKit data and defaults.
+// Weight is required; other fields use HealthKit values or defaults.
+func (s *DailyLogStore) createMinimalLog(ctx context.Context, date string, metrics HealthKitMetrics) error {
+	const query = `
+		INSERT INTO daily_logs (
+			log_date, weight_kg, body_fat_percent, resting_heart_rate,
+			sleep_quality, sleep_hours,
+			planned_training_type, planned_duration_min,
+			day_type, active_calories_burned, steps,
+			created_at, updated_at
+		) VALUES (
+			?, ?, ?, ?,
+			50, ?,
+			'rest', 0,
+			'fatburner', ?, ?,
+			datetime('now'), datetime('now')
+		)
+	`
+
+	// Handle nullable fields
+	var bodyFatPercent, sleepHours, activeCaloriesBurned, steps, heartRate interface{}
+
+	if metrics.BodyFatPercent != nil {
+		bodyFatPercent = *metrics.BodyFatPercent
+	}
+	if metrics.SleepHours != nil {
+		sleepHours = *metrics.SleepHours
+	}
+	if metrics.ActiveCaloriesBurned != nil {
+		activeCaloriesBurned = *metrics.ActiveCaloriesBurned
+	}
+	if metrics.Steps != nil {
+		steps = *metrics.Steps
+	}
+	if metrics.RestingHeartRate != nil {
+		heartRate = *metrics.RestingHeartRate
+	}
+
+	_, err := s.db.ExecContext(ctx, query,
+		date, *metrics.WeightKg, bodyFatPercent, heartRate,
+		sleepHours,
+		activeCaloriesBurned, steps,
+	)
+	if err != nil {
+		if isUniqueConstraint(err) {
+			return ErrDailyLogAlreadyExists
+		}
+		return err
 	}
 
 	return nil

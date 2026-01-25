@@ -29,6 +29,7 @@ type DailyLog struct {
 	RecoveryScore         *RecoveryScore         // Recovery score breakdown (nil if not calculated)
 	AdjustmentMultipliers *AdjustmentMultipliers // Adjustment multipliers breakdown (nil if not calculated)
 	ActiveCaloriesBurned  *int                   // User-entered active calories from wearable
+	Steps                 *int                   // Daily step count from wearable
 	BMRPrecisionMode      bool                   // True if Katch-McArdle was auto-selected using recent body fat
 	BodyFatUsedDate       *string                // Date of body fat measurement used for precision BMR
 	Notes                 string                 // Daily notes/observations for LLM pattern recognition
