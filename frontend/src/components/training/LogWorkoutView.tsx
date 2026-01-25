@@ -505,7 +505,6 @@ export function LogWorkoutView({ log, onUpdateActual, saving }: LogWorkoutViewPr
                         value={globalRpe}
                         onChange={handleGlobalRpeChange}
                         disabled={saving}
-                        allowClear={false}
                       />
                       <p className="text-xs text-gray-500 mt-2 text-center">Applies to all non-rest sessions.</p>
                     </div>
@@ -550,29 +549,44 @@ export function LogWorkoutView({ log, onUpdateActual, saving }: LogWorkoutViewPr
                   return (
                     <div
                       key={session._id}
-                      className="bg-gray-900 rounded-xl p-4 border border-gray-800 relative"
+                      className="bg-gray-900 rounded-xl p-4 border border-gray-800"
                     >
-                      {/* Delete button */}
-                      {!isQuickMode && sessions.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removeSession(session._id)}
-                          className="absolute top-3 right-3 text-gray-500 hover:text-red-400 p-1"
-                          title="Remove session"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      )}
+                      {/* Header: Session number + delete button */}
+                      <div className="flex items-center justify-between mb-4">
+                        <span className="text-sm font-medium text-gray-400">Session {index + 1}</span>
+                        {!isQuickMode && sessions.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeSession(session._id)}
+                            className="text-gray-500 hover:text-red-400 p-1 rounded transition-colors"
+                            title="Remove session"
+                            aria-label="Remove session"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
 
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <div className="text-xs text-gray-500">Session {index + 1}</div>
-                          <div className="mt-1 flex flex-wrap items-center gap-2">
-                            {isQuickMode ? (
-                              <span className="text-sm font-medium text-gray-100">{trainingLabel}</span>
-                            ) : (
+                      {/* Context Row: Training type + Duration as pills */}
+                      <div className="flex flex-wrap items-center gap-3 mb-4">
+                        {isQuickMode ? (
+                          <>
+                            <span className="px-4 py-2 bg-gray-800 rounded-lg text-sm font-medium text-white">
+                              {trainingLabel}
+                            </span>
+                            {session.type !== 'rest' && (
+                              <span className="px-4 py-2 bg-gray-800 rounded-lg text-sm text-gray-300 flex items-center gap-2">
+                                <span className="text-gray-400">⏱</span>
+                                {session.durationMin} min
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            {/* Training Type Pill */}
+                            <div className="relative">
                               <select
                                 value={session.type}
                                 onChange={(e) => {
@@ -588,7 +602,7 @@ export function LogWorkoutView({ log, onUpdateActual, saving }: LogWorkoutViewPr
                                   });
                                 }}
                                 aria-label="Session type"
-                                className="h-8 pl-2 pr-7 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-white/20 appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-white/20 appearance-none cursor-pointer pr-8 hover:border-gray-600 transition-colors"
                                 style={{
                                   backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
                                   backgroundPosition: 'right 0.5rem center',
@@ -602,86 +616,111 @@ export function LogWorkoutView({ log, onUpdateActual, saving }: LogWorkoutViewPr
                                   </option>
                                 ))}
                               </select>
-                            )}
-                            <span className="text-gray-500">•</span>
-                            {isQuickMode ? (
-                              <span className="text-sm text-gray-400">
-                                {session.type === 'rest' ? 'Rest day' : `${session.durationMin} min`}
-                              </span>
-                            ) : (
-                              <div className="flex items-center gap-1">
+                            </div>
+
+                            {/* Duration Pill */}
+                            {session.type !== 'rest' && (
+                              <div className="flex items-center gap-2 px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg hover:border-gray-600 transition-colors">
+                                <span className="text-gray-400">⏱</span>
                                 <input
                                   type="number"
-                                  value={session.type === 'rest' ? '' : session.durationMin}
+                                  value={session.durationMin}
                                   onChange={(e) =>
                                     updateSession(session._id, {
                                       durationMin: parseInt(e.target.value) || 0,
                                     })
                                   }
-                                  disabled={session.type === 'rest'}
-                                  placeholder={session.type === 'rest' ? 'N/A' : 'min'}
                                   min={0}
                                   max={480}
                                   step={5}
                                   aria-label="Duration in minutes"
-                                  className="h-8 w-16 px-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  className="w-12 bg-transparent text-white text-sm font-medium focus:outline-none placeholder-gray-500"
                                 />
                                 <span className="text-xs text-gray-500">min</span>
                               </div>
                             )}
-                          </div>
-                        </div>
+                          </>
+                        )}
                       </div>
 
-                      {/* Intensity */}
+                      {/* Dial: Centered RadialIntensitySelector */}
                       {session.type !== 'rest' && (
-                        <div className="mt-3">
+                        <>
                           {isQuickMode ? (
-                            <p className="text-xs text-gray-400">Global RPE {globalRpe} applied.</p>
+                            <p className="text-center text-sm text-gray-400 my-4">
+                              Global RPE {globalRpe} applied
+                            </p>
                           ) : (
-                            <RadialIntensitySelector
-                              value={session.perceivedIntensity}
-                              onChange={(val) => updateSession(session._id, { perceivedIntensity: val })}
-                              disabled={saving}
-                            />
+                            <div className="flex justify-center my-4">
+                              <RadialIntensitySelector
+                                value={session.perceivedIntensity}
+                                onChange={(val) => updateSession(session._id, { perceivedIntensity: val })}
+                                disabled={saving}
+                              />
+                            </div>
                           )}
-                          <div className="mt-2 text-xs text-gray-400">
-                            {trainingLabel} - {session.durationMin}m - RPE {rpeValue}
-                            {isEstimatedRpe && <span className="text-gray-500"> (default)</span>}
-                            <span className={`ml-2 ${loadTone.className}`}>
-                              Load: {loadScore} ({loadTone.label})
-                            </span>
+
+                          {/* Load Output: Hero metric card */}
+                          <div className="text-center mt-4 p-3 bg-slate-800 rounded-lg border border-slate-700">
+                            <div className="flex items-center justify-center gap-2">
+                              <span className="text-lg">⚡</span>
+                              <span className="text-xl font-bold text-white">LOAD: {loadScore}</span>
+                            </div>
+                            <p className={`text-xs mt-1 ${loadTone.className}`}>
+                              ({loadTone.label})
+                            </p>
                           </div>
-                        </div>
+                        </>
                       )}
 
-                      {/* Notes */}
-                      {isNotesVisible ? (
-                        <div className="mt-3">
-                          <label className="block text-sm text-gray-400 mb-2">Notes</label>
-                          <textarea
-                            value={session.notes || ''}
-                            onChange={(e) => updateSession(session._id, { notes: e.target.value })}
-                            placeholder="How did it feel? Any observations..."
-                            rows={2}
-                            disabled={isQuickMode}
-                            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/20 resize-none disabled:opacity-50 disabled:cursor-not-allowed"
-                          />
-                        </div>
-                      ) : (
-                        !isQuickMode && (
+                      {/* Footer: Add Note + Clear RPE */}
+                      <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-800">
+                        {isNotesVisible ? (
+                          <div className="flex-1 mr-4">
+                            <textarea
+                              value={session.notes || ''}
+                              onChange={(e) => updateSession(session._id, { notes: e.target.value })}
+                              placeholder="How did it feel? Any observations..."
+                              rows={2}
+                              disabled={isQuickMode || saving}
+                              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/20 resize-none disabled:opacity-50"
+                            />
+                          </div>
+                        ) : (
+                          !isQuickMode && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setNotesExpanded((prev) => ({ ...prev, [session._id]: true }))
+                              }
+                              className="text-sm text-gray-400 hover:text-white transition-colors flex items-center gap-1"
+                              disabled={saving}
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                              </svg>
+                              Add Note
+                            </button>
+                          )
+                        )}
+
+                        {/* Clear RPE button */}
+                        {!isQuickMode && session.type !== 'rest' && session.perceivedIntensity !== undefined && (
                           <button
                             type="button"
-                            onClick={() =>
-                              setNotesExpanded((prev) => ({ ...prev, [session._id]: true }))
-                            }
-                            className="mt-3 text-xs text-gray-400 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            onClick={() => updateSession(session._id, { perceivedIntensity: undefined })}
+                            className="text-sm text-gray-500 hover:text-gray-300 transition-colors"
                             disabled={saving}
                           >
-                            + Add Note
+                            Clear RPE
                           </button>
-                        )
-                      )}
+                        )}
+
+                        {/* Spacer for alignment when no buttons */}
+                        {(isQuickMode || (session.type === 'rest') || (!isNotesVisible && session.perceivedIntensity === undefined)) && (
+                          <span />
+                        )}
+                      </div>
                     </div>
                   );
                 })}
