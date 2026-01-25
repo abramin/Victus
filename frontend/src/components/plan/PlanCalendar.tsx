@@ -62,6 +62,7 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
 
   // Drag-and-drop state
   const [dropTarget, setDropTarget] = useState<string | null>(null);
+  const [dragSource, setDragSource] = useState<string | null>(null);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -310,6 +311,16 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
     return `${label} +${nonRestSessions.length - 1} (${totalDuration}min total)`;
   };
 
+  // Drag source handlers for visual feedback
+  const handleDragStart = useCallback((date: string) => {
+    setDragSource(date);
+  }, []);
+
+  const handleDragEnd = useCallback(() => {
+    setDragSource(null);
+    setDropTarget(null);
+  }, []);
+
   // Handle drag-and-drop day type swap between two days
   const handleDayTypeSwap = useCallback(async (
     targetDate: string,
@@ -509,6 +520,9 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
                 onDragEnter={setDropTarget}
                 onDragLeave={() => setDropTarget(null)}
                 onDrop={handleDayTypeSwap}
+                isDragSource={dragSource === cellDateKey}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
               />
             );
           })}

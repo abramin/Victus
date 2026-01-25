@@ -51,6 +51,9 @@ interface CalendarDayCellProps {
   onDragEnter?: (date: string) => void;
   onDragLeave?: () => void;
   onDrop?: (targetDate: string, sourceData: DragSourceData) => void;
+  isDragSource?: boolean;
+  onDragStart?: (date: string) => void;
+  onDragEnd?: () => void;
 }
 
 /**
@@ -77,6 +80,9 @@ export function CalendarDayCell({
   onDragEnter,
   onDragLeave,
   onDrop,
+  isDragSource = false,
+  onDragStart,
+  onDragEnd,
 }: CalendarDayCellProps) {
   const isDisabled = !dayData.hasData;
   const sessions = dayData.actualSessions?.length
@@ -105,6 +111,8 @@ export function CalendarDayCell({
     // Drop target styling
     isDropTarget && isValidDropTarget && 'ring-2 ring-blue-400/50 bg-blue-500/10',
     isDropTarget && !isValidDropTarget && 'ring-2 ring-red-400/30 bg-red-500/5',
+    // Drag source styling - reduce opacity while dragging
+    isDragSource && 'opacity-50 ring-2 ring-blue-400/30',
   ].filter(Boolean).join(' ');
 
   const handleDayTypeSelect = (newDayType: DayType) => {
@@ -209,6 +217,8 @@ export function CalendarDayCell({
                   date={dateKey}
                   onSelect={handleDayTypeSelect}
                   disabled={isPast}
+                  onDragStart={onDragStart ? () => onDragStart(dateKey) : undefined}
+                  onDragEnd={onDragEnd}
                 />
               ) : (
                 <div className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${
