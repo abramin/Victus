@@ -1,0 +1,36 @@
+{
+  "expo": {
+    "name": "Victus Sync",
+    "slug": "victus-sync",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "splash": {
+      "backgroundColor": "#1a1a2e"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.victus.sync",
+      "infoPlist": {
+        "NSHealthShareUsageDescription": "Victus Sync reads your health data to sync steps, heart rate, sleep, and weight with your nutrition tracker.",
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        }
+      }
+    },
+    "android": {
+      "package": "com.victus.sync"
+    },
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static"
+          }
+        }
+      ]
+    ]
+  }
+}
