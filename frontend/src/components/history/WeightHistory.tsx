@@ -15,6 +15,7 @@ import {
   TrainingCalendarHeatmap,
   TrainingVolumeChart,
   CompositionChart,
+  RecoveryCorrelationChart,
 } from './charts';
 
 const RANGE_OPTIONS: { label: string; value: WeightTrendRange }[] = [
@@ -26,7 +27,7 @@ const RANGE_OPTIONS: { label: string; value: WeightTrendRange }[] = [
 
 const RECENT_LOG_LIMIT = 8;
 
-type ChartView = 'weight' | 'composition';
+type ChartView = 'weight' | 'composition' | 'recovery';
 
 /** Get trend confidence label and color based on R² value */
 function getTrendConfidence(rSquared: number): { label: string; color: string; emoji: string } {
@@ -81,6 +82,14 @@ export function WeightHistory({ profile }: { profile: UserProfile }) {
   const hasCompositionData = useMemo(() => {
     const pointsWithBodyFat = points.filter((p) => p.bodyFatPercent !== undefined);
     return pointsWithBodyFat.length >= 3;
+  }, [points]);
+
+  // Check if recovery data exists (at least 3 points with RHR or sleep)
+  const hasRecoveryData = useMemo(() => {
+    const pointsWithRecovery = points.filter(
+      (p) => p.restingHeartRate !== undefined || p.sleepHours !== undefined
+    );
+    return pointsWithRecovery.length >= 3;
   }, [points]);
 
   const handleSelectDate = async (date: string) => {
@@ -141,9 +150,15 @@ export function WeightHistory({ profile }: { profile: UserProfile }) {
 
       {/* Weight Trend Card (Hero Chart) */}
       <Card
-        title={chartView === 'weight' ? 'Weight Trend' : 'Body Composition'}
+        title={
+          chartView === 'weight'
+            ? 'Weight Trend'
+            : chartView === 'composition'
+              ? 'Body Composition'
+              : 'Recovery & Vitals'
+        }
         headerRight={
-          hasCompositionData ? (
+          (hasCompositionData || hasRecoveryData) ? (
             <div className="flex items-center gap-1 bg-slate-900 rounded-lg p-1 border border-slate-800">
               <button
                 onClick={() => setChartView('weight')}
@@ -155,16 +170,30 @@ export function WeightHistory({ profile }: { profile: UserProfile }) {
               >
                 Weight
               </button>
-              <button
-                onClick={() => setChartView('composition')}
-                className={`px-3 py-1 rounded text-xs transition-colors ${
-                  chartView === 'composition'
-                    ? 'bg-slate-700 text-white'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                Composition
-              </button>
+              {hasCompositionData && (
+                <button
+                  onClick={() => setChartView('composition')}
+                  className={`px-3 py-1 rounded text-xs transition-colors ${
+                    chartView === 'composition'
+                      ? 'bg-slate-700 text-white'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Composition
+                </button>
+              )}
+              {hasRecoveryData && (
+                <button
+                  onClick={() => setChartView('recovery')}
+                  className={`px-3 py-1 rounded text-xs transition-colors ${
+                    chartView === 'recovery'
+                      ? 'bg-slate-700 text-white'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Recovery
+                </button>
+              )}
             </div>
           ) : undefined
         }
@@ -206,15 +235,23 @@ export function WeightHistory({ profile }: { profile: UserProfile }) {
         )}
         {!loading && !error && (
           <div data-testid="weight-chart">
-            {chartView === 'weight' ? (
+            {chartView === 'weight' && (
               <WeightTrendChart
                 points={points}
                 trend={trend}
                 onSelectDate={handleSelectDate}
                 selectedDate={selectedDate}
               />
-            ) : (
+            )}
+            {chartView === 'composition' && (
               <CompositionChart
+                points={points}
+                onSelectDate={handleSelectDate}
+                selectedDate={selectedDate}
+              />
+            )}
+            {chartView === 'recovery' && (
+              <RecoveryCorrelationChart
                 points={points}
                 onSelectDate={handleSelectDate}
                 selectedDate={selectedDate}

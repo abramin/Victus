@@ -4,3 +4,4 @@ export { TrainingComplianceGrid } from './TrainingComplianceGrid';
 export { TrainingCalendarHeatmap } from './TrainingCalendarHeatmap';
 export { TrainingVolumeChart } from './TrainingVolumeChart';
 export { CompositionChart } from './CompositionChart';
+export { RecoveryCorrelationChart } from './RecoveryCorrelationChart';

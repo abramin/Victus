@@ -31,6 +31,7 @@ type DailyLog struct {
 	ActiveCaloriesBurned  *int                   // User-entered active calories from wearable
 	BMRPrecisionMode      bool                   // True if Katch-McArdle was auto-selected using recent body fat
 	BodyFatUsedDate       *string                // Date of body fat measurement used for precision BMR
+	Notes                 string                 // Daily notes/observations for LLM pattern recognition
 	CreatedAt             time.Time
 	UpdatedAt             time.Time
 }
@@ -45,6 +46,7 @@ type DailyLogInput struct {
 	SleepHours       *float64
 	PlannedSessions  []TrainingSession
 	DayType          DayType
+	Notes            string
 }
 
 // NewDailyLogFromInput creates a DailyLog from the input using the builder.
@@ -65,6 +67,9 @@ func NewDailyLogFromInput(input DailyLogInput, now time.Time) (*DailyLog, error)
 	}
 	if input.RestingHeartRate != nil {
 		builder.WithRestingHeartRate(*input.RestingHeartRate)
+	}
+	if input.Notes != "" {
+		builder.WithNotes(input.Notes)
 	}
 
 	return builder.Build(now)
@@ -134,6 +139,12 @@ func (b *DailyLogBuilder) WithSleepHours(hours float64) *DailyLogBuilder {
 // WithRestingHeartRate sets the optional resting heart rate.
 func (b *DailyLogBuilder) WithRestingHeartRate(bpm int) *DailyLogBuilder {
 	b.log.RestingHeartRate = &bpm
+	return b
+}
+
+// WithNotes sets the optional daily notes.
+func (b *DailyLogBuilder) WithNotes(notes string) *DailyLogBuilder {
+	b.log.Notes = notes
 	return b
 }
 

@@ -1,3 +1,6 @@
+// TypeScript types for Victus API
+// Ported from frontend/src/api/types.ts
+
 export type Sex = 'male' | 'female';
 export type Goal = 'lose_weight' | 'maintain' | 'gain_weight';
 export type TDEESource = 'formula' | 'manual' | 'adaptive';
@@ -38,11 +41,11 @@ export interface UserProfile {
   supplementConfig: SupplementConfig;
   fruitTargetG: number;
   veggieTargetG: number;
-  bmrEquation?: BMREquation;    // mifflin_st_jeor (default), katch_mcardle, oxford_henry, harris_benedict
-  bodyFatPercent?: number;      // For Katch-McArdle equation (optional, 3-70%)
-  tdeeSource?: TDEESource;      // formula (default), manual, or adaptive
-  manualTDEE?: number;          // User-provided TDEE (when tdeeSource is 'manual')
-  recalibrationTolerance?: number; // Plan variance tolerance percentage (1-10%, default 3%)
+  bmrEquation?: BMREquation;
+  bodyFatPercent?: number;
+  tdeeSource?: TDEESource;
+  manualTDEE?: number;
+  recalibrationTolerance?: number;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -69,17 +72,8 @@ export type TrainingType =
 
 export type DayType = 'performance' | 'fatburner' | 'metabolize';
 
-// Sleep quality score (1-100).
 export type SleepQuality = number;
 
-// Deprecated: Use TrainingSession for multi-session support
-export interface PlannedTraining {
-  type: TrainingType;
-  plannedDurationMin: number;
-}
-
-// TrainingSession represents a single training session within a day.
-// A day can have multiple sessions (e.g., morning Qigong + afternoon strength).
 export interface TrainingSession {
   sessionOrder?: number;
   type: TrainingType;
@@ -87,7 +81,6 @@ export interface TrainingSession {
   notes?: string;
 }
 
-// ActualTrainingSession represents an actual training session logged after completion.
 export interface ActualTrainingSession {
   sessionOrder?: number;
   type: TrainingType;
@@ -96,30 +89,27 @@ export interface ActualTrainingSession {
   notes?: string;
 }
 
-// TrainingSummary provides aggregate info about training sessions.
 export interface TrainingSummary {
   sessionCount: number;
   totalDurationMin: number;
   totalLoadScore: number;
-  summary: string; // e.g., "3 sessions, 110 min total"
+  summary: string;
 }
 
-// RecoveryScoreBreakdown contains recovery score with component breakdown.
 export interface RecoveryScoreBreakdown {
-  score: number;          // Total score 0-100
-  restComponent: number;  // Rest days component (0-35)
-  acrComponent: number;   // ACR zone component (0-30)
-  sleepComponent: number; // Sleep quality component (0-20)
-  rhrComponent?: number;  // RHR deviation component (0-15)
+  score: number;
+  restComponent: number;
+  acrComponent: number;
+  sleepComponent: number;
+  rhrComponent?: number;
 }
 
-// AdjustmentMultipliers contains adjustment factors for daily TDEE.
 export interface AdjustmentMultipliers {
-  trainingLoad: number;       // Based on ACR thresholds
-  recoveryScore: number;      // Based on recovery score
-  sleepQuality: number;       // Based on today's sleep quality
-  yesterdayIntensity: number; // Based on yesterday's max load score
-  total: number;              // Product of all multipliers, rounded to 2 decimals
+  trainingLoad: number;
+  recoveryScore: number;
+  sleepQuality: number;
+  yesterdayIntensity: number;
+  total: number;
 }
 
 export interface MacroPoints {
@@ -146,18 +136,6 @@ export interface DailyTargets {
   dayType: DayType;
 }
 
-export interface DailyTargetsRangePoint {
-  date: string;
-  calculatedTargets: DailyTargets;
-  activeCaloriesBurned?: number;
-  plannedSessions?: TrainingSession[];
-  actualSessions?: ActualTrainingSession[];
-}
-
-export interface DailyTargetsRangeResponse {
-  days: DailyTargetsRangePoint[];
-}
-
 export interface DailyLog {
   date: string;
   weightKg: number;
@@ -172,15 +150,14 @@ export interface DailyLog {
   calculatedTargets: DailyTargets;
   estimatedTDEE: number;
   formulaTDEE?: number;
-  tdeeSourceUsed: TDEESource;     // Which TDEE source was used for this day
-  tdeeConfidence?: number;        // 0-1 confidence level for adaptive TDEE
-  dataPointsUsed?: number;        // Number of data points used for adaptive calculation
-  recoveryScore?: RecoveryScoreBreakdown;       // Recovery score breakdown
-  adjustmentMultipliers?: AdjustmentMultipliers; // Adjustment multipliers breakdown
-  activeCaloriesBurned?: number;                // User-entered active calories from wearable
-  bmrPrecisionMode?: boolean;                   // True if Katch-McArdle auto-selected using recent body fat
-  bodyFatUsedDate?: string;                     // Date of body fat measurement used for precision BMR
-  notes?: string;                               // Daily notes/observations
+  tdeeSourceUsed: TDEESource;
+  tdeeConfidence?: number;
+  dataPointsUsed?: number;
+  recoveryScore?: RecoveryScoreBreakdown;
+  adjustmentMultipliers?: AdjustmentMultipliers;
+  activeCaloriesBurned?: number;
+  bmrPrecisionMode?: boolean;
+  bodyFatUsedDate?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -194,7 +171,6 @@ export interface CreateDailyLogRequest {
   sleepHours?: number;
   plannedTrainingSessions: TrainingSession[];
   dayType: DayType;
-  notes?: string;
 }
 
 export interface UpdateActualTrainingRequest {
@@ -205,10 +181,9 @@ export interface UpdateActiveCaloriesRequest {
   activeCaloriesBurned: number | null;
 }
 
-// Training Config Types
 export interface TrainingConfig {
   type: TrainingType;
-  met: number; // Metabolic Equivalent of Task for calorie calculations
+  met: number;
   loadScore: number;
 }
 
@@ -238,24 +213,14 @@ export interface HistoryPoint {
   estimatedTDEE: number;
   tdeeConfidence: number;
   hasTraining: boolean;
-
-  // Per-day training details for compliance tracking
   plannedSessionCount: number;
   actualSessionCount: number;
   plannedDurationMin: number;
   actualDurationMin: number;
-
-  // Annotated history: notes from training sessions
   notes?: string;
-
-  // Body composition for lean mass vs fat mass visualization
   bodyFatPercent?: number;
   leanMassKg?: number;
   fatMassKg?: number;
-
-  // Recovery metrics for correlation analysis
-  restingHeartRate?: number;
-  sleepHours?: number;
 }
 
 export interface TrainingSummaryRange {
@@ -269,7 +234,7 @@ export interface HistoryResponse {
   trainingSummary: TrainingSummaryRange;
 }
 
-// Planned Day Types (Cockpit Dashboard)
+// Planned Day Types
 export interface PlannedDay {
   date: string;
   dayType: DayType;
@@ -279,7 +244,7 @@ export interface PlannedDaysResponse {
   days: PlannedDay[];
 }
 
-// Food Reference Types (Cockpit Dashboard)
+// Food Reference Types
 export type FoodCategory = 'high_carb' | 'high_protein' | 'high_fat';
 
 export interface FoodReference {
@@ -293,7 +258,7 @@ export interface FoodReferenceResponse {
   foods: FoodReference[];
 }
 
-// Nutrition Plan Types (Issue #27, #28)
+// Nutrition Plan Types
 export type PlanStatus = 'active' | 'completed' | 'abandoned' | 'paused';
 
 export interface WeeklyTarget {
@@ -313,7 +278,7 @@ export interface WeeklyTarget {
 
 export interface NutritionPlan {
   id: number;
-  name?: string; // User-defined plan name (e.g., "Summer Cut")
+  name?: string;
   startDate: string;
   startWeightKg: number;
   goalWeightKg: number;
@@ -329,7 +294,7 @@ export interface NutritionPlan {
 
 export interface NutritionPlanSummary {
   id: number;
-  name?: string; // User-defined plan name
+  name?: string;
   startDate: string;
   startWeightKg: number;
   goalWeightKg: number;
@@ -343,14 +308,14 @@ export interface NutritionPlanSummary {
 }
 
 export interface CreatePlanRequest {
-  name?: string; // User-defined plan name (optional)
+  name?: string;
   startDate: string;
   startWeightKg: number;
   goalWeightKg: number;
   durationWeeks: number;
 }
 
-// Dual-Track Analysis Types (Issue #29)
+// Dual-Track Analysis Types
 export type RecalibrationOptionType = 'increase_deficit' | 'extend_timeline' | 'revise_goal' | 'keep_current';
 export type FeasibilityTag = 'Achievable' | 'Moderate' | 'Ambitious';
 

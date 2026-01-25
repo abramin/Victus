@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { IntensitySelector } from './IntensitySelector';
+import { RadialIntensitySelector } from './RadialIntensitySelector';
+import { TrainingTypeCards } from './TrainingTypeCards';
+import { SessionReceipt } from './SessionReceipt';
 import { ActualVsPlannedComparison } from './ActualVsPlannedComparison';
 import type { DailyLog, ActualTrainingSession, TrainingSession, TrainingType } from '../../api/types';
 import { TRAINING_LABELS } from '../../constants';
@@ -105,6 +107,8 @@ export function LogWorkoutView({ log, onUpdateActual, saving }: LogWorkoutViewPr
   const [isWorkoutExpanded, setIsWorkoutExpanded] = useState(() => isAfterEvening(new Date()));
   const [isDetailsCollapsed, setIsDetailsCollapsed] = useState(false);
   const [notesExpanded, setNotesExpanded] = useState<Record<string, boolean>>({});
+  const [showReceipt, setShowReceipt] = useState(false);
+  const [savedLoadScore, setSavedLoadScore] = useState(0);
   const idCounterRef = useRef(0);
 
   const generateId = useCallback(() => {
@@ -204,6 +208,12 @@ export function LogWorkoutView({ log, onUpdateActual, saving }: LogWorkoutViewPr
     const result = await onUpdateActual(sessionsWithoutId);
     if (result) {
       setHasUnsavedChanges(false);
+      // Calculate total load score and show receipt
+      const totalLoad = sessions.reduce((sum, session) => sum + getSessionLoadScore(session), 0);
+      if (totalLoad > 0) {
+        setSavedLoadScore(totalLoad);
+        setShowReceipt(true);
+      }
     }
   };
 
@@ -491,13 +501,13 @@ export function LogWorkoutView({ log, onUpdateActual, saving }: LogWorkoutViewPr
                   </div>
                   {hasActiveSessions && (
                     <div className="mt-4">
-                      <IntensitySelector
+                      <RadialIntensitySelector
                         value={globalRpe}
                         onChange={handleGlobalRpeChange}
                         disabled={saving}
                         allowClear={false}
                       />
-                      <p className="text-xs text-gray-500 mt-2">Applies to all non-rest sessions.</p>
+                      <p className="text-xs text-gray-500 mt-2 text-center">Applies to all non-rest sessions.</p>
                     </div>
                   )}
                 </div>
@@ -629,7 +639,7 @@ export function LogWorkoutView({ log, onUpdateActual, saving }: LogWorkoutViewPr
                           {isQuickMode ? (
                             <p className="text-xs text-gray-400">Global RPE {globalRpe} applied.</p>
                           ) : (
-                            <IntensitySelector
+                            <RadialIntensitySelector
                               value={session.perceivedIntensity}
                               onChange={(val) => updateSession(session._id, { perceivedIntensity: val })}
                               disabled={saving}
@@ -703,6 +713,13 @@ export function LogWorkoutView({ log, onUpdateActual, saving }: LogWorkoutViewPr
           )}
         </>
       )}
+
+      {/* Session Receipt Animation */}
+      <SessionReceipt
+        loadScore={savedLoadScore}
+        isVisible={showReceipt}
+        onComplete={() => setShowReceipt(false)}
+      />
     </div>
   );
 }

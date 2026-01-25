@@ -19,6 +19,10 @@ type HistoryPoint struct {
 
 	// Body composition: for lean mass vs fat mass visualization
 	BodyFatPercent *float64
+
+	// Recovery metrics for correlation analysis
+	RestingHeartRate *int
+	SleepHours       *float64
 }
 
 // TrainingSummaryAggregate provides aggregate training totals over a range.

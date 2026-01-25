@@ -41,6 +41,7 @@ type CreateDailyLogRequest struct {
 	SleepHours              *float64                 `json:"sleepHours,omitempty"`
 	PlannedTrainingSessions []TrainingSessionRequest `json:"plannedTrainingSessions"`
 	DayType                 string                   `json:"dayType,omitempty"`
+	Notes                   string                   `json:"notes,omitempty"`
 }
 
 // TrainingSessionResponse represents a training session in API responses.
@@ -160,6 +161,7 @@ type DailyLogResponse struct {
 	ActiveCaloriesBurned    *int                            `json:"activeCaloriesBurned,omitempty"`  // User-entered active calories from wearable
 	BMRPrecisionMode        bool                            `json:"bmrPrecisionMode,omitempty"`      // True if Katch-McArdle auto-selected using recent body fat
 	BodyFatUsedDate         *string                         `json:"bodyFatUsedDate,omitempty"`       // Date of body fat measurement used for precision BMR
+	Notes                   string                          `json:"notes,omitempty"`                 // Daily notes/observations
 	CreatedAt               string                          `json:"createdAt,omitempty"`
 	UpdatedAt               string                          `json:"updatedAt,omitempty"`
 }
@@ -218,6 +220,7 @@ func DailyLogInputFromRequest(req CreateDailyLogRequest) (domain.DailyLogInput, 
 		SleepHours:       req.SleepHours,
 		PlannedSessions:  sessions,
 		DayType:          dayType,
+		Notes:            req.Notes,
 	}, nil
 }
 
@@ -423,6 +426,7 @@ func DailyLogToResponseWithTrainingLoad(d *domain.DailyLog, trainingLoad *domain
 		ActiveCaloriesBurned:  d.ActiveCaloriesBurned,
 		BMRPrecisionMode:      d.BMRPrecisionMode,
 		BodyFatUsedDate:       d.BodyFatUsedDate,
+		Notes:                 d.Notes,
 	}
 
 	if !d.CreatedAt.IsZero() {

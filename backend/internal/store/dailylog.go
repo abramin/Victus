@@ -61,7 +61,7 @@ func (s *DailyLogStore) GetByDate(ctx context.Context, date string) (*domain.Dai
 			COALESCE(fruit_g, 0), COALESCE(veggies_g, 0), COALESCE(water_l, 0), COALESCE(day_type, 'fatburner'),
 			COALESCE(estimated_tdee, 0), COALESCE(formula_tdee, 0),
 			COALESCE(tdee_source_used, 'formula'), COALESCE(tdee_confidence, 0), COALESCE(data_points_used, 0),
-			active_calories_burned,
+			active_calories_burned, COALESCE(notes, ''),
 			created_at, updated_at
 		FROM daily_logs
 		WHERE log_date = ?
@@ -92,7 +92,7 @@ func (s *DailyLogStore) GetByDate(ctx context.Context, date string) (*domain.Dai
 		&log.CalculatedTargets.WaterL, &log.CalculatedTargets.DayType,
 		&log.EstimatedTDEE, &log.FormulaTDEE,
 		&log.TDEESourceUsed, &log.TDEEConfidence, &log.DataPointsUsed,
-		&activeCaloriesBurned,
+		&activeCaloriesBurned, &log.Notes,
 		&createdAt, &updatedAt,
 	)
 
@@ -164,7 +164,7 @@ func (s *DailyLogStore) create(ctx context.Context, execer sqlExecer, log *domai
 			lunch_carb_points, lunch_protein_points, lunch_fat_points,
 			dinner_carb_points, dinner_protein_points, dinner_fat_points,
 			fruit_g, veggies_g, water_l, day_type, estimated_tdee, formula_tdee,
-			tdee_source_used, tdee_confidence, data_points_used,
+			tdee_source_used, tdee_confidence, data_points_used, notes,
 			created_at, updated_at
 		) VALUES (
 			?, ?, ?, ?,
@@ -175,7 +175,7 @@ func (s *DailyLogStore) create(ctx context.Context, execer sqlExecer, log *domai
 			?, ?, ?,
 			?, ?, ?,
 			?, ?, ?, ?, ?, ?,
-			?, ?, ?,
+			?, ?, ?, ?,
 			datetime('now'), datetime('now')
 		)
 	`
@@ -210,7 +210,7 @@ func (s *DailyLogStore) create(ctx context.Context, execer sqlExecer, log *domai
 		log.CalculatedTargets.FruitG, log.CalculatedTargets.VeggiesG,
 		log.CalculatedTargets.WaterL, log.DayType,
 		log.EstimatedTDEE, log.FormulaTDEE,
-		log.TDEESourceUsed, log.TDEEConfidence, log.DataPointsUsed,
+		log.TDEESourceUsed, log.TDEEConfidence, log.DataPointsUsed, log.Notes,
 	)
 	if err != nil {
 		if isUniqueConstraint(err) {
@@ -265,7 +265,8 @@ func (s *DailyLogStore) ListWeights(ctx context.Context, startDate string) ([]do
 // If startDate is empty, all samples are returned.
 func (s *DailyLogStore) ListHistoryPoints(ctx context.Context, startDate string) ([]domain.HistoryPoint, error) {
 	query := `
-		SELECT log_date, weight_kg, COALESCE(estimated_tdee, 0), COALESCE(tdee_confidence, 0), body_fat_percent
+		SELECT log_date, weight_kg, COALESCE(estimated_tdee, 0), COALESCE(tdee_confidence, 0),
+			body_fat_percent, resting_heart_rate, sleep_hours
 		FROM daily_logs
 	`
 	var args []interface{}
@@ -285,17 +286,28 @@ func (s *DailyLogStore) ListHistoryPoints(ctx context.Context, startDate string)
 	for rows.Next() {
 		var point domain.HistoryPoint
 		var bodyFatPercent sql.NullFloat64
+		var restingHeartRate sql.NullInt64
+		var sleepHours sql.NullFloat64
 		if err := rows.Scan(
 			&point.Date,
 			&point.WeightKg,
 			&point.EstimatedTDEE,
 			&point.TDEEConfidence,
 			&bodyFatPercent,
+			&restingHeartRate,
+			&sleepHours,
 		); err != nil {
 			return nil, err
 		}
 		if bodyFatPercent.Valid {
 			point.BodyFatPercent = &bodyFatPercent.Float64
+		}
+		if restingHeartRate.Valid {
+			rhr := int(restingHeartRate.Int64)
+			point.RestingHeartRate = &rhr
+		}
+		if sleepHours.Valid {
+			point.SleepHours = &sleepHours.Float64
 		}
 		points = append(points, point)
 	}
