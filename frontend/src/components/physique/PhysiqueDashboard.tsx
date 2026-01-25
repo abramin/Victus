@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useBodyStatus } from '../../hooks/useBodyStatus';
 import { BodyMapVisualizer } from '../body-map';
+import { getRecoveryStatus } from '../../utils';
 import type { MuscleGroup, MuscleFatigue } from '../../api/types';
 
 // Region grouping for organized muscle display
@@ -55,6 +56,8 @@ function getStatusBgColor(score: number): string {
 }
 
 function MuscleListItem({ muscle, compact = false }: { muscle: MuscleFatigue; compact?: boolean }) {
+  const recovery = getRecoveryStatus(muscle.fatiguePercent);
+
   return (
     <div className={`flex items-center justify-between ${compact ? 'py-1.5' : 'py-2'}`}>
       <div className="flex items-center gap-2">
@@ -76,8 +79,11 @@ function MuscleListItem({ muscle, compact = false }: { muscle: MuscleFatigue; co
             transition={{ duration: 0.5, ease: 'easeOut' }}
           />
         </div>
-        <span className={`${compact ? 'text-xs' : 'text-sm'} text-gray-400 w-10 text-right`}>
-          {muscle.fatiguePercent.toFixed(0)}%
+        <span
+          className={`${compact ? 'text-xs' : 'text-sm'} ${recovery.color} ${compact ? 'w-20' : 'w-24'} text-right truncate`}
+          title={`${muscle.fatiguePercent.toFixed(0)}% fatigue`}
+        >
+          {recovery.label}
         </span>
       </div>
     </div>
@@ -219,19 +225,6 @@ export function PhysiqueDashboard() {
     ? bodyStatus.muscles.find((m) => m.muscle === selectedMuscle)
     : null;
 
-  // Calculate recovery time
-  const calculateRecoveryTime = (fatiguePercent: number): string => {
-    if (fatiguePercent <= 0) return 'Ready';
-    const hours = Math.ceil(fatiguePercent / 2); // 2% per hour
-    if (hours < 1) return '< 1h';
-    if (hours === 1) return '1h';
-    if (hours < 24) return `${hours}h`;
-    const days = Math.floor(hours / 24);
-    const remainingHours = hours % 24;
-    if (remainingHours === 0) return `${days}d`;
-    return `${days}d ${remainingHours}h`;
-  };
-
   return (
     <div className="p-6 max-w-5xl">
       {/* Header */}
@@ -332,10 +325,22 @@ export function PhysiqueDashboard() {
                       </span>
                     </div>
                     <div className="col-span-2">
-                      <span className="text-gray-500">Ready in:</span>
-                      <span className="ml-2 text-white">
-                        {calculateRecoveryTime(selectedMuscleData.fatiguePercent)}
-                      </span>
+                      <span className="text-gray-500">Recovery:</span>
+                      {(() => {
+                        const recovery = getRecoveryStatus(selectedMuscleData.fatiguePercent);
+                        return (
+                          <>
+                            <span className={`ml-2 font-medium ${recovery.color}`}>
+                              {recovery.label}
+                            </span>
+                            {!recovery.isReady && (
+                              <span className="ml-2 text-gray-500 text-xs">
+                                ({recovery.hoursRemaining}h)
+                              </span>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
                   {selectedMuscleData.lastUpdated && (
