@@ -54,6 +54,7 @@ interface DayData {
 export function PlanCalendar({ profile }: PlanCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<'All Days' | 'Performance' | 'Fatburner' | 'Metabolize'>('All Days');
+  const [showStats, setShowStats] = useState(false);
   const [selectedDay, setSelectedDay] = useState<DayData | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [rangeData, setRangeData] = useState<DailyTargetsRangePoint[]>([]);
@@ -449,6 +450,16 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
 
         {/* Filters */}
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowStats(!showStats)}
+            className={`px-3 py-2 rounded-lg text-sm transition-colors ${
+              showStats
+                ? 'bg-slate-700 text-white'
+                : 'bg-gray-800 text-gray-400 hover:text-white border border-gray-700'
+            }`}
+          >
+            {showStats ? 'Hide Stats' : 'Show Stats'}
+          </button>
           <select
             value={viewMode}
             onChange={(e) => setViewMode(e.target.value as typeof viewMode)}
@@ -513,6 +524,7 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
                 isSelected={isSelected}
                 isFiltered={isFiltered}
                 isPast={cellIsPast}
+                showStats={showStats}
                 onClick={() => openDayDialog(dayData)}
                 onDayTypeChange={handleDayTypeChange}
                 isDropTarget={dropTarget === cellDateKey}

@@ -252,6 +252,10 @@ export interface HistoryPoint {
   bodyFatPercent?: number;
   leanMassKg?: number;
   fatMassKg?: number;
+
+  // Recovery metrics for correlation analysis
+  restingHeartRate?: number;
+  sleepHours?: number;
 }
 
 export interface TrainingSummaryRange {

@@ -44,6 +44,7 @@ interface CalendarDayCellProps {
   isSelected: boolean;
   isFiltered: boolean;
   isPast: boolean;
+  showStats?: boolean;
   onClick: () => void;
   onDayTypeChange?: (date: string, dayType: DayType) => void;
   isDropTarget?: boolean;
@@ -73,6 +74,7 @@ export function CalendarDayCell({
   isSelected,
   isFiltered,
   isPast,
+  showStats = false,
   onClick,
   onDayTypeChange,
   isDropTarget = false,
@@ -182,14 +184,14 @@ export function CalendarDayCell({
           {isToday && (
             <span className="text-[10px] text-blue-400 font-medium">TODAY</span>
           )}
-          {/* Adherence indicator for past days */}
-          {isPast && dayData.hasData && (
+          {/* Adherence indicator for past days - only when showStats is enabled */}
+          {showStats && isPast && dayData.hasData && (
             <AdherenceIndicator status={adherenceStatus} compact />
           )}
         </div>
 
-        {/* Mini Macro Donut Chart (24px, shrunk from 32px) */}
-        {dayData.hasData && dayData.mealGrams && (
+        {/* Mini Macro Donut Chart (24px) - only when showStats is enabled */}
+        {showStats && dayData.hasData && dayData.mealGrams && (
           <MacroDonutChart
             carbs={dayData.mealGrams.dinner.carbsG}
             protein={dayData.mealGrams.dinner.proteinG}
@@ -228,12 +230,15 @@ export function CalendarDayCell({
                 </div>
               )
             )}
-            <div className="text-right">
-              <span className="text-xs font-medium text-white">
-                {dayData.totalCalories}
-              </span>
-              <span className="text-[10px] text-gray-500 ml-0.5">kcal</span>
-            </div>
+            {/* Calories - only when showStats is enabled */}
+            {showStats && (
+              <div className="text-right">
+                <span className="text-xs font-medium text-white">
+                  {dayData.totalCalories}
+                </span>
+                <span className="text-[10px] text-gray-500 ml-0.5">kcal</span>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -26,6 +26,10 @@ type HistoryPointResponse struct {
 	BodyFatPercent *float64 `json:"bodyFatPercent,omitempty"`
 	LeanMassKg     *float64 `json:"leanMassKg,omitempty"`
 	FatMassKg      *float64 `json:"fatMassKg,omitempty"`
+
+	// Recovery metrics for correlation analysis
+	RestingHeartRate *int     `json:"restingHeartRate,omitempty"`
+	SleepHours       *float64 `json:"sleepHours,omitempty"`
 }
 
 type HistoryTrainingSummaryResponse struct {
@@ -64,6 +68,8 @@ func HistoryToResponse(summary *domain.HistorySummary) HistoryResponse {
 			ActualDurationMin:   point.ActualDurationMin,
 			Notes:               point.Notes,
 			BodyFatPercent:      point.BodyFatPercent,
+			RestingHeartRate:    point.RestingHeartRate,
+			SleepHours:          point.SleepHours,
 		}
 		// Calculate lean mass and fat mass if body fat is available
 		if point.BodyFatPercent != nil {

@@ -265,7 +265,8 @@ func (s *DailyLogStore) ListWeights(ctx context.Context, startDate string) ([]do
 // If startDate is empty, all samples are returned.
 func (s *DailyLogStore) ListHistoryPoints(ctx context.Context, startDate string) ([]domain.HistoryPoint, error) {
 	query := `
-		SELECT log_date, weight_kg, COALESCE(estimated_tdee, 0), COALESCE(tdee_confidence, 0), body_fat_percent
+		SELECT log_date, weight_kg, COALESCE(estimated_tdee, 0), COALESCE(tdee_confidence, 0),
+			body_fat_percent, resting_heart_rate, sleep_hours
 		FROM daily_logs
 	`
 	var args []interface{}
@@ -285,17 +286,28 @@ func (s *DailyLogStore) ListHistoryPoints(ctx context.Context, startDate string)
 	for rows.Next() {
 		var point domain.HistoryPoint
 		var bodyFatPercent sql.NullFloat64
+		var restingHeartRate sql.NullInt64
+		var sleepHours sql.NullFloat64
 		if err := rows.Scan(
 			&point.Date,
 			&point.WeightKg,
 			&point.EstimatedTDEE,
 			&point.TDEEConfidence,
 			&bodyFatPercent,
+			&restingHeartRate,
+			&sleepHours,
 		); err != nil {
 			return nil, err
 		}
 		if bodyFatPercent.Valid {
 			point.BodyFatPercent = &bodyFatPercent.Float64
+		}
+		if restingHeartRate.Valid {
+			rhr := int(restingHeartRate.Int64)
+			point.RestingHeartRate = &rhr
+		}
+		if sleepHours.Valid {
+			point.SleepHours = &sleepHours.Float64
 		}
 		points = append(points, point)
 	}
