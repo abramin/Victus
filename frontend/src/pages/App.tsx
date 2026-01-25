@@ -12,6 +12,7 @@ import { DailyUpdateForm } from '../components/daily-update';
 import { LogWorkoutView } from '../components/training';
 import { ProfileForm } from '../components/settings/ProfileForm';
 import { ErrorBoundary } from '../components/common';
+import { WorkoutPlanner } from '../components/workout-planner';
 
 function App() {
   const {
@@ -107,6 +108,8 @@ function App() {
           } />
           {/* Schedule - The Tactical Calendar */}
           <Route path="/schedule" element={<PlanCalendar profile={profile} />} />
+          {/* Workout Planner - Tactical Drag-and-Drop */}
+          <Route path="/workout-planner" element={<WorkoutPlanner />} />
           <Route path="/history" element={<WeightHistory profile={profile} />} />
           <Route
             path="/log-workout"
