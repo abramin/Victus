@@ -162,7 +162,9 @@ function calculateMealPoints(
   profile: UserProfile,
   dayType: DayType
 ): MealTargets {
-  const { mealRatios, pointsConfig, supplementConfig } = profile;
+  const { pointsConfig, supplementConfig } = profile;
+  // Use effective meal ratios (respects fasting protocol) with fallback to raw ratios
+  const mealRatios = profile.effectiveMealRatios ?? profile.mealRatios;
 
   // Calculate available carbs (subtract fruit/veggie contributions)
   const fruitCarbs = fruitG * FRUIT_CARBS_PERCENT_WEIGHT;

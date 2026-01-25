@@ -194,6 +194,7 @@ export function DailyUpdateForm({
     year: 'numeric',
   });
   const targets = log?.calculatedTargets ?? null;
+  const effectiveRatios = profile.effectiveMealRatios ?? profile.mealRatios;
   const adjustedMealTargets = useMemo(() => {
     if (!targets) return null;
     return calculateMealTargets(
@@ -202,12 +203,12 @@ export function DailyUpdateForm({
       targets.totalFatsG,
       targets.fruitG,
       targets.veggiesG,
-      profile.mealRatios,
+      effectiveRatios,
       profile.pointsConfig,
       targets.dayType,
       profile.supplementConfig
     );
-  }, [profile.mealRatios, profile.pointsConfig, profile.supplementConfig, targets]);
+  }, [effectiveRatios, profile.pointsConfig, profile.supplementConfig, targets]);
 
   // Calculate provisional targets for live preview (when no saved log exists OR when editing)
   const provisionalTargets = useMemo(() => {

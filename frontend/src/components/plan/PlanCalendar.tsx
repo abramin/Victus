@@ -141,13 +141,14 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
       }
 
       const targets = dayPoint.calculatedTargets;
+      const effectiveRatios = profile.effectiveMealRatios ?? profile.mealRatios;
       const mealTargets = calculateMealTargets(
         targets.totalCarbsG,
         targets.totalProteinG,
         targets.totalFatsG,
         targets.fruitG,
         targets.veggiesG,
-        profile.mealRatios,
+        effectiveRatios,
         profile.pointsConfig,
         targets.dayType,
         profile.supplementConfig
@@ -231,7 +232,7 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
       });
     }
     return data;
-  }, [daysInMonth, month, profile.mealRatios, profile.pointsConfig, profile.supplementConfig, dataByDate, year]);
+  }, [daysInMonth, month, profile.effectiveMealRatios, profile.mealRatios, profile.pointsConfig, profile.supplementConfig, dataByDate, year]);
 
   const navigateMonth = (delta: number) => {
     const newDate = new Date(year, month + delta, 1);

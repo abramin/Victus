@@ -74,12 +74,21 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
   const [selectedMeal, setSelectedMeal] = useState<'breakfast' | 'lunch' | 'dinner'>('dinner');
   const [supplementsExpanded, setSupplementsExpanded] = useState(false);
 
-  // Get meal ratios from profile (convert to percentages)
+  // Get effective meal ratios from profile (respects fasting protocol)
+  const effectiveRatios = profile.effectiveMealRatios ?? profile.mealRatios;
+
+  // Convert to percentages for display
   const mealRatios = useMemo(() => ({
-    breakfast: Math.round(profile.mealRatios.breakfast * 100),
-    lunch: Math.round(profile.mealRatios.lunch * 100),
-    dinner: Math.round(profile.mealRatios.dinner * 100),
-  }), [profile.mealRatios]);
+    breakfast: Math.round(effectiveRatios.breakfast * 100),
+    lunch: Math.round(effectiveRatios.lunch * 100),
+    dinner: Math.round(effectiveRatios.dinner * 100),
+  }), [effectiveRatios]);
+
+  // Determine which meals are visible based on fasting protocol
+  const visibleMeals = useMemo(() =>
+    (['breakfast', 'lunch', 'dinner'] as const).filter(
+      meal => effectiveRatios[meal] > 0
+    ), [effectiveRatios]);
 
   const handleDayTypeSelect = (dayType: DayType) => {
     setSelectedDayType(dayType);
@@ -144,6 +153,13 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
     profile.supplementConfig.wheyG,
     profile.supplementConfig.collagenG,
   ]);
+
+  // Ensure selectedMeal is always a visible meal (respects fasting protocol)
+  useEffect(() => {
+    if (!visibleMeals.includes(selectedMeal)) {
+      setSelectedMeal(visibleMeals[visibleMeals.length - 1] ?? 'dinner');
+    }
+  }, [visibleMeals, selectedMeal]);
 
   // Load training configs for MET-based calorie calculations
   useEffect(() => {
@@ -227,7 +243,7 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
             targets.totalFatsG,
             targets.fruitG,
             targets.veggiesG,
-            profile.mealRatios,
+            effectiveRatios,
             profile.pointsConfig,
             selectedDayType,
             supplementConfig
@@ -249,7 +265,7 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
     };
   }, [
     isDefaultSupplements,
-    profile.mealRatios,
+    effectiveRatios,
     profile.pointsConfig,
     selectedDayType,
     selectedLog,
@@ -270,13 +286,12 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
   // Plate Builder hook for meal drafting
   const plateBuilder = usePlateBuilder(plateBuilderData);
 
-  // Calculate grams and kcal per meal
+  // Calculate grams and kcal per meal (uses effective ratios respecting fasting protocol)
   const mealGramsAndKcal = useMemo(() => {
     if (!selectedLog?.calculatedTargets) {
       return null;
     }
     const { totalCarbsG, totalProteinG, totalFatsG } = selectedLog.calculatedTargets;
-    const { mealRatios: ratios } = profile;
 
     const calcMeal = (ratio: number) => {
       const carbGrams = Math.round(totalCarbsG * ratio);
@@ -291,11 +306,11 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
     };
 
     return {
-      breakfast: calcMeal(ratios.breakfast),
-      lunch: calcMeal(ratios.lunch),
-      dinner: calcMeal(ratios.dinner),
+      breakfast: calcMeal(effectiveRatios.breakfast),
+      lunch: calcMeal(effectiveRatios.lunch),
+      dinner: calcMeal(effectiveRatios.dinner),
     };
-  }, [selectedLog?.calculatedTargets, profile.mealRatios]);
+  }, [selectedLog?.calculatedTargets, effectiveRatios]);
 
   // Detect training type for smart supplement defaults
   const trainingContext = useMemo(() => {
@@ -399,66 +414,31 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
             />
           </div>
 
-          {/* Meal Selection */}
+          {/* Meal Selection - only shows meals active in fasting protocol */}
           {mealData.hasData && (
             <div className="space-y-3">
-              <MealCard
-                meal="Breakfast"
-                carbPoints={mealData.breakfast.carbs}
-                proteinPoints={mealData.breakfast.protein}
-                fatPoints={mealData.breakfast.fats}
-                carbGrams={mealGramsAndKcal?.breakfast.carbGrams}
-                proteinGrams={mealGramsAndKcal?.breakfast.proteinGrams}
-                fatGrams={mealGramsAndKcal?.breakfast.fatGrams}
-                totalKcal={mealGramsAndKcal?.breakfast.kcal}
-                onViewBreakdown={() => setBreakdownMeal('Breakfast')}
-                isSelected={selectedMeal === 'breakfast'}
-                onSelect={() => setSelectedMeal('breakfast')}
-                draftedFoods={plateBuilder.drafts.breakfast.foods}
-                spentPoints={plateBuilder.drafts.breakfast.spentPoints}
-                onRemoveFood={(index) => plateBuilder.removeFoodFromMeal('breakfast', index)}
-                onClearDraft={() => plateBuilder.clearMealDraft('breakfast')}
-                macroTargets={mealData.breakfast}
-                macroSpent={plateBuilder.drafts.breakfast.spentByMacro}
-              />
-              <MealCard
-                meal="Lunch"
-                carbPoints={mealData.lunch.carbs}
-                proteinPoints={mealData.lunch.protein}
-                fatPoints={mealData.lunch.fats}
-                carbGrams={mealGramsAndKcal?.lunch.carbGrams}
-                proteinGrams={mealGramsAndKcal?.lunch.proteinGrams}
-                fatGrams={mealGramsAndKcal?.lunch.fatGrams}
-                totalKcal={mealGramsAndKcal?.lunch.kcal}
-                onViewBreakdown={() => setBreakdownMeal('Lunch')}
-                isSelected={selectedMeal === 'lunch'}
-                onSelect={() => setSelectedMeal('lunch')}
-                draftedFoods={plateBuilder.drafts.lunch.foods}
-                spentPoints={plateBuilder.drafts.lunch.spentPoints}
-                onRemoveFood={(index) => plateBuilder.removeFoodFromMeal('lunch', index)}
-                onClearDraft={() => plateBuilder.clearMealDraft('lunch')}
-                macroTargets={mealData.lunch}
-                macroSpent={plateBuilder.drafts.lunch.spentByMacro}
-              />
-              <MealCard
-                meal="Dinner"
-                carbPoints={mealData.dinner.carbs}
-                proteinPoints={mealData.dinner.protein}
-                fatPoints={mealData.dinner.fats}
-                carbGrams={mealGramsAndKcal?.dinner.carbGrams}
-                proteinGrams={mealGramsAndKcal?.dinner.proteinGrams}
-                fatGrams={mealGramsAndKcal?.dinner.fatGrams}
-                totalKcal={mealGramsAndKcal?.dinner.kcal}
-                onViewBreakdown={() => setBreakdownMeal('Dinner')}
-                isSelected={selectedMeal === 'dinner'}
-                onSelect={() => setSelectedMeal('dinner')}
-                draftedFoods={plateBuilder.drafts.dinner.foods}
-                spentPoints={plateBuilder.drafts.dinner.spentPoints}
-                onRemoveFood={(index) => plateBuilder.removeFoodFromMeal('dinner', index)}
-                onClearDraft={() => plateBuilder.clearMealDraft('dinner')}
-                macroTargets={mealData.dinner}
-                macroSpent={plateBuilder.drafts.dinner.spentByMacro}
-              />
+              {visibleMeals.map((meal) => (
+                <MealCard
+                  key={meal}
+                  meal={meal.charAt(0).toUpperCase() + meal.slice(1) as 'Breakfast' | 'Lunch' | 'Dinner'}
+                  carbPoints={mealData[meal].carbs}
+                  proteinPoints={mealData[meal].protein}
+                  fatPoints={mealData[meal].fats}
+                  carbGrams={mealGramsAndKcal?.[meal].carbGrams}
+                  proteinGrams={mealGramsAndKcal?.[meal].proteinGrams}
+                  fatGrams={mealGramsAndKcal?.[meal].fatGrams}
+                  totalKcal={mealGramsAndKcal?.[meal].kcal}
+                  onViewBreakdown={() => setBreakdownMeal(meal.charAt(0).toUpperCase() + meal.slice(1) as 'Breakfast' | 'Lunch' | 'Dinner')}
+                  isSelected={selectedMeal === meal}
+                  onSelect={() => setSelectedMeal(meal)}
+                  draftedFoods={plateBuilder.drafts[meal].foods}
+                  spentPoints={plateBuilder.drafts[meal].spentPoints}
+                  onRemoveFood={(index) => plateBuilder.removeFoodFromMeal(meal, index)}
+                  onClearDraft={() => plateBuilder.clearMealDraft(meal)}
+                  macroTargets={mealData[meal]}
+                  macroSpent={plateBuilder.drafts[meal].spentByMacro}
+                />
+              ))}
             </div>
           )}
 
