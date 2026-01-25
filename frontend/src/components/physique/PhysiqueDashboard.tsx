@@ -5,7 +5,7 @@ import { BodyMapVisualizer } from '../body-map';
 import { getRecoveryStatus } from '../../utils';
 import type { MuscleGroup, MuscleFatigue } from '../../api/types';
 
-// Region grouping for organized muscle display
+// Region grouping for organized muscle display (forearms merged into pull)
 const MUSCLE_REGIONS: Record<string, { label: string; icon: string; muscles: MuscleGroup[] }> = {
   push: {
     label: 'Push',
@@ -15,7 +15,7 @@ const MUSCLE_REGIONS: Record<string, { label: string; icon: string; muscles: Mus
   pull: {
     label: 'Pull',
     icon: '🦾',
-    muscles: ['lats', 'traps', 'rear_delt', 'biceps'],
+    muscles: ['lats', 'traps', 'rear_delt', 'biceps', 'forearms'],
   },
   core: {
     label: 'Core',
@@ -26,11 +26,6 @@ const MUSCLE_REGIONS: Record<string, { label: string; icon: string; muscles: Mus
     label: 'Lower',
     icon: '🦵',
     muscles: ['quads', 'glutes', 'hamstrings', 'calves'],
-  },
-  arms: {
-    label: 'Arms',
-    icon: '💪',
-    muscles: ['forearms'],
   },
 };
 
@@ -55,114 +50,118 @@ function getStatusBgColor(score: number): string {
   return 'bg-red-500/20';
 }
 
-function MuscleListItem({ muscle, compact = false }: { muscle: MuscleFatigue; compact?: boolean }) {
+function getStatusBarColor(score: number): string {
+  if (score <= 25) return 'bg-emerald-500';
+  if (score <= 50) return 'bg-yellow-500';
+  if (score <= 75) return 'bg-orange-500';
+  return 'bg-red-500';
+}
+
+function getStatusTrackColor(score: number): string {
+  if (score <= 25) return 'bg-emerald-500/20';
+  if (score <= 50) return 'bg-yellow-500/20';
+  if (score <= 75) return 'bg-orange-500/20';
+  return 'bg-red-500/20';
+}
+
+interface MuscleProgressRowProps {
+  muscle: MuscleFatigue;
+  onClick?: () => void;
+  isSelected?: boolean;
+}
+
+function MuscleProgressRow({ muscle, onClick, isSelected }: MuscleProgressRowProps) {
   const recovery = getRecoveryStatus(muscle.fatiguePercent);
+  const barColor = getStatusBarColor(muscle.fatiguePercent);
+  const trackColor = getStatusTrackColor(muscle.fatiguePercent);
 
   return (
-    <div className={`flex items-center justify-between ${compact ? 'py-1.5' : 'py-2'}`}>
-      <div className="flex items-center gap-2">
-        <div
-          className="w-2 h-2 rounded-full"
-          style={{ backgroundColor: muscle.color }}
+    <button
+      onClick={onClick}
+      className={`
+        w-full flex items-center gap-3 py-2.5 px-3 rounded-lg transition-colors
+        ${isSelected ? 'bg-gray-700/50 ring-1 ring-gray-600' : 'hover:bg-gray-800/50'}
+      `}
+    >
+      {/* Muscle indicator dot */}
+      <div
+        className="w-2.5 h-2.5 rounded-full shrink-0"
+        style={{ backgroundColor: muscle.color }}
+      />
+
+      {/* Muscle name - fixed width for alignment */}
+      <span className="text-base text-gray-200 w-24 text-left shrink-0">
+        {muscle.displayName}
+      </span>
+
+      {/* Progress bar - fills remaining space */}
+      <div className={`flex-1 h-2 rounded-full overflow-hidden ${trackColor}`}>
+        <motion.div
+          className={`h-full rounded-full ${barColor}`}
+          initial={{ width: 0 }}
+          animate={{ width: `${muscle.fatiguePercent}%` }}
+          transition={{ duration: 0.5, ease: 'easeOut' }}
         />
-        <span className={`${compact ? 'text-xs' : 'text-sm'} text-gray-300`}>
-          {muscle.displayName}
-        </span>
       </div>
-      <div className="flex items-center gap-3">
-        <div className="w-16 bg-gray-800 rounded-full h-1.5 overflow-hidden">
-          <motion.div
-            className="h-full rounded-full"
-            style={{ backgroundColor: muscle.color }}
-            initial={{ width: 0 }}
-            animate={{ width: `${muscle.fatiguePercent}%` }}
-            transition={{ duration: 0.5, ease: 'easeOut' }}
-          />
-        </div>
-        <span
-          className={`${compact ? 'text-xs' : 'text-sm'} ${recovery.color} ${compact ? 'w-20' : 'w-24'} text-right truncate`}
-          title={`${muscle.fatiguePercent.toFixed(0)}% fatigue`}
-        >
-          {recovery.label}
-        </span>
-      </div>
-    </div>
+
+      {/* Status label - fixed width, right aligned */}
+      <span className={`text-sm font-mono ${recovery.color} w-28 text-right shrink-0`}>
+        {recovery.label}
+      </span>
+    </button>
   );
 }
 
-interface RegionGroupProps {
+interface MuscleStatusCardProps {
   regionKey: string;
   region: { label: string; icon: string; muscles: MuscleGroup[] };
   muscleData: MuscleFatigue[];
-  isExpanded: boolean;
-  onToggle: () => void;
+  selectedMuscle: MuscleGroup | null;
+  onMuscleSelect: (muscle: MuscleGroup) => void;
 }
 
-function RegionGroup({ regionKey, region, muscleData, isExpanded, onToggle }: RegionGroupProps) {
-  const regionMuscles = muscleData.filter((m) => region.muscles.includes(m.muscle));
+function MuscleStatusCard({
+  region,
+  muscleData,
+  selectedMuscle,
+  onMuscleSelect,
+}: MuscleStatusCardProps) {
+  const regionMuscles = muscleData
+    .filter((m) => region.muscles.includes(m.muscle))
+    .sort((a, b) => b.fatiguePercent - a.fatiguePercent);
+
+  if (regionMuscles.length === 0) return null;
 
   // Calculate average fatigue for the region
-  const avgFatigue = regionMuscles.length > 0
-    ? regionMuscles.reduce((sum, m) => sum + m.fatiguePercent, 0) / regionMuscles.length
-    : 0;
-
-  // Get the max fatigue in region (for "hottest" indicator)
-  const maxFatigue = regionMuscles.length > 0
-    ? Math.max(...regionMuscles.map((m) => m.fatiguePercent))
-    : 0;
-
+  const avgFatigue =
+    regionMuscles.reduce((sum, m) => sum + m.fatiguePercent, 0) / regionMuscles.length;
   const statusColor = getOverallStatusColor(avgFatigue);
   const statusBg = getStatusBgColor(avgFatigue);
 
   return (
-    <div className="border-b border-gray-800 last:border-0">
-      <button
-        onClick={onToggle}
-        className="w-full flex items-center justify-between py-3 px-1 hover:bg-gray-800/30 transition-colors rounded"
-      >
-        <div className="flex items-center gap-3">
+    <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 overflow-hidden">
+      {/* Card Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700/50">
+        <div className="flex items-center gap-2">
           <span className="text-lg">{region.icon}</span>
-          <span className="text-sm font-medium text-white">{region.label}</span>
-          <span className="text-xs text-gray-500">
-            ({regionMuscles.length})
-          </span>
+          <span className="text-base font-medium text-white">{region.label}</span>
         </div>
-        <div className="flex items-center gap-3">
-          <div className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusBg} ${statusColor}`}>
-            {avgFatigue.toFixed(0)}%
-          </div>
-          <motion.svg
-            className="w-4 h-4 text-gray-500"
-            animate={{ rotate: isExpanded ? 180 : 0 }}
-            transition={{ duration: 0.2 }}
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </motion.svg>
+        <div className={`px-2.5 py-1 rounded-full text-xs font-semibold ${statusBg} ${statusColor}`}>
+          {avgFatigue.toFixed(0)}% avg
         </div>
-      </button>
+      </div>
 
-      <AnimatePresence>
-        {isExpanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="overflow-hidden"
-          >
-            <div className="pl-9 pr-1 pb-2">
-              {regionMuscles
-                .sort((a, b) => b.fatiguePercent - a.fatiguePercent)
-                .map((muscle) => (
-                  <MuscleListItem key={muscle.muscle} muscle={muscle} compact />
-                ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Muscle List */}
+      <div className="p-2">
+        {regionMuscles.map((muscle) => (
+          <MuscleProgressRow
+            key={muscle.muscle}
+            muscle={muscle}
+            onClick={() => onMuscleSelect(muscle.muscle)}
+            isSelected={selectedMuscle === muscle.muscle}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -170,23 +169,10 @@ function RegionGroup({ regionKey, region, muscleData, isExpanded, onToggle }: Re
 export function PhysiqueDashboard() {
   const { bodyStatus, loading, error, refresh } = useBodyStatus();
   const [selectedMuscle, setSelectedMuscle] = useState<MuscleGroup | null>(null);
-  const [expandedRegions, setExpandedRegions] = useState<Set<string>>(new Set(['push', 'pull', 'lower']));
-
-  const toggleRegion = (region: string) => {
-    setExpandedRegions((prev) => {
-      const next = new Set(prev);
-      if (next.has(region)) {
-        next.delete(region);
-      } else {
-        next.add(region);
-      }
-      return next;
-    });
-  };
 
   if (loading) {
     return (
-      <div className="p-6 max-w-4xl">
+      <div className="p-6 w-full">
         <div className="flex items-center justify-center h-96">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white" />
         </div>
@@ -196,7 +182,7 @@ export function PhysiqueDashboard() {
 
   if (error) {
     return (
-      <div className="p-6 max-w-4xl">
+      <div className="p-6 w-full">
         <div className="bg-red-900/20 border border-red-800 rounded-xl p-6 text-center">
           <p className="text-red-400">{error}</p>
           <button
@@ -212,7 +198,7 @@ export function PhysiqueDashboard() {
 
   if (!bodyStatus) {
     return (
-      <div className="p-6 max-w-4xl">
+      <div className="p-6 w-full">
         <div className="bg-gray-900 rounded-xl p-6 text-center">
           <p className="text-gray-400">No body status data available.</p>
         </div>
@@ -226,14 +212,12 @@ export function PhysiqueDashboard() {
     : null;
 
   return (
-    <div className="p-6 max-w-5xl">
+    <div className="p-6 w-full">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-semibold text-white">Body Status</h1>
-          <p className="text-gray-400 text-sm">
-            Muscle fatigue visualization
-          </p>
+          <p className="text-gray-400 text-sm">Muscle fatigue visualization</p>
         </div>
         <button
           onClick={refresh}
@@ -261,10 +245,10 @@ export function PhysiqueDashboard() {
         </div>
       </div>
 
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Body Map */}
-        <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
+      {/* Main Content - Flex Layout */}
+      <div className="flex flex-col lg:flex-row gap-6">
+        {/* Body Map - Fixed Width */}
+        <div className="bg-gray-900 rounded-xl p-6 border border-gray-800 lg:w-[420px] lg:shrink-0">
           <h2 className="text-lg font-medium text-white mb-4">Muscle Map</h2>
           <div className="flex justify-center">
             <BodyMapVisualizer
@@ -276,11 +260,9 @@ export function PhysiqueDashboard() {
           </div>
         </div>
 
-        {/* Muscle List with Region Grouping */}
-        <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-          <h2 className="text-lg font-medium text-white mb-4">
-            Fatigue by Region
-          </h2>
+        {/* Fatigue Panel - Fills Remaining Space */}
+        <div className="bg-gray-900 rounded-xl p-6 border border-gray-800 flex-1 min-w-0">
+          <h2 className="text-lg font-medium text-white mb-4">Fatigue by Region</h2>
 
           {/* Selected muscle detail */}
           <AnimatePresence>
@@ -307,22 +289,27 @@ export function PhysiqueDashboard() {
                       className="text-gray-500 hover:text-white transition-colors"
                     >
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
                       </svg>
                     </button>
                   </div>
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                       <span className="text-gray-500">Fatigue:</span>
-                      <span className={`ml-2 font-medium ${getOverallStatusColor(selectedMuscleData.fatiguePercent)}`}>
+                      <span
+                        className={`ml-2 font-medium ${getOverallStatusColor(selectedMuscleData.fatiguePercent)}`}
+                      >
                         {selectedMuscleData.fatiguePercent.toFixed(1)}%
                       </span>
                     </div>
                     <div>
                       <span className="text-gray-500">Status:</span>
-                      <span className="ml-2 text-white capitalize">
-                        {selectedMuscleData.status}
-                      </span>
+                      <span className="ml-2 text-white capitalize">{selectedMuscleData.status}</span>
                     </div>
                     <div className="col-span-2">
                       <span className="text-gray-500">Recovery:</span>
@@ -345,8 +332,7 @@ export function PhysiqueDashboard() {
                   </div>
                   {selectedMuscleData.lastUpdated && (
                     <div className="text-xs text-gray-500 mt-2">
-                      Last stimulus:{' '}
-                      {new Date(selectedMuscleData.lastUpdated).toLocaleString()}
+                      Last stimulus: {new Date(selectedMuscleData.lastUpdated).toLocaleString()}
                     </div>
                   )}
                 </div>
@@ -354,16 +340,16 @@ export function PhysiqueDashboard() {
             )}
           </AnimatePresence>
 
-          {/* Region groups */}
-          <div className="max-h-96 overflow-y-auto">
+          {/* Region cards in responsive grid */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
             {Object.entries(MUSCLE_REGIONS).map(([key, region]) => (
-              <RegionGroup
+              <MuscleStatusCard
                 key={key}
                 regionKey={key}
                 region={region}
                 muscleData={bodyStatus.muscles}
-                isExpanded={expandedRegions.has(key)}
-                onToggle={() => toggleRegion(key)}
+                selectedMuscle={selectedMuscle}
+                onMuscleSelect={setSelectedMuscle}
               />
             ))}
           </div>
@@ -377,9 +363,9 @@ export function PhysiqueDashboard() {
           <div className="text-sm text-gray-400">
             <p className="font-medium text-gray-300 mb-1">How it works</p>
             <p>
-              Your body map updates automatically when you log workouts with an archetype
-              (Push, Pull, Legs, etc.). Muscles recover at ~2% per hour. Click on any
-              muscle to see details.
+              Your body map updates automatically when you log workouts with an archetype (Push,
+              Pull, Legs, etc.). Muscles recover at ~2% per hour. Click on any muscle to see
+              details.
             </p>
           </div>
         </div>
