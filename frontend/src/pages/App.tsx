@@ -8,7 +8,7 @@ import { MealPointsDashboard } from '../components/meal-points';
 import { PlanCalendar } from '../components/plan';
 import { PlanOverview } from '../components/planning';
 import { WeightHistory } from '../components/history';
-import { DailyUpdateForm } from '../components/daily-update';
+import { CommandCenter } from '../components/command-center';
 import { LogWorkoutView } from '../components/training';
 import { ProfileForm } from '../components/settings/ProfileForm';
 import { ErrorBoundary } from '../components/common';
@@ -83,18 +83,19 @@ function App() {
     <ErrorBoundary>
       <AppLayout>
         <Routes>
-          {/* Today - The Command Center (formerly Daily Update) */}
+          {/* Today - The Command Center */}
           <Route
             path="/"
             element={
-              <DailyUpdateForm
-                onSubmit={create}
-                onReplace={replace}
-                onUpdateActual={updateActual}
-                saving={logSaving}
-                error={logSaveError}
+              <CommandCenter
                 profile={profile}
                 log={log}
+                loading={logLoading}
+                saving={logSaving}
+                error={logSaveError}
+                activePlan={activePlan}
+                onCreate={create}
+                onUpdateActual={updateActual}
               />
             }
           />
