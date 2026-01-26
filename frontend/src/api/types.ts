@@ -497,3 +497,201 @@ export interface GuardrailWarning {
   minGPerKg: number;
   severity: GuardrailSeverity;
 }
+
+// =============================================================================
+// TRAINING PROGRAM TYPES (Program Management feature)
+// =============================================================================
+
+export type ProgramDifficulty = 'beginner' | 'intermediate' | 'advanced';
+export type ProgramFocus = 'hypertrophy' | 'strength' | 'conditioning' | 'general';
+export type EquipmentType = 'barbell' | 'dumbbell' | 'bodyweight' | 'machine' | 'kettlebell' | 'bands';
+export type ProgramStatus = 'template' | 'draft' | 'published';
+export type InstallationStatus = 'active' | 'completed' | 'abandoned';
+
+/**
+ * ProgramDay represents a single training day template within a week.
+ */
+export interface ProgramDay {
+  id: number;
+  dayNumber: number;
+  label: string;
+  trainingType: TrainingType;
+  durationMin: number;
+  loadScore: number;
+  nutritionDay: DayType;
+  notes?: string;
+}
+
+/**
+ * ProgramWeek represents one week within a training program.
+ */
+export interface ProgramWeek {
+  id: number;
+  weekNumber: number;
+  label: string;
+  isDeload: boolean;
+  volumeScale: number;
+  intensityScale: number;
+  days: ProgramDay[];
+}
+
+/**
+ * TrainingProgram represents a structured training protocol (e.g., "5/3/1", "PPL").
+ */
+export interface TrainingProgram {
+  id: number;
+  name: string;
+  description?: string;
+  durationWeeks: number;
+  trainingDaysPerWeek: number;
+  difficulty: ProgramDifficulty;
+  focus: ProgramFocus;
+  equipment: EquipmentType[];
+  tags: string[];
+  coverImageUrl?: string;
+  status: ProgramStatus;
+  isTemplate: boolean;
+  weeks?: ProgramWeek[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/**
+ * ProgramSummary is a condensed program view for list endpoints.
+ */
+export interface ProgramSummary {
+  id: number;
+  name: string;
+  description?: string;
+  durationWeeks: number;
+  trainingDaysPerWeek: number;
+  difficulty: ProgramDifficulty;
+  focus: ProgramFocus;
+  equipment: EquipmentType[];
+  tags: string[];
+  coverImageUrl?: string;
+  status: ProgramStatus;
+  isTemplate: boolean;
+}
+
+/**
+ * WaveformPoint represents a single data point for the periodization waveform chart.
+ */
+export interface WaveformPoint {
+  weekNumber: number;
+  label: string;
+  volume: number;
+  intensity: number;
+  isDeload: boolean;
+}
+
+/**
+ * ProgramInstallation represents a user's active program assignment.
+ */
+export interface ProgramInstallation {
+  id: number;
+  programId: number;
+  program?: ProgramSummary;
+  startDate: string;
+  weekDayMapping: number[];
+  currentWeek: number;
+  status: InstallationStatus;
+  totalSessionsScheduled: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/**
+ * ScheduledSession represents a training session scheduled for a specific date.
+ */
+export interface ScheduledSession {
+  date: string;
+  weekNumber: number;
+  dayNumber: number;
+  label: string;
+  trainingType: TrainingType;
+  durationMin: number;
+  loadScore: number;
+  nutritionDay: DayType;
+}
+
+/**
+ * CreateProgramRequest is the request body for creating a custom program.
+ */
+export interface CreateProgramRequest {
+  name: string;
+  description?: string;
+  durationWeeks: number;
+  trainingDaysPerWeek: number;
+  difficulty: ProgramDifficulty;
+  focus: ProgramFocus;
+  equipment: EquipmentType[];
+  tags: string[];
+  coverImageUrl?: string;
+  weeks: {
+    weekNumber: number;
+    label: string;
+    isDeload: boolean;
+    volumeScale: number;
+    intensityScale: number;
+    days: {
+      dayNumber: number;
+      label: string;
+      trainingType: TrainingType;
+      durationMin: number;
+      loadScore: number;
+      nutritionDay: DayType;
+      notes?: string;
+    }[];
+  }[];
+}
+
+/**
+ * InstallProgramRequest is the request body for installing a program.
+ */
+export interface InstallProgramRequest {
+  startDate: string;
+  weekDayMapping: number[];
+}
+
+// =============================================================================
+// METABOLIC FLUX ENGINE TYPES
+// =============================================================================
+
+/** Metabolic trend direction */
+export type MetabolicTrend = 'upregulated' | 'downregulated' | 'stable';
+
+/**
+ * FluxChartPoint represents a single data point on the Metabolism Graph.
+ */
+export interface FluxChartPoint {
+  date: string;
+  calculatedTDEE: number;
+  averageIntake: number;
+  confidence: number;
+  wasConstrained: boolean;
+}
+
+/**
+ * FluxChartData contains all data for the Metabolism Graph visualization.
+ */
+export interface FluxChartData {
+  points: FluxChartPoint[];
+  latestTDEE: number;
+  averageTDEE: number;
+  deltaKcal: number;
+  trend: MetabolicTrend;
+  insightText: string;
+}
+
+/**
+ * FluxNotification represents a pending weekly strategy update notification.
+ */
+export interface FluxNotification {
+  id: number;
+  previousTDEE: number;
+  newTDEE: number;
+  deltaKcal: number;
+  reason: string;
+  createdAt: string;
+}

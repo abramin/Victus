@@ -11,9 +11,10 @@ import (
 
 // DailyLogService handles business logic for daily logs.
 type DailyLogService struct {
-	logStore     *store.DailyLogStore
-	sessionStore *store.TrainingSessionStore
-	profileStore *store.ProfileStore
+	logStore       *store.DailyLogStore
+	sessionStore   *store.TrainingSessionStore
+	profileStore   *store.ProfileStore
+	metabolicStore *store.MetabolicStore
 }
 
 // NewDailyLogService creates a new DailyLogService.
@@ -23,6 +24,12 @@ func NewDailyLogService(ls *store.DailyLogStore, ss *store.TrainingSessionStore,
 		sessionStore: ss,
 		profileStore: ps,
 	}
+}
+
+// SetMetabolicStore sets the metabolic store for Flux Engine integration.
+// This is optional - if not set, Flux calculations are skipped.
+func (s *DailyLogService) SetMetabolicStore(ms *store.MetabolicStore) {
+	s.metabolicStore = ms
 }
 
 // Create creates a new daily log with calculated targets.
@@ -95,12 +102,14 @@ func (s *DailyLogService) Create(ctx context.Context, input domain.DailyLogInput
 	// Calculate targets using the adjusted effective TDEE
 	log.CalculatedTargets = domain.CalculateDailyTargets(profile, log, now)
 
+	var createdLogID int64
 	if err := s.logStore.WithTx(ctx, func(tx *sql.Tx) error {
 		// Persist daily log
 		logID, err := s.logStore.CreateWithTx(ctx, tx, log)
 		if err != nil {
 			return err
 		}
+		createdLogID = logID
 
 		// Persist training sessions
 		return s.sessionStore.CreateForLogWithTx(ctx, tx, logID, log.PlannedSessions)
@@ -108,7 +117,78 @@ func (s *DailyLogService) Create(ctx context.Context, input domain.DailyLogInput
 		return nil, err
 	}
 
+	// Record Flux calculation if metabolic store is configured
+	if s.metabolicStore != nil {
+		s.recordFluxCalculation(ctx, createdLogID, bmrResult.BMR, formulaTDEE, adaptiveResult)
+	}
+
 	return s.GetByDate(ctx, log.Date)
+}
+
+// recordFluxCalculation calculates and persists Flux Engine data.
+// Errors are logged but don't fail the main operation.
+func (s *DailyLogService) recordFluxCalculation(
+	ctx context.Context,
+	dailyLogID int64,
+	currentBMR float64,
+	formulaTDEE int,
+	adaptiveResult *domain.AdaptiveTDEEResult,
+) {
+	config := domain.DefaultFluxConfig
+
+	// Get previous TDEE for swing constraint
+	previousTDEE, err := s.metabolicStore.GetPreviousTDEE(ctx)
+	if err != nil {
+		return // Skip if we can't get previous TDEE
+	}
+
+	// Get adherence (days logged in last 7 days)
+	adherenceDays, err := s.metabolicStore.CountRecentLogs(ctx, config.AdherenceWindowDays)
+	if err != nil {
+		return
+	}
+
+	// Get recent weight history for EMA smoothing
+	weightHistory, err := s.metabolicStore.ListRecentWeights(ctx, 14) // 2 weeks for smoothing
+	if err != nil {
+		return
+	}
+
+	// Build Flux input
+	input := domain.FluxInput{
+		CurrentBMR:     currentBMR,
+		PreviousTDEE:   float64(previousTDEE),
+		WeightHistory:  weightHistory,
+		AdaptiveResult: adaptiveResult,
+		FormulaTDEE:    formulaTDEE,
+		AdherenceDays:  adherenceDays,
+	}
+
+	// Calculate Flux with constraints
+	result := domain.CalculateFlux(input, config)
+
+	// Determine if notification should be triggered
+	notificationPending := domain.ShouldTriggerNotification(result.DeltaKcal) && result.UsedAdaptive
+
+	// Build history record
+	record := &domain.MetabolicHistoryRecord{
+		DailyLogID:          dailyLogID,
+		CalculatedTDEE:      result.TDEE,
+		PreviousTDEE:        result.PreviousTDEE,
+		DeltaKcal:           result.DeltaKcal,
+		TDEESource:          string(result.Source),
+		WasSwingConstrained: result.WasSwingConstrained,
+		BMRFloorApplied:     result.BMRFloorApplied,
+		AdherenceGatePassed: result.AdherenceGatePassed,
+		Confidence:          result.Confidence,
+		DataPointsUsed:      result.DataPointsUsed,
+		EMAWeightKg:         result.EMASmoothedWeight,
+		BMRValue:            currentBMR,
+		NotificationPending: notificationPending,
+	}
+
+	// Persist the record (errors are swallowed - Flux is supplementary)
+	_, _ = s.metabolicStore.Create(ctx, record)
 }
 
 // GetByDate retrieves a daily log by date with its training sessions.

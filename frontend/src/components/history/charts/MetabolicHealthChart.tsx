@@ -7,12 +7,19 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
+  Legend,
 } from 'recharts';
-import type { HistoryPoint } from '../../../api/types';
+import type { HistoryPoint, MetabolicTrend } from '../../../api/types';
 import { formatShortDate } from '../../../utils';
 
 interface MetabolicHealthChartProps {
   points: HistoryPoint[];
+  /** Optional: Average intake data by date for the intake line */
+  intakeByDate?: Record<string, number>;
+  /** Optional: Insight text to display below the chart */
+  insightText?: string;
+  /** Optional: Metabolic trend direction */
+  trend?: MetabolicTrend;
 }
 
 interface ChartDataPoint {
@@ -22,6 +29,7 @@ interface ChartDataPoint {
   confidenceBandUpper: number;
   confidenceBandLower: number;
   confidence: number;
+  averageIntake?: number;
 }
 
 const ROLLING_AVERAGE_WINDOW = 7;
@@ -54,7 +62,7 @@ function formatKcal(value: number): string {
   return `${Math.round(value)} kcal`;
 }
 
-export function MetabolicHealthChart({ points }: MetabolicHealthChartProps) {
+export function MetabolicHealthChart({ points, intakeByDate, insightText, trend }: MetabolicHealthChartProps) {
   const chartData = useMemo((): ChartDataPoint[] => {
     if (points.length === 0) return [];
 
@@ -73,19 +81,25 @@ export function MetabolicHealthChart({ points }: MetabolicHealthChartProps) {
         confidenceBandUpper: smoothed + spread,
         confidenceBandLower: smoothed - spread,
         confidence,
+        averageIntake: intakeByDate?.[point.date],
       };
     });
-  }, [points]);
+  }, [points, intakeByDate]);
 
-  const { yDomain, latestTDEE, avgTDEE, avgConfidence } = useMemo(() => {
+  const hasIntakeData = useMemo(() => {
+    return chartData.some((d) => d.averageIntake !== undefined && d.averageIntake > 0);
+  }, [chartData]);
+
+  const { yDomain, latestTDEE, avgTDEE, avgConfidence, avgIntake } = useMemo(() => {
     if (chartData.length === 0) {
-      return { yDomain: [1800, 2800] as [number, number], latestTDEE: 0, avgTDEE: 0, avgConfidence: 0 };
+      return { yDomain: [1800, 2800] as [number, number], latestTDEE: 0, avgTDEE: 0, avgConfidence: 0, avgIntake: 0 };
     }
 
     const allValues = chartData.flatMap((d) => [
       d.confidenceBandUpper,
       d.confidenceBandLower,
       d.rawTDEE,
+      ...(d.averageIntake ? [d.averageIntake] : []),
     ]);
     const min = Math.min(...allValues);
     const max = Math.max(...allValues);
@@ -99,11 +113,15 @@ export function MetabolicHealthChart({ points }: MetabolicHealthChartProps) {
         ? confidenceValues.reduce((sum, c) => sum + c, 0) / confidenceValues.length
         : 0;
 
+    const intakeValues = chartData.map((d) => d.averageIntake).filter((v): v is number => v !== undefined && v > 0);
+    const avgIntake = intakeValues.length > 0 ? intakeValues.reduce((sum, v) => sum + v, 0) / intakeValues.length : 0;
+
     return {
       yDomain: [Math.floor(min - padding), Math.ceil(max + padding)] as [number, number],
       latestTDEE,
       avgTDEE,
       avgConfidence,
+      avgIntake,
     };
   }, [chartData]);
 
@@ -178,8 +196,9 @@ export function MetabolicHealthChart({ points }: MetabolicHealthChartProps) {
               labelStyle={{ color: '#94a3b8', fontSize: 12 }}
               itemStyle={{ color: '#f1f5f9', fontSize: 13 }}
               formatter={(value: number, name: string) => {
-                if (name === 'smoothedTDEE') return [formatKcal(value), '7-Day Avg'];
+                if (name === 'smoothedTDEE') return [formatKcal(value), '7-Day Avg TDEE'];
                 if (name === 'rawTDEE') return [formatKcal(value), 'Daily TDEE'];
+                if (name === 'averageIntake') return [formatKcal(value), 'Avg Intake'];
                 return [value, name];
               }}
               labelFormatter={(date: string) => formatShortDate(date)}
@@ -223,6 +242,20 @@ export function MetabolicHealthChart({ points }: MetabolicHealthChartProps) {
               isAnimationActive={false}
               name="smoothedTDEE"
             />
+
+            {/* Average Intake line (dashed grey) - only if data is available */}
+            {hasIntakeData && (
+              <Line
+                type="monotone"
+                dataKey="averageIntake"
+                stroke="#6b7280"
+                strokeWidth={1.5}
+                strokeDasharray="5 5"
+                dot={false}
+                isAnimationActive={false}
+                name="averageIntake"
+              />
+            )}
           </ComposedChart>
         </ResponsiveContainer>
       </div>
@@ -264,7 +297,7 @@ export function MetabolicHealthChart({ points }: MetabolicHealthChartProps) {
       </div>
 
       {/* Legend */}
-      <div className="flex items-center gap-4 text-xs text-slate-500">
+      <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500">
         <div className="flex items-center gap-1.5">
           <span className="w-4 h-1 rounded bg-sky-500"></span>
           <span>7-Day Moving Avg</span>
@@ -273,11 +306,35 @@ export function MetabolicHealthChart({ points }: MetabolicHealthChartProps) {
           <span className="w-2 h-2 rounded-full bg-slate-500 opacity-40"></span>
           <span>Daily TDEE</span>
         </div>
+        {hasIntakeData && (
+          <div className="flex items-center gap-1.5">
+            <span className="w-4 h-0.5 border-t-2 border-dashed border-gray-500"></span>
+            <span>Avg Intake</span>
+          </div>
+        )}
         <div className="flex items-center gap-1.5">
           <span className="w-4 h-2 rounded bg-sky-500/20"></span>
           <span>Confidence Band</span>
         </div>
       </div>
+
+      {/* Insight Text */}
+      {insightText && (
+        <div className="mt-4 p-3 bg-slate-800/50 rounded-lg border border-slate-700">
+          <div className="flex items-start gap-2">
+            {trend === 'upregulated' && (
+              <span className="text-emerald-400 text-lg">↑</span>
+            )}
+            {trend === 'downregulated' && (
+              <span className="text-orange-400 text-lg">↓</span>
+            )}
+            {trend === 'stable' && (
+              <span className="text-slate-400 text-lg">→</span>
+            )}
+            <p className="text-sm text-slate-300">{insightText}</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

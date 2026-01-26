@@ -22,6 +22,8 @@ type Server struct {
 	planService           *service.NutritionPlanService
 	analysisService       *service.AnalysisService
 	fatigueService        *service.FatigueService
+	programService        *service.TrainingProgramService
+	metabolicService      *service.MetabolicService
 	plannedDayTypeStore   *store.PlannedDayTypeStore
 	foodReferenceStore    *store.FoodReferenceStore
 }
@@ -36,16 +38,24 @@ func NewServer(db *sql.DB) *Server {
 	plannedDayTypeStore := store.NewPlannedDayTypeStore(db)
 	foodReferenceStore := store.NewFoodReferenceStore(db)
 	fatigueStore := store.NewFatigueStore(db)
+	programStore := store.NewTrainingProgramStore(db)
+	metabolicStore := store.NewMetabolicStore(db)
+
+	// Create services
+	dailyLogService := service.NewDailyLogService(dailyLogStore, trainingSessionStore, profileStore)
+	dailyLogService.SetMetabolicStore(metabolicStore) // Enable Flux Engine
 
 	mux := http.NewServeMux()
 	srv := &Server{
 		mux:                   mux,
 		profileService:        service.NewProfileService(profileStore),
-		dailyLogService:       service.NewDailyLogService(dailyLogStore, trainingSessionStore, profileStore),
+		dailyLogService:       dailyLogService,
 		trainingConfigService: service.NewTrainingConfigService(trainingConfigStore),
 		planService:           service.NewNutritionPlanService(planStore, profileStore),
 		analysisService:       service.NewAnalysisService(planStore, profileStore, dailyLogStore),
 		fatigueService:        service.NewFatigueService(fatigueStore),
+		programService:        service.NewTrainingProgramService(programStore, plannedDayTypeStore),
+		metabolicService:      service.NewMetabolicService(metabolicStore, dailyLogStore),
 		plannedDayTypeStore:   plannedDayTypeStore,
 		foodReferenceStore:    foodReferenceStore,
 	}
@@ -105,6 +115,26 @@ func NewServer(db *sql.DB) *Server {
 	mux.HandleFunc("POST /api/plans/{id}/resume", srv.resumePlan)
 	mux.HandleFunc("POST /api/plans/{id}/recalibrate", srv.recalibratePlan)
 	mux.HandleFunc("DELETE /api/plans/{id}", srv.deletePlan)
+
+	// Training program routes (Program Management feature)
+	mux.HandleFunc("GET /api/training-programs", srv.listPrograms)
+	mux.HandleFunc("POST /api/training-programs", srv.createProgram)
+	mux.HandleFunc("GET /api/training-programs/{id}", srv.getProgramByID)
+	mux.HandleFunc("DELETE /api/training-programs/{id}", srv.deleteProgram)
+	mux.HandleFunc("GET /api/training-programs/{id}/waveform", srv.getProgramWaveform)
+	mux.HandleFunc("POST /api/training-programs/{id}/install", srv.installProgram)
+
+	// Program installation routes
+	mux.HandleFunc("GET /api/program-installations/active", srv.getActiveInstallation)
+	mux.HandleFunc("GET /api/program-installations/{id}", srv.getInstallationByID)
+	mux.HandleFunc("POST /api/program-installations/{id}/abandon", srv.abandonInstallation)
+	mux.HandleFunc("DELETE /api/program-installations/{id}", srv.deleteInstallation)
+	mux.HandleFunc("GET /api/program-installations/{id}/sessions", srv.getScheduledSessions)
+
+	// Metabolic Flux Engine routes
+	mux.HandleFunc("GET /api/metabolic/chart", srv.getMetabolicChart)
+	mux.HandleFunc("GET /api/metabolic/notification", srv.getMetabolicNotification)
+	mux.HandleFunc("POST /api/metabolic/notification/{id}/dismiss", srv.dismissMetabolicNotification)
 
 	return srv
 }

@@ -29,6 +29,13 @@ func RunMigrations(db *sql.DB) error {
 		createTrainingArchetypesTable,
 		createMuscleFatigueTable,
 		createFatigueEventsTable,
+		// Training Program Management feature
+		createTrainingProgramsTable,
+		createProgramWeeksTable,
+		createProgramDaysTable,
+		createProgramInstallationsTable,
+		// Metabolic Flux Engine feature
+		createMetabolicHistoryTable,
 	}
 
 	for i, migration := range migrations {
@@ -496,6 +503,122 @@ CREATE TABLE IF NOT EXISTS fatigue_events (
 
 CREATE INDEX IF NOT EXISTS idx_fatigue_events_session ON fatigue_events(training_session_id);
 CREATE INDEX IF NOT EXISTS idx_fatigue_events_applied ON fatigue_events(applied_at);
+`
+
+// Training Programs table for structured training protocols (Program Management feature)
+const createTrainingProgramsTable = `
+CREATE TABLE IF NOT EXISTS training_programs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    description TEXT,
+    duration_weeks INTEGER NOT NULL CHECK (duration_weeks BETWEEN 1 AND 52),
+    training_days_per_week INTEGER NOT NULL CHECK (training_days_per_week BETWEEN 1 AND 7),
+    difficulty TEXT NOT NULL CHECK (difficulty IN ('beginner', 'intermediate', 'advanced')),
+    focus TEXT NOT NULL CHECK (focus IN ('hypertrophy', 'strength', 'conditioning', 'general')),
+    equipment TEXT NOT NULL DEFAULT '[]',
+    tags TEXT NOT NULL DEFAULT '[]',
+    cover_image_url TEXT,
+    status TEXT NOT NULL DEFAULT 'template' CHECK (status IN ('template', 'draft', 'published')),
+    is_template BOOLEAN NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_training_programs_status ON training_programs(status);
+CREATE INDEX IF NOT EXISTS idx_training_programs_difficulty ON training_programs(difficulty);
+CREATE INDEX IF NOT EXISTS idx_training_programs_focus ON training_programs(focus);
+`
+
+// Program Weeks table for periodization structure (Program Management feature)
+const createProgramWeeksTable = `
+CREATE TABLE IF NOT EXISTS program_weeks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    program_id INTEGER NOT NULL,
+    week_number INTEGER NOT NULL CHECK (week_number >= 1),
+    label TEXT NOT NULL,
+    is_deload BOOLEAN NOT NULL DEFAULT 0,
+    volume_scale REAL NOT NULL DEFAULT 1.0 CHECK (volume_scale BETWEEN 0.3 AND 2.0),
+    intensity_scale REAL NOT NULL DEFAULT 1.0 CHECK (intensity_scale BETWEEN 0.3 AND 2.0),
+    FOREIGN KEY (program_id) REFERENCES training_programs(id) ON DELETE CASCADE,
+    UNIQUE(program_id, week_number)
+);
+
+CREATE INDEX IF NOT EXISTS idx_program_weeks_program ON program_weeks(program_id);
+`
+
+// Program Days table for training day templates (Program Management feature)
+const createProgramDaysTable = `
+CREATE TABLE IF NOT EXISTS program_days (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    week_id INTEGER NOT NULL,
+    day_number INTEGER NOT NULL CHECK (day_number >= 1),
+    label TEXT NOT NULL,
+    training_type TEXT NOT NULL CHECK(training_type IN (
+        'rest', 'qigong', 'walking', 'gmb', 'run', 'row', 'cycle', 'hiit',
+        'strength', 'calisthenics', 'mobility', 'mixed'
+    )),
+    duration_min INTEGER NOT NULL DEFAULT 60 CHECK (duration_min BETWEEN 15 AND 180),
+    load_score REAL NOT NULL DEFAULT 3.0 CHECK (load_score BETWEEN 1 AND 5),
+    nutrition_day TEXT NOT NULL DEFAULT 'performance' CHECK (nutrition_day IN ('performance', 'fatburner', 'metabolize')),
+    notes TEXT,
+    FOREIGN KEY (week_id) REFERENCES program_weeks(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_program_days_week ON program_days(week_id);
+`
+
+// Program Installations table for user's active program (Program Management feature)
+const createProgramInstallationsTable = `
+CREATE TABLE IF NOT EXISTS program_installations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    program_id INTEGER NOT NULL,
+    start_date TEXT NOT NULL,
+    week_day_mapping TEXT NOT NULL DEFAULT '[1,2,3,4,5,6,7]',
+    current_week INTEGER NOT NULL DEFAULT 1,
+    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'completed', 'abandoned')),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (program_id) REFERENCES training_programs(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_program_installations_status ON program_installations(status);
+CREATE INDEX IF NOT EXISTS idx_program_installations_program ON program_installations(program_id);
+`
+
+// Metabolic History table for Flux Engine audit trail (Metabolic Flux Engine feature)
+const createMetabolicHistoryTable = `
+CREATE TABLE IF NOT EXISTS metabolic_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    daily_log_id INTEGER NOT NULL,
+    calculated_at TEXT NOT NULL DEFAULT (datetime('now')),
+
+    -- TDEE Values
+    calculated_tdee INTEGER NOT NULL,
+    previous_tdee INTEGER,
+    delta_kcal INTEGER,
+    tdee_source TEXT NOT NULL CHECK (tdee_source IN ('flux', 'formula', 'manual')),
+
+    -- Constraints Applied
+    was_swing_constrained BOOLEAN NOT NULL DEFAULT 0,
+    bmr_floor_applied BOOLEAN NOT NULL DEFAULT 0,
+    adherence_gate_passed BOOLEAN NOT NULL DEFAULT 1,
+
+    -- Calculation Metadata
+    confidence REAL NOT NULL DEFAULT 0,
+    data_points_used INTEGER NOT NULL DEFAULT 0,
+    ema_weight_kg REAL,
+    bmr_value REAL NOT NULL,
+
+    -- Weekly Notification
+    notification_pending BOOLEAN NOT NULL DEFAULT 0,
+    notification_dismissed_at TEXT,
+
+    FOREIGN KEY (daily_log_id) REFERENCES daily_logs(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_metabolic_history_log ON metabolic_history(daily_log_id);
+CREATE INDEX IF NOT EXISTS idx_metabolic_history_notification ON metabolic_history(notification_pending);
+CREATE INDEX IF NOT EXISTS idx_metabolic_history_calculated_at ON metabolic_history(calculated_at);
 `
 
 // migrateTrainingSessionsConstraint fixes the unique constraint on training_sessions

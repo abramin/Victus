@@ -24,6 +24,15 @@ import type {
   ArchetypeConfig,
   SessionFatigueReport,
   ApplyLoadRequest,
+  TrainingProgram,
+  ProgramSummary,
+  WaveformPoint,
+  ProgramInstallation,
+  ScheduledSession,
+  CreateProgramRequest as CreateTrainingProgramRequest,
+  InstallProgramRequest,
+  ProgramDifficulty,
+  ProgramFocus,
 } from './types';
 
 const API_BASE = '/api';
@@ -425,4 +434,167 @@ export async function applyFatigue(
     signal,
   });
   return handleResponse<SessionFatigueReport>(response);
+}
+
+// =============================================================================
+// Training Program API (Program Management feature)
+// =============================================================================
+
+export interface ProgramFilters {
+  difficulty?: ProgramDifficulty;
+  focus?: ProgramFocus;
+  templatesOnly?: boolean;
+}
+
+export async function listTrainingPrograms(
+  filters?: ProgramFilters,
+  signal?: AbortSignal
+): Promise<ProgramSummary[]> {
+  const params = new URLSearchParams();
+  if (filters?.difficulty) params.set('difficulty', filters.difficulty);
+  if (filters?.focus) params.set('focus', filters.focus);
+  if (filters?.templatesOnly) params.set('templatesOnly', 'true');
+
+  const queryString = params.toString();
+  const url = queryString
+    ? `${API_BASE}/training-programs?${queryString}`
+    : `${API_BASE}/training-programs`;
+
+  const response = await fetch(url, { signal });
+  return handleResponse<ProgramSummary[]>(response);
+}
+
+export async function getTrainingProgram(id: number, signal?: AbortSignal): Promise<TrainingProgram> {
+  const response = await fetch(`${API_BASE}/training-programs/${id}`, { signal });
+  return handleResponse<TrainingProgram>(response);
+}
+
+export async function createTrainingProgram(
+  request: CreateTrainingProgramRequest,
+  signal?: AbortSignal
+): Promise<TrainingProgram> {
+  const response = await fetch(`${API_BASE}/training-programs`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(request),
+    signal,
+  });
+  return handleResponse<TrainingProgram>(response);
+}
+
+export async function deleteTrainingProgram(id: number, signal?: AbortSignal): Promise<void> {
+  const response = await fetch(`${API_BASE}/training-programs/${id}`, {
+    method: 'DELETE',
+    signal,
+  });
+  await handleEmptyResponse(response);
+}
+
+export async function getProgramWaveform(id: number, signal?: AbortSignal): Promise<WaveformPoint[]> {
+  const response = await fetch(`${API_BASE}/training-programs/${id}/waveform`, { signal });
+  return handleResponse<WaveformPoint[]>(response);
+}
+
+export async function installProgram(
+  programId: number,
+  request: InstallProgramRequest,
+  signal?: AbortSignal
+): Promise<ProgramInstallation> {
+  const response = await fetch(`${API_BASE}/training-programs/${programId}/install`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(request),
+    signal,
+  });
+  return handleResponse<ProgramInstallation>(response);
+}
+
+export async function getActiveInstallation(signal?: AbortSignal): Promise<ProgramInstallation | null> {
+  const response = await fetch(`${API_BASE}/program-installations/active`, { signal });
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  return handleResponse<ProgramInstallation>(response);
+}
+
+export async function getInstallationById(id: number, signal?: AbortSignal): Promise<ProgramInstallation> {
+  const response = await fetch(`${API_BASE}/program-installations/${id}`, { signal });
+  return handleResponse<ProgramInstallation>(response);
+}
+
+export async function abandonInstallation(id: number, signal?: AbortSignal): Promise<void> {
+  const response = await fetch(`${API_BASE}/program-installations/${id}/abandon`, {
+    method: 'POST',
+    signal,
+  });
+  await handleEmptyResponse(response);
+}
+
+export async function deleteInstallation(id: number, signal?: AbortSignal): Promise<void> {
+  const response = await fetch(`${API_BASE}/program-installations/${id}`, {
+    method: 'DELETE',
+    signal,
+  });
+  await handleEmptyResponse(response);
+}
+
+export async function getScheduledSessions(
+  installationId: number,
+  signal?: AbortSignal
+): Promise<ScheduledSession[]> {
+  const response = await fetch(`${API_BASE}/program-installations/${installationId}/sessions`, { signal });
+  return handleResponse<ScheduledSession[]>(response);
+}
+
+// =============================================================================
+// Metabolic Flux Engine API
+// =============================================================================
+
+import type { FluxChartData, FluxNotification } from './types';
+
+/**
+ * Get metabolic history data for the Metabolism Graph.
+ * @param weeks Number of weeks to retrieve (default: 12)
+ */
+export async function getMetabolicChart(weeks: number = 12, signal?: AbortSignal): Promise<FluxChartData> {
+  const response = await fetch(`${API_BASE}/metabolic/chart?weeks=${weeks}`, { signal });
+  return handleResponse<FluxChartData>(response);
+}
+
+/**
+ * Get any pending weekly strategy notification.
+ * Returns null if no notification is pending.
+ */
+export async function getMetabolicNotification(signal?: AbortSignal): Promise<FluxNotification | null> {
+  const response = await fetch(`${API_BASE}/metabolic/notification`, { signal });
+
+  // API returns null for no pending notification
+  const text = await response.text();
+  if (text === 'null' || text === '') {
+    return null;
+  }
+
+  if (!response.ok) {
+    const data = JSON.parse(text) as { error: string; message?: string };
+    throw new ApiError(response.status, data.error, data.message);
+  }
+
+  return JSON.parse(text) as FluxNotification;
+}
+
+/**
+ * Dismiss a weekly strategy notification.
+ */
+export async function dismissMetabolicNotification(id: number, signal?: AbortSignal): Promise<void> {
+  const response = await fetch(`${API_BASE}/metabolic/notification/${id}/dismiss`, {
+    method: 'POST',
+    signal,
+  });
+  await handleEmptyResponse(response);
 }
