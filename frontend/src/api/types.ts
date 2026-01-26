@@ -722,3 +722,56 @@ export interface FluxNotification {
   reason: string;
   createdAt: string;
 }
+
+// =============================================================================
+// MACRO TETRIS SOLVER TYPES
+// =============================================================================
+
+/**
+ * SolverRequest is the request body for the macro solver.
+ */
+export interface SolverRequest {
+  remainingProteinG: number;
+  remainingCarbsG: number;
+  remainingFatG: number;
+  remainingCalories: number;
+}
+
+/**
+ * SolverIngredient represents a food ingredient in a solver solution.
+ */
+export interface SolverIngredient {
+  foodId: number;
+  foodName: string;
+  amountG: number;
+  display: string; // Human-readable: "1 Large Egg" or "120g"
+}
+
+/**
+ * SolverMacros represents the macro values provided by a solution.
+ */
+export interface SolverMacros {
+  proteinG: number;
+  carbsG: number;
+  fatG: number;
+  caloriesKcal: number;
+}
+
+/**
+ * SolverSolution represents a single meal suggestion from the solver.
+ */
+export interface SolverSolution {
+  ingredients: SolverIngredient[];
+  totalMacros: SolverMacros;
+  matchScore: number; // 0-100 where 100 is perfect match
+  recipeName: string;
+  whyText: string;
+}
+
+/**
+ * SolverResponse is the response from the macro solver API.
+ */
+export interface SolverResponse {
+  solutions: SolverSolution[];
+  computed: boolean;
+}

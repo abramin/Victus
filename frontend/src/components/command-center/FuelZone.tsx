@@ -1,24 +1,35 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import type { DailyTargets, DayType } from '../../api/types';
+import type { DailyTargets, DayType, SolverSolution } from '../../api/types';
 import { DAY_TYPE_BADGE } from '../../constants';
 import { Panel } from '../common/Panel';
 import { WaterTracker } from '../saved-view/WaterTracker';
+import { AutoFillButton, MacroSolverModal } from '../solver';
 
 interface FuelZoneProps {
   targets: DailyTargets | null;
   dayType?: DayType;
   consumedCalories?: number;
+  consumedProteinG?: number;
+  consumedCarbsG?: number;
+  consumedFatG?: number;
   waterIntakeL?: number;
   onAddWater?: (amountL: number) => void;
+  onLogSolution?: (solution: SolverSolution) => void;
 }
 
 export function FuelZone({
   targets,
   dayType,
   consumedCalories = 0,
+  consumedProteinG = 0,
+  consumedCarbsG = 0,
+  consumedFatG = 0,
   waterIntakeL = 0,
   onAddWater,
+  onLogSolution,
 }: FuelZoneProps) {
+  const [isSolverOpen, setIsSolverOpen] = useState(false);
   // No targets yet
   if (!targets) {
     return (
@@ -35,6 +46,9 @@ export function FuelZone({
   }
 
   const remainingCalories = targets.totalCalories - consumedCalories;
+  const remainingProteinG = targets.totalProteinG - consumedProteinG;
+  const remainingCarbsG = targets.totalCarbsG - consumedCarbsG;
+  const remainingFatG = targets.totalFatsG - consumedFatG;
   const calorieProgress = Math.min(100, (consumedCalories / targets.totalCalories) * 100);
   const effectiveDayType = dayType ?? targets.dayType;
   const badge = DAY_TYPE_BADGE[effectiveDayType];
@@ -93,6 +107,16 @@ export function FuelZone({
         </div>
       </div>
 
+      {/* Auto-Fill Macros Button */}
+      {remainingCalories >= 150 && (
+        <div className="mb-4">
+          <AutoFillButton
+            remainingCalories={remainingCalories}
+            onClick={() => setIsSolverOpen(true)}
+          />
+        </div>
+      )}
+
       {/* Water Tracker */}
       {onAddWater && (
         <div className="mb-4 pt-4 border-t border-gray-800">
@@ -114,6 +138,17 @@ export function FuelZone({
         </svg>
         Quick Add
       </Link>
+
+      {/* Macro Solver Modal */}
+      <MacroSolverModal
+        isOpen={isSolverOpen}
+        onClose={() => setIsSolverOpen(false)}
+        remainingCalories={remainingCalories}
+        remainingProteinG={remainingProteinG}
+        remainingCarbsG={remainingCarbsG}
+        remainingFatG={remainingFatG}
+        onLogSolution={onLogSolution}
+      />
     </Panel>
   );
 }

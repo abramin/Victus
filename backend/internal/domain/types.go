@@ -398,3 +398,55 @@ type FoodReference struct {
 	FoodItem        string
 	PlateMultiplier *float64 // Optional multiplier for plate portion
 }
+
+// FoodNutrition extends FoodReference with nutritional data for the Macro Tetris Solver.
+// Contains complete per-100g macro information required for solver calculations.
+type FoodNutrition struct {
+	ID             int64
+	Category       FoodCategory
+	FoodItem       string
+	ProteinGPer100 float64 // Protein grams per 100g
+	CarbsGPer100   float64 // Carbs grams per 100g
+	FatGPer100     float64 // Fat grams per 100g
+	ServingUnit    string  // Display unit: "g", "large", "tbsp", "slice", etc.
+	ServingSizeG   float64 // Standard serving size in grams
+	IsPantryStaple bool    // Whether this is a common pantry staple
+}
+
+// MacroBudget represents remaining or target macros for the solver.
+type MacroBudget struct {
+	ProteinG     float64
+	CarbsG       float64
+	FatG         float64
+	CaloriesKcal int
+}
+
+// SolverIngredient represents a food with a specific amount in a solution.
+type SolverIngredient struct {
+	Food    FoodNutrition
+	AmountG float64 // Amount in grams
+	Display string  // Human-readable display: "1 Large Egg" or "120g"
+}
+
+// SolverSolution represents a combination of foods that fills the macro budget.
+type SolverSolution struct {
+	Ingredients []SolverIngredient
+	TotalMacros MacroBudget // Actual macros provided by this solution
+	MatchScore  float64     // 0-100 where 100 is perfect match
+	RecipeName  string      // Generated or fallback name
+	WhyText     string      // Explanation of why this combo works
+}
+
+// SolverRequest contains input parameters for the macro solver.
+type SolverRequest struct {
+	RemainingBudget  MacroBudget
+	MaxIngredients   int             // Maximum ingredients per solution (default 3)
+	TolerancePercent float64         // Acceptable deviation from target (default 0.10)
+	PantryFoods      []FoodNutrition // Available foods to choose from
+}
+
+// SolverResponse contains the solver output.
+type SolverResponse struct {
+	Solutions []SolverSolution // 1-3 solutions ranked by match score
+	Computed  bool             // True if solver ran successfully
+}

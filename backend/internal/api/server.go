@@ -24,6 +24,7 @@ type Server struct {
 	fatigueService        *service.FatigueService
 	programService        *service.TrainingProgramService
 	metabolicService      *service.MetabolicService
+	solverService         *service.SolverService
 	plannedDayTypeStore   *store.PlannedDayTypeStore
 	foodReferenceStore    *store.FoodReferenceStore
 }
@@ -45,6 +46,13 @@ func NewServer(db *sql.DB) *Server {
 	dailyLogService := service.NewDailyLogService(dailyLogStore, trainingSessionStore, profileStore)
 	dailyLogService.SetMetabolicStore(metabolicStore) // Enable Flux Engine
 
+	// Create Ollama service for AI recipe naming (uses localhost:11434 by default)
+	ollamaURL := os.Getenv("OLLAMA_URL")
+	ollamaService := service.NewOllamaService(ollamaURL)
+
+	// Create solver service for Macro Tetris feature
+	solverService := service.NewSolverService(foodReferenceStore, ollamaService)
+
 	mux := http.NewServeMux()
 	srv := &Server{
 		mux:                   mux,
@@ -56,6 +64,7 @@ func NewServer(db *sql.DB) *Server {
 		fatigueService:        service.NewFatigueService(fatigueStore),
 		programService:        service.NewTrainingProgramService(programStore, plannedDayTypeStore),
 		metabolicService:      service.NewMetabolicService(metabolicStore, dailyLogStore),
+		solverService:         solverService,
 		plannedDayTypeStore:   plannedDayTypeStore,
 		foodReferenceStore:    foodReferenceStore,
 	}
@@ -100,6 +109,9 @@ func NewServer(db *sql.DB) *Server {
 	// Food reference routes (Cockpit Dashboard)
 	mux.HandleFunc("GET /api/food-reference", srv.getFoodReference)
 	mux.HandleFunc("PATCH /api/food-reference/{id}", srv.updateFoodReference)
+
+	// Macro Tetris Solver route
+	mux.HandleFunc("POST /api/solver/solve", srv.solveMacros)
 
 	// Nutrition plan routes (Issue #27)
 	mux.HandleFunc("POST /api/plans", srv.createPlan)

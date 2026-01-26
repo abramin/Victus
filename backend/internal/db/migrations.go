@@ -118,6 +118,11 @@ func RunMigrations(db *sql.DB) error {
 		return fmt.Errorf("nutrition plan status migration failed: %w", err)
 	}
 
+	// Seed nutritional data for Macro Tetris Solver feature
+	if err := seedFoodNutritionalData(db); err != nil {
+		return fmt.Errorf("food nutritional data migration failed: %w", err)
+	}
+
 	return nil
 }
 

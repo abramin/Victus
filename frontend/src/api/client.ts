@@ -33,6 +33,8 @@ import type {
   InstallProgramRequest,
   ProgramDifficulty,
   ProgramFocus,
+  SolverRequest,
+  SolverResponse,
 } from './types';
 
 const API_BASE = '/api';
@@ -597,4 +599,24 @@ export async function dismissMetabolicNotification(id: number, signal?: AbortSig
     signal,
   });
   await handleEmptyResponse(response);
+}
+
+// =============================================================================
+// MACRO TETRIS SOLVER
+// =============================================================================
+
+/**
+ * Solve remaining macros with optimal food combinations.
+ * Requires at least 150 kcal remaining to solve.
+ */
+export async function solveMacros(request: SolverRequest, signal?: AbortSignal): Promise<SolverResponse> {
+  const response = await fetch(`${API_BASE}/solver/solve`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(request),
+    signal,
+  });
+  return handleResponse<SolverResponse>(response);
 }
