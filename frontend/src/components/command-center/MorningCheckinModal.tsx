@@ -16,10 +16,19 @@ export type Feeling = 'rest' | 'ready';
 interface MorningCheckinModalProps {
   isOpen: boolean;
   onComplete: (data: CheckinData) => Promise<void>;
+  onClose?: () => void;
   profile: UserProfile;
   plannedSessions: TrainingSession[];
   yesterdayHrv?: number;
   saving?: boolean;
+  mode?: 'create' | 'edit';
+  initialData?: {
+    weightKg: number;
+    sleepHours: number;
+    sleepQuality: number;
+    hrvMs?: number;
+    dayType: DayType;
+  };
 }
 
 export interface CheckinData {
@@ -59,46 +68,66 @@ function sleepHoursToQuality(hours: number): number {
 export function MorningCheckinModal({
   isOpen,
   onComplete,
+  onClose,
   profile,
   plannedSessions,
   yesterdayHrv,
   saving = false,
+  mode = 'create',
+  initialData,
 }: MorningCheckinModalProps) {
+  const isEditMode = mode === 'edit';
   const dialogRef = useRef<HTMLDivElement>(null);
   const previousActiveElement = useRef<HTMLElement | null>(null);
   const sleepSliderId = useId();
 
-  // Form state
-  const [weightKg, setWeightKg] = useState<number | ''>('');
-  const [sleepHours, setSleepHours] = useState(7);
-  const [hrvMs, setHrvMs] = useState<number | ''>('');
+  // Form state - initialize from initialData in edit mode
+  const [weightKg, setWeightKg] = useState<number | ''>(() =>
+    initialData?.weightKg ?? ''
+  );
+  const [sleepHours, setSleepHours] = useState(() =>
+    initialData?.sleepHours ?? 7
+  );
+  const [hrvMs, setHrvMs] = useState<number | ''>(() =>
+    initialData?.hrvMs ?? ''
+  );
   const [feeling, setFeeling] = useState<Feeling>('ready');
   const [dayType, setDayType] = useState<DayType>(() =>
-    inferDayTypeFromSessions(plannedSessions)
+    initialData?.dayType ?? inferDayTypeFromSessions(plannedSessions)
   );
-  const [showDayTypeOverride, setShowDayTypeOverride] = useState(false);
+  const [showDayTypeOverride, setShowDayTypeOverride] = useState(isEditMode);
   const [validationError, setValidationError] = useState<string | null>(null);
 
-  // Update day type when sessions change
+  // Reset form when modal opens (handles both create and edit modes)
   useEffect(() => {
-    if (!showDayTypeOverride) {
+    if (isOpen) {
+      if (isEditMode && initialData) {
+        setWeightKg(initialData.weightKg);
+        setSleepHours(initialData.sleepHours);
+        setHrvMs(initialData.hrvMs ?? '');
+        setDayType(initialData.dayType);
+        setShowDayTypeOverride(true);
+      } else {
+        // Create mode: pre-fill from profile/yesterday
+        if (profile.currentWeightKg) {
+          setWeightKg(profile.currentWeightKg);
+        }
+        if (yesterdayHrv) {
+          setHrvMs(yesterdayHrv);
+        }
+        setDayType(inferDayTypeFromSessions(plannedSessions));
+        setShowDayTypeOverride(false);
+      }
+      setValidationError(null);
+    }
+  }, [isOpen, isEditMode, initialData, profile.currentWeightKg, yesterdayHrv, plannedSessions]);
+
+  // Update day type when sessions change (only in create mode)
+  useEffect(() => {
+    if (!isEditMode && !showDayTypeOverride) {
       setDayType(inferDayTypeFromSessions(plannedSessions));
     }
-  }, [plannedSessions, showDayTypeOverride]);
-
-  // Pre-fill weight from profile if available
-  useEffect(() => {
-    if (isOpen && profile.currentWeightKg) {
-      setWeightKg(profile.currentWeightKg);
-    }
-  }, [isOpen, profile.currentWeightKg]);
-
-  // Pre-fill HRV from yesterday if available
-  useEffect(() => {
-    if (isOpen && yesterdayHrv) {
-      setHrvMs(yesterdayHrv);
-    }
-  }, [isOpen, yesterdayHrv]);
+  }, [plannedSessions, showDayTypeOverride, isEditMode]);
 
   // Focus management
   useEffect(() => {
@@ -118,9 +147,16 @@ export function MorningCheckinModal({
     }
   }, [isOpen]);
 
-  // Focus trap
+  // Focus trap and escape key handling
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Escape key closes modal in edit mode
+      if (e.key === 'Escape' && isOpen && isEditMode && onClose) {
+        e.preventDefault();
+        onClose();
+        return;
+      }
+
       if (e.key === 'Tab' && isOpen && dialogRef.current) {
         const focusableElements = dialogRef.current.querySelectorAll<HTMLElement>(
           'button, input, [tabindex]:not([tabindex="-1"])'
@@ -139,7 +175,7 @@ export function MorningCheckinModal({
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen]);
+  }, [isOpen, isEditMode, onClose]);
 
   // Prevent body scroll
   useEffect(() => {
@@ -208,11 +244,23 @@ export function MorningCheckinModal({
           >
             {/* Header */}
             <div className="text-center mb-8">
+              {isEditMode && onClose && (
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors"
+                  aria-label="Close"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
               <h1
                 id="checkin-title"
                 className="text-3xl font-bold text-white mb-2"
               >
-                Good Morning
+                {isEditMode ? 'Edit Check-in' : 'Good Morning'}
               </h1>
               <p className="text-gray-400">
                 {new Date().toLocaleDateString('en-US', {
@@ -376,7 +424,7 @@ export function MorningCheckinModal({
               </div>
             )}
 
-            {/* Start Day Button */}
+            {/* Submit Button */}
             <button
               type="button"
               onClick={handleSubmit}
@@ -404,10 +452,10 @@ export function MorningCheckinModal({
                       d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                     />
                   </svg>
-                  Starting...
+                  {isEditMode ? 'Saving...' : 'Starting...'}
                 </span>
               ) : (
-                'Start Day'
+                isEditMode ? 'Save Changes' : 'Start Day'
               )}
             </button>
           </motion.div>

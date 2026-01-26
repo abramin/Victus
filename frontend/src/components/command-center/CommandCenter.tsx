@@ -76,6 +76,9 @@ export function CommandCenter({
   // Track whether to show the Flux notification modal
   const [showFluxModal, setShowFluxModal] = useState(false);
 
+  // Track whether to show the edit check-in modal
+  const [showEditCheckin, setShowEditCheckin] = useState(false);
+
   // Show Flux modal when notification arrives (only if check-in modal isn't showing)
   useEffect(() => {
     if (fluxNotification && !shouldShowModal && log) {
@@ -124,6 +127,35 @@ export function CommandCenter({
     [onCreate, dismissModal]
   );
 
+  // Handler for edit check-in completion
+  const handleEditCheckinComplete = useCallback(
+    async (data: CheckinData) => {
+      const request: CreateDailyLogRequest = {
+        weightKg: data.weightKg,
+        sleepQuality: data.sleepQuality,
+        sleepHours: data.sleepHours,
+        hrvMs: data.hrvMs,
+        dayType: data.dayType,
+        plannedTrainingSessions: data.plannedTrainingSessions,
+      };
+
+      const result = await onCreate(request);
+      if (result) {
+        setShowEditCheckin(false);
+      }
+    },
+    [onCreate]
+  );
+
+  // Prepare initial data from current log for edit mode
+  const editInitialData = log ? {
+    weightKg: log.weightKg,
+    sleepHours: log.sleepHours ?? 7,
+    sleepQuality: log.sleepQuality ?? 70,
+    hrvMs: log.hrvMs,
+    dayType: log.dayType,
+  } : undefined;
+
   const handleToggleSession = useCallback(
     (session: TrainingSession, completed: boolean) => {
       if (!onUpdateActual || !log) return;
@@ -170,6 +202,18 @@ export function CommandCenter({
         plannedSessions={effectivePlannedSessions}
         yesterdayHrv={yesterdayLog?.hrvMs}
         saving={saving}
+      />
+
+      {/* Edit Check-In Modal */}
+      <MorningCheckinModal
+        isOpen={showEditCheckin}
+        onComplete={handleEditCheckinComplete}
+        onClose={() => setShowEditCheckin(false)}
+        profile={profile}
+        plannedSessions={effectivePlannedSessions}
+        saving={saving}
+        mode="edit"
+        initialData={editInitialData}
       />
 
       {/* Weekly Strategy Update Modal (Flux Engine) */}
@@ -222,6 +266,7 @@ export function CommandCenter({
               sleepHours={log.sleepHours}
               sleepQuality={log.sleepQuality}
               profile={profile}
+              onEdit={() => setShowEditCheckin(true)}
             />
 
             {/* Training Override Alert (when CNS depleted) */}
