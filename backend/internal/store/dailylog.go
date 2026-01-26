@@ -1061,3 +1061,141 @@ func (s *DailyLogStore) ListByDateRange(ctx context.Context, startDate, endDate 
 
 	return logs, nil
 }
+
+// SleepData contains sleep-related fields for partial updates.
+type SleepData struct {
+	SleepQuality     *int     // 1-100 sleep score
+	SleepHours       *float64 // Hours slept
+	RestingHeartRate *int     // RHR from sleep tracking
+	HRVMs            *int     // HRV in milliseconds
+}
+
+// UpdateSleepData updates sleep-related fields for an existing daily log.
+// Only non-nil fields are updated.
+func (s *DailyLogStore) UpdateSleepData(ctx context.Context, date string, data SleepData) error {
+	var setClauses []string
+	var args []interface{}
+
+	if data.SleepQuality != nil {
+		setClauses = append(setClauses, "sleep_quality = ?")
+		args = append(args, *data.SleepQuality)
+	}
+	if data.SleepHours != nil {
+		setClauses = append(setClauses, "sleep_hours = ?")
+		args = append(args, *data.SleepHours)
+	}
+	if data.RestingHeartRate != nil {
+		setClauses = append(setClauses, "resting_heart_rate = ?")
+		args = append(args, *data.RestingHeartRate)
+	}
+	if data.HRVMs != nil {
+		setClauses = append(setClauses, "hrv_ms = ?")
+		args = append(args, *data.HRVMs)
+	}
+
+	if len(setClauses) == 0 {
+		return nil
+	}
+
+	setClauses = append(setClauses, "updated_at = datetime('now')")
+	query := fmt.Sprintf("UPDATE daily_logs SET %s WHERE log_date = ?",
+		strings.Join(setClauses, ", "))
+	args = append(args, date)
+
+	result, err := s.db.ExecContext(ctx, query, args...)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		return ErrDailyLogNotFound
+	}
+
+	return nil
+}
+
+// WeightData contains weight-related fields for partial updates.
+type WeightData struct {
+	WeightKg       *float64
+	BodyFatPercent *float64
+}
+
+// UpdateWeightData updates weight-related fields for an existing daily log.
+// Only non-nil fields are updated.
+func (s *DailyLogStore) UpdateWeightData(ctx context.Context, date string, data WeightData) error {
+	var setClauses []string
+	var args []interface{}
+
+	if data.WeightKg != nil {
+		setClauses = append(setClauses, "weight_kg = ?")
+		args = append(args, *data.WeightKg)
+	}
+	if data.BodyFatPercent != nil {
+		setClauses = append(setClauses, "body_fat_percent = ?")
+		args = append(args, *data.BodyFatPercent)
+	}
+
+	if len(setClauses) == 0 {
+		return nil
+	}
+
+	setClauses = append(setClauses, "updated_at = datetime('now')")
+	query := fmt.Sprintf("UPDATE daily_logs SET %s WHERE log_date = ?",
+		strings.Join(setClauses, ", "))
+	args = append(args, date)
+
+	result, err := s.db.ExecContext(ctx, query, args...)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		return ErrDailyLogNotFound
+	}
+
+	return nil
+}
+
+// UpdateHRV updates the HRV field for an existing daily log.
+func (s *DailyLogStore) UpdateHRV(ctx context.Context, date string, hrvMs int) error {
+	const query = `
+		UPDATE daily_logs
+		SET hrv_ms = ?, updated_at = datetime('now')
+		WHERE log_date = ?
+	`
+
+	result, err := s.db.ExecContext(ctx, query, hrvMs, date)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		return ErrDailyLogNotFound
+	}
+
+	return nil
+}
+
+// UpdateRHR updates the resting heart rate for an existing daily log.
+func (s *DailyLogStore) UpdateRHR(ctx context.Context, date string, rhr int) error {
+	const query = `
+		UPDATE daily_logs
+		SET resting_heart_rate = ?, updated_at = datetime('now')
+		WHERE log_date = ?
+	`
+
+	result, err := s.db.ExecContext(ctx, query, rhr, date)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		return ErrDailyLogNotFound
+	}
+
+	return nil
+}

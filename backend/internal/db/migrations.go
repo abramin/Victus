@@ -36,6 +36,8 @@ func RunMigrations(db *sql.DB) error {
 		createProgramInstallationsTable,
 		// Metabolic Flux Engine feature
 		createMetabolicHistoryTable,
+		// Garmin Data Ingestion feature
+		createMonthlySummariesTable,
 	}
 
 	for i, migration := range migrations {
@@ -682,6 +684,27 @@ CREATE TABLE IF NOT EXISTS metabolic_history (
 CREATE INDEX IF NOT EXISTS idx_metabolic_history_log ON metabolic_history(daily_log_id);
 CREATE INDEX IF NOT EXISTS idx_metabolic_history_notification ON metabolic_history(notification_pending);
 CREATE INDEX IF NOT EXISTS idx_metabolic_history_calculated_at ON metabolic_history(calculated_at);
+`
+
+// Monthly Summaries table for Garmin aggregate data import (Garmin Data Ingestion feature)
+const createMonthlySummariesTable = `
+CREATE TABLE IF NOT EXISTS monthly_summaries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    year_month TEXT NOT NULL,
+    activity_type TEXT NOT NULL CHECK(activity_type IN (
+        'rest', 'qigong', 'walking', 'gmb', 'run', 'row', 'cycle', 'hiit',
+        'strength', 'calisthenics', 'mobility', 'mixed'
+    )),
+    session_count INTEGER,
+    total_calories INTEGER,
+    avg_calories_per_session INTEGER,
+    data_source TEXT NOT NULL,
+    raw_activity_name TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(year_month, activity_type)
+);
+
+CREATE INDEX IF NOT EXISTS idx_monthly_summaries_year_month ON monthly_summaries(year_month);
 `
 
 // migrateTrainingSessionsConstraint fixes the unique constraint on training_sessions
