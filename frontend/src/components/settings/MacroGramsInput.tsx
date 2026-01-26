@@ -1,6 +1,10 @@
 import { useMemo, useState, useEffect } from 'react';
 import { NumberInput } from '../common/NumberInput';
 import {
+  ProteinGuardrailIndicator,
+  FatGuardrailIndicator,
+} from '../common/GuardrailIndicator';
+import {
   CARB_KCAL_PER_G,
   PROTEIN_KCAL_PER_G,
   FAT_KCAL_PER_G,
@@ -286,28 +290,11 @@ export function MacroGramsInput({
         </div>
       </div>
 
-        {/* Protein per kg indicator */}
+        {/* Macro guardrail indicators */}
         {weightKg > 0 && (
-          <div className="mt-3 pt-3 border-t border-slate-700">
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-500">Protein target:</span>
-              <span
-                className={`text-xs font-medium ${
-                  Number(derivedValues.proteinPerKg) >= 1.6
-                    ? 'text-green-400'
-                    : Number(derivedValues.proteinPerKg) >= 1.2
-                    ? 'text-yellow-400'
-                    : 'text-red-400'
-                }`}
-              >
-                {derivedValues.proteinPerKg} g/kg
-                {Number(derivedValues.proteinPerKg) >= 1.6 && ' ✓ Optimal'}
-                {Number(derivedValues.proteinPerKg) < 1.6 &&
-                  Number(derivedValues.proteinPerKg) >= 1.2 &&
-                  ' Moderate'}
-                {Number(derivedValues.proteinPerKg) < 1.2 && ' Below recommended'}
-              </span>
-            </div>
+          <div className="mt-3 pt-3 border-t border-slate-700 space-y-1">
+            <ProteinGuardrailIndicator value={Number(derivedValues.proteinPerKg)} />
+            <FatGuardrailIndicator value={Number(derivedValues.fatsPerKg)} />
           </div>
         )}
       </div>

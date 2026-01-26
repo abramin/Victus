@@ -475,3 +475,25 @@ export interface ApplyLoadRequest {
   durationMin: number;
   rpe?: number;
 }
+
+// =============================================================================
+// BIOLOGICAL GUARDRAIL TYPES
+// =============================================================================
+
+/** Guardrail warning codes */
+export type GuardrailCode = 'LOW_PROTEIN' | 'LOW_FAT' | 'LOW_CARB_TRAINING';
+
+/** Guardrail severity levels */
+export type GuardrailSeverity = 'caution' | 'critical';
+
+/**
+ * GuardrailWarning represents a biological safety warning.
+ * These are advisories (not blockers) - users can acknowledge and override.
+ */
+export interface GuardrailWarning {
+  code: GuardrailCode;
+  message: string;
+  actualGPerKg: number;
+  minGPerKg: number;
+  severity: GuardrailSeverity;
+}

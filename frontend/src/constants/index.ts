@@ -292,3 +292,62 @@ export const PACE_ZONES = [
   { upTo: 60, label: 'Aggressive', color: 'text-orange-400' },
   { upTo: 100, label: 'Extreme', color: 'text-red-400' },
 ] as const;
+
+// =============================================================================
+// BIOLOGICAL GUARDRAIL CONSTANTS
+// =============================================================================
+
+/** Minimum fat intake g/kg for hormonal health */
+export const MIN_FAT_G_PER_KG = 0.5;
+
+/** Minimum protein intake g/kg for muscle retention */
+export const MIN_PROTEIN_G_PER_KG = 1.6;
+
+/** Maximum protein g/kg (diminishing returns beyond) */
+export const MAX_PROTEIN_G_PER_KG = 3.3;
+
+/** Default starting protein g/kg */
+export const DEFAULT_PROTEIN_G_PER_KG = 2.0;
+
+/** Default starting fat g/kg */
+export const DEFAULT_FAT_G_PER_KG = 0.8;
+
+/** Minimum carbs for training days */
+export const MIN_CARBS_G_PERFORMANCE = 100;
+
+/**
+ * Protein quality zones for UI feedback.
+ * Each zone defines the upper bound (upTo) in g/kg.
+ */
+export const PROTEIN_ZONES = [
+  { upTo: 1.2, label: 'Critical', color: 'text-red-400', description: 'Muscle loss likely' },
+  { upTo: 1.6, label: 'Survival', color: 'text-orange-400', description: 'Minimum maintenance' },
+  { upTo: 2.2, label: 'Athlete Baseline', color: 'text-blue-400', description: 'Optimal for most' },
+  { upTo: 3.0, label: 'Optimal Growth', color: 'text-green-400', description: 'Max synthesis' },
+  { upTo: 4.0, label: 'Diminishing', color: 'text-slate-400', description: 'Limited benefit' },
+] as const;
+
+/**
+ * Fat quality zones for UI feedback.
+ * Each zone defines the upper bound (upTo) in g/kg.
+ */
+export const FAT_ZONES = [
+  { upTo: 0.3, label: 'Critical', color: 'text-red-400', description: 'Hormone disruption' },
+  { upTo: 0.5, label: 'Low', color: 'text-orange-400', description: 'Below safe minimum' },
+  { upTo: 0.7, label: 'Minimum', color: 'text-yellow-400', description: 'Bare minimum' },
+  { upTo: 1.2, label: 'Optimal', color: 'text-green-400', description: 'Supports hormones' },
+  { upTo: 2.0, label: 'High', color: 'text-slate-400', description: 'Keto range' },
+] as const;
+
+/** Type for zone entries */
+export type MacroZone = (typeof PROTEIN_ZONES)[number] | (typeof FAT_ZONES)[number];
+
+/**
+ * Helper to find the zone for a given g/kg value.
+ */
+export function getZone(
+  value: number,
+  zones: readonly { upTo: number; label: string; color: string; description: string }[]
+): (typeof zones)[number] {
+  return zones.find((z) => value <= z.upTo) ?? zones[zones.length - 1];
+}

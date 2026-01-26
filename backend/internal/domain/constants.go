@@ -57,6 +57,36 @@ const (
 )
 
 // =============================================================================
+// BIOLOGICAL GUARDRAIL CONSTANTS
+// =============================================================================
+
+const (
+	// MinFatGPerKg is the absolute minimum fat intake for hormonal health.
+	// Below this, testosterone/estrogen synthesis is impaired.
+	// Research: Volek 1997, Hamalainen 1984.
+	MinFatGPerKg = 0.5
+
+	// MinProteinGPerKg is the minimum protein intake for muscle preservation.
+	// Below this, muscle protein synthesis is insufficient to prevent loss.
+	// Research: Morton 2018, Phillips 2016.
+	MinProteinGPerKg = 1.6
+
+	// MaxProteinGPerKg is the upper limit where additional protein provides
+	// diminishing returns. Research: Morton 2018 meta-analysis.
+	MaxProteinGPerKg = 3.3
+
+	// DefaultProteinGPerKg is the recommended starting protein target.
+	DefaultProteinGPerKg = 2.0
+
+	// DefaultFatGPerKg is the recommended starting fat target.
+	DefaultFatGPerKg = 0.8
+
+	// MinCarbsGPerformance is the minimum carb intake for training days.
+	// Below this on training days impairs glycogen replenishment.
+	MinCarbsGPerformance = 100.0
+)
+
+// =============================================================================
 // PRODUCE CALCULATION CONSTANTS
 // =============================================================================
 
