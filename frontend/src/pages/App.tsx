@@ -14,6 +14,7 @@ import { WeightHistory } from '../components/history';
 import { CommandCenter } from '../components/command-center';
 import { LogWorkoutView } from '../components/training';
 import { ProfileForm } from '../components/settings/ProfileForm';
+import { GarminImportZone } from '../components/settings/GarminImportZone';
 import { ErrorBoundary } from '../components/common';
 import { WorkoutPlanner } from '../components/workout-planner';
 import { PhysiqueDashboard } from '../components/physique';
@@ -120,6 +121,7 @@ function App() {
                 error={logSaveError}
                 activePlan={activePlan}
                 onCreate={create}
+                onReplace={replace}
                 onUpdateActual={updateActual}
                 onRefresh={refreshLog}
               />
@@ -167,6 +169,11 @@ function App() {
                   error={saveError}
                   activePlan={activePlan}
                 />
+                {/* Data Import Section */}
+                <div className="mt-8">
+                  <h2 className="text-xl font-semibold text-white mb-4">Data Management</h2>
+                  <GarminImportZone />
+                </div>
               </div>
             }
           />

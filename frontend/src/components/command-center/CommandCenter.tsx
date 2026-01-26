@@ -28,6 +28,7 @@ interface CommandCenterProps {
   error: string | null;
   activePlan: NutritionPlan | null;
   onCreate: (data: CreateDailyLogRequest) => Promise<DailyLog | null>;
+  onReplace?: (data: CreateDailyLogRequest) => Promise<DailyLog | null>;
   onUpdateActual?: (sessions: Omit<ActualTrainingSession, 'sessionOrder'>[]) => Promise<DailyLog | null>;
   onRefresh?: () => void;
 }
@@ -41,6 +42,7 @@ export function CommandCenter({
   error,
   activePlan,
   onCreate,
+  onReplace,
   onUpdateActual,
   onRefresh,
 }: CommandCenterProps) {
@@ -144,12 +146,14 @@ export function CommandCenter({
         plannedTrainingSessions: data.plannedTrainingSessions,
       };
 
-      const result = await onCreate(request);
+      // Use replace when editing an existing log, fallback to create
+      const handler = onReplace ?? onCreate;
+      const result = await handler(request);
       if (result) {
         setShowEditCheckin(false);
       }
     },
-    [onCreate]
+    [onCreate, onReplace]
   );
 
   // Prepare initial data from current log for edit mode
