@@ -2,215 +2,192 @@ package domain
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/suite"
 )
 
-func TestCalculateCNSStatus(t *testing.T) {
-	tests := []struct {
-		name       string
-		input      CNSInput
-		wantNil    bool
-		wantStatus CNSStatus
-	}{
-		{
-			name: "nil when no current HRV",
-			input: CNSInput{
-				CurrentHRV: 0,
-				HRVHistory: []int{45, 46, 47, 48, 49, 50, 51},
-			},
-			wantNil: true,
-		},
-		{
-			name: "nil when insufficient history",
-			input: CNSInput{
-				CurrentHRV: 50,
-				HRVHistory: []int{45, 46}, // Only 2 points
-			},
-			wantNil: true,
-		},
-		{
-			name: "optimized when above baseline",
-			input: CNSInput{
-				CurrentHRV: 55,
-				HRVHistory: []int{45, 46, 47, 48, 49, 50, 51}, // avg ~48
-			},
-			wantStatus: CNSStatusOptimized,
-		},
-		{
-			name: "optimized when at baseline",
-			input: CNSInput{
-				CurrentHRV: 48,
-				HRVHistory: []int{45, 46, 47, 48, 49, 50, 51}, // avg = 48
-			},
-			wantStatus: CNSStatusOptimized,
-		},
-		{
-			name: "optimized when 5% below baseline",
-			input: CNSInput{
-				CurrentHRV: 46, // ~4% below 48
-				HRVHistory: []int{45, 46, 47, 48, 49, 50, 51},
-			},
-			wantStatus: CNSStatusOptimized,
-		},
-		{
-			name: "strained when 15% below baseline",
-			input: CNSInput{
-				CurrentHRV: 41, // ~15% below 48
-				HRVHistory: []int{45, 46, 47, 48, 49, 50, 51},
-			},
-			wantStatus: CNSStatusStrained,
-		},
-		{
-			name: "depleted when 25% below baseline",
-			input: CNSInput{
-				CurrentHRV: 36, // ~25% below 48
-				HRVHistory: []int{45, 46, 47, 48, 49, 50, 51},
-			},
-			wantStatus: CNSStatusDepleted,
-		},
-		{
-			name: "works with minimum history (3 points)",
-			input: CNSInput{
-				CurrentHRV: 50,
-				HRVHistory: []int{45, 50, 55}, // avg = 50
-			},
-			wantStatus: CNSStatusOptimized,
-		},
-		{
-			name: "filters zero values from history",
-			input: CNSInput{
-				CurrentHRV: 50,
-				HRVHistory: []int{0, 45, 0, 50, 55, 0}, // only 3 valid
-			},
-			wantStatus: CNSStatusOptimized,
-		},
-	}
+// Justification: CNS auto-regulation is a safety-critical system; unit tests lock
+// the HRV threshold thresholds and training override logic without E2E dependencies.
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := CalculateCNSStatus(tt.input)
-			if tt.wantNil {
-				if result != nil {
-					t.Errorf("expected nil, got %+v", result)
-				}
-				return
-			}
-			if result == nil {
-				t.Fatal("expected non-nil result")
-			}
-			if result.Status != tt.wantStatus {
-				t.Errorf("status = %v, want %v (deviation: %.2f%%)",
-					result.Status, tt.wantStatus, result.DeviationPct*100)
-			}
-		})
-	}
+type CNSSuite struct {
+	suite.Suite
 }
 
-func TestCalculateTrainingOverride(t *testing.T) {
-	tests := []struct {
-		name          string
-		status        CNSStatus
-		sessions      []TrainingSession
-		wantOverrides int
-		wantTypes     []TrainingType
-	}{
-		{
-			name:          "no override for optimized",
-			status:        CNSStatusOptimized,
-			sessions:      []TrainingSession{{Type: TrainingTypeStrength, DurationMin: 60}},
-			wantOverrides: 0,
-		},
-		{
-			name:          "no override for strained",
-			status:        CNSStatusStrained,
-			sessions:      []TrainingSession{{Type: TrainingTypeStrength, DurationMin: 60}},
-			wantOverrides: 0,
-		},
-		{
-			name:          "override strength to mobility when depleted",
-			status:        CNSStatusDepleted,
-			sessions:      []TrainingSession{{Type: TrainingTypeStrength, DurationMin: 60}},
-			wantOverrides: 1,
-			wantTypes:     []TrainingType{TrainingTypeMobility},
-		},
-		{
-			name:          "override HIIT to mobility when depleted",
-			status:        CNSStatusDepleted,
-			sessions:      []TrainingSession{{Type: TrainingTypeHIIT, DurationMin: 45}},
-			wantOverrides: 1,
-			wantTypes:     []TrainingType{TrainingTypeMobility},
-		},
-		{
-			name:          "override run to walking when depleted",
-			status:        CNSStatusDepleted,
-			sessions:      []TrainingSession{{Type: TrainingTypeRun, DurationMin: 60}},
-			wantOverrides: 1,
-			wantTypes:     []TrainingType{TrainingTypeWalking},
-		},
-		{
-			name:          "no override for rest when depleted",
-			status:        CNSStatusDepleted,
-			sessions:      []TrainingSession{{Type: TrainingTypeRest, DurationMin: 0}},
-			wantOverrides: 0,
-		},
-		{
-			name:          "no override for walking when depleted",
-			status:        CNSStatusDepleted,
-			sessions:      []TrainingSession{{Type: TrainingTypeWalking, DurationMin: 30}},
-			wantOverrides: 0,
-		},
-		{
-			name:   "multiple session overrides",
-			status: CNSStatusDepleted,
-			sessions: []TrainingSession{
-				{Type: TrainingTypeStrength, DurationMin: 60},
-				{Type: TrainingTypeRun, DurationMin: 30},
-				{Type: TrainingTypeWalking, DurationMin: 20},
-			},
-			wantOverrides: 2,
-			wantTypes:     []TrainingType{TrainingTypeMobility, TrainingTypeWalking},
-		},
-		{
-			name:          "duration capped for mobility",
-			status:        CNSStatusDepleted,
-			sessions:      []TrainingSession{{Type: TrainingTypeStrength, DurationMin: 90}},
-			wantOverrides: 1,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			overrides := CalculateTrainingOverride(tt.status, tt.sessions)
-			if len(overrides) != tt.wantOverrides {
-				t.Errorf("got %d overrides, want %d", len(overrides), tt.wantOverrides)
-			}
-			for i, wantType := range tt.wantTypes {
-				if i < len(overrides) && overrides[i].RecommendedType != wantType {
-					t.Errorf("override[%d].RecommendedType = %v, want %v",
-						i, overrides[i].RecommendedType, wantType)
-				}
-			}
-		})
-	}
+func TestCNSSuite(t *testing.T) {
+	suite.Run(t, new(CNSSuite))
 }
 
-func TestTrainingOverrideDurationCaps(t *testing.T) {
-	sessions := []TrainingSession{
-		{Type: TrainingTypeStrength, DurationMin: 90},
-		{Type: TrainingTypeRun, DurationMin: 120},
-	}
+func (s *CNSSuite) baselineHistory() []int {
+	// Average ~48
+	return []int{45, 46, 47, 48, 49, 50, 51}
+}
 
-	overrides := CalculateTrainingOverride(CNSStatusDepleted, sessions)
-	if len(overrides) != 2 {
-		t.Fatalf("expected 2 overrides, got %d", len(overrides))
-	}
+func (s *CNSSuite) TestStatusCalculationPreconditions() {
+	s.Run("nil when no current HRV", func() {
+		input := CNSInput{
+			CurrentHRV: 0,
+			HRVHistory: s.baselineHistory(),
+		}
+		result := CalculateCNSStatus(input)
+		s.Nil(result)
+	})
 
-	// Strength -> Mobility capped at 30 min
-	if overrides[0].RecommendedDuration != MaxMobilityDuration {
-		t.Errorf("mobility duration = %d, want %d", overrides[0].RecommendedDuration, MaxMobilityDuration)
-	}
+	s.Run("nil when insufficient history", func() {
+		input := CNSInput{
+			CurrentHRV: 50,
+			HRVHistory: []int{45, 46}, // Only 2 points
+		}
+		result := CalculateCNSStatus(input)
+		s.Nil(result)
+	})
 
-	// Run -> Walking capped at 45 min
-	if overrides[1].RecommendedDuration != MaxWalkingDuration {
-		t.Errorf("walking duration = %d, want %d", overrides[1].RecommendedDuration, MaxWalkingDuration)
-	}
+	s.Run("works with minimum history 3 points", func() {
+		input := CNSInput{
+			CurrentHRV: 50,
+			HRVHistory: []int{45, 50, 55}, // avg = 50
+		}
+		result := CalculateCNSStatus(input)
+		s.NotNil(result)
+		s.Equal(CNSStatusOptimized, result.Status)
+	})
+
+	s.Run("filters zero values from history", func() {
+		input := CNSInput{
+			CurrentHRV: 50,
+			HRVHistory: []int{0, 45, 0, 50, 55, 0}, // only 3 valid
+		}
+		result := CalculateCNSStatus(input)
+		s.NotNil(result)
+		s.Equal(CNSStatusOptimized, result.Status)
+	})
+}
+
+func (s *CNSSuite) TestStatusThresholds() {
+	s.Run("optimized when above baseline", func() {
+		input := CNSInput{
+			CurrentHRV: 55,
+			HRVHistory: s.baselineHistory(), // avg ~48
+		}
+		result := CalculateCNSStatus(input)
+		s.Require().NotNil(result)
+		s.Equal(CNSStatusOptimized, result.Status)
+	})
+
+	s.Run("optimized when at baseline", func() {
+		input := CNSInput{
+			CurrentHRV: 48,
+			HRVHistory: s.baselineHistory(), // avg = 48
+		}
+		result := CalculateCNSStatus(input)
+		s.Require().NotNil(result)
+		s.Equal(CNSStatusOptimized, result.Status)
+	})
+
+	s.Run("optimized when 5% below baseline", func() {
+		input := CNSInput{
+			CurrentHRV: 46, // ~4% below 48
+			HRVHistory: s.baselineHistory(),
+		}
+		result := CalculateCNSStatus(input)
+		s.Require().NotNil(result)
+		s.Equal(CNSStatusOptimized, result.Status)
+	})
+
+	s.Run("strained when 15% below baseline", func() {
+		input := CNSInput{
+			CurrentHRV: 41, // ~15% below 48
+			HRVHistory: s.baselineHistory(),
+		}
+		result := CalculateCNSStatus(input)
+		s.Require().NotNil(result)
+		s.Equal(CNSStatusStrained, result.Status)
+	})
+
+	s.Run("depleted when 25% below baseline", func() {
+		input := CNSInput{
+			CurrentHRV: 36, // ~25% below 48
+			HRVHistory: s.baselineHistory(),
+		}
+		result := CalculateCNSStatus(input)
+		s.Require().NotNil(result)
+		s.Equal(CNSStatusDepleted, result.Status)
+	})
+}
+
+func (s *CNSSuite) TestTrainingOverridesByStatus() {
+	s.Run("no override for optimized", func() {
+		sessions := []TrainingSession{{Type: TrainingTypeStrength, DurationMin: 60}}
+		overrides := CalculateTrainingOverride(CNSStatusOptimized, sessions)
+		s.Empty(overrides)
+	})
+
+	s.Run("no override for strained", func() {
+		sessions := []TrainingSession{{Type: TrainingTypeStrength, DurationMin: 60}}
+		overrides := CalculateTrainingOverride(CNSStatusStrained, sessions)
+		s.Empty(overrides)
+	})
+
+	s.Run("override strength to mobility when depleted", func() {
+		sessions := []TrainingSession{{Type: TrainingTypeStrength, DurationMin: 60}}
+		overrides := CalculateTrainingOverride(CNSStatusDepleted, sessions)
+		s.Require().Len(overrides, 1)
+		s.Equal(TrainingTypeMobility, overrides[0].RecommendedType)
+	})
+
+	s.Run("override HIIT to mobility when depleted", func() {
+		sessions := []TrainingSession{{Type: TrainingTypeHIIT, DurationMin: 45}}
+		overrides := CalculateTrainingOverride(CNSStatusDepleted, sessions)
+		s.Require().Len(overrides, 1)
+		s.Equal(TrainingTypeMobility, overrides[0].RecommendedType)
+	})
+
+	s.Run("override run to walking when depleted", func() {
+		sessions := []TrainingSession{{Type: TrainingTypeRun, DurationMin: 60}}
+		overrides := CalculateTrainingOverride(CNSStatusDepleted, sessions)
+		s.Require().Len(overrides, 1)
+		s.Equal(TrainingTypeWalking, overrides[0].RecommendedType)
+	})
+
+	s.Run("no override for rest when depleted", func() {
+		sessions := []TrainingSession{{Type: TrainingTypeRest, DurationMin: 0}}
+		overrides := CalculateTrainingOverride(CNSStatusDepleted, sessions)
+		s.Empty(overrides)
+	})
+
+	s.Run("no override for walking when depleted", func() {
+		sessions := []TrainingSession{{Type: TrainingTypeWalking, DurationMin: 30}}
+		overrides := CalculateTrainingOverride(CNSStatusDepleted, sessions)
+		s.Empty(overrides)
+	})
+}
+
+func (s *CNSSuite) TestMultipleSessionOverrides() {
+	s.Run("overrides multiple high-intensity sessions", func() {
+		sessions := []TrainingSession{
+			{Type: TrainingTypeStrength, DurationMin: 60},
+			{Type: TrainingTypeRun, DurationMin: 30},
+			{Type: TrainingTypeWalking, DurationMin: 20},
+		}
+		overrides := CalculateTrainingOverride(CNSStatusDepleted, sessions)
+
+		s.Require().Len(overrides, 2)
+		s.Equal(TrainingTypeMobility, overrides[0].RecommendedType)
+		s.Equal(TrainingTypeWalking, overrides[1].RecommendedType)
+	})
+}
+
+func (s *CNSSuite) TestOverrideDurationCaps() {
+	s.Run("mobility capped at MaxMobilityDuration", func() {
+		sessions := []TrainingSession{{Type: TrainingTypeStrength, DurationMin: 90}}
+		overrides := CalculateTrainingOverride(CNSStatusDepleted, sessions)
+		s.Require().Len(overrides, 1)
+		s.Equal(MaxMobilityDuration, overrides[0].RecommendedDuration)
+	})
+
+	s.Run("walking capped at MaxWalkingDuration", func() {
+		sessions := []TrainingSession{{Type: TrainingTypeRun, DurationMin: 120}}
+		overrides := CalculateTrainingOverride(CNSStatusDepleted, sessions)
+		s.Require().Len(overrides, 1)
+		s.Equal(MaxWalkingDuration, overrides[0].RecommendedDuration)
+	})
 }

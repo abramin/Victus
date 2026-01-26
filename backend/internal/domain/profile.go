@@ -225,13 +225,15 @@ func (p *UserProfile) SetDefaults() {
 		p.MealRatios.Dinner = 0.40
 	}
 
-	if p.PointsConfig.CarbMultiplier == 0 {
+	// Points multipliers: use defaults if unset (0) or suspiciously low (< 1.05)
+	// This catches cases where multipliers were accidentally set to 1.0
+	if p.PointsConfig.CarbMultiplier < 1.05 {
 		p.PointsConfig.CarbMultiplier = 1.15
 	}
-	if p.PointsConfig.ProteinMultiplier == 0 {
+	if p.PointsConfig.ProteinMultiplier < 2.0 {
 		p.PointsConfig.ProteinMultiplier = 4.35
 	}
-	if p.PointsConfig.FatMultiplier == 0 {
+	if p.PointsConfig.FatMultiplier < 2.0 {
 		p.PointsConfig.FatMultiplier = 3.5
 	}
 

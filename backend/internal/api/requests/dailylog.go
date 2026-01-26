@@ -36,6 +36,15 @@ type UpdateFastingOverrideRequest struct {
 	FastingOverride *string `json:"fastingOverride"` // "standard", "16_8", "20_4", or null to clear
 }
 
+// AddConsumedMacrosRequest is the request body for PATCH /api/logs/:date/consumed-macros.
+// Macros are additive - they are added to the existing totals.
+type AddConsumedMacrosRequest struct {
+	Calories int `json:"calories"`
+	ProteinG int `json:"proteinG"`
+	CarbsG   int `json:"carbsG"`
+	FatG     int `json:"fatG"`
+}
+
 // CreateDailyLogRequest is the request body for POST /api/logs.
 type CreateDailyLogRequest struct {
 	Date                    string                   `json:"date,omitempty"`
@@ -192,6 +201,10 @@ type DailyLogResponse struct {
 	Notes                   string                          `json:"notes,omitempty"`                 // Daily notes/observations
 	FastingOverride         *string                         `json:"fastingOverride,omitempty"`       // Override for fasting protocol (nil = use profile)
 	FastedItemsKcal         int                             `json:"fastedItemsKcal"`                 // Calories logged during fasting window
+	ConsumedCalories        int                             `json:"consumedCalories"`                // Total consumed calories
+	ConsumedProteinG        int                             `json:"consumedProteinG"`                // Total consumed protein in grams
+	ConsumedCarbsG          int                             `json:"consumedCarbsG"`                  // Total consumed carbs in grams
+	ConsumedFatG            int                             `json:"consumedFatG"`                    // Total consumed fat in grams
 	CreatedAt               string                          `json:"createdAt,omitempty"`
 	UpdatedAt               string                          `json:"updatedAt,omitempty"`
 }
@@ -495,6 +508,10 @@ func DailyLogToResponseWithTrainingLoad(d *domain.DailyLog, trainingLoad *domain
 		BodyFatUsedDate:       d.BodyFatUsedDate,
 		Notes:                 d.Notes,
 		FastedItemsKcal:       d.FastedItemsKcal,
+		ConsumedCalories:      d.ConsumedCalories,
+		ConsumedProteinG:      d.ConsumedProteinG,
+		ConsumedCarbsG:        d.ConsumedCarbsG,
+		ConsumedFatG:          d.ConsumedFatG,
 	}
 
 	// Include fasting override if set

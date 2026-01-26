@@ -25,6 +25,7 @@ export function Select({
   testId,
 }: SelectProps) {
   const selectId = useId();
+  const errorId = useId();
   return (
     <div className="space-y-1">
       <label htmlFor={selectId} className="block text-sm font-medium text-slate-300">
@@ -36,6 +37,7 @@ export function Select({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         data-testid={testId}
+        aria-describedby={error ? errorId : undefined}
         className={`
           w-full px-3 py-2 bg-slate-900/50 border rounded-md
           text-slate-100
@@ -50,7 +52,7 @@ export function Select({
           </option>
         ))}
       </select>
-      {error && <p className="text-sm text-red-400" data-testid={testId ? `${testId}-error` : undefined}>{error}</p>}
+      {error && <p id={errorId} className="text-sm text-red-400" data-testid={testId ? `${testId}-error` : undefined}>{error}</p>}
     </div>
   );
 }

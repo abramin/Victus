@@ -6,7 +6,9 @@ import type {
   ActualTrainingSession,
   NutritionPlan,
   TrainingSession,
+  SolverSolution,
 } from '../../api/types';
+import { addConsumedMacros } from '../../api/client';
 import { useCheckinState } from '../../hooks/useCheckinState';
 import { useFluxNotification } from '../../hooks/useFluxNotification';
 import { MorningCheckinModal, type CheckinData } from './MorningCheckinModal';
@@ -16,7 +18,6 @@ import { FuelZone } from './FuelZone';
 import { SetupAlertCard } from './SetupAlertCard';
 import { WeeklyStrategyModal } from '../metabolic/WeeklyStrategyModal';
 import { TrainingOverrideAlert } from '../cns';
-import { getPlannedDays } from '../../api/client';
 
 interface CommandCenterProps {
   profile: UserProfile;
@@ -28,6 +29,7 @@ interface CommandCenterProps {
   activePlan: NutritionPlan | null;
   onCreate: (data: CreateDailyLogRequest) => Promise<DailyLog | null>;
   onUpdateActual?: (sessions: Omit<ActualTrainingSession, 'sessionOrder'>[]) => Promise<DailyLog | null>;
+  onRefresh?: () => void;
 }
 
 export function CommandCenter({
@@ -40,11 +42,30 @@ export function CommandCenter({
   activePlan,
   onCreate,
   onUpdateActual,
+  onRefresh,
 }: CommandCenterProps) {
-  const { shouldShowModal, dismissModal } = useCheckinState({
+  const { shouldShowModal, dismissModal, resetDismissal } = useCheckinState({
     hasLogToday: log !== null,
     loading,
   });
+
+  // Handler for logging a solver solution (meal)
+  const handleLogSolution = useCallback(async (solution: SolverSolution) => {
+    if (!log) return;
+
+    try {
+      await addConsumedMacros(log.date, {
+        calories: Math.round(solution.totalMacros.caloriesKcal),
+        proteinG: Math.round(solution.totalMacros.proteinG),
+        carbsG: Math.round(solution.totalMacros.carbsG),
+        fatG: Math.round(solution.totalMacros.fatG),
+      });
+      // Refresh the log to show updated consumed macros
+      onRefresh?.();
+    } catch (err) {
+      console.error('Failed to log meal:', err);
+    }
+  }, [log, onRefresh]);
 
   // Flux Engine notification
   const {
@@ -76,23 +97,10 @@ export function CommandCenter({
     }
   }, [fluxNotification, dismissFluxNotification]);
 
-  // Fetch today's planned sessions from schedule
-  const [plannedSessions, setPlannedSessions] = useState<TrainingSession[]>([
+  // Default planned sessions (TODO: integrate with workout planner schedule)
+  const [plannedSessions] = useState<TrainingSession[]>([
     { type: 'rest', durationMin: 0 },
   ]);
-
-  useEffect(() => {
-    const today = new Date().toISOString().split('T')[0];
-    getPlannedDays(today, today)
-      .then((response) => {
-        // If we have planned training from schedule, use it
-        // For now, default to rest if no schedule data
-        // TODO: Integrate with workout planner schedule
-      })
-      .catch(() => {
-        // Keep default rest day
-      });
-  }, []);
 
   // Use log's planned sessions if available, otherwise use fetched
   const effectivePlannedSessions = log?.plannedTrainingSessions ?? plannedSessions;
@@ -237,6 +245,11 @@ export function CommandCenter({
             <FuelZone
               targets={log.calculatedTargets}
               dayType={log.dayType}
+              consumedCalories={log.consumedCalories}
+              consumedProteinG={log.consumedProteinG}
+              consumedCarbsG={log.consumedCarbsG}
+              consumedFatG={log.consumedFatG}
+              onLogSolution={handleLogSolution}
             />
           </div>
         </div>
@@ -252,11 +265,7 @@ export function CommandCenter({
           </p>
           <button
             type="button"
-            onClick={() => {
-              // Reset dismissal to show modal again
-              localStorage.removeItem('checkin-dismissed-date');
-              window.location.reload();
-            }}
+            onClick={resetDismissal}
             className="px-6 py-3 bg-white text-black rounded-lg font-medium hover:bg-gray-200 transition-colors"
           >
             Begin Check-In

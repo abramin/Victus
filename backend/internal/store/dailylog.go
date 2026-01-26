@@ -65,6 +65,8 @@ func (s *DailyLogStore) GetByDate(ctx context.Context, date string) (*domain.Dai
 			COALESCE(tdee_source_used, 'formula'), COALESCE(tdee_confidence, 0), COALESCE(data_points_used, 0),
 			active_calories_burned, steps, COALESCE(notes, ''),
 			fasting_override, COALESCE(fasted_items_kcal, 0),
+			COALESCE(consumed_calories, 0), COALESCE(consumed_protein_g, 0),
+			COALESCE(consumed_carbs_g, 0), COALESCE(consumed_fat_g, 0),
 			created_at, updated_at
 		FROM daily_logs
 		WHERE log_date = ?
@@ -100,6 +102,8 @@ func (s *DailyLogStore) GetByDate(ctx context.Context, date string) (*domain.Dai
 		&log.TDEESourceUsed, &log.TDEEConfidence, &log.DataPointsUsed,
 		&activeCaloriesBurned, &steps, &log.Notes,
 		&fastingOverride, &log.FastedItemsKcal,
+		&log.ConsumedCalories, &log.ConsumedProteinG,
+		&log.ConsumedCarbsG, &log.ConsumedFatG,
 		&createdAt, &updatedAt,
 	)
 
@@ -677,6 +681,46 @@ func (s *DailyLogStore) UpdateFastedItemsKcal(ctx context.Context, date string, 
 	`
 
 	result, err := s.db.ExecContext(ctx, query, kcal, date)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return ErrDailyLogNotFound
+	}
+
+	return nil
+}
+
+// ConsumedMacros represents the macros to add to the daily log.
+type ConsumedMacros struct {
+	Calories int
+	ProteinG int
+	CarbsG   int
+	FatG     int
+}
+
+// AddConsumedMacros adds consumed macros to the existing totals for a given date.
+// This is additive - it increments the existing values rather than replacing them.
+// Returns ErrDailyLogNotFound if no log exists for that date.
+func (s *DailyLogStore) AddConsumedMacros(ctx context.Context, date string, macros ConsumedMacros) error {
+	const query = `
+		UPDATE daily_logs
+		SET consumed_calories = COALESCE(consumed_calories, 0) + ?,
+		    consumed_protein_g = COALESCE(consumed_protein_g, 0) + ?,
+		    consumed_carbs_g = COALESCE(consumed_carbs_g, 0) + ?,
+		    consumed_fat_g = COALESCE(consumed_fat_g, 0) + ?,
+		    updated_at = datetime('now')
+		WHERE log_date = ?
+	`
+
+	result, err := s.db.ExecContext(ctx, query,
+		macros.Calories, macros.ProteinG, macros.CarbsG, macros.FatG, date)
 	if err != nil {
 		return err
 	}

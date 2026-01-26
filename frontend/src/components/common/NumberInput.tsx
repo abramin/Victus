@@ -1,4 +1,4 @@
-import { useState, useEffect, useId } from 'react';
+import { useState, useEffect, useId, useRef } from 'react';
 
 interface NumberInputProps {
   label: string;
@@ -33,20 +33,24 @@ export function NumberInput({
   const inputId = useId();
   // Track the display string separately to allow typing with either decimal separator
   const [displayValue, setDisplayValue] = useState(() => (value === 0 ? '' : String(value)));
+  // Track previous external value to detect external changes vs user input
+  const prevValueRef = useRef(value);
 
-  // Sync display value when external value changes (e.g., derived calculations)
+  // Sync display value only when external value changes (e.g., derived calculations)
   useEffect(() => {
-    const currentParsed = parseLocaleNumber(displayValue);
-    // Only update if the numeric value actually changed (avoid cursor jumps while typing)
-    if (value !== currentParsed) {
+    // Only sync if the external value changed from outside (not from our own onChange)
+    if (value !== prevValueRef.current) {
+      prevValueRef.current = value;
       setDisplayValue(value === 0 ? '' : String(value));
     }
-  }, [value, displayValue]);
+  }, [value]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value;
     setDisplayValue(raw);
-    onChange(parseLocaleNumber(raw));
+    const parsed = parseLocaleNumber(raw);
+    prevValueRef.current = parsed; // Track that this change came from user input
+    onChange(parsed);
   };
 
   return (

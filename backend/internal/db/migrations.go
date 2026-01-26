@@ -91,6 +91,11 @@ func RunMigrations(db *sql.DB) error {
 		addServingUnitColumn,
 		addServingSizeGColumn,
 		addIsPantryStapleColumn,
+		// Consumed macros tracking (Macro Tetris Solver - meal logging)
+		addConsumedCaloriesColumn,
+		addConsumedProteinGColumn,
+		addConsumedCarbsGColumn,
+		addConsumedFatGColumn,
 	}
 
 	for _, migration := range alterMigrations {
@@ -299,6 +304,12 @@ const addFatGPer100Column = `ALTER TABLE food_reference ADD COLUMN fat_g_per_100
 const addServingUnitColumn = `ALTER TABLE food_reference ADD COLUMN serving_unit TEXT DEFAULT 'g'`
 const addServingSizeGColumn = `ALTER TABLE food_reference ADD COLUMN serving_size_g REAL DEFAULT 100`
 const addIsPantryStapleColumn = `ALTER TABLE food_reference ADD COLUMN is_pantry_staple BOOLEAN DEFAULT 0`
+
+// Consumed macros tracking (Macro Tetris Solver - meal logging)
+const addConsumedCaloriesColumn = `ALTER TABLE daily_logs ADD COLUMN consumed_calories INTEGER DEFAULT 0`
+const addConsumedProteinGColumn = `ALTER TABLE daily_logs ADD COLUMN consumed_protein_g INTEGER DEFAULT 0`
+const addConsumedCarbsGColumn = `ALTER TABLE daily_logs ADD COLUMN consumed_carbs_g INTEGER DEFAULT 0`
+const addConsumedFatGColumn = `ALTER TABLE daily_logs ADD COLUMN consumed_fat_g INTEGER DEFAULT 0`
 
 // Training sessions table for multiple sessions per day (Issue #31)
 const createTrainingSessionsTable = `

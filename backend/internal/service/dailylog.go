@@ -320,6 +320,16 @@ func (s *DailyLogService) UpsertHealthKitMetrics(ctx context.Context, date strin
 	return s.GetByDate(ctx, date)
 }
 
+// AddConsumedMacros adds consumed macros to the existing totals for a given date.
+// This is additive - it increments the existing values rather than replacing them.
+// Returns store.ErrDailyLogNotFound if no log exists for that date.
+func (s *DailyLogService) AddConsumedMacros(ctx context.Context, date string, macros store.ConsumedMacros) (*domain.DailyLog, error) {
+	if err := s.logStore.AddConsumedMacros(ctx, date, macros); err != nil {
+		return nil, err
+	}
+	return s.GetByDate(ctx, date)
+}
+
 // GetWeightTrend returns weight samples and regression trend for the given start date.
 // If startDate is empty, all samples are returned.
 func (s *DailyLogService) GetWeightTrend(ctx context.Context, startDate string) ([]domain.WeightSample, *domain.WeightTrend, error) {

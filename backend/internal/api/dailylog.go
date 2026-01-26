@@ -301,3 +301,45 @@ func (s *Server) syncHealthData(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(requests.DailyLogToResponseWithTrainingLoad(log, trainingLoad))
 }
+
+// addConsumedMacros handles PATCH /api/logs/{date}/consumed-macros
+// Adds consumed macros to the existing totals for a given date.
+func (s *Server) addConsumedMacros(w http.ResponseWriter, r *http.Request) {
+	date := r.PathValue("date")
+	if date == "" {
+		writeError(w, http.StatusBadRequest, "missing_date", "Date parameter is required")
+		return
+	}
+
+	var req requests.AddConsumedMacrosRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json", "Could not parse request body as JSON")
+		return
+	}
+
+	macros := store.ConsumedMacros{
+		Calories: req.Calories,
+		ProteinG: req.ProteinG,
+		CarbsG:   req.CarbsG,
+		FatG:     req.FatG,
+	}
+
+	log, err := s.dailyLogService.AddConsumedMacros(r.Context(), date, macros)
+	if err != nil {
+		if errors.Is(err, store.ErrDailyLogNotFound) {
+			writeError(w, http.StatusNotFound, "not_found", "No log exists for this date")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "internal_error", "")
+		return
+	}
+
+	// Calculate training load metrics (ACR)
+	trainingLoad, err := s.dailyLogService.GetTrainingLoadMetrics(r.Context(), log.Date, log.ActualSessions, log.PlannedSessions)
+	if err != nil {
+		trainingLoad = nil
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(requests.DailyLogToResponseWithTrainingLoad(log, trainingLoad))
+}

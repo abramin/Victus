@@ -6,6 +6,7 @@ import type {
   UpdateActualTrainingRequest,
   UpdateActiveCaloriesRequest,
   UpdateFastingOverrideRequest,
+  AddConsumedMacrosRequest,
   TrainingConfig,
   WeightTrendRange,
   WeightTrendResponse,
@@ -178,6 +179,23 @@ export async function updateFastingOverride(
   signal?: AbortSignal
 ): Promise<DailyLog> {
   const response = await fetch(`${API_BASE}/logs/${date}/fasting-override`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(request),
+    signal,
+  });
+
+  return handleResponse<DailyLog>(response);
+}
+
+export async function addConsumedMacros(
+  date: string,
+  request: AddConsumedMacrosRequest,
+  signal?: AbortSignal
+): Promise<DailyLog> {
+  const response = await fetch(`${API_BASE}/logs/${date}/consumed-macros`, {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',

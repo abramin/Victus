@@ -37,6 +37,7 @@ function App() {
     create,
     replace,
     updateActual,
+    refresh: refreshLog,
   } = useDailyLog();
 
   const { plan: activePlan } = usePlan();
@@ -113,6 +114,7 @@ function App() {
                 activePlan={activePlan}
                 onCreate={create}
                 onUpdateActual={updateActual}
+                onRefresh={refreshLog}
               />
             }
           />

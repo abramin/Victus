@@ -212,8 +212,22 @@ export interface DailyLog {
   notes?: string;                               // Daily notes/observations
   fastingOverride?: FastingProtocol;            // Override for fasting protocol (nil = use profile default)
   fastedItemsKcal?: number;                     // Calories logged during fasting window
+  consumedCalories: number;                     // Total consumed calories
+  consumedProteinG: number;                     // Total consumed protein in grams
+  consumedCarbsG: number;                       // Total consumed carbs in grams
+  consumedFatG: number;                         // Total consumed fat in grams
   createdAt?: string;
   updatedAt?: string;
+}
+
+/**
+ * Request body for adding consumed macros (additive).
+ */
+export interface AddConsumedMacrosRequest {
+  calories: number;
+  proteinG: number;
+  carbsG: number;
+  fatG: number;
 }
 
 export interface CreateDailyLogRequest {

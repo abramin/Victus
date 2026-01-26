@@ -38,6 +38,10 @@ type DailyLog struct {
 	Notes                 string                 // Daily notes/observations for LLM pattern recognition
 	FastingOverride       *FastingProtocol       // Override for fasting protocol (nil = use profile default)
 	FastedItemsKcal       int                    // Calories logged during fasting window (for <50kcal exception)
+	ConsumedCalories      int                    // Total consumed calories (from logged meals)
+	ConsumedProteinG      int                    // Total consumed protein in grams
+	ConsumedCarbsG        int                    // Total consumed carbs in grams
+	ConsumedFatG          int                    // Total consumed fat in grams
 	CreatedAt             time.Time
 	UpdatedAt             time.Time
 }

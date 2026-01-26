@@ -2,303 +2,179 @@ package domain
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/suite"
 )
 
-func TestCalculateEMAWeight(t *testing.T) {
-	tests := []struct {
-		name     string
-		weights  []float64
-		alpha    float64
-		wantLast float64
-	}{
-		{
-			name:     "empty weights",
-			weights:  []float64{},
-			alpha:    0.3,
-			wantLast: 0, // Returns empty slice
-		},
-		{
-			name:     "single weight",
-			weights:  []float64{85.0},
-			alpha:    0.3,
-			wantLast: 85.0,
-		},
-		{
-			name:     "constant weights",
-			weights:  []float64{85.0, 85.0, 85.0, 85.0},
-			alpha:    0.3,
-			wantLast: 85.0,
-		},
-		{
-			name:     "decreasing weights smoothed",
-			weights:  []float64{90.0, 89.0, 88.0, 87.0},
-			alpha:    0.3,
-			wantLast: 88.533, // EMA smoothing: 0.3*87 + 0.7*88.79 = 88.533
-		},
-		{
-			name:     "spike filtered by EMA",
-			weights:  []float64{85.0, 85.0, 88.0, 85.0, 85.0}, // Spike at index 2
-			alpha:    0.3,
-			wantLast: 85.441, // Spike is dampened by EMA
-		},
-		{
-			name:     "invalid alpha defaults to 0.3",
-			weights:  []float64{85.0, 90.0},
-			alpha:    -1,
-			wantLast: 86.5, // 0.3*90 + 0.7*85
-		},
-	}
+// Justification: Flux calculations are numeric invariants; unit tests lock the
+// EMA smoothing, swing constraints, and BMR floor behavior without E2E dependencies.
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := CalculateEMAWeight(tt.weights, tt.alpha)
-			if len(tt.weights) == 0 {
-				if len(result) != 0 {
-					t.Errorf("expected empty result, got %d elements", len(result))
-				}
-				return
-			}
-			got := result[len(result)-1]
-			if diff := got - tt.wantLast; diff > 0.01 || diff < -0.01 {
-				t.Errorf("got %v, want %v (diff: %v)", got, tt.wantLast, diff)
-			}
-		})
-	}
+type FluxSuite struct {
+	suite.Suite
 }
 
-func TestApplySwingConstraint(t *testing.T) {
-	tests := []struct {
-		name            string
-		newTDEE         float64
-		previousTDEE    float64
-		maxSwing        float64
-		wantTDEE        float64
-		wantConstrained bool
-	}{
-		{
-			name:            "within bounds - no constraint",
-			newTDEE:         2200,
-			previousTDEE:    2150,
-			maxSwing:        100,
-			wantTDEE:        2200,
-			wantConstrained: false,
-		},
-		{
-			name:            "exactly at upper bound",
-			newTDEE:         2250,
-			previousTDEE:    2150,
-			maxSwing:        100,
-			wantTDEE:        2250,
-			wantConstrained: false,
-		},
-		{
-			name:            "exceeds upper bound - constrained",
-			newTDEE:         2300,
-			previousTDEE:    2150,
-			maxSwing:        100,
-			wantTDEE:        2250, // previousTDEE + maxSwing
-			wantConstrained: true,
-		},
-		{
-			name:            "exactly at lower bound",
-			newTDEE:         2050,
-			previousTDEE:    2150,
-			maxSwing:        100,
-			wantTDEE:        2050,
-			wantConstrained: false,
-		},
-		{
-			name:            "exceeds lower bound - constrained",
-			newTDEE:         1900,
-			previousTDEE:    2150,
-			maxSwing:        100,
-			wantTDEE:        2050, // previousTDEE - maxSwing
-			wantConstrained: true,
-		},
-		{
-			name:            "no previous TDEE - no constraint",
-			newTDEE:         2200,
-			previousTDEE:    0,
-			maxSwing:        100,
-			wantTDEE:        2200,
-			wantConstrained: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			gotTDEE, gotConstrained := ApplySwingConstraint(tt.newTDEE, tt.previousTDEE, tt.maxSwing)
-			if gotTDEE != tt.wantTDEE {
-				t.Errorf("TDEE: got %v, want %v", gotTDEE, tt.wantTDEE)
-			}
-			if gotConstrained != tt.wantConstrained {
-				t.Errorf("constrained: got %v, want %v", gotConstrained, tt.wantConstrained)
-			}
-		})
-	}
+func TestFluxSuite(t *testing.T) {
+	suite.Run(t, new(FluxSuite))
 }
 
-func TestApplyBMRFloor(t *testing.T) {
-	tests := []struct {
-		name        string
-		tdee        float64
-		bmr         float64
-		wantTDEE    float64
-		wantApplied bool
-	}{
-		{
-			name:        "TDEE above BMR - no floor",
-			tdee:        2200,
-			bmr:         1600,
-			wantTDEE:    2200,
-			wantApplied: false,
-		},
-		{
-			name:        "TDEE equals BMR - no floor",
-			tdee:        1600,
-			bmr:         1600,
-			wantTDEE:    1600,
-			wantApplied: false,
-		},
-		{
-			name:        "TDEE below BMR - floor applied",
-			tdee:        1400,
-			bmr:         1600,
-			wantTDEE:    1600,
-			wantApplied: true,
-		},
-		{
-			name:        "no BMR - no floor",
-			tdee:        1400,
-			bmr:         0,
-			wantTDEE:    1400,
-			wantApplied: false,
-		},
-	}
+func (s *FluxSuite) TestEMAWeightSmoothing() {
+	s.Run("empty weights returns empty", func() {
+		result := CalculateEMAWeight([]float64{}, 0.3)
+		s.Empty(result)
+	})
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			gotTDEE, gotApplied := ApplyBMRFloor(tt.tdee, tt.bmr)
-			if gotTDEE != tt.wantTDEE {
-				t.Errorf("TDEE: got %v, want %v", gotTDEE, tt.wantTDEE)
-			}
-			if gotApplied != tt.wantApplied {
-				t.Errorf("applied: got %v, want %v", gotApplied, tt.wantApplied)
-			}
-		})
-	}
+	s.Run("single weight unchanged", func() {
+		result := CalculateEMAWeight([]float64{85.0}, 0.3)
+		s.Require().Len(result, 1)
+		s.Equal(85.0, result[0])
+	})
+
+	s.Run("constant weights unchanged", func() {
+		result := CalculateEMAWeight([]float64{85.0, 85.0, 85.0, 85.0}, 0.3)
+		s.Require().Len(result, 4)
+		s.Equal(85.0, result[len(result)-1])
+	})
+
+	s.Run("decreasing weights smoothed", func() {
+		// EMA smoothing: 0.3*87 + 0.7*88.79 = 88.533
+		result := CalculateEMAWeight([]float64{90.0, 89.0, 88.0, 87.0}, 0.3)
+		s.Require().Len(result, 4)
+		s.InDelta(88.533, result[len(result)-1], 0.01)
+	})
+
+	s.Run("spike filtered by EMA", func() {
+		// Spike at index 2 is dampened by EMA
+		result := CalculateEMAWeight([]float64{85.0, 85.0, 88.0, 85.0, 85.0}, 0.3)
+		s.Require().Len(result, 5)
+		s.InDelta(85.441, result[len(result)-1], 0.01)
+	})
+
+	s.Run("invalid alpha defaults to 0.3", func() {
+		// 0.3*90 + 0.7*85 = 86.5
+		result := CalculateEMAWeight([]float64{85.0, 90.0}, -1)
+		s.Require().Len(result, 2)
+		s.InDelta(86.5, result[len(result)-1], 0.01)
+	})
 }
 
-func TestValidateAdherence(t *testing.T) {
-	tests := []struct {
-		name       string
-		loggedDays int
-		windowDays int
-		minDays    int
-		want       bool
-	}{
-		{
-			name:       "meets minimum",
-			loggedDays: 5,
-			windowDays: 7,
-			minDays:    5,
-			want:       true,
-		},
-		{
-			name:       "exceeds minimum",
-			loggedDays: 7,
-			windowDays: 7,
-			minDays:    5,
-			want:       true,
-		},
-		{
-			name:       "below minimum",
-			loggedDays: 4,
-			windowDays: 7,
-			minDays:    5,
-			want:       false,
-		},
-		{
-			name:       "zero logged",
-			loggedDays: 0,
-			windowDays: 7,
-			minDays:    5,
-			want:       false,
-		},
-		{
-			name:       "invalid window",
-			loggedDays: 5,
-			windowDays: 0,
-			minDays:    5,
-			want:       false,
-		},
-	}
+func (s *FluxSuite) TestSwingConstraints() {
+	s.Run("within bounds not constrained", func() {
+		gotTDEE, gotConstrained := ApplySwingConstraint(2200, 2150, 100)
+		s.Equal(2200.0, gotTDEE)
+		s.False(gotConstrained)
+	})
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := ValidateAdherence(tt.loggedDays, tt.windowDays, tt.minDays)
-			if got != tt.want {
-				t.Errorf("got %v, want %v", got, tt.want)
-			}
-		})
-	}
+	s.Run("exactly at upper bound not constrained", func() {
+		gotTDEE, gotConstrained := ApplySwingConstraint(2250, 2150, 100)
+		s.Equal(2250.0, gotTDEE)
+		s.False(gotConstrained)
+	})
+
+	s.Run("exceeds upper bound constrained", func() {
+		gotTDEE, gotConstrained := ApplySwingConstraint(2300, 2150, 100)
+		s.Equal(2250.0, gotTDEE) // previousTDEE + maxSwing
+		s.True(gotConstrained)
+	})
+
+	s.Run("exactly at lower bound not constrained", func() {
+		gotTDEE, gotConstrained := ApplySwingConstraint(2050, 2150, 100)
+		s.Equal(2050.0, gotTDEE)
+		s.False(gotConstrained)
+	})
+
+	s.Run("exceeds lower bound constrained", func() {
+		gotTDEE, gotConstrained := ApplySwingConstraint(1900, 2150, 100)
+		s.Equal(2050.0, gotTDEE) // previousTDEE - maxSwing
+		s.True(gotConstrained)
+	})
+
+	s.Run("no previous TDEE not constrained", func() {
+		gotTDEE, gotConstrained := ApplySwingConstraint(2200, 0, 100)
+		s.Equal(2200.0, gotTDEE)
+		s.False(gotConstrained)
+	})
 }
 
-func TestShouldTriggerNotification(t *testing.T) {
-	tests := []struct {
-		name      string
-		deltaKcal int
-		want      bool
-	}{
-		{
-			name:      "below threshold positive",
-			deltaKcal: 30,
-			want:      false,
-		},
-		{
-			name:      "below threshold negative",
-			deltaKcal: -30,
-			want:      false,
-		},
-		{
-			name:      "at threshold positive",
-			deltaKcal: 50,
-			want:      true,
-		},
-		{
-			name:      "at threshold negative",
-			deltaKcal: -50,
-			want:      true,
-		},
-		{
-			name:      "above threshold positive",
-			deltaKcal: 100,
-			want:      true,
-		},
-		{
-			name:      "above threshold negative",
-			deltaKcal: -100,
-			want:      true,
-		},
-		{
-			name:      "zero change",
-			deltaKcal: 0,
-			want:      false,
-		},
-	}
+func (s *FluxSuite) TestBMRFloor() {
+	s.Run("TDEE above BMR no floor", func() {
+		gotTDEE, gotApplied := ApplyBMRFloor(2200, 1600)
+		s.Equal(2200.0, gotTDEE)
+		s.False(gotApplied)
+	})
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := ShouldTriggerNotification(tt.deltaKcal)
-			if got != tt.want {
-				t.Errorf("got %v, want %v", got, tt.want)
-			}
-		})
-	}
+	s.Run("TDEE equals BMR no floor", func() {
+		gotTDEE, gotApplied := ApplyBMRFloor(1600, 1600)
+		s.Equal(1600.0, gotTDEE)
+		s.False(gotApplied)
+	})
+
+	s.Run("TDEE below BMR floor applied", func() {
+		gotTDEE, gotApplied := ApplyBMRFloor(1400, 1600)
+		s.Equal(1600.0, gotTDEE)
+		s.True(gotApplied)
+	})
+
+	s.Run("no BMR no floor", func() {
+		gotTDEE, gotApplied := ApplyBMRFloor(1400, 0)
+		s.Equal(1400.0, gotTDEE)
+		s.False(gotApplied)
+	})
 }
 
-func TestCalculateFlux_Integration(t *testing.T) {
-	t.Run("formula fallback when low adherence", func(t *testing.T) {
+func (s *FluxSuite) TestAdherenceValidation() {
+	s.Run("meets minimum", func() {
+		s.True(ValidateAdherence(5, 7, 5))
+	})
+
+	s.Run("exceeds minimum", func() {
+		s.True(ValidateAdherence(7, 7, 5))
+	})
+
+	s.Run("below minimum", func() {
+		s.False(ValidateAdherence(4, 7, 5))
+	})
+
+	s.Run("zero logged", func() {
+		s.False(ValidateAdherence(0, 7, 5))
+	})
+
+	s.Run("invalid window", func() {
+		s.False(ValidateAdherence(5, 0, 5))
+	})
+}
+
+func (s *FluxSuite) TestNotificationThreshold() {
+	s.Run("below threshold positive", func() {
+		s.False(ShouldTriggerNotification(30))
+	})
+
+	s.Run("below threshold negative", func() {
+		s.False(ShouldTriggerNotification(-30))
+	})
+
+	s.Run("at threshold positive", func() {
+		s.True(ShouldTriggerNotification(50))
+	})
+
+	s.Run("at threshold negative", func() {
+		s.True(ShouldTriggerNotification(-50))
+	})
+
+	s.Run("above threshold positive", func() {
+		s.True(ShouldTriggerNotification(100))
+	})
+
+	s.Run("above threshold negative", func() {
+		s.True(ShouldTriggerNotification(-100))
+	})
+
+	s.Run("zero change", func() {
+		s.False(ShouldTriggerNotification(0))
+	})
+}
+
+func (s *FluxSuite) TestFluxCalculationIntegration() {
+	s.Run("formula fallback when low adherence", func() {
 		input := FluxInput{
 			CurrentBMR:     1600,
 			PreviousTDEE:   2100,
@@ -310,19 +186,12 @@ func TestCalculateFlux_Integration(t *testing.T) {
 
 		result := CalculateFlux(input, DefaultFluxConfig)
 
-		// Should fall back to formula TDEE due to low adherence
-		if result.AdherenceGatePassed {
-			t.Error("expected adherence gate to fail")
-		}
-		if result.UsedAdaptive {
-			t.Error("expected formula fallback, not adaptive")
-		}
-		if result.TDEE != 2000 {
-			t.Errorf("got TDEE %d, want 2000 (formula)", result.TDEE)
-		}
+		s.False(result.AdherenceGatePassed)
+		s.False(result.UsedAdaptive)
+		s.Equal(2000, result.TDEE)
 	})
 
-	t.Run("adaptive used when adherence met", func(t *testing.T) {
+	s.Run("adaptive used when adherence met", func() {
 		input := FluxInput{
 			CurrentBMR:     1600,
 			PreviousTDEE:   2100,
@@ -334,19 +203,12 @@ func TestCalculateFlux_Integration(t *testing.T) {
 
 		result := CalculateFlux(input, DefaultFluxConfig)
 
-		if !result.AdherenceGatePassed {
-			t.Error("expected adherence gate to pass")
-		}
-		if !result.UsedAdaptive {
-			t.Error("expected adaptive TDEE to be used")
-		}
-		// Should be 2150 (adaptive), not constrained since delta is 50 (<100)
-		if result.TDEE != 2150 {
-			t.Errorf("got TDEE %d, want 2150 (adaptive)", result.TDEE)
-		}
+		s.True(result.AdherenceGatePassed)
+		s.True(result.UsedAdaptive)
+		s.Equal(2150, result.TDEE)
 	})
 
-	t.Run("swing constraint applied", func(t *testing.T) {
+	s.Run("swing constraint applied", func() {
 		input := FluxInput{
 			CurrentBMR:     1600,
 			PreviousTDEE:   2000,
@@ -358,19 +220,12 @@ func TestCalculateFlux_Integration(t *testing.T) {
 
 		result := CalculateFlux(input, DefaultFluxConfig)
 
-		if !result.WasSwingConstrained {
-			t.Error("expected swing constraint to be applied")
-		}
-		// Should be capped at 2000 + 100 = 2100
-		if result.TDEE != 2100 {
-			t.Errorf("got TDEE %d, want 2100 (swing constrained)", result.TDEE)
-		}
-		if result.DeltaKcal != 100 {
-			t.Errorf("got delta %d, want 100", result.DeltaKcal)
-		}
+		s.True(result.WasSwingConstrained)
+		s.Equal(2100, result.TDEE) // 2000 + 100
+		s.Equal(100, result.DeltaKcal)
 	})
 
-	t.Run("BMR floor applied", func(t *testing.T) {
+	s.Run("BMR floor applied", func() {
 		input := FluxInput{
 			CurrentBMR:     1800,
 			PreviousTDEE:   1850,
@@ -382,16 +237,11 @@ func TestCalculateFlux_Integration(t *testing.T) {
 
 		result := CalculateFlux(input, DefaultFluxConfig)
 
-		if !result.BMRFloorApplied {
-			t.Error("expected BMR floor to be applied")
-		}
-		// Should be raised to BMR floor of 1800
-		if result.TDEE != 1800 {
-			t.Errorf("got TDEE %d, want 1800 (BMR floor)", result.TDEE)
-		}
+		s.True(result.BMRFloorApplied)
+		s.Equal(1800, result.TDEE)
 	})
 
-	t.Run("EMA weight smoothing", func(t *testing.T) {
+	s.Run("EMA weight smoothing", func() {
 		input := FluxInput{
 			CurrentBMR:   1600,
 			PreviousTDEE: 0, // First calculation
@@ -410,142 +260,94 @@ func TestCalculateFlux_Integration(t *testing.T) {
 		result := CalculateFlux(input, DefaultFluxConfig)
 
 		// EMA should smooth out the spike
-		if result.EMASmoothedWeight < 85.0 || result.EMASmoothedWeight > 86.5 {
-			t.Errorf("EMA weight %v not in expected range [85.0, 86.5]", result.EMASmoothedWeight)
-		}
+		s.Greater(result.EMASmoothedWeight, 85.0)
+		s.Less(result.EMASmoothedWeight, 86.5)
 	})
 }
 
-func TestDetermineTrend(t *testing.T) {
-	tests := []struct {
-		name      string
-		points    []FluxChartPoint
-		wantTrend string
-	}{
-		{
-			name:      "too few points",
-			points:    []FluxChartPoint{{CalculatedTDEE: 2000}},
-			wantTrend: "stable",
-		},
-		{
-			name: "stable trend",
-			points: []FluxChartPoint{
-				{CalculatedTDEE: 2000},
-				{CalculatedTDEE: 2010},
-				{CalculatedTDEE: 1995},
-				{CalculatedTDEE: 2005},
-				{CalculatedTDEE: 2000},
-			},
-			wantTrend: "stable",
-		},
-		{
-			name: "upregulated trend",
-			points: []FluxChartPoint{
-				// First week avg: ~2000, Last week avg: ~2150 = delta +150
-				{CalculatedTDEE: 1980},
-				{CalculatedTDEE: 1990},
-				{CalculatedTDEE: 2000},
-				{CalculatedTDEE: 2010},
-				{CalculatedTDEE: 2020},
-				{CalculatedTDEE: 2030},
-				{CalculatedTDEE: 2040},
-				// Second week - bigger jump
-				{CalculatedTDEE: 2100},
-				{CalculatedTDEE: 2120},
-				{CalculatedTDEE: 2140},
-				{CalculatedTDEE: 2160},
-				{CalculatedTDEE: 2180},
-				{CalculatedTDEE: 2200},
-				{CalculatedTDEE: 2220},
-			},
-			wantTrend: "upregulated",
-		},
-		{
-			name: "downregulated trend",
-			points: []FluxChartPoint{
-				// First week avg: ~2200, Last week avg: ~2050 = delta -150
-				{CalculatedTDEE: 2180},
-				{CalculatedTDEE: 2190},
-				{CalculatedTDEE: 2200},
-				{CalculatedTDEE: 2210},
-				{CalculatedTDEE: 2220},
-				{CalculatedTDEE: 2230},
-				{CalculatedTDEE: 2240},
-				// Second week - bigger drop
-				{CalculatedTDEE: 2100},
-				{CalculatedTDEE: 2080},
-				{CalculatedTDEE: 2060},
-				{CalculatedTDEE: 2040},
-				{CalculatedTDEE: 2020},
-				{CalculatedTDEE: 2000},
-				{CalculatedTDEE: 1980},
-			},
-			wantTrend: "downregulated",
-		},
-	}
+func (s *FluxSuite) TestTrendDetermination() {
+	s.Run("too few points returns stable", func() {
+		trend, _ := DetermineTrend([]FluxChartPoint{{CalculatedTDEE: 2000}})
+		s.Equal("stable", trend)
+	})
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			gotTrend, _ := DetermineTrend(tt.points)
-			if gotTrend != tt.wantTrend {
-				t.Errorf("got %v, want %v", gotTrend, tt.wantTrend)
-			}
-		})
-	}
-}
-
-func TestGenerateNotificationReason(t *testing.T) {
-	tests := []struct {
-		name           string
-		deltaKcal      int
-		wasConstrained bool
-		wantContains   string
-	}{
-		{
-			name:           "increase unconstrained",
-			deltaKcal:      75,
-			wasConstrained: false,
-			wantContains:   "Faster rate of loss",
-		},
-		{
-			name:           "increase constrained",
-			deltaKcal:      150,
-			wasConstrained: true,
-			wantContains:   "limited to +100",
-		},
-		{
-			name:           "decrease unconstrained",
-			deltaKcal:      -75,
-			wasConstrained: false,
-			wantContains:   "Slower rate of loss",
-		},
-		{
-			name:           "decrease constrained",
-			deltaKcal:      -150,
-			wasConstrained: true,
-			wantContains:   "limited to -100",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := GenerateNotificationReason(tt.deltaKcal, tt.wasConstrained)
-			if !containsString(got, tt.wantContains) {
-				t.Errorf("got %q, want to contain %q", got, tt.wantContains)
-			}
-		})
-	}
-}
-
-func containsString(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && contains(s, substr))
-}
-
-func contains(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
+	s.Run("stable trend", func() {
+		points := []FluxChartPoint{
+			{CalculatedTDEE: 2000},
+			{CalculatedTDEE: 2010},
+			{CalculatedTDEE: 1995},
+			{CalculatedTDEE: 2005},
+			{CalculatedTDEE: 2000},
 		}
-	}
-	return false
+		trend, _ := DetermineTrend(points)
+		s.Equal("stable", trend)
+	})
+
+	s.Run("upregulated trend", func() {
+		// First week avg: ~2000, Last week avg: ~2150 = delta +150
+		points := []FluxChartPoint{
+			{CalculatedTDEE: 1980},
+			{CalculatedTDEE: 1990},
+			{CalculatedTDEE: 2000},
+			{CalculatedTDEE: 2010},
+			{CalculatedTDEE: 2020},
+			{CalculatedTDEE: 2030},
+			{CalculatedTDEE: 2040},
+			// Second week - bigger jump
+			{CalculatedTDEE: 2100},
+			{CalculatedTDEE: 2120},
+			{CalculatedTDEE: 2140},
+			{CalculatedTDEE: 2160},
+			{CalculatedTDEE: 2180},
+			{CalculatedTDEE: 2200},
+			{CalculatedTDEE: 2220},
+		}
+		trend, _ := DetermineTrend(points)
+		s.Equal("upregulated", trend)
+	})
+
+	s.Run("downregulated trend", func() {
+		// First week avg: ~2200, Last week avg: ~2050 = delta -150
+		points := []FluxChartPoint{
+			{CalculatedTDEE: 2180},
+			{CalculatedTDEE: 2190},
+			{CalculatedTDEE: 2200},
+			{CalculatedTDEE: 2210},
+			{CalculatedTDEE: 2220},
+			{CalculatedTDEE: 2230},
+			{CalculatedTDEE: 2240},
+			// Second week - bigger drop
+			{CalculatedTDEE: 2100},
+			{CalculatedTDEE: 2080},
+			{CalculatedTDEE: 2060},
+			{CalculatedTDEE: 2040},
+			{CalculatedTDEE: 2020},
+			{CalculatedTDEE: 2000},
+			{CalculatedTDEE: 1980},
+		}
+		trend, _ := DetermineTrend(points)
+		s.Equal("downregulated", trend)
+	})
+}
+
+func (s *FluxSuite) TestNotificationReasonGeneration() {
+	s.Run("increase unconstrained", func() {
+		reason := GenerateNotificationReason(75, false)
+		s.Contains(reason, "Faster rate of loss")
+	})
+
+	s.Run("increase constrained", func() {
+		reason := GenerateNotificationReason(150, true)
+		s.Contains(reason, "limited to +100")
+	})
+
+	s.Run("decrease unconstrained", func() {
+		reason := GenerateNotificationReason(-75, false)
+		s.Contains(reason, "Slower rate of loss")
+	})
+
+	s.Run("decrease constrained", func() {
+		reason := GenerateNotificationReason(-150, true)
+		s.Contains(reason, "limited to -100")
+	})
 }
