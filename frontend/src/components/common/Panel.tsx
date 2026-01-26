@@ -1,4 +1,6 @@
 import type { ReactNode, HTMLAttributes } from 'react';
+import { motion } from 'framer-motion';
+import { hoverGlow } from '../../lib/animations';
 
 export interface PanelProps extends HTMLAttributes<HTMLDivElement> {
   /** Title shown at the top of the panel */
@@ -11,6 +13,8 @@ export interface PanelProps extends HTMLAttributes<HTMLDivElement> {
   className?: string;
   /** Padding size variant */
   padding?: 'none' | 'sm' | 'md' | 'lg';
+  /** Enable hover lift/glow effect */
+  interactive?: boolean;
 }
 
 const PADDING_CLASSES = {
@@ -30,13 +34,13 @@ export function Panel({
   children,
   className = '',
   padding = 'md',
+  interactive = false,
   ...rest
 }: PanelProps) {
-  return (
-    <div
-      className={`bg-gray-900 rounded-xl border border-gray-800 ${PADDING_CLASSES[padding]} ${className}`}
-      {...rest}
-    >
+  const baseClassName = `bg-gray-900 rounded-xl border border-gray-800 ${PADDING_CLASSES[padding]} ${className}`;
+
+  const content = (
+    <>
       {(title || subtitle) && (
         <div className={title || subtitle ? 'mb-4' : ''}>
           {title && <h3 className="text-sm font-medium text-white">{title}</h3>}
@@ -44,6 +48,21 @@ export function Panel({
         </div>
       )}
       {children}
+    </>
+  );
+
+  if (interactive) {
+    // Don't spread HTML attributes into motion.div to avoid type conflicts
+    return (
+      <motion.div className={baseClassName} whileHover={hoverGlow}>
+        {content}
+      </motion.div>
+    );
+  }
+
+  return (
+    <div className={baseClassName} {...rest}>
+      {content}
     </div>
   );
 }

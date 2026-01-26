@@ -567,7 +567,7 @@ export interface GuardrailWarning {
 
 export type ProgramDifficulty = 'beginner' | 'intermediate' | 'advanced';
 export type ProgramFocus = 'hypertrophy' | 'strength' | 'conditioning' | 'general';
-export type EquipmentType = 'barbell' | 'dumbbell' | 'bodyweight' | 'machine' | 'kettlebell' | 'bands';
+export type EquipmentType = 'barbell' | 'dumbbell' | 'bodyweight' | 'machine' | 'kettlebell' | 'bands' | 'cables';
 export type ProgramStatus = 'template' | 'draft' | 'published';
 export type InstallationStatus = 'active' | 'completed' | 'abandoned';
 
@@ -681,6 +681,27 @@ export interface ScheduledSession {
 /**
  * CreateProgramRequest is the request body for creating a custom program.
  */
+/** Input type for program days when creating a program */
+export interface ProgramDayInput {
+  dayNumber: number;
+  label: string;
+  trainingType: TrainingType;
+  durationMin: number;
+  loadScore: number;
+  nutritionDay: DayType;
+  notes?: string;
+}
+
+/** Input type for program weeks when creating a program */
+export interface ProgramWeekInput {
+  weekNumber: number;
+  label: string;
+  isDeload: boolean;
+  volumeScale: number;
+  intensityScale: number;
+  days: ProgramDayInput[];
+}
+
 export interface CreateProgramRequest {
   name: string;
   description?: string;
@@ -691,22 +712,7 @@ export interface CreateProgramRequest {
   equipment: EquipmentType[];
   tags: string[];
   coverImageUrl?: string;
-  weeks: {
-    weekNumber: number;
-    label: string;
-    isDeload: boolean;
-    volumeScale: number;
-    intensityScale: number;
-    days: {
-      dayNumber: number;
-      label: string;
-      trainingType: TrainingType;
-      durationMin: number;
-      loadScore: number;
-      nutritionDay: DayType;
-      notes?: string;
-    }[];
-  }[];
+  weeks: ProgramWeekInput[];
 }
 
 /**

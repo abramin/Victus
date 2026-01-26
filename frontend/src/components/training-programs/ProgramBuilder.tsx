@@ -42,7 +42,7 @@ const DEFAULT_DAY: ProgramDayInput = {
   trainingType: 'strength' as TrainingType,
   durationMin: 60,
   loadScore: 3,
-  nutritionDayType: 'performance' as DayType,
+  nutritionDay: 'performance' as DayType,
 };
 
 /**
@@ -181,7 +181,6 @@ export function ProgramBuilder({ onClose, onCreated }: ProgramBuilderProps) {
       focus,
       equipment,
       tags: [],
-      isTemplate: false,
       weeks: weeksWithDays,
     };
   }, [name, description, durationWeeks, trainingDaysPerWeek, difficulty, focus, equipment, weeks, dayTemplates]);
@@ -671,8 +670,8 @@ function DaysStep({ dayTemplates, setDayTemplates }: DaysStepProps) {
               <div>
                 <label className="block text-xs text-slate-400 mb-1">Nutrition Day</label>
                 <select
-                  value={day.nutritionDayType}
-                  onChange={(e) => updateDay(index, { nutritionDayType: e.target.value as DayType })}
+                  value={day.nutritionDay}
+                  onChange={(e) => updateDay(index, { nutritionDay: e.target.value as DayType })}
                   className="w-full px-2 py-1.5 bg-slate-700 border border-slate-600 rounded text-sm text-white"
                 >
                   {DAY_TYPES.map((dt) => (

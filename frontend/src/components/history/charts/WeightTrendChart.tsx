@@ -221,7 +221,7 @@ export function WeightTrendChart({
                     }}
                   >
                     <p style={{ color: '#94a3b8', fontSize: 12, marginBottom: 4 }}>
-                      {formatShortDate(label)}
+                      {formatShortDate(String(label))}
                     </p>
                     <p style={{ color: '#f1f5f9', fontSize: 13 }}>
                       Weight: {data.weight.toFixed(1)} kg

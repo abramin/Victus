@@ -91,7 +91,8 @@ export function ResilienceChart({
     });
   }, [points]);
 
-  const handleChartClick = (data: { activePayload?: Array<{ payload: ChartDataPoint }> }) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleChartClick = (data: any) => {
     if (data?.activePayload?.[0]?.payload && onSelectDate) {
       onSelectDate(data.activePayload[0].payload.date);
     }

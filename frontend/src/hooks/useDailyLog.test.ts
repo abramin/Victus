@@ -51,6 +51,15 @@ const mockLog: DailyLog = {
   },
   estimatedTDEE: 2500,
   tdeeSourceUsed: 'formula',
+  consumedCalories: 0,
+  consumedProteinG: 0,
+  consumedCarbsG: 0,
+  consumedFatG: 0,
+  mealsConsumed: {
+    breakfast: { calories: 0, proteinG: 0, carbsG: 0, fatG: 0 },
+    lunch: { calories: 0, proteinG: 0, carbsG: 0, fatG: 0 },
+    dinner: { calories: 0, proteinG: 0, carbsG: 0, fatG: 0 },
+  },
 };
 
 const mockCreateRequest: CreateDailyLogRequest = {

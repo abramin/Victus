@@ -62,7 +62,8 @@ export function CompositionChart({
     };
   }, [points]);
 
-  const handleChartClick = (data: { activePayload?: Array<{ payload: ChartDataPoint }> }) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleChartClick = (data: any) => {
     if (data?.activePayload?.[0]?.payload && onSelectDate) {
       onSelectDate(data.activePayload[0].payload.date);
     }
@@ -153,7 +154,7 @@ export function CompositionChart({
                     }}
                   >
                     <p style={{ color: '#94a3b8', fontSize: 12, marginBottom: 6 }}>
-                      {formatShortDate(label)}
+                      {formatShortDate(String(label))}
                     </p>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                       <p style={{ color: '#f1f5f9', fontSize: 14, fontWeight: 500 }}>

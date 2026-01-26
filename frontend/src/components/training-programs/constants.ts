@@ -29,6 +29,7 @@ export const EQUIPMENT_CONFIG: Record<EquipmentType, { icon: string; label: stri
   machine: { icon: '🏢', label: 'Machine' },
   kettlebell: { icon: '🔔', label: 'Kettlebell' },
   bands: { icon: '🎗️', label: 'Bands' },
+  cables: { icon: '🔗', label: 'Cables' },
 };
 
 /**
