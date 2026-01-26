@@ -63,12 +63,6 @@ func NewUserProfile(
 	return p, nil
 }
 
-// Validate checks all profile fields for validity using current time.
-// Returns nil if valid, or the first validation error encountered.
-func (p *UserProfile) Validate() error {
-	return p.ValidateAt(time.Now())
-}
-
 // ValidateAt checks all profile fields for validity at a given point in time.
 // Returns nil if valid, or the first validation error encountered.
 func (p *UserProfile) ValidateAt(now time.Time) error {

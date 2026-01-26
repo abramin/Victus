@@ -15,19 +15,19 @@ import (
 
 // Server wraps HTTP server configuration and routing.
 type Server struct {
-	mux                   *http.ServeMux
-	profileService        *service.ProfileService
-	dailyLogService       *service.DailyLogService
-	trainingConfigService *service.TrainingConfigService
-	planService           *service.NutritionPlanService
-	analysisService       *service.AnalysisService
-	fatigueService        *service.FatigueService
-	programService        *service.TrainingProgramService
-	metabolicService      *service.MetabolicService
-	solverService         *service.SolverService
-	weeklyDebriefService  *service.WeeklyDebriefService
-	plannedDayTypeStore   *store.PlannedDayTypeStore
-	foodReferenceStore    *store.FoodReferenceStore
+	mux                  *http.ServeMux
+	profileService       *service.ProfileService
+	dailyLogService      *service.DailyLogService
+	trainingConfigStore  *store.TrainingConfigStore
+	planService          *service.NutritionPlanService
+	analysisService      *service.AnalysisService
+	fatigueService       *service.FatigueService
+	programService       *service.TrainingProgramService
+	metabolicService     *service.MetabolicService
+	solverService        *service.SolverService
+	weeklyDebriefService *service.WeeklyDebriefService
+	plannedDayTypeStore  *store.PlannedDayTypeStore
+	foodReferenceStore   *store.FoodReferenceStore
 }
 
 // NewServer configures routes and middleware.
@@ -61,19 +61,19 @@ func NewServer(db *sql.DB) *Server {
 
 	mux := http.NewServeMux()
 	srv := &Server{
-		mux:                   mux,
-		profileService:        service.NewProfileService(profileStore),
-		dailyLogService:       dailyLogService,
-		trainingConfigService: service.NewTrainingConfigService(trainingConfigStore),
-		planService:           service.NewNutritionPlanService(planStore, profileStore),
-		analysisService:       service.NewAnalysisService(planStore, profileStore, dailyLogStore),
-		fatigueService:        service.NewFatigueService(fatigueStore),
-		programService:        service.NewTrainingProgramService(programStore, plannedDayTypeStore),
-		metabolicService:      service.NewMetabolicService(metabolicStore, dailyLogStore),
-		solverService:         solverService,
-		weeklyDebriefService:  weeklyDebriefService,
-		plannedDayTypeStore:   plannedDayTypeStore,
-		foodReferenceStore:    foodReferenceStore,
+		mux:                  mux,
+		profileService:       service.NewProfileService(profileStore),
+		dailyLogService:      dailyLogService,
+		trainingConfigStore:  trainingConfigStore,
+		planService:          service.NewNutritionPlanService(planStore, profileStore),
+		analysisService:      service.NewAnalysisService(planStore, profileStore, dailyLogStore),
+		fatigueService:       service.NewFatigueService(fatigueStore),
+		programService:       service.NewTrainingProgramService(programStore, plannedDayTypeStore),
+		metabolicService:     service.NewMetabolicService(metabolicStore, dailyLogStore),
+		solverService:        solverService,
+		weeklyDebriefService: weeklyDebriefService,
+		plannedDayTypeStore:  plannedDayTypeStore,
+		foodReferenceStore:   foodReferenceStore,
 	}
 
 	// Health

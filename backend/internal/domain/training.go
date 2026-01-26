@@ -1,6 +1,6 @@
 package domain
 
-import "fmt"
+import "strconv"
 
 // DailyLoadDataPoint represents a single day's training load for historical calculation.
 type DailyLoadDataPoint struct {
@@ -190,7 +190,7 @@ func SessionSummary(sessions []TrainingSession) string {
 
 	totalMin := TotalDurationMin(sessions)
 	if len(sessions) == 1 {
-		return fmt.Sprintf("1 session, %d min", totalMin)
+		return "1 session, " + strconv.Itoa(totalMin) + " min"
 	}
-	return fmt.Sprintf("%d sessions, %d min total", len(sessions), totalMin)
+	return strconv.Itoa(len(sessions)) + " sessions, " + strconv.Itoa(totalMin) + " min total"
 }

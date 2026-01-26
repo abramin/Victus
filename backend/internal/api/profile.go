@@ -91,3 +91,17 @@ func (s *Server) deleteProfile(w http.ResponseWriter, r *http.Request) {
 func isValidationError(err error) bool {
 	return domain.IsValidationError(err)
 }
+
+// handleDailyLogError handles common daily log service errors.
+// Returns true if the error was handled, false if it should fall through to internal error.
+func handleDailyLogError(w http.ResponseWriter, err error, notFoundMsg string) bool {
+	if errors.Is(err, store.ErrDailyLogNotFound) {
+		writeError(w, http.StatusNotFound, "not_found", notFoundMsg)
+		return true
+	}
+	if isValidationError(err) {
+		writeError(w, http.StatusBadRequest, "validation_error", err.Error())
+		return true
+	}
+	return false
+}

@@ -562,88 +562,110 @@ func joinNotes(notes []string) string {
 	return result
 }
 
-// calculateRecoveryAndAdjustments computes recovery score and adjustment multipliers
-// using historical training and sleep data. Returns nil for both if insufficient data.
-func (s *DailyLogService) calculateRecoveryAndAdjustments(ctx context.Context, date string, todaySleepQuality int, currentRHR *int) (*domain.RecoveryScore, *domain.AdjustmentMultipliers) {
+// recoveryDataset holds fetched data needed for recovery calculations.
+type recoveryDataset struct {
+	sleepData       []store.RecoveryDataPoint
+	sessionsData    []store.SessionsByDate
+	avgRHR          *float64
+	yesterdayDate   string
+	trainingLoadACR float64
+}
+
+// fetchRecoveryDataset retrieves historical sleep and training data for recovery calculations.
+// Returns nil if the date is invalid or data fetching fails.
+func (s *DailyLogService) fetchRecoveryDataset(ctx context.Context, date string, currentRHR *int) *recoveryDataset {
 	const recoveryLookbackDays = 7
 	const rhrLookbackDays = 30
 
-	// Parse target date
 	targetDate, err := time.Parse("2006-01-02", date)
 	if err != nil {
-		return nil, nil
+		return nil
 	}
 
-	// Get yesterday's date for max load score check
 	yesterdayDate := targetDate.AddDate(0, 0, -1).Format("2006-01-02")
-
-	// Calculate date range for 7-day lookback (excluding today for historical data)
 	startDate := targetDate.AddDate(0, 0, -recoveryLookbackDays).Format("2006-01-02")
 
-	// Fetch sleep quality history for last 7 days
 	sleepData, err := s.logStore.GetRecoveryData(ctx, yesterdayDate, recoveryLookbackDays)
 	if err != nil {
-		return nil, nil
+		return nil
 	}
 
-	// Fetch training sessions for the same date range (for ACR and rest days)
 	sessionsData, err := s.sessionStore.GetSessionsForDateRange(ctx, startDate, yesterdayDate)
 	if err != nil {
-		return nil, nil
+		return nil
 	}
 
-	// If no historical data, return nil (first day or insufficient history)
 	if len(sleepData) == 0 && len(sessionsData) == 0 {
-		return nil, nil
+		return nil
 	}
 
-	// Calculate average sleep quality over last 7 days
-	var totalSleepQuality float64
-	for _, dp := range sleepData {
-		totalSleepQuality += float64(dp.SleepQuality)
-	}
-	avgSleepQuality := 50.0 // Default if no data
-	if len(sleepData) > 0 {
-		avgSleepQuality = totalSleepQuality / float64(len(sleepData))
-	}
-
-	// Fetch 30-day RHR average for recovery score calculation
 	var avgRHR *float64
 	if currentRHR != nil {
 		avgRHR, _ = s.logStore.GetRHRAverage(ctx, date, rhrLookbackDays)
 	}
 
+	trainingLoadResult, err := s.GetTrainingLoadMetrics(ctx, date, nil, nil)
+	acr := 1.0
+	if err == nil {
+		acr = trainingLoadResult.ACR
+	}
+
+	return &recoveryDataset{
+		sleepData:       sleepData,
+		sessionsData:    sessionsData,
+		avgRHR:          avgRHR,
+		yesterdayDate:   yesterdayDate,
+		trainingLoadACR: acr,
+	}
+}
+
+// averageSleepQuality calculates the average sleep quality from recovery data points.
+// Returns 50.0 (default) if the slice is empty.
+func averageSleepQuality(data []store.RecoveryDataPoint) float64 {
+	if len(data) == 0 {
+		return 50.0
+	}
+	var total float64
+	for _, dp := range data {
+		total += float64(dp.SleepQuality)
+	}
+	return total / float64(len(data))
+}
+
+// calculateRecoveryAndAdjustments computes recovery score and adjustment multipliers
+// using historical training and sleep data. Returns nil for both if insufficient data.
+func (s *DailyLogService) calculateRecoveryAndAdjustments(ctx context.Context, date string, todaySleepQuality int, currentRHR *int) (*domain.RecoveryScore, *domain.AdjustmentMultipliers) {
+	dataset := s.fetchRecoveryDataset(ctx, date, currentRHR)
+	if dataset == nil {
+		return nil, nil
+	}
+
+	avgSleep := averageSleepQuality(dataset.sleepData)
+
 	// Analyze session patterns for rest days and yesterday's max load
-	patternData := make([]domain.SessionPatternData, len(sessionsData))
-	for i, sd := range sessionsData {
+	patternData := make([]domain.SessionPatternData, len(dataset.sessionsData))
+	for i, sd := range dataset.sessionsData {
 		patternData[i] = domain.SessionPatternData{
 			Date:            sd.Date,
 			PlannedSessions: sd.PlannedSessions,
 			ActualSessions:  sd.ActualSessions,
 		}
 	}
-	pattern := domain.AnalyzeSessionPattern(patternData, yesterdayDate)
-
-	// Get ACR using existing method (uses 28-day lookback for chronic load)
-	trainingLoadResult, err := s.GetTrainingLoadMetrics(ctx, date, nil, nil)
-	if err != nil {
-		// If we can't get ACR, use default of 1.0
-		trainingLoadResult = &domain.TrainingLoadResult{ACR: 1.0}
-	}
+	pattern := domain.AnalyzeSessionPattern(patternData, dataset.yesterdayDate)
 
 	// Calculate recovery score
 	recoveryInput := domain.RecoveryScoreInput{
 		RestDaysLast7:     pattern.RestDays,
-		ACR:               trainingLoadResult.ACR,
-		AvgSleepQualityL7: avgSleepQuality,
+		ACR:               dataset.trainingLoadACR,
+		AvgSleepQualityL7: avgSleep,
 		CurrentRHR:        currentRHR,
-		AvgRHRLast30:      avgRHR,
+		AvgRHRLast30:      dataset.avgRHR,
 	}
 	recoveryScore := domain.CalculateRecoveryScore(recoveryInput)
 
 	// Calculate adjustment multipliers
 	adjustmentInput := domain.AdjustmentInput{
-		ACR:               trainingLoadResult.ACR,
+		ACR:               dataset.trainingLoadACR,
 		RecoveryScore:     recoveryScore.Score,
 		TodaySleepQuality: todaySleepQuality,
 		YesterdayMaxLoad:  pattern.YesterdayMaxLoad,

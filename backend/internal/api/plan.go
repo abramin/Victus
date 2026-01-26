@@ -12,6 +12,18 @@ import (
 	"victus/internal/store"
 )
 
+// parsePlanID extracts and validates the plan ID from the request path.
+// Returns the parsed ID and true on success, or writes an error response and returns false.
+func parsePlanID(w http.ResponseWriter, r *http.Request) (int64, bool) {
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_id", "Plan ID must be a number")
+		return 0, false
+	}
+	return id, true
+}
+
 // createPlan handles POST /api/plans
 func (s *Server) createPlan(w http.ResponseWriter, r *http.Request) {
 	var req requests.CreatePlanRequest
@@ -64,10 +76,8 @@ func (s *Server) getActivePlan(w http.ResponseWriter, r *http.Request) {
 
 // getPlanByID handles GET /api/plans/{id}
 func (s *Server) getPlanByID(w http.ResponseWriter, r *http.Request) {
-	idStr := r.PathValue("id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_id", "Plan ID must be a number")
+	id, ok := parsePlanID(w, r)
+	if !ok {
 		return
 	}
 
@@ -105,10 +115,8 @@ func (s *Server) listPlans(w http.ResponseWriter, r *http.Request) {
 
 // completePlan handles POST /api/plans/{id}/complete
 func (s *Server) completePlan(w http.ResponseWriter, r *http.Request) {
-	idStr := r.PathValue("id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_id", "Plan ID must be a number")
+	id, ok := parsePlanID(w, r)
+	if !ok {
 		return
 	}
 
@@ -126,10 +134,8 @@ func (s *Server) completePlan(w http.ResponseWriter, r *http.Request) {
 
 // abandonPlan handles POST /api/plans/{id}/abandon
 func (s *Server) abandonPlan(w http.ResponseWriter, r *http.Request) {
-	idStr := r.PathValue("id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_id", "Plan ID must be a number")
+	id, ok := parsePlanID(w, r)
+	if !ok {
 		return
 	}
 
@@ -147,10 +153,8 @@ func (s *Server) abandonPlan(w http.ResponseWriter, r *http.Request) {
 
 // pausePlan handles POST /api/plans/{id}/pause
 func (s *Server) pausePlan(w http.ResponseWriter, r *http.Request) {
-	idStr := r.PathValue("id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_id", "Plan ID must be a number")
+	id, ok := parsePlanID(w, r)
+	if !ok {
 		return
 	}
 
@@ -168,10 +172,8 @@ func (s *Server) pausePlan(w http.ResponseWriter, r *http.Request) {
 
 // resumePlan handles POST /api/plans/{id}/resume
 func (s *Server) resumePlan(w http.ResponseWriter, r *http.Request) {
-	idStr := r.PathValue("id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_id", "Plan ID must be a number")
+	id, ok := parsePlanID(w, r)
+	if !ok {
 		return
 	}
 
@@ -189,10 +191,8 @@ func (s *Server) resumePlan(w http.ResponseWriter, r *http.Request) {
 
 // recalibratePlan handles POST /api/plans/{id}/recalibrate
 func (s *Server) recalibratePlan(w http.ResponseWriter, r *http.Request) {
-	idStr := r.PathValue("id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_id", "Plan ID must be a number")
+	id, ok := parsePlanID(w, r)
+	if !ok {
 		return
 	}
 
@@ -226,10 +226,8 @@ func (s *Server) recalibratePlan(w http.ResponseWriter, r *http.Request) {
 
 // deletePlan handles DELETE /api/plans/{id}
 func (s *Server) deletePlan(w http.ResponseWriter, r *http.Request) {
-	idStr := r.PathValue("id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_id", "Plan ID must be a number")
+	id, ok := parsePlanID(w, r)
+	if !ok {
 		return
 	}
 

@@ -166,11 +166,9 @@ func (s *Server) updateActiveCalories(w http.ResponseWriter, r *http.Request) {
 
 	log, err := s.dailyLogService.UpdateActiveCaloriesBurned(r.Context(), date, req.ActiveCaloriesBurned)
 	if err != nil {
-		if errors.Is(err, store.ErrDailyLogNotFound) {
-			writeError(w, http.StatusNotFound, "not_found", "No log exists for this date")
-			return
+		if !handleDailyLogError(w, err, "No log exists for this date") {
+			writeError(w, http.StatusInternalServerError, "internal_error", "")
 		}
-		writeError(w, http.StatusInternalServerError, "internal_error", "")
 		return
 	}
 
@@ -205,16 +203,10 @@ func (s *Server) updateActualTraining(w http.ResponseWriter, r *http.Request) {
 	}
 	log, err := s.dailyLogService.UpdateActualTraining(r.Context(), date, sessions)
 	if err != nil {
-		if errors.Is(err, store.ErrDailyLogNotFound) {
-			writeError(w, http.StatusNotFound, "not_found", "No log exists for this date")
-			return
+		if !handleDailyLogError(w, err, "No log exists for this date") {
+			stdlog.Printf("ERROR: UpdateActualTraining failed for date %s: %v", date, err)
+			writeError(w, http.StatusInternalServerError, "internal_error", "")
 		}
-		if isValidationError(err) {
-			writeError(w, http.StatusBadRequest, "validation_error", err.Error())
-			return
-		}
-		stdlog.Printf("ERROR: UpdateActualTraining failed for date %s: %v", date, err)
-		writeError(w, http.StatusInternalServerError, "internal_error", "")
 		return
 	}
 
@@ -245,15 +237,9 @@ func (s *Server) updateFastingOverride(w http.ResponseWriter, r *http.Request) {
 
 	log, err := s.dailyLogService.UpdateFastingOverride(r.Context(), date, req.FastingOverride)
 	if err != nil {
-		if errors.Is(err, store.ErrDailyLogNotFound) {
-			writeError(w, http.StatusNotFound, "not_found", "No log exists for this date")
-			return
+		if !handleDailyLogError(w, err, "No log exists for this date") {
+			writeError(w, http.StatusInternalServerError, "internal_error", "")
 		}
-		if isValidationError(err) {
-			writeError(w, http.StatusBadRequest, "validation_error", err.Error())
-			return
-		}
-		writeError(w, http.StatusInternalServerError, "internal_error", "")
 		return
 	}
 
@@ -339,11 +325,9 @@ func (s *Server) addConsumedMacros(w http.ResponseWriter, r *http.Request) {
 
 	log, err := s.dailyLogService.AddConsumedMacros(r.Context(), date, macros)
 	if err != nil {
-		if errors.Is(err, store.ErrDailyLogNotFound) {
-			writeError(w, http.StatusNotFound, "not_found", "No log exists for this date")
-			return
+		if !handleDailyLogError(w, err, "No log exists for this date") {
+			writeError(w, http.StatusInternalServerError, "internal_error", "")
 		}
-		writeError(w, http.StatusInternalServerError, "internal_error", "")
 		return
 	}
 

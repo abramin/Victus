@@ -16,7 +16,7 @@ type TrainingConfigResponse struct {
 
 // getTrainingConfigs handles GET /api/training-configs
 func (s *Server) getTrainingConfigs(w http.ResponseWriter, r *http.Request) {
-	configs, err := s.trainingConfigService.GetAll(r.Context())
+	configs, err := s.trainingConfigStore.GetAll(r.Context())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal_error", "Failed to retrieve training configurations")
 		return
