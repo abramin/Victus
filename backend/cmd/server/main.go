@@ -43,8 +43,18 @@ func main() {
 		IdleTimeout:  60 * time.Second,
 	}
 
+	corsOrigin := os.Getenv("CORS_ALLOWED_ORIGIN")
+	if corsOrigin == "" {
+		corsOrigin = "*"
+	}
+
+	log.Println("victus backend starting")
+	log.Printf("  port: %s", port)
+	log.Printf("  database: %s", dbPath)
+	log.Printf("  cors: %s", corsOrigin)
+
 	go func() {
-		log.Printf("starting server on :%s", port)
+		log.Printf("listening on http://localhost:%s", port)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("server error: %v", err)
 		}

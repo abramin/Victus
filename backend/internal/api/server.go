@@ -26,8 +26,10 @@ type Server struct {
 	metabolicService     *service.MetabolicService
 	solverService        *service.SolverService
 	weeklyDebriefService *service.WeeklyDebriefService
+	importService        *service.ImportService
 	plannedDayTypeStore  *store.PlannedDayTypeStore
 	foodReferenceStore   *store.FoodReferenceStore
+	monthlySummaryStore  *store.MonthlySummaryStore
 }
 
 // NewServer configures routes and middleware.
@@ -42,6 +44,7 @@ func NewServer(db *sql.DB) *Server {
 	fatigueStore := store.NewFatigueStore(db)
 	programStore := store.NewTrainingProgramStore(db)
 	metabolicStore := store.NewMetabolicStore(db)
+	monthlySummaryStore := store.NewMonthlySummaryStore(db)
 
 	// Create services
 	dailyLogService := service.NewDailyLogService(dailyLogStore, trainingSessionStore, profileStore)
@@ -72,8 +75,10 @@ func NewServer(db *sql.DB) *Server {
 		metabolicService:     service.NewMetabolicService(metabolicStore, dailyLogStore),
 		solverService:        solverService,
 		weeklyDebriefService: weeklyDebriefService,
+		importService:        service.NewImportService(dailyLogStore, monthlySummaryStore),
 		plannedDayTypeStore:  plannedDayTypeStore,
 		foodReferenceStore:   foodReferenceStore,
+		monthlySummaryStore:  monthlySummaryStore,
 	}
 
 	// Health
@@ -161,6 +166,10 @@ func NewServer(db *sql.DB) *Server {
 	mux.HandleFunc("GET /api/debrief/weekly/{date}", srv.getWeeklyDebriefByDate)
 	mux.HandleFunc("GET /api/debrief/current", srv.getCurrentWeekDebrief)
 
+	// Garmin Data Import routes
+	mux.HandleFunc("POST /api/import/garmin", srv.uploadGarminData)
+	mux.HandleFunc("GET /api/stats/monthly-summaries", srv.getMonthlySummaries)
+
 	return srv
 }
 
@@ -180,12 +189,24 @@ func (s *Server) healthHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(resp)
 }
 
+// responseWriter wraps http.ResponseWriter to capture the status code for logging.
+type responseWriter struct {
+	http.ResponseWriter
+	status int
+}
+
+func (rw *responseWriter) WriteHeader(code int) {
+	rw.status = code
+	rw.ResponseWriter.WriteHeader(code)
+}
+
 func loggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		next.ServeHTTP(w, r)
+		rw := &responseWriter{ResponseWriter: w, status: http.StatusOK}
+		next.ServeHTTP(rw, r)
 		duration := time.Since(start)
-		log.Printf("%s %s %s %dms", r.Method, r.URL.Path, r.RemoteAddr, duration.Milliseconds())
+		log.Printf("%s %s %d %dms %s", r.Method, r.URL.Path, rw.status, duration.Milliseconds(), r.RemoteAddr)
 	})
 }
 

@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"time"
 
@@ -11,8 +12,13 @@ import (
 	"victus/internal/store"
 )
 
-// writeError writes a JSON error response.
+// writeError writes a JSON error response and logs it.
 func writeError(w http.ResponseWriter, status int, code, msg string) {
+	if msg != "" {
+		log.Printf("ERROR %d %s: %s", status, code, msg)
+	} else {
+		log.Printf("ERROR %d %s", status, code)
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(APIError{Error: code, Message: msg})
