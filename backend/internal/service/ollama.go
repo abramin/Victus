@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"victus/internal/domain"
 )
 
 // OllamaService provides AI-generated recipe names via local Ollama.
@@ -136,4 +138,171 @@ func generateFallbackName(ingredients []string) string {
 		return fmt.Sprintf("%s & %s", ingredients[0], ingredients[1])
 	}
 	return fmt.Sprintf("%s Mix", ingredients[0])
+}
+
+// debriefLLMPayload is the JSON structure sent to Ollama for debrief narrative.
+type debriefLLMPayload struct {
+	WeekStart         string            `json:"weekStart"`
+	WeekEnd           string            `json:"weekEnd"`
+	OverallScore      float64           `json:"overallScore"`
+	MealAdherence     float64           `json:"mealAdherence"`
+	TrainingAdherence float64           `json:"trainingAdherence"`
+	WeightChangeKg    float64           `json:"weightChangeKg"`
+	MetabolicTrend    string            `json:"metabolicTrend"`
+	TDEEDelta         int               `json:"tdeeDelta"`
+	Days              []debriefDayShort `json:"days"`
+	UserNotes         []string          `json:"userNotes,omitempty"`
+}
+
+type debriefDayShort struct {
+	Date             string  `json:"date"`
+	DayName          string  `json:"dayName"`
+	DayType          string  `json:"dayType"`
+	CalorieDelta     int     `json:"calorieDelta"`
+	ProteinPercent   float64 `json:"proteinPercent"`
+	TrainingComplete bool    `json:"trainingComplete"`
+	TrainingLoad     float64 `json:"trainingLoad"`
+	RPE              *int    `json:"rpe,omitempty"`
+	CNSStatus        string  `json:"cnsStatus,omitempty"`
+	SleepQuality     int     `json:"sleepQuality"`
+	Notes            string  `json:"notes,omitempty"`
+}
+
+// GenerateDebriefNarrative generates a coaching-style narrative for the weekly debrief.
+// Falls back to template-based narrative if Ollama is unavailable.
+func (s *OllamaService) GenerateDebriefNarrative(
+	ctx context.Context,
+	input domain.DebriefInput,
+	debrief *domain.WeeklyDebrief,
+) domain.DebriefNarrative {
+	// Build fallback first
+	fallback := domain.GenerateFallbackNarrative(debrief)
+
+	if !s.enabled {
+		return fallback
+	}
+
+	// Build the LLM payload
+	payload := buildDebriefPayload(input, debrief)
+
+	payloadJSON, err := json.Marshal(payload)
+	if err != nil {
+		return fallback
+	}
+
+	prompt := fmt.Sprintf(`You are a direct, slightly dry, performance-oriented fitness coach analyzing a week of training and nutrition data.
+
+WEEK DATA (JSON):
+%s
+
+Generate a weekly debrief narrative (2-3 paragraphs) that:
+1. Opens with the overall vitality score and what it means
+2. Highlights key wins and areas of concern
+3. Notes any patterns in training, nutrition, or recovery
+4. Ends with a forward-looking statement for the coming week
+
+TONE: Direct and factual, with occasional dry humor. Think military briefing meets sports coach. No excessive enthusiasm or emoji. Address the user as "you".
+
+CONSTRAINTS:
+- Keep under 300 words
+- Reference specific days when relevant (e.g., "Thursday's HIIT session...")
+- Mention specific numbers when they're notable (e.g., "Your protein hit 92%% of target...")
+- If CNS was depleted any day, mention it prominently
+
+Return ONLY the narrative text, no preamble or explanation.`, string(payloadJSON))
+
+	req := ollamaRequest{
+		Model:  "llama3.2",
+		Prompt: prompt,
+		Stream: false,
+	}
+
+	body, err := json.Marshal(req)
+	if err != nil {
+		return fallback
+	}
+
+	// Use a longer timeout for narrative generation (30s instead of 10s)
+	narrativeCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	httpReq, err := http.NewRequestWithContext(narrativeCtx, "POST", s.baseURL+"/api/generate", bytes.NewReader(body))
+	if err != nil {
+		return fallback
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := s.client.Do(httpReq)
+	if err != nil {
+		s.enabled = false
+		return fallback
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fallback
+	}
+
+	var result ollamaResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return fallback
+	}
+
+	// Clean up the response
+	text := strings.TrimSpace(result.Response)
+	if len(text) < 50 || len(text) > 2000 {
+		return fallback
+	}
+
+	return domain.DebriefNarrative{
+		Text:           text,
+		GeneratedByLLM: true,
+		Model:          "llama3.2",
+	}
+}
+
+// buildDebriefPayload converts domain types to the LLM payload format.
+func buildDebriefPayload(input domain.DebriefInput, debrief *domain.WeeklyDebrief) debriefLLMPayload {
+	var days []debriefDayShort
+	var userNotes []string
+
+	for _, day := range debrief.DailyBreakdown {
+		d := debriefDayShort{
+			Date:             day.Date,
+			DayName:          day.DayName,
+			DayType:          string(day.DayType),
+			CalorieDelta:     day.CalorieDelta,
+			ProteinPercent:   day.ProteinPercent,
+			TrainingComplete: day.ActualSessions >= day.PlannedSessions,
+			TrainingLoad:     day.TrainingLoad,
+			SleepQuality:     day.SleepQuality,
+		}
+
+		if day.AvgRPE != nil {
+			rpe := int(*day.AvgRPE)
+			d.RPE = &rpe
+		}
+		if day.CNSStatus != nil {
+			d.CNSStatus = string(*day.CNSStatus)
+		}
+		if day.Notes != "" {
+			d.Notes = day.Notes
+			userNotes = append(userNotes, day.DayName+": "+day.Notes)
+		}
+
+		days = append(days, d)
+	}
+
+	return debriefLLMPayload{
+		WeekStart:         debrief.WeekStartDate,
+		WeekEnd:           debrief.WeekEndDate,
+		OverallScore:      debrief.VitalityScore.Overall,
+		MealAdherence:     debrief.VitalityScore.MealAdherence,
+		TrainingAdherence: debrief.VitalityScore.TrainingAdherence,
+		WeightChangeKg:    debrief.VitalityScore.WeightDelta,
+		MetabolicTrend:    debrief.VitalityScore.MetabolicFlux.Trend,
+		TDEEDelta:         debrief.VitalityScore.MetabolicFlux.DeltaKcal,
+		Days:              days,
+		UserNotes:         userNotes,
+	}
 }

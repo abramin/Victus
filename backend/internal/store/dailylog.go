@@ -17,6 +17,9 @@ var ErrDailyLogNotFound = errors.New("daily log not found")
 // ErrDailyLogAlreadyExists is returned when a daily log already exists for the date.
 var ErrDailyLogAlreadyExists = errors.New("daily log already exists")
 
+// ErrInsufficientData is returned when there is not enough data to perform the operation.
+var ErrInsufficientData = errors.New("insufficient data")
+
 // DailyLogStore handles database operations for daily logs.
 type DailyLogStore struct {
 	db *sql.DB
@@ -923,4 +926,132 @@ func (s *DailyLogStore) createMinimalLog(ctx context.Context, date string, metri
 	}
 
 	return nil
+}
+
+// ListByDateRange returns all daily logs within a date range (inclusive), ordered by date.
+// Note: PlannedSessions and ActualSessions are NOT populated by this method.
+// Use the service layer which combines this with TrainingSessionStore.
+func (s *DailyLogStore) ListByDateRange(ctx context.Context, startDate, endDate string) ([]domain.DailyLog, error) {
+	const query = `
+		SELECT
+			id, log_date, weight_kg, body_fat_percent, resting_heart_rate, hrv_ms,
+			sleep_quality, sleep_hours,
+			COALESCE(total_carbs_g, 0), COALESCE(total_protein_g, 0), COALESCE(total_fats_g, 0), COALESCE(total_calories, 0),
+			COALESCE(breakfast_carb_points, 0), COALESCE(breakfast_protein_points, 0), COALESCE(breakfast_fat_points, 0),
+			COALESCE(lunch_carb_points, 0), COALESCE(lunch_protein_points, 0), COALESCE(lunch_fat_points, 0),
+			COALESCE(dinner_carb_points, 0), COALESCE(dinner_protein_points, 0), COALESCE(dinner_fat_points, 0),
+			COALESCE(fruit_g, 0), COALESCE(veggies_g, 0), COALESCE(water_l, 0), COALESCE(day_type, 'fatburner'),
+			COALESCE(estimated_tdee, 0), COALESCE(formula_tdee, 0),
+			COALESCE(tdee_source_used, 'formula'), COALESCE(tdee_confidence, 0), COALESCE(data_points_used, 0),
+			active_calories_burned, steps, COALESCE(notes, ''),
+			fasting_override, COALESCE(fasted_items_kcal, 0),
+			COALESCE(consumed_calories, 0), COALESCE(consumed_protein_g, 0),
+			COALESCE(consumed_carbs_g, 0), COALESCE(consumed_fat_g, 0),
+			COALESCE(breakfast_consumed_kcal, 0), COALESCE(breakfast_consumed_protein_g, 0),
+			COALESCE(breakfast_consumed_carbs_g, 0), COALESCE(breakfast_consumed_fat_g, 0),
+			COALESCE(lunch_consumed_kcal, 0), COALESCE(lunch_consumed_protein_g, 0),
+			COALESCE(lunch_consumed_carbs_g, 0), COALESCE(lunch_consumed_fat_g, 0),
+			COALESCE(dinner_consumed_kcal, 0), COALESCE(dinner_consumed_protein_g, 0),
+			COALESCE(dinner_consumed_carbs_g, 0), COALESCE(dinner_consumed_fat_g, 0),
+			created_at, updated_at
+		FROM daily_logs
+		WHERE log_date >= ? AND log_date <= ?
+		ORDER BY log_date ASC
+	`
+
+	rows, err := s.db.QueryContext(ctx, query, startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var logs []domain.DailyLog
+	for rows.Next() {
+		var (
+			log                  domain.DailyLog
+			bodyFatPercent       sql.NullFloat64
+			heartRate            sql.NullInt64
+			hrvMs                sql.NullInt64
+			sleepHours           sql.NullFloat64
+			activeCaloriesBurned sql.NullInt64
+			stepsVal             sql.NullInt64
+			fastingOverride      sql.NullString
+			createdAt            string
+			updatedAt            string
+		)
+
+		if err := rows.Scan(
+			&log.ID, &log.Date, &log.WeightKg, &bodyFatPercent, &heartRate, &hrvMs,
+			&log.SleepQuality, &sleepHours,
+			&log.CalculatedTargets.TotalCarbsG, &log.CalculatedTargets.TotalProteinG,
+			&log.CalculatedTargets.TotalFatsG, &log.CalculatedTargets.TotalCalories,
+			&log.CalculatedTargets.Meals.Breakfast.Carbs, &log.CalculatedTargets.Meals.Breakfast.Protein,
+			&log.CalculatedTargets.Meals.Breakfast.Fats,
+			&log.CalculatedTargets.Meals.Lunch.Carbs, &log.CalculatedTargets.Meals.Lunch.Protein,
+			&log.CalculatedTargets.Meals.Lunch.Fats,
+			&log.CalculatedTargets.Meals.Dinner.Carbs, &log.CalculatedTargets.Meals.Dinner.Protein,
+			&log.CalculatedTargets.Meals.Dinner.Fats,
+			&log.CalculatedTargets.FruitG, &log.CalculatedTargets.VeggiesG,
+			&log.CalculatedTargets.WaterL, &log.CalculatedTargets.DayType,
+			&log.EstimatedTDEE, &log.FormulaTDEE,
+			&log.TDEESourceUsed, &log.TDEEConfidence, &log.DataPointsUsed,
+			&activeCaloriesBurned, &stepsVal, &log.Notes,
+			&fastingOverride, &log.FastedItemsKcal,
+			&log.ConsumedCalories, &log.ConsumedProteinG,
+			&log.ConsumedCarbsG, &log.ConsumedFatG,
+			&log.MealConsumed.Breakfast.Calories, &log.MealConsumed.Breakfast.ProteinG,
+			&log.MealConsumed.Breakfast.CarbsG, &log.MealConsumed.Breakfast.FatG,
+			&log.MealConsumed.Lunch.Calories, &log.MealConsumed.Lunch.ProteinG,
+			&log.MealConsumed.Lunch.CarbsG, &log.MealConsumed.Lunch.FatG,
+			&log.MealConsumed.Dinner.Calories, &log.MealConsumed.Dinner.ProteinG,
+			&log.MealConsumed.Dinner.CarbsG, &log.MealConsumed.Dinner.FatG,
+			&createdAt, &updatedAt,
+		); err != nil {
+			return nil, err
+		}
+
+		// Handle nullable fields
+		if bodyFatPercent.Valid {
+			log.BodyFatPercent = &bodyFatPercent.Float64
+		}
+		if heartRate.Valid {
+			hr := int(heartRate.Int64)
+			log.RestingHeartRate = &hr
+		}
+		if hrvMs.Valid {
+			hrv := int(hrvMs.Int64)
+			log.HRVMs = &hrv
+		}
+		if sleepHours.Valid {
+			log.SleepHours = &sleepHours.Float64
+		}
+		if activeCaloriesBurned.Valid {
+			acb := int(activeCaloriesBurned.Int64)
+			log.ActiveCaloriesBurned = &acb
+		}
+		if stepsVal.Valid {
+			st := int(stepsVal.Int64)
+			log.Steps = &st
+		}
+		if fastingOverride.Valid {
+			fp := domain.FastingProtocol(fastingOverride.String)
+			log.FastingOverride = &fp
+		}
+
+		// Parse timestamps
+		log.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", createdAt)
+		log.UpdatedAt, _ = time.Parse("2006-01-02 15:04:05", updatedAt)
+
+		// Set log.DayType from calculated targets
+		log.DayType = log.CalculatedTargets.DayType
+		log.CalculatedTargets.EstimatedTDEE = log.EstimatedTDEE
+
+		logs = append(logs, log)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return logs, nil
 }

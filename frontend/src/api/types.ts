@@ -811,3 +811,90 @@ export interface SolverResponse {
   solutions: SolverSolution[];
   computed: boolean;
 }
+
+// =============================================================================
+// Weekly Debrief Types (Mission Report)
+// =============================================================================
+
+/**
+ * CNSStatus represents Central Nervous System status based on HRV deviation.
+ */
+export type CNSStatus = 'optimized' | 'strained' | 'depleted';
+
+/**
+ * MetabolicFlux represents the metabolic trend for the week.
+ */
+export interface MetabolicFlux {
+  startTDEE: number;
+  endTDEE: number;
+  deltaKcal: number;
+  trend: 'upregulated' | 'downregulated' | 'stable';
+}
+
+/**
+ * VitalityScore represents the weekly vitality score (Module A).
+ */
+export interface VitalityScore {
+  overall: number; // 0-100 composite score
+  mealAdherence: number; // % meals within targets
+  trainingAdherence: number; // % planned sessions completed
+  weightDelta: number; // kg change
+  trendWeight: number; // EMA-filtered trend weight
+  metabolicFlux: MetabolicFlux;
+}
+
+/**
+ * DebriefNarrative contains the AI or template-generated weekly summary.
+ */
+export interface DebriefNarrative {
+  text: string;
+  generatedByLlm: boolean;
+}
+
+/**
+ * TacticalRecommendation is an actionable suggestion for the coming week.
+ */
+export interface TacticalRecommendation {
+  priority: number; // 1-3
+  category: 'training' | 'nutrition' | 'recovery';
+  summary: string;
+  rationale: string;
+  actionItems: string[];
+}
+
+/**
+ * DebriefDay contains per-day data for the weekly breakdown.
+ */
+export interface DebriefDay {
+  date: string;
+  dayName: string;
+  dayType: DayType;
+  targetCalories: number;
+  consumedCalories: number;
+  calorieDelta: number;
+  targetProteinG: number;
+  consumedProteinG: number;
+  proteinPercent: number;
+  plannedSessions: number;
+  actualSessions: number;
+  trainingLoad: number;
+  avgRpe?: number;
+  hrvMs?: number;
+  cnsStatus?: CNSStatus;
+  sleepQuality: number;
+  sleepHours?: number;
+  notes?: string;
+}
+
+/**
+ * WeeklyDebrief represents a complete weekly summary (Mission Report).
+ */
+export interface WeeklyDebrief {
+  weekStartDate: string;
+  weekEndDate: string;
+  vitalityScore: VitalityScore;
+  narrative: DebriefNarrative;
+  recommendations: TacticalRecommendation[];
+  dailyBreakdown: DebriefDay[];
+  generatedAt: string;
+}

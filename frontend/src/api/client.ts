@@ -36,6 +36,7 @@ import type {
   ProgramFocus,
   SolverRequest,
   SolverResponse,
+  WeeklyDebrief,
 } from './types';
 
 const API_BASE = '/api';
@@ -637,4 +638,43 @@ export async function solveMacros(request: SolverRequest, signal?: AbortSignal):
     signal,
   });
   return handleResponse<SolverResponse>(response);
+}
+
+// =============================================================================
+// WEEKLY DEBRIEF (MISSION REPORT)
+// =============================================================================
+
+/**
+ * Get the weekly debrief for the most recent completed week.
+ */
+export async function getWeeklyDebrief(signal?: AbortSignal): Promise<WeeklyDebrief> {
+  const response = await fetch(`${API_BASE}/debrief/weekly`, { signal });
+  return handleResponse<WeeklyDebrief>(response);
+}
+
+/**
+ * Get the weekly debrief for a specific week (any day in the week).
+ */
+export async function getWeeklyDebriefByDate(
+  date: string,
+  signal?: AbortSignal
+): Promise<WeeklyDebrief> {
+  const response = await fetch(`${API_BASE}/debrief/weekly/${encodeURIComponent(date)}`, {
+    signal,
+  });
+  return handleResponse<WeeklyDebrief>(response);
+}
+
+/**
+ * Get an in-progress debrief for the current incomplete week.
+ * Returns null if it's Monday and there's no data yet.
+ */
+export async function getCurrentWeekDebrief(signal?: AbortSignal): Promise<WeeklyDebrief | null> {
+  const response = await fetch(`${API_BASE}/debrief/current`, { signal });
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  return handleResponse<WeeklyDebrief>(response);
 }

@@ -25,6 +25,7 @@ type Server struct {
 	programService        *service.TrainingProgramService
 	metabolicService      *service.MetabolicService
 	solverService         *service.SolverService
+	weeklyDebriefService  *service.WeeklyDebriefService
 	plannedDayTypeStore   *store.PlannedDayTypeStore
 	foodReferenceStore    *store.FoodReferenceStore
 }
@@ -53,6 +54,11 @@ func NewServer(db *sql.DB) *Server {
 	// Create solver service for Macro Tetris feature
 	solverService := service.NewSolverService(foodReferenceStore, ollamaService)
 
+	// Create weekly debrief service for Mission Report feature
+	weeklyDebriefService := service.NewWeeklyDebriefService(
+		dailyLogStore, trainingSessionStore, profileStore, metabolicStore, ollamaService,
+	)
+
 	mux := http.NewServeMux()
 	srv := &Server{
 		mux:                   mux,
@@ -65,6 +71,7 @@ func NewServer(db *sql.DB) *Server {
 		programService:        service.NewTrainingProgramService(programStore, plannedDayTypeStore),
 		metabolicService:      service.NewMetabolicService(metabolicStore, dailyLogStore),
 		solverService:         solverService,
+		weeklyDebriefService:  weeklyDebriefService,
 		plannedDayTypeStore:   plannedDayTypeStore,
 		foodReferenceStore:    foodReferenceStore,
 	}
@@ -148,6 +155,11 @@ func NewServer(db *sql.DB) *Server {
 	mux.HandleFunc("GET /api/metabolic/chart", srv.getMetabolicChart)
 	mux.HandleFunc("GET /api/metabolic/notification", srv.getMetabolicNotification)
 	mux.HandleFunc("POST /api/metabolic/notification/{id}/dismiss", srv.dismissMetabolicNotification)
+
+	// Weekly Debrief routes (Mission Report feature)
+	mux.HandleFunc("GET /api/debrief/weekly", srv.getWeeklyDebrief)
+	mux.HandleFunc("GET /api/debrief/weekly/{date}", srv.getWeeklyDebriefByDate)
+	mux.HandleFunc("GET /api/debrief/current", srv.getCurrentWeekDebrief)
 
 	return srv
 }
