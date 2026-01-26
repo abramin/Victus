@@ -102,3 +102,64 @@ export const hoverGlow = {
   borderColor: 'rgba(255, 255, 255, 0.15)',
   transition: { duration: 0.2 },
 };
+
+// === MUSCLE ANIMATION VARIANTS ===
+// For Neural OS body map visualization
+
+/**
+ * Gentle pulse for fatigued muscles (60-85% fatigue)
+ * Simulates blood flow / working tissue
+ */
+export const musclePulse: Variants = {
+  idle: { scale: 1 },
+  pulse: {
+    scale: [1, 1.02, 1],
+    transition: {
+      duration: 2,
+      repeat: Infinity,
+      ease: 'easeInOut',
+    },
+  },
+};
+
+/**
+ * Rapid pulse for overreached muscles (>85% fatigue)
+ * More pronounced to signal warning state
+ */
+export const muscleOverreachPulse: Variants = {
+  idle: { scale: 1 },
+  pulse: {
+    scale: [1, 1.04, 1],
+    transition: {
+      duration: 1,
+      repeat: Infinity,
+      ease: 'easeInOut',
+    },
+  },
+};
+
+/**
+ * Glow intensity animation for inflammation effect
+ */
+export const muscleGlow: Variants = {
+  idle: { filter: 'brightness(1)' },
+  glow: {
+    filter: ['brightness(1)', 'brightness(1.2)', 'brightness(1)'],
+    transition: {
+      duration: 1.5,
+      repeat: Infinity,
+      ease: 'easeInOut',
+    },
+  },
+};
+
+/**
+ * Color morph transition for organic color changes
+ * Use with useSpring for physics-based interpolation
+ */
+export const colorMorphTransition: Transition = {
+  type: 'spring',
+  stiffness: 50,
+  damping: 20,
+  mass: 1,
+};

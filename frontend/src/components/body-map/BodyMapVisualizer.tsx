@@ -1,6 +1,12 @@
 import { useState, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useSpring, useTransform } from 'framer-motion';
 import type { MuscleFatigue, MuscleGroup } from '../../api/types';
+import {
+  getMuscleColor as getInterpolatedColor,
+  getGlowColor,
+  getGlowIntensity,
+  getAnimationParams,
+} from './colorSystem';
 
 interface BodyMapVisualizerProps {
   muscles: MuscleFatigue[];
@@ -162,12 +168,13 @@ const MUSCLE_PATHS: Record<MuscleGroup, { d: string; view: 'front' | 'back' }> =
 
 // --- COLOR THEME ---
 const THEME = {
-  background: '#09090b',    // The dark background of your app
-  bodyBase: '#e2e8f0',      // Light grey/White for the skin
-  muscleBase: '#cbd5e1',    // Slightly darker grey for untargeted muscles
-  outline: '#09090b',       // STROKE matches BG to create "Gaps"
+  background: '#09090b', // The dark background of your app
+  bodyBase: '#f5ddc4', // Realistic skin tone (light)
+  muscleBase: '#e8d5c4', // Slightly darker skin for untargeted muscles
+  outline: '#09090b', // STROKE matches BG to create "Gaps"
   highlightStroke: '#ffffff',
 };
+
 
 export function BodyMapVisualizer({
   muscles,
@@ -185,9 +192,21 @@ export function BodyMapVisualizer({
   const getMuscleColor = (muscle: MuscleGroup): string => {
     const data = muscleMap.get(muscle);
     if (data && data.fatiguePercent > 0) {
-      return data.color;
+      // Use continuous color interpolation for organic gradient
+      return getInterpolatedColor(data.fatiguePercent);
     }
     return THEME.muscleBase;
+  };
+
+  const getMuscleFilter = (muscle: MuscleGroup): string | undefined => {
+    const data = muscleMap.get(muscle);
+    if (!data || data.fatiguePercent === 0) return undefined;
+
+    const { shouldGlitch } = getAnimationParams(data.fatiguePercent);
+    if (shouldGlitch) return 'url(#muscleOverreached)';
+    if (data.fatiguePercent > 60) return 'url(#muscleGlow)';
+    if (data.fatiguePercent > 25) return 'url(#muscleHeatmap)';
+    return undefined;
   };
 
   const isHighlighted = (muscle: MuscleGroup): boolean => {
@@ -207,6 +226,16 @@ export function BodyMapVisualizer({
   const renderMuscle = (muscle: MuscleGroup, path: string, index: number) => {
     const highlighted = isHighlighted(muscle);
     const color = getMuscleColor(muscle);
+    const svgFilter = getMuscleFilter(muscle);
+    const data = muscleMap.get(muscle);
+    const animParams = data ? getAnimationParams(data.fatiguePercent) : null;
+    const shouldPulse = animParams?.shouldPulse ?? false;
+
+    // For pulsing muscles, use keyframe animation
+    const baseScale = highlighted ? 1.05 : 1;
+    const scaleValue = shouldPulse
+      ? [baseScale, baseScale + (animParams?.pulseIntensity ?? 0), baseScale]
+      : baseScale;
 
     return (
       <motion.path
@@ -214,28 +243,28 @@ export function BodyMapVisualizer({
         d={path}
         fill={color}
         fillOpacity={1}
-
+        filter={svgFilter}
         // This creates the "gap" effect by stroking with background color
         stroke={highlighted ? THEME.highlightStroke : THEME.outline}
         strokeWidth={highlighted ? 2 : 1.5}
         strokeLinejoin="round"
         strokeLinecap="round"
-
         className="cursor-pointer"
         style={{ transformOrigin: 'center' }}
         onMouseEnter={() => setHoveredMuscle(muscle)}
         onMouseLeave={() => setHoveredMuscle(null)}
         onClick={() => onMuscleClick?.(muscle)}
-
-        initial={{ scale: 0.98, filter: 'brightness(1)' }}
+        initial={{ scale: 0.98 }}
         animate={{
-          scale: highlighted ? 1.05 : 1,
+          scale: scaleValue,
           fill: color,
           filter: highlighted ? 'brightness(1.3)' : 'brightness(1)',
         }}
         transition={{
-          scale: { duration: 0.2 },
-          fill: { duration: 0.3 },
+          scale: shouldPulse
+            ? { duration: animParams?.pulseSpeed ?? 2, repeat: Infinity, ease: 'easeInOut' }
+            : { duration: 0.2 },
+          fill: { duration: 0.6, ease: 'easeInOut' },
           filter: { duration: 0.15 },
         }}
       />
@@ -256,8 +285,9 @@ export function BodyMapVisualizer({
         className="overflow-visible"
         style={view === 'back' ? { transform: 'scaleX(-1)' } : undefined}
       >
-        {/* Gradient definition for scan beam */}
+        {/* Filter and gradient definitions */}
         <defs>
+          {/* Scan beam gradient */}
           <linearGradient id={`scanBeamGradient-${view}`} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="white" stopOpacity="0" />
             <stop offset="50%" stopColor="white" stopOpacity="0.15" />
@@ -266,6 +296,63 @@ export function BodyMapVisualizer({
           <clipPath id={`bodyClip-${view}`}>
             <path d={silhouette} />
           </clipPath>
+
+          {/* Neural OS Filter Effects */}
+          {/* Muscle Heatmap: Radial glow from center */}
+          <filter id="muscleHeatmap" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur in="SourceAlpha" stdDeviation="2" result="blur" />
+            <feFlood floodColor="currentColor" floodOpacity="0.3" result="color" />
+            <feComposite in="color" in2="blur" operator="in" result="shadow" />
+            <feMerge>
+              <feMergeNode in="shadow" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+
+          {/* Inner Glow: Soft inflammation effect */}
+          <filter id="muscleGlow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="1.5" result="blur" />
+            <feColorMatrix
+              type="matrix"
+              in="blur"
+              result="coloredBlur"
+              values="1.2 0 0 0 0
+                      0 1.2 0 0 0
+                      0 0 1.2 0 0
+                      0 0 0 1 0"
+            />
+            <feMerge>
+              <feMergeNode in="coloredBlur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+
+          {/* Overreach Glitch: Animated distortion for overreached muscles */}
+          <filter id="muscleOverreached" x="-50%" y="-50%" width="200%" height="200%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.015" numOctaves="1" result="noise">
+              <animate
+                attributeName="baseFrequency"
+                values="0.01;0.02;0.01"
+                dur="2s"
+                repeatCount="indefinite"
+              />
+            </feTurbulence>
+            <feDisplacementMap in="SourceGraphic" in2="noise" scale="1" result="displaced" />
+            <feGaussianBlur in="displaced" stdDeviation="0.8" result="blur" />
+            <feColorMatrix
+              type="matrix"
+              in="blur"
+              result="coloredBlur"
+              values="1.3 0 0 0 0.05
+                      0 1.1 0 0 0
+                      0 0 1.1 0 0
+                      0 0 0 1 0"
+            />
+            <feMerge>
+              <feMergeNode in="coloredBlur" />
+              <feMergeNode in="displaced" />
+            </feMerge>
+          </filter>
         </defs>
 
         {/* Layer 1: The Base Mannequin */}
