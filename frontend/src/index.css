@@ -46,3 +46,17 @@ body {
   --color-rose-400: #df6a6a;
   --color-red-500: #c54e4e;
 }
+
+/* Scanline animation for "living interface" effect */
+@keyframes scanline {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100vh);
+  }
+}
+
+.animate-scanline {
+  animation: scanline 8s linear infinite;
+}

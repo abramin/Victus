@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import type {
   DailyLog,
   UserProfile,
@@ -18,6 +19,7 @@ import { FuelZone } from './FuelZone';
 import { SetupAlertCard } from './SetupAlertCard';
 import { WeeklyStrategyModal } from '../metabolic/WeeklyStrategyModal';
 import { TrainingOverrideAlert } from '../cns';
+import { staggerContainer, fadeInUp } from '../../lib/animations';
 
 interface CommandCenterProps {
   profile: UserProfile;
@@ -268,9 +270,14 @@ export function CommandCenter({
 
       {/* Main Content - 3 Zone Layout */}
       {!loading && log && (
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        <motion.div
+          className="grid grid-cols-1 lg:grid-cols-5 gap-6"
+          variants={staggerContainer}
+          initial="hidden"
+          animate="show"
+        >
           {/* Left Column (60%) - Status + Mission */}
-          <div className="lg:col-span-3 space-y-4">
+          <motion.div className="lg:col-span-3 space-y-4" variants={fadeInUp}>
             {/* Zone A: Status */}
             <StatusZone
               recoveryScore={log.recoveryScore}
@@ -296,10 +303,10 @@ export function CommandCenter({
               onToggleSession={handleToggleSession}
               saving={saving}
             />
-          </div>
+          </motion.div>
 
           {/* Right Column (40%) - Fuel */}
-          <div className="lg:col-span-2 space-y-4">
+          <motion.div className="lg:col-span-2 space-y-4" variants={fadeInUp}>
             {/* Meal Log Error */}
             {mealLogError && (
               <div className="p-3 bg-red-900/30 border border-red-800 rounded-lg">
@@ -316,8 +323,8 @@ export function CommandCenter({
               consumedFatG={log.consumedFatG}
               onLogSolution={handleLogSolution}
             />
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
 
       {/* No Log Yet - Prompt to check in */}

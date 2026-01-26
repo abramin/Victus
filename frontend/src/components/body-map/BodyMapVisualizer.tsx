@@ -227,14 +227,16 @@ export function BodyMapVisualizer({
         onMouseLeave={() => setHoveredMuscle(null)}
         onClick={() => onMuscleClick?.(muscle)}
 
-        initial={{ scale: 0.98 }}
+        initial={{ scale: 0.98, filter: 'brightness(1)' }}
         animate={{
           scale: highlighted ? 1.05 : 1,
           fill: color,
+          filter: highlighted ? 'brightness(1.3)' : 'brightness(1)',
         }}
         transition={{
           scale: { duration: 0.2 },
-          fill: { duration: 0.3 }
+          fill: { duration: 0.3 },
+          filter: { duration: 0.15 },
         }}
       />
     );
@@ -254,6 +256,18 @@ export function BodyMapVisualizer({
         className="overflow-visible"
         style={view === 'back' ? { transform: 'scaleX(-1)' } : undefined}
       >
+        {/* Gradient definition for scan beam */}
+        <defs>
+          <linearGradient id={`scanBeamGradient-${view}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="white" stopOpacity="0" />
+            <stop offset="50%" stopColor="white" stopOpacity="0.15" />
+            <stop offset="100%" stopColor="white" stopOpacity="0" />
+          </linearGradient>
+          <clipPath id={`bodyClip-${view}`}>
+            <path d={silhouette} />
+          </clipPath>
+        </defs>
+
         {/* Layer 1: The Base Mannequin */}
         <path
           d={silhouette}
@@ -265,6 +279,25 @@ export function BodyMapVisualizer({
         {/* Layer 2: The Muscle Plates */}
         <g>
           {musclePaths.map(({ muscle, d, index }) => renderMuscle(muscle, d, index))}
+        </g>
+
+        {/* Layer 3: X-Ray Scan Beam */}
+        <g clipPath={`url(#bodyClip-${view})`}>
+          <motion.rect
+            x="0"
+            y="0"
+            width="100"
+            height="30"
+            fill={`url(#scanBeamGradient-${view})`}
+            initial={{ y: -30 }}
+            animate={{ y: 260 }}
+            transition={{
+              duration: 3,
+              repeat: Infinity,
+              repeatDelay: 7,
+              ease: 'linear',
+            }}
+          />
         </g>
       </svg>
     );

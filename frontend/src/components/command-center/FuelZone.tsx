@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import type { DailyTargets, DayType, SolverSolution } from '../../api/types';
 import { DAY_TYPE_BADGE } from '../../constants';
-import { Panel } from '../common/Panel';
+import { AnimatedNumber, Panel } from '../common';
 import { WaterTracker } from '../saved-view/WaterTracker';
 import { AutoFillButton, MacroSolverModal } from '../solver';
+import { hoverLift } from '../../lib/animations';
 
 interface FuelZoneProps {
   targets: DailyTargets | null;
@@ -66,7 +68,7 @@ export function FuelZone({
       {/* Remaining Calories - Hero */}
       <div className="text-center mb-4">
         <div className="text-4xl font-bold text-white mb-1">
-          {Math.round(remainingCalories).toLocaleString()}
+          <AnimatedNumber value={remainingCalories} />
         </div>
         <div className="text-sm text-gray-400">kcal remaining</div>
       </div>
@@ -86,25 +88,44 @@ export function FuelZone({
           />
         </div>
         <div className="flex justify-between text-xs text-gray-500 mt-1">
-          <span>{consumedCalories.toLocaleString()} consumed</span>
-          <span>{targets.totalCalories.toLocaleString()} total</span>
+          <span>
+            <AnimatedNumber value={consumedCalories} /> consumed
+          </span>
+          <span>
+            <AnimatedNumber value={targets.totalCalories} /> total
+          </span>
         </div>
       </div>
 
       {/* Macro Summary */}
       <div className="grid grid-cols-3 gap-3 mb-4">
-        <div className="text-center p-2 bg-gray-800/50 rounded-lg">
-          <div className="text-sm font-medium text-white">{Math.round(targets.totalCarbsG)}g</div>
+        <motion.div
+          className="text-center p-2 bg-gray-800/50 rounded-lg border border-transparent"
+          whileHover={hoverLift}
+        >
+          <div className="text-sm font-medium text-white">
+            <AnimatedNumber value={targets.totalCarbsG} />g
+          </div>
           <div className="text-xs text-gray-500">Carbs</div>
-        </div>
-        <div className="text-center p-2 bg-gray-800/50 rounded-lg">
-          <div className="text-sm font-medium text-white">{Math.round(targets.totalProteinG)}g</div>
+        </motion.div>
+        <motion.div
+          className="text-center p-2 bg-gray-800/50 rounded-lg border border-transparent"
+          whileHover={hoverLift}
+        >
+          <div className="text-sm font-medium text-white">
+            <AnimatedNumber value={targets.totalProteinG} />g
+          </div>
           <div className="text-xs text-gray-500">Protein</div>
-        </div>
-        <div className="text-center p-2 bg-gray-800/50 rounded-lg">
-          <div className="text-sm font-medium text-white">{Math.round(targets.totalFatsG)}g</div>
+        </motion.div>
+        <motion.div
+          className="text-center p-2 bg-gray-800/50 rounded-lg border border-transparent"
+          whileHover={hoverLift}
+        >
+          <div className="text-sm font-medium text-white">
+            <AnimatedNumber value={targets.totalFatsG} />g
+          </div>
           <div className="text-xs text-gray-500">Fats</div>
-        </div>
+        </motion.div>
       </div>
 
       {/* Auto-Fill Macros Button */}

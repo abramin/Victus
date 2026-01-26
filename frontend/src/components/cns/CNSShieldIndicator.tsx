@@ -1,4 +1,6 @@
+import { motion } from 'framer-motion';
 import type { CNSStatus, CNSStatusBreakdown } from '../../api/types';
+import { breatheAnimation } from '../../lib/animations';
 
 interface CNSShieldIndicatorProps {
   cnsStatus: CNSStatusBreakdown;
@@ -145,8 +147,11 @@ export function CNSShieldIndicator({
     <div className="flex flex-col items-center gap-2">
       {/* Shield with integrity ring */}
       <div className={`relative ${sizeConfig.container} flex items-center justify-center`}>
-        {/* Background ring showing integrity */}
-        <svg className="absolute inset-0 w-full h-full -rotate-90">
+        {/* Background ring showing integrity with breathing animation */}
+        <motion.svg
+          className="absolute inset-0 w-full h-full -rotate-90"
+          animate={breatheAnimation}
+        >
           <circle
             cx="50%"
             cy="50%"
@@ -166,7 +171,7 @@ export function CNSShieldIndicator({
             strokeDasharray={`${config.integrity * 2.83} 283`}
             className={config.shieldColor}
           />
-        </svg>
+        </motion.svg>
         {/* Shield icon */}
         <ShieldIcon className={`${sizeConfig.shield} ${config.shieldColor}`} status={cnsStatus.status} />
       </div>
