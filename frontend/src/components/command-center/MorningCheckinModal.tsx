@@ -6,6 +6,8 @@ import {
   WEIGHT_MAX_KG,
   SLEEP_HOURS_MIN,
   SLEEP_HOURS_MAX,
+  HRV_MIN_MS,
+  HRV_MAX_MS,
   DAY_TYPE_BADGE,
 } from '../../constants';
 
@@ -16,6 +18,7 @@ interface MorningCheckinModalProps {
   onComplete: (data: CheckinData) => Promise<void>;
   profile: UserProfile;
   plannedSessions: TrainingSession[];
+  yesterdayHrv?: number;
   saving?: boolean;
 }
 
@@ -23,6 +26,7 @@ export interface CheckinData {
   weightKg: number;
   sleepHours: number;
   sleepQuality: number;
+  hrvMs?: number;
   feeling: Feeling;
   dayType: DayType;
   plannedTrainingSessions: TrainingSession[];
@@ -57,6 +61,7 @@ export function MorningCheckinModal({
   onComplete,
   profile,
   plannedSessions,
+  yesterdayHrv,
   saving = false,
 }: MorningCheckinModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -66,6 +71,7 @@ export function MorningCheckinModal({
   // Form state
   const [weightKg, setWeightKg] = useState<number | ''>('');
   const [sleepHours, setSleepHours] = useState(7);
+  const [hrvMs, setHrvMs] = useState<number | ''>('');
   const [feeling, setFeeling] = useState<Feeling>('ready');
   const [dayType, setDayType] = useState<DayType>(() =>
     inferDayTypeFromSessions(plannedSessions)
@@ -86,6 +92,13 @@ export function MorningCheckinModal({
       setWeightKg(profile.currentWeightKg);
     }
   }, [isOpen, profile.currentWeightKg]);
+
+  // Pre-fill HRV from yesterday if available
+  useEffect(() => {
+    if (isOpen && yesterdayHrv) {
+      setHrvMs(yesterdayHrv);
+    }
+  }, [isOpen, yesterdayHrv]);
 
   // Focus management
   useEffect(() => {
@@ -147,12 +160,19 @@ export function MorningCheckinModal({
       return;
     }
 
+    // HRV validation (optional, but if provided must be in range)
+    if (hrvMs !== '' && (hrvMs < HRV_MIN_MS || hrvMs > HRV_MAX_MS)) {
+      setValidationError(`HRV must be between ${HRV_MIN_MS} and ${HRV_MAX_MS} ms`);
+      return;
+    }
+
     setValidationError(null);
 
     const checkinData: CheckinData = {
       weightKg: Number(weightKg),
       sleepHours,
       sleepQuality: sleepHoursToQuality(sleepHours),
+      hrvMs: hrvMs !== '' ? hrvMs : undefined,
       feeling,
       dayType,
       plannedTrainingSessions: plannedSessions.length > 0
@@ -248,6 +268,28 @@ export function MorningCheckinModal({
                 <span>6h</span>
                 <span>12h</span>
               </div>
+            </div>
+
+            {/* HRV Input */}
+            <div className="mb-6">
+              <label className="block text-sm text-gray-400 mb-2">
+                HRV (ms) <span className="text-gray-500">(optional)</span>
+              </label>
+              <input
+                type="number"
+                value={hrvMs}
+                onChange={(e) => {
+                  setHrvMs(e.target.value ? parseInt(e.target.value, 10) : '');
+                  setValidationError(null);
+                }}
+                min={HRV_MIN_MS}
+                max={HRV_MAX_MS}
+                placeholder="From Apple Watch, Oura, Whoop"
+                className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white text-center placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/30"
+              />
+              <p className="text-xs text-gray-500 mt-1 text-center">
+                Heart Rate Variability (rMSSD)
+              </p>
             </div>
 
             {/* Feeling Toggle */}

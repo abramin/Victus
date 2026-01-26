@@ -82,6 +82,15 @@ func RunMigrations(db *sql.DB) error {
 		addFastedItemsKcalColumn,
 		// Adaptive Load & Body Map feature
 		addArchetypeIDColumn,
+		// HRV-based CNS Auto-Regulation feature
+		addHRVColumn,
+		// Macro Tetris Solver feature - nutritional data
+		addProteinGPer100Column,
+		addCarbsGPer100Column,
+		addFatGPer100Column,
+		addServingUnitColumn,
+		addServingSizeGColumn,
+		addIsPantryStapleColumn,
 	}
 
 	for _, migration := range alterMigrations {
@@ -274,6 +283,17 @@ const addFastedItemsKcalColumn = `ALTER TABLE daily_logs ADD COLUMN fasted_items
 
 // Adaptive Load & Body Map feature - archetype column for training sessions
 const addArchetypeIDColumn = `ALTER TABLE training_sessions ADD COLUMN archetype_id INTEGER REFERENCES training_archetypes(id)`
+
+// HRV-based CNS Auto-Regulation feature
+const addHRVColumn = `ALTER TABLE daily_logs ADD COLUMN hrv_ms INTEGER`
+
+// Macro Tetris Solver feature - nutritional data per food
+const addProteinGPer100Column = `ALTER TABLE food_reference ADD COLUMN protein_g_per_100 REAL DEFAULT 0`
+const addCarbsGPer100Column = `ALTER TABLE food_reference ADD COLUMN carbs_g_per_100 REAL DEFAULT 0`
+const addFatGPer100Column = `ALTER TABLE food_reference ADD COLUMN fat_g_per_100 REAL DEFAULT 0`
+const addServingUnitColumn = `ALTER TABLE food_reference ADD COLUMN serving_unit TEXT DEFAULT 'g'`
+const addServingSizeGColumn = `ALTER TABLE food_reference ADD COLUMN serving_size_g REAL DEFAULT 100`
+const addIsPantryStapleColumn = `ALTER TABLE food_reference ADD COLUMN is_pantry_staple BOOLEAN DEFAULT 0`
 
 // Training sessions table for multiple sessions per day (Issue #31)
 const createTrainingSessionsTable = `
@@ -791,4 +811,103 @@ func migratePlanStatusCancelledToAbandoned(db *sql.DB) error {
 	}
 
 	return tx.Commit()
+}
+
+// seedFoodNutritionalData populates protein/carbs/fat values for all food reference items.
+// Data sourced from USDA FoodData Central. This is idempotent - only updates rows with protein_g_per_100=0.
+func seedFoodNutritionalData(db *sql.DB) error {
+	// Check if migration is needed (any food with protein_g_per_100 = 0 and is a seeded item)
+	var count int
+	err := db.QueryRow(`SELECT COUNT(*) FROM food_reference WHERE protein_g_per_100 = 0 OR protein_g_per_100 IS NULL`).Scan(&count)
+	if err != nil || count == 0 {
+		return nil // Already migrated or table doesn't exist
+	}
+
+	// USDA nutritional data per 100g (raw/dry where applicable)
+	// Format: food_item, protein, carbs, fat, serving_unit, serving_size_g, is_pantry_staple
+	nutritionData := []struct {
+		foodItem       string
+		proteinG       float64
+		carbsG         float64
+		fatG           float64
+		servingUnit    string
+		servingSizeG   float64
+		isPantryStaple bool
+	}{
+		// High-Carb sources
+		{"Oats", 13.2, 67.7, 6.5, "g", 40, true},
+		{"Semolina", 12.7, 72.8, 1.1, "g", 100, false},
+		{"Quinoa/Amaranth", 14.1, 64.2, 6.1, "g", 100, true},
+		{"Chickpeas", 20.5, 62.9, 6.0, "g", 100, true},
+		{"Pumpkin Seeds", 30.2, 10.7, 49.1, "g", 30, true},
+		{"Brown Rice", 7.5, 76.2, 2.7, "g", 100, true},
+		{"Wholegrain Bread", 13.4, 41.3, 4.2, "slice", 40, true},
+		{"Wholegrain Pasta", 13.0, 71.3, 2.5, "g", 100, true},
+		{"Rye Bread", 8.5, 48.3, 3.3, "slice", 35, true},
+		{"Pita", 9.1, 55.7, 1.2, "piece", 60, false},
+		{"Potatoes", 2.0, 17.5, 0.1, "g", 150, true},
+		{"Sweet Potatoes", 1.6, 20.1, 0.1, "g", 150, true},
+		{"Yams", 1.5, 27.9, 0.2, "g", 150, false},
+		{"Low-fat Milk", 3.4, 5.0, 1.0, "ml", 250, true},
+		// High-Protein sources
+		{"Whey Protein", 80.0, 7.0, 3.0, "scoop", 30, true},
+		{"Low-fat Curd/Quark", 12.0, 4.0, 0.3, "g", 150, true},
+		{"Nutritional Yeast", 50.0, 36.0, 4.0, "tbsp", 15, true},
+		{"Cottage Cheese", 11.1, 3.4, 4.3, "g", 100, true},
+		{"Spirulina", 57.5, 23.9, 7.7, "tbsp", 7, false},
+		{"Egg White", 10.9, 0.7, 0.2, "large", 33, true},
+		{"Chicken/Turkey Breast", 31.0, 0.0, 3.6, "g", 120, true},
+		{"Tofu", 8.1, 1.9, 4.8, "g", 100, true},
+		{"Soy Milk", 3.3, 6.0, 1.8, "ml", 250, false},
+		{"Edamame", 11.9, 8.6, 5.2, "g", 100, true},
+		{"Salmon/Tuna/Perch", 25.4, 0.0, 8.1, "g", 120, true},
+		{"Lentils", 25.8, 60.1, 1.1, "g", 100, true},
+		{"Scampi/Prawns", 24.0, 0.2, 0.3, "g", 100, false},
+		{"Low-fat Yoghurt", 5.7, 7.0, 0.7, "g", 150, true},
+		{"Seitan", 75.0, 14.0, 1.9, "g", 100, false},
+		{"Low-fat Greek Yoghurt", 10.0, 3.6, 0.7, "g", 150, true},
+		{"Tempeh", 19.0, 9.4, 10.8, "g", 100, false},
+		// High-Fat sources
+		{"Flaxseed/Linseed Oil", 0.0, 0.0, 100.0, "tbsp", 14, true},
+		{"Olive Oil", 0.0, 0.0, 100.0, "tbsp", 14, true},
+		{"MCT Oil", 0.0, 0.0, 100.0, "tbsp", 14, false},
+		{"Walnut Oil", 0.0, 0.0, 100.0, "tbsp", 14, false},
+		{"Nuts", 20.0, 21.6, 54.0, "g", 30, true},
+		{"Sesame Seeds", 17.7, 23.5, 49.7, "tbsp", 9, true},
+		{"Tahini", 17.0, 21.2, 53.8, "tbsp", 15, true},
+		{"Nut Butter", 25.0, 20.0, 50.0, "tbsp", 32, true},
+		{"Flax Seeds", 18.3, 28.9, 42.2, "tbsp", 10, true},
+		{"Chia Seeds", 16.5, 42.1, 30.7, "tbsp", 12, true},
+		{"Hempseeds", 31.6, 8.7, 48.8, "tbsp", 30, true},
+		{"Avocado", 2.0, 8.5, 14.7, "half", 100, true},
+	}
+
+	// Update each food with nutritional data
+	stmt, err := db.Prepare(`
+		UPDATE food_reference
+		SET protein_g_per_100 = ?, carbs_g_per_100 = ?, fat_g_per_100 = ?,
+		    serving_unit = ?, serving_size_g = ?, is_pantry_staple = ?,
+		    updated_at = datetime('now')
+		WHERE food_item = ?
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to prepare nutrition update: %w", err)
+	}
+	defer stmt.Close()
+
+	for _, food := range nutritionData {
+		isPantry := 0
+		if food.isPantryStaple {
+			isPantry = 1
+		}
+		if _, err := stmt.Exec(
+			food.proteinG, food.carbsG, food.fatG,
+			food.servingUnit, food.servingSizeG, isPantry,
+			food.foodItem,
+		); err != nil {
+			return fmt.Errorf("failed to update nutrition for %s: %w", food.foodItem, err)
+		}
+	}
+
+	return nil
 }

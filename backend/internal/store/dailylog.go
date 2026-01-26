@@ -54,7 +54,7 @@ func (s *DailyLogStore) WithTx(ctx context.Context, fn func(*sql.Tx) error) erro
 func (s *DailyLogStore) GetByDate(ctx context.Context, date string) (*domain.DailyLog, error) {
 	const query = `
 		SELECT
-			id, log_date, weight_kg, body_fat_percent, resting_heart_rate,
+			id, log_date, weight_kg, body_fat_percent, resting_heart_rate, hrv_ms,
 			sleep_quality, sleep_hours,
 			COALESCE(total_carbs_g, 0), COALESCE(total_protein_g, 0), COALESCE(total_fats_g, 0), COALESCE(total_calories, 0),
 			COALESCE(breakfast_carb_points, 0), COALESCE(breakfast_protein_points, 0), COALESCE(breakfast_fat_points, 0),
@@ -74,6 +74,7 @@ func (s *DailyLogStore) GetByDate(ctx context.Context, date string) (*domain.Dai
 		log                  domain.DailyLog
 		bodyFatPercent       sql.NullFloat64
 		heartRate            sql.NullInt64
+		hrvMs                sql.NullInt64
 		sleepHours           sql.NullFloat64
 		activeCaloriesBurned sql.NullInt64
 		steps                sql.NullInt64
@@ -83,7 +84,7 @@ func (s *DailyLogStore) GetByDate(ctx context.Context, date string) (*domain.Dai
 	)
 
 	err := s.db.QueryRowContext(ctx, query, date).Scan(
-		&log.ID, &log.Date, &log.WeightKg, &bodyFatPercent, &heartRate,
+		&log.ID, &log.Date, &log.WeightKg, &bodyFatPercent, &heartRate, &hrvMs,
 		&log.SleepQuality, &sleepHours,
 		&log.CalculatedTargets.TotalCarbsG, &log.CalculatedTargets.TotalProteinG,
 		&log.CalculatedTargets.TotalFatsG, &log.CalculatedTargets.TotalCalories,
@@ -116,6 +117,10 @@ func (s *DailyLogStore) GetByDate(ctx context.Context, date string) (*domain.Dai
 	if heartRate.Valid {
 		hr := int(heartRate.Int64)
 		log.RestingHeartRate = &hr
+	}
+	if hrvMs.Valid {
+		hrv := int(hrvMs.Int64)
+		log.HRVMs = &hrv
 	}
 	if sleepHours.Valid {
 		log.SleepHours = &sleepHours.Float64
@@ -170,7 +175,7 @@ func (s *DailyLogStore) CreateWithTx(ctx context.Context, tx *sql.Tx, log *domai
 func (s *DailyLogStore) create(ctx context.Context, execer sqlExecer, log *domain.DailyLog) (int64, error) {
 	const query = `
 		INSERT INTO daily_logs (
-			log_date, weight_kg, body_fat_percent, resting_heart_rate,
+			log_date, weight_kg, body_fat_percent, resting_heart_rate, hrv_ms,
 			sleep_quality, sleep_hours,
 			planned_training_type, planned_duration_min,
 			total_carbs_g, total_protein_g, total_fats_g, total_calories,
@@ -181,7 +186,7 @@ func (s *DailyLogStore) create(ctx context.Context, execer sqlExecer, log *domai
 			tdee_source_used, tdee_confidence, data_points_used, notes,
 			created_at, updated_at
 		) VALUES (
-			?, ?, ?, ?,
+			?, ?, ?, ?, ?,
 			?, ?,
 			'rest', 0,
 			?, ?, ?, ?,
@@ -196,7 +201,7 @@ func (s *DailyLogStore) create(ctx context.Context, execer sqlExecer, log *domai
 
 	// Handle nullable fields
 	var bodyFatPercent, sleepHours interface{}
-	var heartRate interface{}
+	var heartRate, hrvMs interface{}
 
 	if log.BodyFatPercent != nil {
 		bodyFatPercent = *log.BodyFatPercent
@@ -204,12 +209,15 @@ func (s *DailyLogStore) create(ctx context.Context, execer sqlExecer, log *domai
 	if log.RestingHeartRate != nil {
 		heartRate = *log.RestingHeartRate
 	}
+	if log.HRVMs != nil {
+		hrvMs = *log.HRVMs
+	}
 	if log.SleepHours != nil {
 		sleepHours = *log.SleepHours
 	}
 
 	result, err := execer.ExecContext(ctx, query,
-		log.Date, log.WeightKg, bodyFatPercent, heartRate,
+		log.Date, log.WeightKg, bodyFatPercent, heartRate, hrvMs,
 		log.SleepQuality, sleepHours,
 		// planned_training_type and planned_duration_min use default values ('rest', 0)
 		// Training sessions are stored in the training_sessions table
@@ -590,6 +598,46 @@ func (s *DailyLogStore) GetRHRAverage(ctx context.Context, beforeDate string, da
 	}
 
 	return &avg.Float64, nil
+}
+
+// GetHRVHistory returns HRV values for the last N days before (not including) the given date.
+// Results are ordered by date descending (newest first).
+// Only returns non-null HRV values.
+func (s *DailyLogStore) GetHRVHistory(ctx context.Context, beforeDate string, days int) ([]int, error) {
+	const query = `
+		SELECT hrv_ms
+		FROM daily_logs
+		WHERE log_date < ?
+		  AND hrv_ms IS NOT NULL
+		ORDER BY log_date DESC
+		LIMIT ?
+	`
+
+	rows, err := s.db.QueryContext(ctx, query, beforeDate, days)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var hrvValues []int
+	for rows.Next() {
+		var hrv int
+		if err := rows.Scan(&hrv); err != nil {
+			return nil, err
+		}
+		hrvValues = append(hrvValues, hrv)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	// Reverse to get oldest first (for baseline calculation)
+	for i, j := 0, len(hrvValues)-1; i < j; i, j = i+1, j-1 {
+		hrvValues[i], hrvValues[j] = hrvValues[j], hrvValues[i]
+	}
+
+	return hrvValues, nil
 }
 
 // UpdateFastingOverride updates the fasting override for a given date.

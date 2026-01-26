@@ -55,6 +55,7 @@ var (
 	ErrInvalidWeight             = newValidationError("weight must be between 30 and 300 kg")
 	ErrInvalidBodyFat            = newValidationError("body fat must be between 3 and 70%")
 	ErrInvalidHeartRate          = newValidationError("resting heart rate must be between 30 and 200 bpm")
+	ErrInvalidHRV                = newValidationError("HRV must be between 10 and 200 ms")
 	ErrInvalidSleepQuality       = newValidationError("sleep quality must be between 1 and 100")
 	ErrInvalidSleepHours         = newValidationError("sleep hours must be between 0 and 24")
 	ErrInvalidTrainingType       = newValidationError("invalid training type")

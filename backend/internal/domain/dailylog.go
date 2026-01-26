@@ -15,6 +15,7 @@ type DailyLog struct {
 	WeightKg          float64
 	BodyFatPercent    *float64
 	RestingHeartRate  *int
+	HRVMs             *int // Heart Rate Variability in milliseconds (rMSSD)
 	SleepQuality      SleepQuality
 	SleepHours        *float64
 	PlannedSessions   []TrainingSession // Multiple training sessions per day
@@ -28,6 +29,8 @@ type DailyLog struct {
 	DataPointsUsed        int                   // Number of data points used for adaptive calculation
 	RecoveryScore         *RecoveryScore         // Recovery score breakdown (nil if not calculated)
 	AdjustmentMultipliers *AdjustmentMultipliers // Adjustment multipliers breakdown (nil if not calculated)
+	CNSResult             *CNSResult             // CNS status from HRV analysis (nil if HRV not provided)
+	TrainingOverrides     []TrainingOverride     // Recommended training adjustments when CNS depleted
 	ActiveCaloriesBurned  *int                   // User-entered active calories from wearable
 	Steps                 *int                   // Daily step count from wearable
 	BMRPrecisionMode      bool                   // True if Katch-McArdle was auto-selected using recent body fat
@@ -45,6 +48,7 @@ type DailyLogInput struct {
 	WeightKg         float64
 	BodyFatPercent   *float64
 	RestingHeartRate *int
+	HRVMs            *int // Heart Rate Variability in milliseconds (rMSSD)
 	SleepQuality     SleepQuality
 	SleepHours       *float64
 	PlannedSessions  []TrainingSession
@@ -70,6 +74,9 @@ func NewDailyLogFromInput(input DailyLogInput, now time.Time) (*DailyLog, error)
 	}
 	if input.RestingHeartRate != nil {
 		builder.WithRestingHeartRate(*input.RestingHeartRate)
+	}
+	if input.HRVMs != nil {
+		builder.WithHRV(*input.HRVMs)
 	}
 	if input.Notes != "" {
 		builder.WithNotes(input.Notes)
@@ -145,6 +152,12 @@ func (b *DailyLogBuilder) WithRestingHeartRate(bpm int) *DailyLogBuilder {
 	return b
 }
 
+// WithHRV sets the optional Heart Rate Variability in milliseconds.
+func (b *DailyLogBuilder) WithHRV(ms int) *DailyLogBuilder {
+	b.log.HRVMs = &ms
+	return b
+}
+
 // WithNotes sets the optional daily notes.
 func (b *DailyLogBuilder) WithNotes(notes string) *DailyLogBuilder {
 	b.log.Notes = notes
@@ -189,6 +202,13 @@ func (d *DailyLog) Validate() error {
 	if d.RestingHeartRate != nil {
 		if *d.RestingHeartRate < 30 || *d.RestingHeartRate > 200 {
 			return ErrInvalidHeartRate
+		}
+	}
+
+	// HRV validation (optional)
+	if d.HRVMs != nil {
+		if *d.HRVMs < 10 || *d.HRVMs > 200 {
+			return ErrInvalidHRV
 		}
 	}
 

@@ -16,6 +16,7 @@ import {
   TrainingVolumeChart,
   CompositionChart,
   RecoveryCorrelationChart,
+  ResilienceChart,
 } from './charts';
 
 const RANGE_OPTIONS: { label: string; value: WeightTrendRange }[] = [
@@ -27,7 +28,7 @@ const RANGE_OPTIONS: { label: string; value: WeightTrendRange }[] = [
 
 const RECENT_LOG_LIMIT = 8;
 
-type ChartView = 'weight' | 'composition' | 'recovery';
+type ChartView = 'weight' | 'composition' | 'recovery' | 'resilience';
 
 /** Get trend confidence label and color based on R² value */
 function getTrendConfidence(rSquared: number): { label: string; color: string; emoji: string } {
@@ -90,6 +91,12 @@ export function WeightHistory({ profile }: { profile: UserProfile }) {
       (p) => p.restingHeartRate !== undefined || p.sleepHours !== undefined
     );
     return pointsWithRecovery.length >= 3;
+  }, [points]);
+
+  // Check if HRV/resilience data exists (at least 3 points with HRV)
+  const hasResilienceData = useMemo(() => {
+    const pointsWithHrv = points.filter((p) => p.hrvMs !== undefined);
+    return pointsWithHrv.length >= 3;
   }, [points]);
 
   const handleSelectDate = async (date: string) => {
@@ -155,10 +162,12 @@ export function WeightHistory({ profile }: { profile: UserProfile }) {
             ? 'Weight Trend'
             : chartView === 'composition'
               ? 'Body Composition'
-              : 'Recovery & Vitals'
+              : chartView === 'resilience'
+                ? 'CNS Resilience'
+                : 'Recovery & Vitals'
         }
         headerRight={
-          (hasCompositionData || hasRecoveryData) ? (
+          (hasCompositionData || hasRecoveryData || hasResilienceData) ? (
             <div className="flex items-center gap-1 bg-slate-900 rounded-lg p-1 border border-slate-800">
               <button
                 onClick={() => setChartView('weight')}
@@ -192,6 +201,18 @@ export function WeightHistory({ profile }: { profile: UserProfile }) {
                   }`}
                 >
                   Recovery
+                </button>
+              )}
+              {hasResilienceData && (
+                <button
+                  onClick={() => setChartView('resilience')}
+                  className={`px-3 py-1 rounded text-xs transition-colors ${
+                    chartView === 'resilience'
+                      ? 'bg-slate-700 text-white'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Resilience
                 </button>
               )}
             </div>
@@ -252,6 +273,13 @@ export function WeightHistory({ profile }: { profile: UserProfile }) {
             )}
             {chartView === 'recovery' && (
               <RecoveryCorrelationChart
+                points={points}
+                onSelectDate={handleSelectDate}
+                selectedDate={selectedDate}
+              />
+            )}
+            {chartView === 'resilience' && (
+              <ResilienceChart
                 points={points}
                 onSelectDate={handleSelectDate}
                 selectedDate={selectedDate}

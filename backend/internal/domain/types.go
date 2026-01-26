@@ -228,6 +228,22 @@ func ParseTDEESource(s string) (TDEESource, error) {
 	return t, nil
 }
 
+// CNSStatus represents the Central Nervous System status based on HRV deviation.
+type CNSStatus string
+
+const (
+	CNSStatusOptimized CNSStatus = "optimized" // > -10% deviation from baseline
+	CNSStatusStrained  CNSStatus = "strained"  // -10% to -20% deviation
+	CNSStatusDepleted  CNSStatus = "depleted"  // < -20% deviation (triggers override)
+)
+
+// ValidCNSStatuses contains all valid CNS status values.
+var ValidCNSStatuses = map[CNSStatus]bool{
+	CNSStatusOptimized: true,
+	CNSStatusStrained:  true,
+	CNSStatusDepleted:  true,
+}
+
 // FastingProtocol represents the intermittent fasting protocol.
 type FastingProtocol string
 

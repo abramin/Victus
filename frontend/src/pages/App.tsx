@@ -1,7 +1,10 @@
+import { useState, useEffect } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { useProfile } from '../hooks/useProfile';
 import { useDailyLog } from '../hooks/useDailyLog';
 import { usePlan } from '../hooks/usePlan';
+import { getLogByDate } from '../api/client';
+import type { DailyLog } from '../api/types';
 import { OnboardingWizard } from '../components/onboarding';
 import { AppLayout } from '../components/layout';
 import { MealPointsDashboard } from '../components/meal-points';
@@ -37,6 +40,18 @@ function App() {
   } = useDailyLog();
 
   const { plan: activePlan } = usePlan();
+
+  // Fetch yesterday's log for HRV pre-fill
+  const [yesterdayLog, setYesterdayLog] = useState<DailyLog | null>(null);
+  useEffect(() => {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayDate = yesterday.toISOString().split('T')[0];
+
+    getLogByDate(yesterdayDate)
+      .then(setYesterdayLog)
+      .catch(() => setYesterdayLog(null));
+  }, []);
 
   // Loading state
   if (profileLoading || logLoading) {
@@ -91,6 +106,7 @@ function App() {
               <CommandCenter
                 profile={profile}
                 log={log}
+                yesterdayLog={yesterdayLog}
                 loading={logLoading}
                 saving={logSaving}
                 error={logSaveError}

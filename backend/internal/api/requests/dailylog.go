@@ -42,6 +42,7 @@ type CreateDailyLogRequest struct {
 	WeightKg                float64                  `json:"weightKg"`
 	BodyFatPercent          *float64                 `json:"bodyFatPercent,omitempty"`
 	RestingHeartRate        *int                     `json:"restingHeartRate,omitempty"`
+	HRVMs                   *int                     `json:"hrvMs,omitempty"` // Heart Rate Variability in milliseconds
 	SleepQuality            int                      `json:"sleepQuality"`
 	SleepHours              *float64                 `json:"sleepHours,omitempty"`
 	PlannedTrainingSessions []TrainingSessionRequest `json:"plannedTrainingSessions"`
@@ -100,6 +101,24 @@ type AdjustmentMultipliersResponse struct {
 	Total              float64 `json:"total"`              // Product of all multipliers, rounded to 2 decimals
 }
 
+// CNSStatusResponse contains CNS status from HRV analysis.
+type CNSStatusResponse struct {
+	CurrentHRV   int     `json:"currentHrv"`   // Today's HRV in ms
+	BaselineHRV  float64 `json:"baselineHrv"`  // 7-day moving average
+	DeviationPct float64 `json:"deviationPct"` // (current - baseline) / baseline
+	Status       string  `json:"status"`       // optimized, strained, depleted
+}
+
+// TrainingOverrideResponse contains recommended training modification when CNS depleted.
+type TrainingOverrideResponse struct {
+	ShouldOverride      bool   `json:"shouldOverride"`
+	RecommendedType     string `json:"recommendedType"`
+	RecommendedDuration int    `json:"recommendedDurationMin"`
+	OriginalType        string `json:"originalType"`
+	OriginalDuration    int    `json:"originalDurationMin"`
+	Reason              string `json:"reason"`
+}
+
 // MacroPointsResponse represents macro points for a meal.
 type MacroPointsResponse struct {
 	Carbs   int `json:"carbs"`
@@ -148,6 +167,7 @@ type DailyLogResponse struct {
 	WeightKg                float64                         `json:"weightKg"`
 	BodyFatPercent          *float64                        `json:"bodyFatPercent,omitempty"`
 	RestingHeartRate        *int                            `json:"restingHeartRate,omitempty"`
+	HRVMs                   *int                            `json:"hrvMs,omitempty"`                 // Heart Rate Variability in milliseconds
 	SleepQuality            int                             `json:"sleepQuality"`
 	SleepHours              *float64                        `json:"sleepHours,omitempty"`
 	PlannedTrainingSessions []TrainingSessionResponse       `json:"plannedTrainingSessions"`
@@ -163,6 +183,8 @@ type DailyLogResponse struct {
 	DataPointsUsed          int                             `json:"dataPointsUsed,omitempty"`        // Number of data points used for adaptive
 	RecoveryScore           *RecoveryScoreResponse          `json:"recoveryScore,omitempty"`         // Recovery score breakdown
 	AdjustmentMultipliers   *AdjustmentMultipliersResponse  `json:"adjustmentMultipliers,omitempty"` // Adjustment multipliers breakdown
+	CNSStatus               *CNSStatusResponse              `json:"cnsStatus,omitempty"`             // CNS status from HRV analysis
+	TrainingOverrides       []TrainingOverrideResponse      `json:"trainingOverrides,omitempty"`     // Training adjustments when CNS depleted
 	ActiveCaloriesBurned    *int                            `json:"activeCaloriesBurned,omitempty"`  // User-entered active calories from wearable
 	Steps                   *int                            `json:"steps,omitempty"`                 // Daily step count from wearable
 	BMRPrecisionMode        bool                            `json:"bmrPrecisionMode,omitempty"`      // True if Katch-McArdle auto-selected using recent body fat
@@ -224,6 +246,7 @@ func DailyLogInputFromRequest(req CreateDailyLogRequest) (domain.DailyLogInput, 
 		WeightKg:         req.WeightKg,
 		BodyFatPercent:   req.BodyFatPercent,
 		RestingHeartRate: req.RestingHeartRate,
+		HRVMs:            req.HRVMs,
 		SleepQuality:     domain.SleepQuality(req.SleepQuality),
 		SleepHours:       req.SleepHours,
 		PlannedSessions:  sessions,
@@ -271,6 +294,38 @@ func AdjustmentMultipliersToResponse(a *domain.AdjustmentMultipliers) *Adjustmen
 		YesterdayIntensity: a.YesterdayIntensity,
 		Total:              a.Total,
 	}
+}
+
+// CNSStatusToResponse converts a domain CNSResult to a CNSStatusResponse.
+func CNSStatusToResponse(c *domain.CNSResult) *CNSStatusResponse {
+	if c == nil {
+		return nil
+	}
+	return &CNSStatusResponse{
+		CurrentHRV:   c.CurrentHRV,
+		BaselineHRV:  c.BaselineHRV,
+		DeviationPct: c.DeviationPct,
+		Status:       string(c.Status),
+	}
+}
+
+// TrainingOverridesToResponse converts domain TrainingOverrides to response format.
+func TrainingOverridesToResponse(overrides []domain.TrainingOverride) []TrainingOverrideResponse {
+	if len(overrides) == 0 {
+		return nil
+	}
+	resp := make([]TrainingOverrideResponse, len(overrides))
+	for i, o := range overrides {
+		resp[i] = TrainingOverrideResponse{
+			ShouldOverride:      o.ShouldOverride,
+			RecommendedType:     string(o.RecommendedType),
+			RecommendedDuration: o.RecommendedDuration,
+			OriginalType:        string(o.OriginalType),
+			OriginalDuration:    o.OriginalDuration,
+			Reason:              o.Reason,
+		}
+	}
+	return resp
 }
 
 func macroPointsToResponse(points domain.MacroPoints) MacroPointsResponse {
@@ -411,6 +466,7 @@ func DailyLogToResponseWithTrainingLoad(d *domain.DailyLog, trainingLoad *domain
 		WeightKg:                d.WeightKg,
 		BodyFatPercent:          d.BodyFatPercent,
 		RestingHeartRate:        d.RestingHeartRate,
+		HRVMs:                   d.HRVMs,
 		SleepQuality:            int(d.SleepQuality),
 		SleepHours:              d.SleepHours,
 		PlannedTrainingSessions: plannedSessions,
@@ -431,6 +487,8 @@ func DailyLogToResponseWithTrainingLoad(d *domain.DailyLog, trainingLoad *domain
 		DataPointsUsed:        d.DataPointsUsed,
 		RecoveryScore:         RecoveryScoreToResponse(d.RecoveryScore),
 		AdjustmentMultipliers: AdjustmentMultipliersToResponse(d.AdjustmentMultipliers),
+		CNSStatus:             CNSStatusToResponse(d.CNSResult),
+		TrainingOverrides:     TrainingOverridesToResponse(d.TrainingOverrides),
 		ActiveCaloriesBurned:  d.ActiveCaloriesBurned,
 		Steps:                 d.Steps,
 		BMRPrecisionMode:      d.BMRPrecisionMode,

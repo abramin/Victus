@@ -15,11 +15,13 @@ import { MissionZone } from './MissionZone';
 import { FuelZone } from './FuelZone';
 import { SetupAlertCard } from './SetupAlertCard';
 import { WeeklyStrategyModal } from '../metabolic/WeeklyStrategyModal';
+import { TrainingOverrideAlert } from '../cns';
 import { getPlannedDays } from '../../api/client';
 
 interface CommandCenterProps {
   profile: UserProfile;
   log: DailyLog | null;
+  yesterdayLog?: DailyLog | null;
   loading: boolean;
   saving: boolean;
   error: string | null;
@@ -31,6 +33,7 @@ interface CommandCenterProps {
 export function CommandCenter({
   profile,
   log,
+  yesterdayLog,
   loading,
   saving,
   error,
@@ -100,6 +103,7 @@ export function CommandCenter({
         weightKg: data.weightKg,
         sleepQuality: data.sleepQuality,
         sleepHours: data.sleepHours,
+        hrvMs: data.hrvMs,
         dayType: data.dayType,
         plannedTrainingSessions: data.plannedTrainingSessions,
       };
@@ -156,6 +160,7 @@ export function CommandCenter({
         onComplete={handleCheckinComplete}
         profile={profile}
         plannedSessions={effectivePlannedSessions}
+        yesterdayHrv={yesterdayLog?.hrvMs}
         saving={saving}
       />
 
@@ -205,10 +210,16 @@ export function CommandCenter({
             {/* Zone A: Status */}
             <StatusZone
               recoveryScore={log.recoveryScore}
+              cnsStatus={log.cnsStatus}
               sleepHours={log.sleepHours}
               sleepQuality={log.sleepQuality}
               profile={profile}
             />
+
+            {/* Training Override Alert (when CNS depleted) */}
+            {log.trainingOverrides && log.trainingOverrides.length > 0 && (
+              <TrainingOverrideAlert overrides={log.trainingOverrides} />
+            )}
 
             {/* Zone B: Mission */}
             <MissionZone

@@ -99,6 +99,24 @@ func (s *DailyLogService) Create(ctx context.Context, input domain.DailyLogInput
 		log.EstimatedTDEE = int(float64(effectiveTDEE) * adjustmentMultipliers.Total)
 	}
 
+	// Calculate CNS status if HRV is provided
+	if log.HRVMs != nil {
+		hrvHistory, _ := s.logStore.GetHRVHistory(ctx, log.Date, domain.HRVBaselineWindowDays)
+		cnsInput := domain.CNSInput{
+			CurrentHRV: *log.HRVMs,
+			HRVHistory: hrvHistory,
+		}
+		cnsResult := domain.CalculateCNSStatus(cnsInput)
+		if cnsResult != nil {
+			log.CNSResult = cnsResult
+
+			// Check for training override when CNS is depleted
+			if cnsResult.Status == domain.CNSStatusDepleted {
+				log.TrainingOverrides = domain.CalculateTrainingOverride(cnsResult.Status, log.PlannedSessions)
+			}
+		}
+	}
+
 	// Calculate targets using the adjusted effective TDEE
 	log.CalculatedTargets = domain.CalculateDailyTargets(profile, log, now)
 

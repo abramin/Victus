@@ -1,11 +1,13 @@
 import { Link } from 'react-router-dom';
-import type { RecoveryScoreBreakdown, DailyLog, UserProfile } from '../../api/types';
+import type { RecoveryScoreBreakdown, UserProfile, CNSStatusBreakdown } from '../../api/types';
 import { ReadinessGauge } from '../recovery';
 import { MetabolicTimer } from '../fasting';
 import { Panel } from '../common/Panel';
+import { CNSShieldIndicator } from '../cns';
 
 interface StatusZoneProps {
   recoveryScore?: RecoveryScoreBreakdown;
+  cnsStatus?: CNSStatusBreakdown;
   sleepHours?: number;
   sleepQuality?: number;
   profile: UserProfile;
@@ -58,6 +60,7 @@ function getReadinessMessage(score: number, sleepHours?: number): { icon: string
 
 export function StatusZone({
   recoveryScore,
+  cnsStatus,
   sleepHours,
   sleepQuality,
   profile,
@@ -94,13 +97,18 @@ export function StatusZone({
             </svg>
           </div>
 
-          {recoveryScore && (
-            <div className="flex justify-center">
-              <ReadinessGauge
-                score={recoveryScore.score}
-                components={recoveryScore}
-                size="sm"
-              />
+          {(recoveryScore || cnsStatus) && (
+            <div className="flex justify-center items-center gap-8">
+              {recoveryScore && (
+                <ReadinessGauge
+                  score={recoveryScore.score}
+                  components={recoveryScore}
+                  size="sm"
+                />
+              )}
+              {cnsStatus && (
+                <CNSShieldIndicator cnsStatus={cnsStatus} size="sm" />
+              )}
             </div>
           )}
 

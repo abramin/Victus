@@ -63,6 +63,10 @@ export const SLEEP_HOURS_MAX = 24;
 export const SLEEP_QUALITY_MIN = 1;
 export const SLEEP_QUALITY_MAX = 100;
 
+/** HRV limits in milliseconds (rMSSD) */
+export const HRV_MIN_MS = 10;
+export const HRV_MAX_MS = 200;
+
 /** Weekly change limits in kg/week */
 export const WEEKLY_CHANGE_MIN_KG = -2.0;
 export const WEEKLY_CHANGE_MAX_KG = 2.0;

@@ -127,6 +127,27 @@ export interface AdjustmentMultipliers {
   total: number;              // Product of all multipliers, rounded to 2 decimals
 }
 
+// CNS (Central Nervous System) status types for HRV-based auto-regulation
+export type CNSStatus = 'optimized' | 'strained' | 'depleted';
+
+// CNSStatusBreakdown contains HRV analysis results.
+export interface CNSStatusBreakdown {
+  currentHrv: number;    // Today's HRV in ms
+  baselineHrv: number;   // 7-day moving average
+  deviationPct: number;  // (current - baseline) / baseline
+  status: CNSStatus;     // optimized, strained, depleted
+}
+
+// TrainingOverride contains recommended training modification when CNS is depleted.
+export interface TrainingOverride {
+  shouldOverride: boolean;
+  recommendedType: TrainingType;
+  recommendedDurationMin: number;
+  originalType: TrainingType;
+  originalDurationMin: number;
+  reason: string;
+}
+
 export interface MacroPoints {
   carbs: number;
   protein: number;
@@ -168,6 +189,7 @@ export interface DailyLog {
   weightKg: number;
   bodyFatPercent?: number;
   restingHeartRate?: number;
+  hrvMs?: number;                              // Heart Rate Variability in milliseconds
   sleepQuality: SleepQuality;
   sleepHours?: number;
   plannedTrainingSessions: TrainingSession[];
@@ -182,6 +204,8 @@ export interface DailyLog {
   dataPointsUsed?: number;        // Number of data points used for adaptive calculation
   recoveryScore?: RecoveryScoreBreakdown;       // Recovery score breakdown
   adjustmentMultipliers?: AdjustmentMultipliers; // Adjustment multipliers breakdown
+  cnsStatus?: CNSStatusBreakdown;               // CNS status from HRV analysis
+  trainingOverrides?: TrainingOverride[];       // Training adjustments when CNS depleted
   activeCaloriesBurned?: number;                // User-entered active calories from wearable
   bmrPrecisionMode?: boolean;                   // True if Katch-McArdle auto-selected using recent body fat
   bodyFatUsedDate?: string;                     // Date of body fat measurement used for precision BMR
@@ -197,6 +221,7 @@ export interface CreateDailyLogRequest {
   weightKg: number;
   bodyFatPercent?: number;
   restingHeartRate?: number;
+  hrvMs?: number;                 // Heart Rate Variability in milliseconds
   sleepQuality: SleepQuality;
   sleepHours?: number;
   plannedTrainingSessions: TrainingSession[];
@@ -255,6 +280,7 @@ export interface HistoryPoint {
   actualSessionCount: number;
   plannedDurationMin: number;
   actualDurationMin: number;
+  trainingLoad?: number; // Total training load score for the day
 
   // Annotated history: notes from training sessions
   notes?: string;
@@ -267,6 +293,7 @@ export interface HistoryPoint {
   // Recovery metrics for correlation analysis
   restingHeartRate?: number;
   sleepHours?: number;
+  hrvMs?: number; // Heart Rate Variability in milliseconds
 }
 
 export interface TrainingSummaryRange {
