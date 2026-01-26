@@ -123,7 +123,7 @@ Custom Claude commands in `.claude/commands/` for code review:
 - `/testing-review` - Test coverage and quality
 - `/qa` - OpenAPI contract completeness
 - `/adaptive-model` - Model and data integrity
-- `/frontend-review` - React/TypeScript correctness, accessibility, performance
+- `/frontend-review` - React/TypeScript correctness, performance (skip accessibility)
 
 ## Go Style Guidelines
 

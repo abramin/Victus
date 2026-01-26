@@ -3,6 +3,7 @@ import type { ReactNode, ButtonHTMLAttributes } from 'react';
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode;
   loading?: boolean;
+  loadingText?: string;
   variant?: 'primary' | 'secondary';
   testId?: string;
 }
@@ -10,6 +11,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 export function Button({
   children,
   loading = false,
+  loadingText = 'Saving...',
   variant = 'primary',
   disabled,
   className = '',
@@ -51,7 +53,7 @@ export function Button({
               d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
             />
           </svg>
-          Saving...
+          {loadingText}
         </span>
       ) : (
         children

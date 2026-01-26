@@ -46,13 +46,19 @@ function App() {
   // Fetch yesterday's log for HRV pre-fill
   const [yesterdayLog, setYesterdayLog] = useState<DailyLog | null>(null);
   useEffect(() => {
+    const controller = new AbortController();
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     const yesterdayDate = yesterday.toISOString().split('T')[0];
 
-    getLogByDate(yesterdayDate)
-      .then(setYesterdayLog)
-      .catch(() => setYesterdayLog(null));
+    getLogByDate(yesterdayDate, controller.signal)
+      .then((log) => {
+        if (!controller.signal.aborted) setYesterdayLog(log);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setYesterdayLog(null);
+      });
+    return () => controller.abort();
   }, []);
 
   // Loading state

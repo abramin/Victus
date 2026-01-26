@@ -49,10 +49,14 @@ export function CommandCenter({
     loading,
   });
 
+  // Error state for meal logging
+  const [mealLogError, setMealLogError] = useState<string | null>(null);
+
   // Handler for logging a solver solution (meal)
   const handleLogSolution = useCallback(async (solution: SolverSolution) => {
     if (!log) return;
 
+    setMealLogError(null);
     try {
       await addConsumedMacros(log.date, {
         calories: Math.round(solution.totalMacros.caloriesKcal),
@@ -64,6 +68,7 @@ export function CommandCenter({
       onRefresh?.();
     } catch (err) {
       console.error('Failed to log meal:', err);
+      setMealLogError('Failed to log meal. Please try again.');
     }
   }, [log, onRefresh]);
 
@@ -285,7 +290,13 @@ export function CommandCenter({
           </div>
 
           {/* Right Column (40%) - Fuel */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 space-y-4">
+            {/* Meal Log Error */}
+            {mealLogError && (
+              <div className="p-3 bg-red-900/30 border border-red-800 rounded-lg">
+                <p className="text-red-400 text-sm">{mealLogError}</p>
+              </div>
+            )}
             {/* Zone C: Fuel */}
             <FuelZone
               targets={log.calculatedTargets}
