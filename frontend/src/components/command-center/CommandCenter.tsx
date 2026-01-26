@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState, useEffect } from 'react';
 import type {
   DailyLog,
   UserProfile,
@@ -8,13 +8,14 @@ import type {
   TrainingSession,
 } from '../../api/types';
 import { useCheckinState } from '../../hooks/useCheckinState';
+import { useFluxNotification } from '../../hooks/useFluxNotification';
 import { MorningCheckinModal, type CheckinData } from './MorningCheckinModal';
 import { StatusZone } from './StatusZone';
 import { MissionZone } from './MissionZone';
 import { FuelZone } from './FuelZone';
 import { SetupAlertCard } from './SetupAlertCard';
+import { WeeklyStrategyModal } from '../metabolic/WeeklyStrategyModal';
 import { getPlannedDays } from '../../api/client';
-import { useState, useEffect } from 'react';
 
 interface CommandCenterProps {
   profile: UserProfile;
@@ -41,6 +42,36 @@ export function CommandCenter({
     hasLogToday: log !== null,
     loading,
   });
+
+  // Flux Engine notification
+  const {
+    notification: fluxNotification,
+    dismiss: dismissFluxNotification,
+  } = useFluxNotification();
+
+  // Track whether to show the Flux notification modal
+  const [showFluxModal, setShowFluxModal] = useState(false);
+
+  // Show Flux modal when notification arrives (only if check-in modal isn't showing)
+  useEffect(() => {
+    if (fluxNotification && !shouldShowModal && log) {
+      setShowFluxModal(true);
+    }
+  }, [fluxNotification, shouldShowModal, log]);
+
+  const handleFluxAccept = useCallback(() => {
+    if (fluxNotification) {
+      dismissFluxNotification(fluxNotification.id);
+      setShowFluxModal(false);
+    }
+  }, [fluxNotification, dismissFluxNotification]);
+
+  const handleFluxIgnore = useCallback(() => {
+    if (fluxNotification) {
+      dismissFluxNotification(fluxNotification.id);
+      setShowFluxModal(false);
+    }
+  }, [fluxNotification, dismissFluxNotification]);
 
   // Fetch today's planned sessions from schedule
   const [plannedSessions, setPlannedSessions] = useState<TrainingSession[]>([
@@ -127,6 +158,17 @@ export function CommandCenter({
         plannedSessions={effectivePlannedSessions}
         saving={saving}
       />
+
+      {/* Weekly Strategy Update Modal (Flux Engine) */}
+      {fluxNotification && (
+        <WeeklyStrategyModal
+          isOpen={showFluxModal}
+          onClose={() => setShowFluxModal(false)}
+          notification={fluxNotification}
+          onAccept={handleFluxAccept}
+          onIgnore={handleFluxIgnore}
+        />
+      )}
 
       {/* Header */}
       <div className="mb-6">
