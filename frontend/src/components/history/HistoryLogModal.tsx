@@ -1,7 +1,12 @@
-import type { ActualTrainingSession, DailyLog, TrainingSession, UserProfile } from '../../api/types';
-import { DayTargetsPanel } from '../day-view';
+import type { DailyLog, UserProfile } from '../../api/types';
 import { Modal } from '../common/Modal';
 import { formatLongDate } from '../../utils/date';
+import {
+  BiometricsStrip,
+  NutritionCard,
+  SystemStatsFooter,
+  TrainingTicket,
+} from './components';
 
 interface HistoryLogModalProps {
   isOpen: boolean;
@@ -12,71 +17,33 @@ interface HistoryLogModalProps {
   profile: UserProfile;
 }
 
-function formatOptionalValue(value: number | null | undefined, suffix: string) {
-  if (value === null || value === undefined) {
-    return '—';
-  }
-  return `${value}${suffix}`;
+function calculateAdherenceScore(log: DailyLog): number {
+  const planned = log.plannedTrainingSessions.filter((s) => s.type !== 'rest');
+  const actual = log.actualTrainingSessions?.filter((s) => s.type !== 'rest') ?? [];
+
+  if (planned.length === 0) return 100;
+
+  const plannedDuration = planned.reduce((sum, s) => sum + s.durationMin, 0);
+  const actualDuration = actual.reduce((sum, s) => sum + s.durationMin, 0);
+
+  return Math.min(100, Math.round((actualDuration / plannedDuration) * 100));
 }
 
-function formatTdeeSource(source: string): string {
-  switch (source) {
-    case 'adaptive':
-      return 'Adaptive';
-    case 'manual':
-      return 'Manual';
-    case 'formula':
-    default:
-      return 'Formula';
+function getPhaseLabel(log: DailyLog): string {
+  // Derive phase from CNS status or day type
+  if (log.cnsStatus?.status === 'depleted') {
+    return 'Recovery Required';
   }
-}
-
-function DetailItem({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="bg-slate-900/70 rounded-lg border border-slate-800 p-3">
-      <p className="text-[11px] uppercase tracking-wide text-slate-500">{label}</p>
-      <p className="text-sm text-white mt-1">{value}</p>
-    </div>
-  );
-}
-
-function SessionList({
-  title,
-  sessions,
-}: {
-  title: string;
-  sessions: Array<TrainingSession | ActualTrainingSession>;
-}) {
-  if (sessions.length === 0) {
-    return (
-      <div className="bg-slate-900/70 rounded-lg border border-slate-800 p-4">
-        <h4 className="text-sm font-semibold text-slate-200 mb-2">{title}</h4>
-        <p className="text-xs text-slate-500">No sessions logged</p>
-      </div>
-    );
+  if (log.cnsStatus?.status === 'strained') {
+    return 'Recovery Phase';
   }
-
-  return (
-    <div className="bg-slate-900/70 rounded-lg border border-slate-800 p-4">
-      <h4 className="text-sm font-semibold text-slate-200 mb-3">{title}</h4>
-      <div className="space-y-2">
-        {sessions.map((session, index) => (
-          <div
-            key={`${session.type}-${index}`}
-            className="flex items-center justify-between text-xs text-slate-300"
-          >
-            <span className="capitalize">{session.type}</span>
-            <span className="text-slate-400">
-              {session.durationMin} min
-              {'perceivedIntensity' in session && session.perceivedIntensity
-                ? ` · RPE ${session.perceivedIntensity}`
-                : ''}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+  if (log.dayType === 'performance') {
+    return 'Performance Day';
+  }
+  if (log.dayType === 'fatburner') {
+    return 'Fat Loss Focus';
+  }
+  return 'Metabolize Day';
 }
 
 export function HistoryLogModal({
@@ -85,13 +52,11 @@ export function HistoryLogModal({
   log,
   loading,
   error,
-  profile,
 }: HistoryLogModalProps) {
-  const title = log ? `Log Details · ${formatLongDate(log.date)}` : 'Log Details';
-  const formulaTdeeValue = log?.formulaTDEE && log.formulaTDEE > 0 ? log.formulaTDEE : log?.estimatedTDEE;
+  const title = log ? formatLongDate(log.date) : 'Log Details';
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={title} className="max-w-3xl">
+    <Modal isOpen={isOpen} onClose={onClose} title={title} className="max-w-md">
       {loading && (
         <div className="text-sm text-slate-400">Loading log details...</div>
       )}
@@ -102,74 +67,55 @@ export function HistoryLogModal({
         <div className="text-sm text-slate-400">No log data available.</div>
       )}
       {!loading && !error && log && (
-        <div className="space-y-5">
-          <DayTargetsPanel
-            title="Stored Targets"
-            dateLabel={formatLongDate(log.date)}
-            dayType={log.dayType}
-            mealTargets={log.calculatedTargets.meals}
-            mealRatios={profile.mealRatios}
-            totalFruitG={log.calculatedTargets.fruitG}
-            totalVeggiesG={log.calculatedTargets.veggiesG}
-            waterL={log.calculatedTargets.waterL}
-            compact
-            helperText="Targets are the stored calculation for this date."
+        <div className="space-y-4">
+          {/* Header Section */}
+          <div className="flex justify-between items-center">
+            <div>
+              <div className="text-xs text-slate-500 uppercase tracking-wide">
+                {getPhaseLabel(log)}
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-2xl font-bold text-emerald-400">
+                {calculateAdherenceScore(log)}%
+              </div>
+              <div className="text-[10px] text-slate-500 uppercase tracking-wide">
+                Adherence
+              </div>
+            </div>
+          </div>
+
+          {/* Zone 1: Biometrics Strip */}
+          <BiometricsStrip
+            weightKg={log.weightKg}
+            sleepHours={log.sleepHours ?? undefined}
+            sleepQuality={log.sleepQuality}
+            restingHeartRate={log.restingHeartRate ?? undefined}
+            hrvMs={log.hrvMs ?? undefined}
+            cnsStatus={log.cnsStatus ?? undefined}
           />
 
-          <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-slate-200">Morning Inputs</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <DetailItem label="Weight" value={`${log.weightKg.toFixed(1)} kg`} />
-              <DetailItem label="Sleep Quality" value={`${log.sleepQuality}/100`} />
-              <DetailItem label="Sleep Hours" value={formatOptionalValue(log.sleepHours, 'h')} />
-              <DetailItem label="Resting HR" value={formatOptionalValue(log.restingHeartRate, ' bpm')} />
-              <DetailItem label="Body Fat" value={formatOptionalValue(log.bodyFatPercent, '%')} />
-            </div>
-          </div>
+          {/* Zone 2a: Training Ticket */}
+          <TrainingTicket
+            plannedSessions={log.plannedTrainingSessions}
+            actualSessions={log.actualTrainingSessions ?? undefined}
+            trainingSummary={log.trainingSummary}
+          />
 
-          <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-slate-200">Training Sessions</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <SessionList title="Planned" sessions={log.plannedTrainingSessions} />
-              <SessionList title="Actual" sessions={log.actualTrainingSessions ?? []} />
-            </div>
-          </div>
+          {/* Zone 2b: Nutrition Card */}
+          <NutritionCard
+            calculatedTargets={log.calculatedTargets}
+            dayType={log.dayType}
+          />
 
-          <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-slate-200">Calculation Details</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <DetailItem label="Estimated TDEE" value={`${log.estimatedTDEE} kcal`} />
-              <DetailItem label="Formula TDEE" value={`${formulaTdeeValue ?? log.estimatedTDEE} kcal`} />
-              <DetailItem label="TDEE Source" value={formatTdeeSource(log.tdeeSourceUsed)} />
-              <DetailItem
-                label="Confidence"
-                value={log.tdeeConfidence ? `${Math.round(log.tdeeConfidence * 100)}%` : '—'}
-              />
-              <DetailItem
-                label="Data Points"
-                value={log.dataPointsUsed ? `${log.dataPointsUsed}` : '—'}
-              />
-              <DetailItem
-                label="Recovery Score"
-                value={
-                  log.recoveryScore ? `${Math.round(log.recoveryScore.score)} / 100` : '—'
-                }
-              />
-            </div>
-
-            {log.adjustmentMultipliers && (
-              <div className="bg-slate-900/70 rounded-lg border border-slate-800 p-4">
-                <p className="text-xs uppercase tracking-wide text-slate-500 mb-3">TDEE Multipliers</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-300">
-                  <div>Training Load: {log.adjustmentMultipliers.trainingLoad.toFixed(2)}x</div>
-                  <div>Recovery Score: {log.adjustmentMultipliers.recoveryScore.toFixed(2)}x</div>
-                  <div>Sleep Quality: {log.adjustmentMultipliers.sleepQuality.toFixed(2)}x</div>
-                  <div>Yesterday Intensity: {log.adjustmentMultipliers.yesterdayIntensity.toFixed(2)}x</div>
-                  <div>Total: {log.adjustmentMultipliers.total.toFixed(2)}x</div>
-                </div>
-              </div>
-            )}
-          </div>
+          {/* Zone 3: System Stats Footer */}
+          <SystemStatsFooter
+            estimatedTDEE={log.estimatedTDEE}
+            tdeeConfidence={log.tdeeConfidence ?? undefined}
+            dataPointsUsed={log.dataPointsUsed ?? undefined}
+            tdeeSourceUsed={log.tdeeSourceUsed}
+            recoveryScore={log.recoveryScore ?? undefined}
+          />
         </div>
       )}
     </Modal>
