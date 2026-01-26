@@ -37,6 +37,8 @@ func (g *GarminImporter) DetectFileType(reader io.Reader) (FileType, error) {
 	}
 
 	content := buf.String()
+	// Strip UTF-8 BOM if present
+	content = strings.TrimPrefix(content, "\ufeff")
 	contentLower := strings.ToLower(content)
 
 	// Check first line/cell for specific markers
@@ -566,11 +568,19 @@ func (g *GarminImporter) importActivityCalories(ctx context.Context, reader io.R
 	return result, nil
 }
 
+// stripBOM removes the UTF-8 BOM from the beginning of a string if present.
+func stripBOM(s string) string {
+	if strings.HasPrefix(s, "\ufeff") {
+		return strings.TrimPrefix(s, "\ufeff")
+	}
+	return s
+}
+
 // makeColumnMap creates a mapping of normalized column names to indices.
 func makeColumnMap(headers []string) map[string]int {
 	m := make(map[string]int)
 	for i, h := range headers {
-		h = strings.ToLower(strings.TrimSpace(h))
+		h = strings.ToLower(strings.TrimSpace(stripBOM(h)))
 
 		// Map Spanish/English column names to standard keys
 		switch {
