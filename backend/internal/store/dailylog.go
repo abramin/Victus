@@ -307,7 +307,7 @@ func (s *DailyLogStore) ListWeights(ctx context.Context, startDate string) ([]do
 func (s *DailyLogStore) ListHistoryPoints(ctx context.Context, startDate string) ([]domain.HistoryPoint, error) {
 	query := `
 		SELECT log_date, weight_kg, COALESCE(estimated_tdee, 0), COALESCE(tdee_confidence, 0),
-			body_fat_percent, resting_heart_rate, sleep_hours
+			body_fat_percent, resting_heart_rate, sleep_hours, hrv_ms
 		FROM daily_logs
 	`
 	var args []interface{}
@@ -329,6 +329,7 @@ func (s *DailyLogStore) ListHistoryPoints(ctx context.Context, startDate string)
 		var bodyFatPercent sql.NullFloat64
 		var restingHeartRate sql.NullInt64
 		var sleepHours sql.NullFloat64
+		var hrvMs sql.NullInt64
 		if err := rows.Scan(
 			&point.Date,
 			&point.WeightKg,
@@ -337,6 +338,7 @@ func (s *DailyLogStore) ListHistoryPoints(ctx context.Context, startDate string)
 			&bodyFatPercent,
 			&restingHeartRate,
 			&sleepHours,
+			&hrvMs,
 		); err != nil {
 			return nil, err
 		}
@@ -349,6 +351,10 @@ func (s *DailyLogStore) ListHistoryPoints(ctx context.Context, startDate string)
 		}
 		if sleepHours.Valid {
 			point.SleepHours = &sleepHours.Float64
+		}
+		if hrvMs.Valid {
+			hrv := int(hrvMs.Int64)
+			point.HRVMs = &hrv
 		}
 		points = append(points, point)
 	}

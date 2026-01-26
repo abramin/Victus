@@ -13,6 +13,7 @@ type HistoryPoint struct {
 	ActualSessionCount  int
 	PlannedDurationMin  int
 	ActualDurationMin   int
+	TrainingLoad        *float64 // Total training load score for the day
 
 	// Annotated history: aggregated notes from training sessions
 	Notes string
@@ -23,6 +24,7 @@ type HistoryPoint struct {
 	// Recovery metrics for correlation analysis
 	RestingHeartRate *int
 	SleepHours       *float64
+	HRVMs            *int // Heart Rate Variability in milliseconds
 }
 
 // TrainingSummaryAggregate provides aggregate training totals over a range.

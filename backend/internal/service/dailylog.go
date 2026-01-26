@@ -367,7 +367,8 @@ func (s *DailyLogService) GetHistorySummary(ctx context.Context, startDate, endD
 		ActualSessionCount  int
 		PlannedDurationMin  int
 		ActualDurationMin   int
-		Notes               string // Aggregated notes from training sessions
+		TrainingLoad        float64 // Daily training load score
+		Notes               string  // Aggregated notes from training sessions
 	}
 	trainingByDate := make(map[string]dayTrainingInfo)
 
@@ -398,6 +399,7 @@ func (s *DailyLogService) GetHistorySummary(ctx context.Context, startDate, endD
 					HasTraining:         len(sd.ActualSessions) > 0,
 					PlannedSessionCount: len(sd.PlannedSessions),
 					ActualSessionCount:  len(sd.ActualSessions),
+					TrainingLoad:        domain.CalculateDailyLoad(sd.ActualSessions),
 				}
 				for _, sess := range sd.PlannedSessions {
 					info.PlannedDurationMin += sess.DurationMin
@@ -434,6 +436,9 @@ func (s *DailyLogService) GetHistorySummary(ctx context.Context, startDate, endD
 			points[i].PlannedDurationMin = info.PlannedDurationMin
 			points[i].ActualDurationMin = info.ActualDurationMin
 			points[i].Notes = info.Notes
+			if info.TrainingLoad > 0 {
+				points[i].TrainingLoad = &info.TrainingLoad
+			}
 		}
 	}
 

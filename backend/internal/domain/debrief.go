@@ -364,7 +364,7 @@ func BuildDebriefDayPoints(logs []DailyLog) []DebriefDayPoint {
 			ConsumedProteinG: log.ConsumedProteinG,
 			PlannedSessions:  countNonRestSessions(log.PlannedSessions),
 			ActualSessions:   countNonRestSessions(log.ActualSessions),
-			TrainingLoad:     calculateDailyLoad(log.ActualSessions),
+			TrainingLoad:     CalculateDailyLoad(log.ActualSessions),
 			SleepQuality:     int(log.SleepQuality),
 			SleepHours:       log.SleepHours,
 			Notes:            log.Notes,
@@ -446,8 +446,8 @@ func countNonRestSessions(sessions []TrainingSession) int {
 	return count
 }
 
-// calculateDailyLoad sums load scores for all sessions.
-func calculateDailyLoad(sessions []TrainingSession) float64 {
+// CalculateDailyLoad sums load scores for all sessions.
+func CalculateDailyLoad(sessions []TrainingSession) float64 {
 	var total float64
 	for _, s := range sessions {
 		config := GetTrainingConfig(s.Type)

@@ -197,6 +197,41 @@ func generateDailyLogs(db *sql.DB, config SeedConfig) (map[string]string, []trai
 		// Resting heart rate (60-75 bpm, improves slightly with training)
 		restingHeartRate := 72 - int(weekProgress*5) + rand.Intn(5)
 
+		// HRV (Heart Rate Variability) in ms (rMSSD format)
+		// Baseline: 55-75ms for moderately fit adults, improves with training
+		// Lower HRV = more stress/fatigue, higher = better recovery
+		hrvBaseline := 62.0 + weekProgress*8.0 // Improves from 62 to 70 over the month
+		hrvVariation := (rand.Float64() - 0.5) * 20.0 // ±10ms normal variation
+
+		// HRV correlates with sleep quality
+		sleepEffect := (float64(sleepQuality) - 60.0) / 40.0 * 8.0 // ±8ms based on sleep
+
+		// Previous day's training intensity affects today's HRV
+		var trainingEffect float64
+		if day > 0 {
+			prevWeekIndex := (day - 1) / 7
+			prevDayOfWeek := (day - 1) % 7
+			prevTraining := trainingPatterns[prevWeekIndex][prevDayOfWeek]
+			switch prevTraining {
+			case "hiit", "strength":
+				trainingEffect = -8.0 // Hard training lowers next-day HRV
+			case "run", "row", "cycle":
+				trainingEffect = -4.0 // Moderate effect
+			case "rest", "mobility", "qigong":
+				trainingEffect = 2.0 // Recovery improves HRV
+			}
+		}
+
+		// Occasionally simulate a "depleted" day (10% chance) to test CNS override
+		var depletedEffect float64
+		if rand.Float64() < 0.10 {
+			depletedEffect = -20.0 // Significant drop for testing CNS depleted state
+		}
+
+		hrvValue := int(hrvBaseline + hrvVariation + sleepEffect + trainingEffect + depletedEffect)
+		hrvValue = clamp(hrvValue, 25, 120) // Keep within realistic bounds
+		hrvMs := &hrvValue
+
 		// Body fat (slight decrease due to training)
 		bodyFatPercent := 20.0 - weekProgress*1.5 + (rand.Float64()-0.5)*0.5
 		bodyFatPercent = clampFloat(bodyFatPercent, 10, 30)
@@ -279,6 +314,7 @@ func generateDailyLogs(db *sql.DB, config SeedConfig) (map[string]string, []trai
 			tdeeConfidence:      tdeeConfidence,
 			dataPointsUsed:      dataPointsUsed,
 			formulaTdee:         formulaTdee,
+			hrvMs:               hrvMs,
 		})
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to insert daily log for %s: %w", dateStr, err)
@@ -359,6 +395,8 @@ type dailyLogParams struct {
 	tdeeConfidence float64
 	dataPointsUsed int
 	formulaTdee    int
+	// HRV data
+	hrvMs *int
 }
 
 func insertDailyLog(db *sql.DB, params dailyLogParams) (int64, error) {
@@ -374,6 +412,7 @@ func insertDailyLog(db *sql.DB, params dailyLogParams) (int64, error) {
 		day_type, estimated_tdee, active_calories_burned,
 		water_l, fruit_g, veggies_g,
 		tdee_source_used, tdee_confidence, data_points_used, formula_tdee,
+		hrv_ms,
 		created_at, updated_at
 	) VALUES (
 		?, ?, ?, ?,
@@ -386,6 +425,7 @@ func insertDailyLog(db *sql.DB, params dailyLogParams) (int64, error) {
 		?, ?, ?,
 		?, ?, ?,
 		'formula', ?, ?, ?,
+		?,
 		?, ?
 	)`
 
@@ -419,6 +459,7 @@ func insertDailyLog(db *sql.DB, params dailyLogParams) (int64, error) {
 		params.dayType, params.estimatedTDEE, params.activeCalories,
 		params.waterL, params.fruitG, params.veggiesG,
 		params.tdeeConfidence, params.dataPointsUsed, params.formulaTdee,
+		params.hrvMs,
 		now, now,
 	)
 

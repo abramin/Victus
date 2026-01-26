@@ -14,10 +14,11 @@ type HistoryPointResponse struct {
 	HasTraining    bool    `json:"hasTraining"`
 
 	// Per-day training details for compliance tracking
-	PlannedSessionCount int `json:"plannedSessionCount"`
-	ActualSessionCount  int `json:"actualSessionCount"`
-	PlannedDurationMin  int `json:"plannedDurationMin"`
-	ActualDurationMin   int `json:"actualDurationMin"`
+	PlannedSessionCount int      `json:"plannedSessionCount"`
+	ActualSessionCount  int      `json:"actualSessionCount"`
+	PlannedDurationMin  int      `json:"plannedDurationMin"`
+	ActualDurationMin   int      `json:"actualDurationMin"`
+	TrainingLoad        *float64 `json:"trainingLoad,omitempty"`
 
 	// Annotated history: notes from training sessions
 	Notes string `json:"notes,omitempty"`
@@ -30,6 +31,7 @@ type HistoryPointResponse struct {
 	// Recovery metrics for correlation analysis
 	RestingHeartRate *int     `json:"restingHeartRate,omitempty"`
 	SleepHours       *float64 `json:"sleepHours,omitempty"`
+	HRVMs            *int     `json:"hrvMs,omitempty"`
 }
 
 type HistoryTrainingSummaryResponse struct {
@@ -66,10 +68,12 @@ func HistoryToResponse(summary *domain.HistorySummary) HistoryResponse {
 			ActualSessionCount:  point.ActualSessionCount,
 			PlannedDurationMin:  point.PlannedDurationMin,
 			ActualDurationMin:   point.ActualDurationMin,
+			TrainingLoad:        point.TrainingLoad,
 			Notes:               point.Notes,
 			BodyFatPercent:      point.BodyFatPercent,
 			RestingHeartRate:    point.RestingHeartRate,
 			SleepHours:          point.SleepHours,
+			HRVMs:               point.HRVMs,
 		}
 		// Calculate lean mass and fat mass if body fat is available
 		if point.BodyFatPercent != nil {
