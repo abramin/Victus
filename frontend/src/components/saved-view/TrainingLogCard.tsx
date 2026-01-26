@@ -9,6 +9,10 @@ interface TrainingLogCardProps {
   actualSessions?: ActualTrainingSession[];
   /** Callback when a session is marked complete/incomplete */
   onToggleSession: (session: TrainingSession, completed: boolean) => void;
+  /** Callback when user confirms rest day */
+  onConfirmRestDay?: () => void;
+  /** Callback when user wants to log active recovery on a rest day */
+  onLogActiveRecovery?: () => void;
   /** Whether the update is in progress */
   saving?: boolean;
 }
@@ -20,6 +24,8 @@ export function TrainingLogCard({
   plannedSessions,
   actualSessions = [],
   onToggleSession,
+  onConfirmRestDay,
+  onLogActiveRecovery,
   saving = false,
 }: TrainingLogCardProps) {
   const isRestDay =
@@ -34,11 +40,45 @@ export function TrainingLogCard({
     );
   };
 
+  // Check if rest has already been confirmed
+  const restConfirmed = isRestDay && actualSessions.some((s) => s.type === 'rest');
+
   if (isRestDay) {
     return (
       <Panel title="Training">
-        <div className="flex items-center justify-center py-4">
-          <span className="text-gray-400 text-sm">Rest day - no training planned</span>
+        <div className="flex flex-col items-center gap-3 py-4">
+          {restConfirmed ? (
+            <div className="flex items-center gap-2 text-emerald-400">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              <span className="text-sm font-medium">Rest day confirmed</span>
+            </div>
+          ) : (
+            <>
+              <span className="text-gray-400 text-sm">Rest day planned</span>
+              {onConfirmRestDay && (
+                <button
+                  type="button"
+                  onClick={onConfirmRestDay}
+                  disabled={saving}
+                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+                >
+                  Confirm Rest Day
+                </button>
+              )}
+              {onLogActiveRecovery && (
+                <button
+                  type="button"
+                  onClick={onLogActiveRecovery}
+                  disabled={saving}
+                  className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                >
+                  Or log active recovery
+                </button>
+              )}
+            </>
+          )}
         </div>
       </Panel>
     );

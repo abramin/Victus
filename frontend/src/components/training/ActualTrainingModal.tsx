@@ -23,6 +23,30 @@ const TRAINING_OPTIONS = [
 
 const DEFAULT_RPE = 5;
 
+// Load score coefficients matching backend (backend/internal/domain/targets.go)
+const TRAINING_LOAD_SCORES: Record<TrainingType, number> = {
+  rest: 0,
+  qigong: 0.5,
+  mobility: 0.5,
+  walking: 1,
+  cycle: 2,
+  gmb: 3,
+  run: 3,
+  row: 3,
+  calisthenics: 3,
+  mixed: 4,
+  strength: 5,
+  hiit: 5,
+};
+
+const getSessionLoadScore = (type: TrainingType, durationMin: number, rpe: number): number => {
+  if (type === 'rest') return 0;
+  const loadScore = TRAINING_LOAD_SCORES[type] ?? 1;
+  const durationFactor = durationMin / 60;
+  const rpeFactor = rpe / 3;
+  return Math.round(loadScore * durationFactor * rpeFactor * 100) / 100;
+};
+
 const getSessionPerceivedIntensity = (
   session: TrainingSession | ActualTrainingSession
 ): number | undefined => {
@@ -39,16 +63,16 @@ const getLoadTone = (score: number) => {
   if (score <= 0) {
     return { label: 'No Load', className: 'text-gray-500' };
   }
-  if (score <= 60) {
+  if (score <= 1) {
     return { label: 'Very Low', className: 'text-emerald-400' };
   }
-  if (score <= 120) {
+  if (score <= 3) {
     return { label: 'Low Stress', className: 'text-green-400' };
   }
-  if (score <= 200) {
+  if (score <= 6) {
     return { label: 'Moderate Stress', className: 'text-yellow-400' };
   }
-  if (score <= 300) {
+  if (score <= 10) {
     return { label: 'High Stress', className: 'text-orange-400' };
   }
   return { label: 'Max Stress', className: 'text-red-400' };
@@ -278,8 +302,7 @@ export function ActualTrainingModal({
               session.type === 'rest'
                 ? DEFAULT_RPE
                 : session.perceivedIntensity ?? DEFAULT_RPE;
-            const loadScore =
-              session.type === 'rest' ? 0 : Math.round(session.durationMin * rpeValue);
+            const loadScore = getSessionLoadScore(session.type, session.durationMin, rpeValue);
             const loadTone = getLoadTone(loadScore);
             const isEstimatedRpe = session.type !== 'rest' && session.perceivedIntensity === undefined;
             const trainingLabel = getTrainingLabel(session.type);
