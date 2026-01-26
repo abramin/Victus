@@ -122,6 +122,7 @@ export function CommandCenter({
         sleepQuality: data.sleepQuality,
         sleepHours: data.sleepHours,
         hrvMs: data.hrvMs,
+        restingHeartRate: data.restingHeartRate,
         dayType: data.dayType,
         plannedTrainingSessions: data.plannedTrainingSessions,
       };
@@ -142,6 +143,7 @@ export function CommandCenter({
         sleepQuality: data.sleepQuality,
         sleepHours: data.sleepHours,
         hrvMs: data.hrvMs,
+        restingHeartRate: data.restingHeartRate,
         dayType: data.dayType,
         plannedTrainingSessions: data.plannedTrainingSessions,
       };
@@ -162,6 +164,7 @@ export function CommandCenter({
     sleepHours: log.sleepHours ?? 7,
     sleepQuality: log.sleepQuality ?? 70,
     hrvMs: log.hrvMs,
+    restingHeartRate: log.restingHeartRate,
     dayType: log.dayType,
   } : undefined;
 
@@ -275,6 +278,8 @@ export function CommandCenter({
               sleepHours={log.sleepHours}
               sleepQuality={log.sleepQuality}
               profile={profile}
+              log={log}
+              yesterdayLog={yesterdayLog}
               onEdit={() => setShowEditCheckin(true)}
             />
 

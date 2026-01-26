@@ -8,6 +8,8 @@ import {
   SLEEP_HOURS_MAX,
   HRV_MIN_MS,
   HRV_MAX_MS,
+  HEART_RATE_MIN_BPM,
+  HEART_RATE_MAX_BPM,
   DAY_TYPE_BADGE,
 } from '../../constants';
 
@@ -27,6 +29,7 @@ interface MorningCheckinModalProps {
     sleepHours: number;
     sleepQuality: number;
     hrvMs?: number;
+    restingHeartRate?: number;
     dayType: DayType;
   };
 }
@@ -36,6 +39,7 @@ export interface CheckinData {
   sleepHours: number;
   sleepQuality: number;
   hrvMs?: number;
+  restingHeartRate?: number;
   feeling: Feeling;
   dayType: DayType;
   plannedTrainingSessions: TrainingSession[];
@@ -91,6 +95,9 @@ export function MorningCheckinModal({
   const [hrvMs, setHrvMs] = useState<number | ''>(() =>
     initialData?.hrvMs ?? ''
   );
+  const [restingHeartRate, setRestingHeartRate] = useState<number | ''>(() =>
+    initialData?.restingHeartRate ?? ''
+  );
   const [feeling, setFeeling] = useState<Feeling>('ready');
   const [dayType, setDayType] = useState<DayType>(() =>
     initialData?.dayType ?? inferDayTypeFromSessions(plannedSessions)
@@ -105,6 +112,7 @@ export function MorningCheckinModal({
         setWeightKg(initialData.weightKg);
         setSleepHours(initialData.sleepHours);
         setHrvMs(initialData.hrvMs ?? '');
+        setRestingHeartRate(initialData.restingHeartRate ?? '');
         setDayType(initialData.dayType);
         setShowDayTypeOverride(true);
       } else {
@@ -202,6 +210,12 @@ export function MorningCheckinModal({
       return;
     }
 
+    // RHR validation (optional, but if provided must be in range)
+    if (restingHeartRate !== '' && (restingHeartRate < HEART_RATE_MIN_BPM || restingHeartRate > HEART_RATE_MAX_BPM)) {
+      setValidationError(`Resting HR must be between ${HEART_RATE_MIN_BPM} and ${HEART_RATE_MAX_BPM} bpm`);
+      return;
+    }
+
     setValidationError(null);
 
     const checkinData: CheckinData = {
@@ -209,6 +223,7 @@ export function MorningCheckinModal({
       sleepHours,
       sleepQuality: sleepHoursToQuality(sleepHours),
       hrvMs: hrvMs !== '' ? hrvMs : undefined,
+      restingHeartRate: restingHeartRate !== '' ? restingHeartRate : undefined,
       feeling,
       dayType,
       plannedTrainingSessions: plannedSessions.length > 0
@@ -318,26 +333,42 @@ export function MorningCheckinModal({
               </div>
             </div>
 
-            {/* HRV Input */}
-            <div className="mb-6">
-              <label className="block text-sm text-gray-400 mb-2">
-                HRV (ms) <span className="text-gray-500">(optional)</span>
-              </label>
-              <input
-                type="number"
-                value={hrvMs}
-                onChange={(e) => {
-                  setHrvMs(e.target.value ? parseInt(e.target.value, 10) : '');
-                  setValidationError(null);
-                }}
-                min={HRV_MIN_MS}
-                max={HRV_MAX_MS}
-                placeholder="From Apple Watch, Oura, Whoop"
-                className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white text-center placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/30"
-              />
-              <p className="text-xs text-gray-500 mt-1 text-center">
-                Heart Rate Variability (rMSSD)
-              </p>
+            {/* HRV and RHR Inputs - Side by Side */}
+            <div className="mb-6 grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm text-gray-400 mb-2">
+                  HRV (ms) <span className="text-gray-500 text-xs">(opt)</span>
+                </label>
+                <input
+                  type="number"
+                  value={hrvMs}
+                  onChange={(e) => {
+                    setHrvMs(e.target.value ? parseInt(e.target.value, 10) : '');
+                    setValidationError(null);
+                  }}
+                  min={HRV_MIN_MS}
+                  max={HRV_MAX_MS}
+                  placeholder="rMSSD"
+                  className="w-full px-3 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white text-center placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/30"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-2">
+                  RHR (bpm) <span className="text-gray-500 text-xs">(opt)</span>
+                </label>
+                <input
+                  type="number"
+                  value={restingHeartRate}
+                  onChange={(e) => {
+                    setRestingHeartRate(e.target.value ? parseInt(e.target.value, 10) : '');
+                    setValidationError(null);
+                  }}
+                  min={HEART_RATE_MIN_BPM}
+                  max={HEART_RATE_MAX_BPM}
+                  placeholder="Resting"
+                  className="w-full px-3 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white text-center placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/30"
+                />
+              </div>
             </div>
 
             {/* Feeling Toggle */}

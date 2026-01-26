@@ -1,9 +1,10 @@
 import { Link } from 'react-router-dom';
-import type { RecoveryScoreBreakdown, UserProfile, CNSStatusBreakdown } from '../../api/types';
+import type { RecoveryScoreBreakdown, UserProfile, CNSStatusBreakdown, DailyLog } from '../../api/types';
 import { ReadinessGauge } from '../recovery';
 import { MetabolicTimer } from '../fasting';
 import { Panel } from '../common/Panel';
 import { CNSShieldIndicator } from '../cns';
+import { BiometricHUD } from './BiometricHUD';
 
 interface StatusZoneProps {
   recoveryScore?: RecoveryScoreBreakdown;
@@ -11,6 +12,8 @@ interface StatusZoneProps {
   sleepHours?: number;
   sleepQuality?: number;
   profile: UserProfile;
+  log?: DailyLog;
+  yesterdayLog?: DailyLog | null;
   onEdit?: () => void;
 }
 
@@ -65,6 +68,8 @@ export function StatusZone({
   sleepHours,
   sleepQuality,
   profile,
+  log,
+  yesterdayLog,
   onEdit,
 }: StatusZoneProps) {
   const score = recoveryScore?.score ?? 50;
@@ -114,23 +119,6 @@ export function StatusZone({
             </div>
           )}
 
-          {/* Quick stats row */}
-          {(sleepHours !== undefined || sleepQuality !== undefined) && (
-            <div className="flex gap-4 mt-4 pt-4 border-t border-gray-800 text-sm">
-              {sleepHours !== undefined && (
-                <div>
-                  <span className="text-gray-500">Sleep</span>
-                  <span className="ml-2 text-white font-medium">{sleepHours}h</span>
-                </div>
-              )}
-              {sleepQuality !== undefined && (
-                <div>
-                  <span className="text-gray-500">Quality</span>
-                  <span className="ml-2 text-white font-medium">{sleepQuality}/100</span>
-                </div>
-              )}
-            </div>
-          )}
         </Panel>
       </Link>
 
@@ -147,38 +135,13 @@ export function StatusZone({
         </Panel>
       )}
 
-      {/* Edit Check-in Card */}
-      {onEdit && (
-        <button
-          type="button"
-          onClick={onEdit}
-          className="w-full text-left"
-        >
-          <Panel className="hover:border-gray-700 transition-colors cursor-pointer">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <span className="text-xl">📝</span>
-                <div>
-                  <h3 className="text-sm font-medium text-white">Edit Check-in</h3>
-                  <p className="text-xs text-gray-500">Update weight, sleep, or day type</p>
-                </div>
-              </div>
-              <svg
-                className="w-5 h-5 text-gray-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
-            </div>
-          </Panel>
-        </button>
+      {/* Biometric HUD */}
+      {onEdit && log && (
+        <BiometricHUD
+          log={log}
+          yesterdayLog={yesterdayLog}
+          onEdit={onEdit}
+        />
       )}
     </div>
   );

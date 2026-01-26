@@ -817,11 +817,6 @@ export interface SolverResponse {
 // =============================================================================
 
 /**
- * CNSStatus represents Central Nervous System status based on HRV deviation.
- */
-export type CNSStatus = 'optimized' | 'strained' | 'depleted';
-
-/**
  * MetabolicFlux represents the metabolic trend for the week.
  */
 export interface MetabolicFlux {
@@ -897,4 +892,48 @@ export interface WeeklyDebrief {
   recommendations: TacticalRecommendation[];
   dailyBreakdown: DebriefDay[];
   generatedAt: string;
+}
+
+// =============================================================================
+// GARMIN DATA IMPORT TYPES
+// =============================================================================
+
+/**
+ * GarminImportResult contains the outcome of a Garmin data import operation.
+ */
+export interface GarminImportResult {
+  /** Sleep records (includes RHR, HRV, sleep score) successfully imported */
+  sleepRecordsImported: number;
+  sleepRecordsSkipped: number;
+  /** Weight/body composition records imported */
+  weightRecordsImported: number;
+  weightRecordsSkipped: number;
+  /** Standalone HRV records (Estado de VFC) imported */
+  hrvRecordsImported: number;
+  hrvRecordsSkipped: number;
+  /** Standalone RHR records imported */
+  rhrRecordsImported: number;
+  rhrRecordsSkipped: number;
+  /** Monthly activity summary records created */
+  monthlySummariesCreated: number;
+  monthlySummariesUpdated: number;
+  /** Non-fatal warnings encountered during import */
+  warnings?: string[];
+  /** Fatal errors for specific records */
+  errors?: string[];
+}
+
+/**
+ * MonthlySummary represents aggregated monthly activity data from Garmin.
+ */
+export interface MonthlySummary {
+  id: number;
+  yearMonth: string; // Format: "2025-08"
+  activityType: TrainingType;
+  sessionCount: number;
+  totalCalories: number;
+  avgCaloriesPerSession: number;
+  dataSource: string;
+  rawActivityName: string;
+  createdAt: string;
 }
