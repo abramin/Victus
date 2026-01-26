@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { formatWeight } from '../../utils';
 
 interface PlanProgressTimelineProps {
   startDate: string;
@@ -83,17 +84,17 @@ export const PlanProgressTimeline: React.FC<PlanProgressTimelineProps> = ({
       <div className="flex justify-between mt-3 text-xs">
         <div className="text-center">
           <div className="text-gray-400">Start</div>
-          <div className="font-medium text-gray-600">{startWeightKg} kg</div>
+          <div className="font-medium text-gray-600">{formatWeight(startWeightKg)} kg</div>
         </div>
         
         <div className="text-center">
           <div className="text-orange-500 font-medium">You Are Here</div>
-          <div className="font-bold text-gray-800">{currentWeightKg} kg</div>
+          <div className="font-bold text-gray-800">{formatWeight(currentWeightKg)} kg</div>
         </div>
         
         <div className="text-center">
           <div className="text-gray-400">Goal</div>
-          <div className="font-medium text-green-600">{targetWeightKg} kg</div>
+          <div className="font-medium text-green-600">{formatWeight(targetWeightKg)} kg</div>
         </div>
       </div>
     </div>

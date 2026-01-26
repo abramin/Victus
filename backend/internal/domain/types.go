@@ -120,6 +120,52 @@ func ParseDayType(s string) (DayType, error) {
 	return d, nil
 }
 
+// WeeklyDayPattern defines the day type cycling pattern for a week.
+// Days are numbered 1-7 where 1=Monday, 7=Sunday.
+type WeeklyDayPattern struct {
+	Day1 DayType // Monday
+	Day2 DayType // Tuesday
+	Day3 DayType // Wednesday
+	Day4 DayType // Thursday
+	Day5 DayType // Friday
+	Day6 DayType // Saturday
+	Day7 DayType // Sunday
+}
+
+// DefaultWeeklyPattern provides a standard high/low cycling pattern.
+// Based on sample data: Days 1,4 = Performance, Days 2,3,5,6 = Fatburner, Day 7 = Metabolize.
+var DefaultWeeklyPattern = WeeklyDayPattern{
+	Day1: DayTypePerformance, // Monday - high
+	Day2: DayTypeFatburner,   // Tuesday - low
+	Day3: DayTypeFatburner,   // Wednesday - low
+	Day4: DayTypePerformance, // Thursday - high
+	Day5: DayTypeFatburner,   // Friday - low
+	Day6: DayTypeFatburner,   // Saturday - low
+	Day7: DayTypeMetabolize,  // Sunday - refeed
+}
+
+// GetDayType returns the day type for a given day number (1-7, Monday=1).
+func (w WeeklyDayPattern) GetDayType(dayNum int) DayType {
+	switch dayNum {
+	case 1:
+		return w.Day1
+	case 2:
+		return w.Day2
+	case 3:
+		return w.Day3
+	case 4:
+		return w.Day4
+	case 5:
+		return w.Day5
+	case 6:
+		return w.Day6
+	case 7:
+		return w.Day7
+	default:
+		return DayTypeFatburner // Default fallback
+	}
+}
+
 // BMREquation represents available BMR calculation methods.
 type BMREquation string
 

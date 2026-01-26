@@ -557,3 +557,108 @@ func (s *PlanSuite) TestDerivedFieldsCalculation() {
 		s.InDelta(275, plan.RequiredDailyDeficitKcal, 1)
 	})
 }
+
+// =============================================================================
+// KCAL FACTOR OVERRIDE TESTS
+// =============================================================================
+
+func (s *PlanSuite) TestKcalFactorOverride() {
+	s.Run("accepts KcalFactor override in input", func() {
+		input := s.validInput()
+		kcalFactor := 33.0
+		input.KcalFactorOverride = &kcalFactor
+
+		plan, err := NewNutritionPlan(input, s.profile, s.now)
+		s.Require().NoError(err)
+		s.Require().NotNil(plan.KcalFactorOverride)
+		s.Equal(33.0, *plan.KcalFactorOverride)
+	})
+
+	s.Run("nil KcalFactor uses BMR-based calculation", func() {
+		input := s.validInput()
+		input.KcalFactorOverride = nil
+
+		plan, err := NewNutritionPlan(input, s.profile, s.now)
+		s.Require().NoError(err)
+		s.Nil(plan.KcalFactorOverride)
+
+		// BMR-based TDEE for 90kg, 180cm, 35yo male should be around:
+		// BMR = (10 × 90) + (6.25 × 180) - (5 × 35) + 5 = 900 + 1125 - 175 + 5 = 1855
+		// TDEE = 1855 × 1.2 = 2226
+		week1 := plan.WeeklyTargets[0]
+		s.InDelta(2200, week1.ProjectedTDEE, 100, "BMR-based TDEE should be around 2200")
+	})
+
+	s.Run("KcalFactor override produces Weight × Factor TDEE", func() {
+		input := s.validInput()
+		kcalFactor := 33.0
+		input.KcalFactorOverride = &kcalFactor
+		input.StartWeightKg = 90.0
+
+		plan, err := NewNutritionPlan(input, s.profile, s.now)
+		s.Require().NoError(err)
+
+		// Week 1 projected weight = 90 - (10/20) = 89.5
+		// TDEE = 89.5 × 33.0 = 2953.5 ≈ 2954
+		week1 := plan.WeeklyTargets[0]
+		expectedTDEE := 89.5 * 33.0
+		s.InDelta(expectedTDEE, float64(week1.ProjectedTDEE), 2,
+			"KcalFactor TDEE should be %.1f × %.1f = %.0f", 89.5, kcalFactor, expectedTDEE)
+	})
+
+	s.Run("KcalFactor TDEE differs from BMR-based TDEE", func() {
+		// Create two plans with same parameters, one with KcalFactor, one without
+		inputWithFactor := s.validInput()
+		kcalFactor := 33.0
+		inputWithFactor.KcalFactorOverride = &kcalFactor
+
+		inputWithoutFactor := s.validInput()
+		inputWithoutFactor.KcalFactorOverride = nil
+
+		planWithFactor, err := NewNutritionPlan(inputWithFactor, s.profile, s.now)
+		s.Require().NoError(err)
+
+		planWithoutFactor, err := NewNutritionPlan(inputWithoutFactor, s.profile, s.now)
+		s.Require().NoError(err)
+
+		s.NotEqual(
+			planWithFactor.WeeklyTargets[0].ProjectedTDEE,
+			planWithoutFactor.WeeklyTargets[0].ProjectedTDEE,
+			"KcalFactor and BMR-based TDEE should differ",
+		)
+	})
+
+	s.Run("weekly targets use KcalFactor TDEE throughout plan", func() {
+		input := s.validInput()
+		kcalFactor := 33.0
+		input.KcalFactorOverride = &kcalFactor
+		input.StartWeightKg = 90.0
+		input.GoalWeightKg = 80.0
+		input.DurationWeeks = 20
+
+		plan, err := NewNutritionPlan(input, s.profile, s.now)
+		s.Require().NoError(err)
+
+		for _, target := range plan.WeeklyTargets {
+			expectedTDEE := target.ProjectedWeightKg * kcalFactor
+			s.InDelta(expectedTDEE, float64(target.ProjectedTDEE), 2,
+				"Week %d: TDEE should be %.1f × %.1f = %.0f, got %d",
+				target.WeekNumber, target.ProjectedWeightKg, kcalFactor, expectedTDEE, target.ProjectedTDEE)
+		}
+	})
+
+	s.Run("zero KcalFactor falls back to BMR", func() {
+		input := s.validInput()
+		kcalFactor := 0.0
+		input.KcalFactorOverride = &kcalFactor
+
+		plan, err := NewNutritionPlan(input, s.profile, s.now)
+		s.Require().NoError(err)
+
+		// With zero factor, should fall back to BMR-based calculation
+		week1 := plan.WeeklyTargets[0]
+		s.Greater(week1.ProjectedTDEE, 0, "TDEE should be positive even with zero factor")
+		// BMR-based TDEE should be around 2200 for this profile
+		s.InDelta(2200, week1.ProjectedTDEE, 150, "Should fall back to BMR-based TDEE")
+	})
+}

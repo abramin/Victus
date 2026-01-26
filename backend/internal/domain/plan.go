@@ -44,8 +44,9 @@ type NutritionPlan struct {
 	StartWeightKg            float64
 	GoalWeightKg             float64
 	DurationWeeks            int
-	RequiredWeeklyChangeKg   float64 // Calculated: (goalWeight - startWeight) / durationWeeks
-	RequiredDailyDeficitKcal float64 // Calculated: requiredWeeklyChange * 7700 / 7
+	RequiredWeeklyChangeKg   float64  // Calculated: (goalWeight - startWeight) / durationWeeks
+	RequiredDailyDeficitKcal float64  // Calculated: requiredWeeklyChange * 7700 / 7
+	KcalFactorOverride       *float64 // Optional: if set, TDEE = Weight × KcalFactor instead of BMR-based
 	Status                   PlanStatus
 	WeeklyTargets            []WeeklyTarget
 	CreatedAt                time.Time
@@ -70,13 +71,90 @@ type WeeklyTarget struct {
 	DaysLogged       int      // Number of days with logs in this week
 }
 
+// DailyPlanTarget represents the macro targets for a single day within a plan week.
+type DailyPlanTarget struct {
+	DayNumber int     // 1-7 within week (Monday=1)
+	DayType   DayType // performance, fatburner, metabolize
+	Date      time.Time
+	CarbsG    int
+	ProteinG  int
+	FatsG     int
+	Calories  int
+}
+
+// GenerateDailyTargets creates 7 daily targets from a weekly target using day type cycling.
+// The pattern determines which day type applies to each day of the week.
+// Day type multipliers are applied to the weekly base macros:
+//   - Fatburner:   Carbs×0.60, Protein×1.0, Fats×0.85
+//   - Performance: Carbs×1.30, Protein×1.0, Fats×1.00
+//   - Metabolize:  Carbs×1.50, Protein×1.0, Fats×1.10
+func (w *WeeklyTarget) GenerateDailyTargets(pattern WeeklyDayPattern) []DailyPlanTarget {
+	// Calculate base macros that, when averaged with day type cycling, produce weekly target
+	// The base is calibrated so the 7-day average equals the weekly target
+	baseMacros := calculateBaseMacrosForCycling(
+		float64(w.TargetCarbsG),
+		float64(w.TargetProteinG),
+		float64(w.TargetFatsG),
+		pattern,
+	)
+
+	dailyTargets := make([]DailyPlanTarget, 7)
+	for day := 1; day <= 7; day++ {
+		dayType := pattern.GetDayType(day)
+		mult := getDayTypeModifiers(dayType)
+
+		carbsG := int(math.Round(baseMacros.CarbsG * mult.Carbs))
+		proteinG := int(math.Round(baseMacros.ProteinG * mult.Protein))
+		fatsG := int(math.Round(baseMacros.FatsG * mult.Fats))
+		calories := (carbsG * 4) + (proteinG * 4) + (fatsG * 9)
+
+		dailyTargets[day-1] = DailyPlanTarget{
+			DayNumber: day,
+			DayType:   dayType,
+			Date:      w.StartDate.AddDate(0, 0, day-1),
+			CarbsG:    carbsG,
+			ProteinG:  proteinG,
+			FatsG:     fatsG,
+			Calories:  calories,
+		}
+	}
+
+	return dailyTargets
+}
+
+// calculateBaseMacrosForCycling determines the base macros that, when day type multipliers
+// are applied across the week, will average to the target weekly macros.
+func calculateBaseMacrosForCycling(targetCarbsG, targetProteinG, targetFatsG float64, pattern WeeklyDayPattern) MacroAllocation {
+	// Calculate the average multiplier for each macro across the week
+	var carbMultSum, protMultSum, fatMultSum float64
+	for day := 1; day <= 7; day++ {
+		dayType := pattern.GetDayType(day)
+		mult := getDayTypeModifiers(dayType)
+		carbMultSum += mult.Carbs
+		protMultSum += mult.Protein
+		fatMultSum += mult.Fats
+	}
+
+	avgCarbMult := carbMultSum / 7.0
+	avgProtMult := protMultSum / 7.0
+	avgFatMult := fatMultSum / 7.0
+
+	// Base = Target / AverageMultiplier
+	return MacroAllocation{
+		CarbsG:   targetCarbsG / avgCarbMult,
+		ProteinG: targetProteinG / avgProtMult,
+		FatsG:    targetFatsG / avgFatMult,
+	}
+}
+
 // NutritionPlanInput contains the required fields to create a new plan.
 type NutritionPlanInput struct {
-	Name           string  // User-defined plan name (optional)
-	StartDate      string  // YYYY-MM-DD format
-	StartWeightKg  float64
-	GoalWeightKg   float64
-	DurationWeeks  int
+	Name               string   // User-defined plan name (optional)
+	StartDate          string   // YYYY-MM-DD format
+	StartWeightKg      float64
+	GoalWeightKg       float64
+	DurationWeeks      int
+	KcalFactorOverride *float64 // Optional: if set, TDEE = Weight × KcalFactor instead of BMR-based
 }
 
 // Plan validation constants
@@ -96,12 +174,13 @@ func NewNutritionPlan(input NutritionPlanInput, profile *UserProfile, now time.T
 	}
 
 	plan := &NutritionPlan{
-		Name:          input.Name,
-		StartDate:     startDate,
-		StartWeightKg: input.StartWeightKg,
-		GoalWeightKg:  input.GoalWeightKg,
-		DurationWeeks: input.DurationWeeks,
-		Status:        PlanStatusActive,
+		Name:               input.Name,
+		StartDate:          startDate,
+		StartWeightKg:      input.StartWeightKg,
+		GoalWeightKg:       input.GoalWeightKg,
+		DurationWeeks:      input.DurationWeeks,
+		KcalFactorOverride: input.KcalFactorOverride,
+		Status:             PlanStatusActive,
 	}
 
 	if err := plan.Validate(now); err != nil {
@@ -179,7 +258,7 @@ func (p *NutritionPlan) generateWeeklyTargets(profile *UserProfile, now time.Tim
 		projectedWeight = math.Round(projectedWeight*10) / 10 // Round to 0.1 kg
 
 		// Calculate projected TDEE for this weight
-		projectedTDEE := calculateProjectedTDEE(profile, projectedWeight, now)
+		projectedTDEE := calculateProjectedTDEE(profile, p, projectedWeight, now)
 
 		// Calculate target intake (TDEE - deficit)
 		targetIntake := int(math.Round(float64(projectedTDEE) + p.RequiredDailyDeficitKcal))
@@ -208,8 +287,15 @@ func (p *NutritionPlan) generateWeeklyTargets(profile *UserProfile, now time.Tim
 }
 
 // calculateProjectedTDEE estimates TDEE for a given weight using profile data.
-func calculateProjectedTDEE(profile *UserProfile, weightKg float64, now time.Time) int {
-	// Use configured BMR equation
+// If plan has KcalFactorOverride set, uses simple formula: TDEE = Weight × KcalFactor.
+// Otherwise uses BMR-based calculation: BMR × NEAT multiplier.
+func calculateProjectedTDEE(profile *UserProfile, plan *NutritionPlan, weightKg float64, now time.Time) int {
+	// If KcalFactor override is set, use simple calculation
+	if plan != nil && plan.KcalFactorOverride != nil && *plan.KcalFactorOverride > 0 {
+		return int(math.Round(weightKg * *plan.KcalFactorOverride))
+	}
+
+	// Default: BMR-based calculation
 	bmrEquation := profile.BMREquation
 	if bmrEquation == "" {
 		bmrEquation = BMREquationMifflinStJeor
@@ -422,7 +508,7 @@ func regenerateWeeklyTargets(plan *NutritionPlan, profile *UserProfile, currentW
 		projectedWeight = math.Round(projectedWeight*10) / 10
 
 		// Calculate projected TDEE for this weight
-		projectedTDEE := calculateProjectedTDEE(profile, projectedWeight, now)
+		projectedTDEE := calculateProjectedTDEE(profile, plan, projectedWeight, now)
 
 		// Calculate target intake (TDEE + deficit/surplus)
 		targetIntake := int(math.Round(float64(projectedTDEE) + plan.RequiredDailyDeficitKcal))
