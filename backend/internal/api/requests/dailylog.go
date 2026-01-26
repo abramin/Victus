@@ -38,11 +38,13 @@ type UpdateFastingOverrideRequest struct {
 
 // AddConsumedMacrosRequest is the request body for PATCH /api/logs/:date/consumed-macros.
 // Macros are additive - they are added to the existing totals.
+// If Meal is specified, also updates per-meal consumed values.
 type AddConsumedMacrosRequest struct {
-	Calories int `json:"calories"`
-	ProteinG int `json:"proteinG"`
-	CarbsG   int `json:"carbsG"`
-	FatG     int `json:"fatG"`
+	Meal     *string `json:"meal,omitempty"` // Optional: "breakfast", "lunch", or "dinner"
+	Calories int     `json:"calories"`
+	ProteinG int     `json:"proteinG"`
+	CarbsG   int     `json:"carbsG"`
+	FatG     int     `json:"fatG"`
 }
 
 // CreateDailyLogRequest is the request body for POST /api/logs.
@@ -135,6 +137,21 @@ type MacroPointsResponse struct {
 	Fats    int `json:"fats"`
 }
 
+// MealConsumedResponse represents consumed macros for a single meal.
+type MealConsumedResponse struct {
+	Calories int `json:"calories"`
+	ProteinG int `json:"proteinG"`
+	CarbsG   int `json:"carbsG"`
+	FatG     int `json:"fatG"`
+}
+
+// MealsConsumedResponse represents consumed macros for all meals.
+type MealsConsumedResponse struct {
+	Breakfast MealConsumedResponse `json:"breakfast"`
+	Lunch     MealConsumedResponse `json:"lunch"`
+	Dinner    MealConsumedResponse `json:"dinner"`
+}
+
 // MealTargetsResponse represents macro points for all meals.
 type MealTargetsResponse struct {
 	Breakfast MacroPointsResponse `json:"breakfast"`
@@ -205,6 +222,7 @@ type DailyLogResponse struct {
 	ConsumedProteinG        int                             `json:"consumedProteinG"`                // Total consumed protein in grams
 	ConsumedCarbsG          int                             `json:"consumedCarbsG"`                  // Total consumed carbs in grams
 	ConsumedFatG            int                             `json:"consumedFatG"`                    // Total consumed fat in grams
+	MealsConsumed           MealsConsumedResponse           `json:"mealsConsumed"`                   // Per-meal consumed macros
 	CreatedAt               string                          `json:"createdAt,omitempty"`
 	UpdatedAt               string                          `json:"updatedAt,omitempty"`
 }
@@ -512,6 +530,26 @@ func DailyLogToResponseWithTrainingLoad(d *domain.DailyLog, trainingLoad *domain
 		ConsumedProteinG:      d.ConsumedProteinG,
 		ConsumedCarbsG:        d.ConsumedCarbsG,
 		ConsumedFatG:          d.ConsumedFatG,
+		MealsConsumed: MealsConsumedResponse{
+			Breakfast: MealConsumedResponse{
+				Calories: d.MealConsumed.Breakfast.Calories,
+				ProteinG: d.MealConsumed.Breakfast.ProteinG,
+				CarbsG:   d.MealConsumed.Breakfast.CarbsG,
+				FatG:     d.MealConsumed.Breakfast.FatG,
+			},
+			Lunch: MealConsumedResponse{
+				Calories: d.MealConsumed.Lunch.Calories,
+				ProteinG: d.MealConsumed.Lunch.ProteinG,
+				CarbsG:   d.MealConsumed.Lunch.CarbsG,
+				FatG:     d.MealConsumed.Lunch.FatG,
+			},
+			Dinner: MealConsumedResponse{
+				Calories: d.MealConsumed.Dinner.Calories,
+				ProteinG: d.MealConsumed.Dinner.ProteinG,
+				CarbsG:   d.MealConsumed.Dinner.CarbsG,
+				FatG:     d.MealConsumed.Dinner.FatG,
+			},
+		},
 	}
 
 	// Include fasting override if set

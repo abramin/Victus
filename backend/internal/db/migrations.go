@@ -96,6 +96,19 @@ func RunMigrations(db *sql.DB) error {
 		addConsumedProteinGColumn,
 		addConsumedCarbsGColumn,
 		addConsumedFatGColumn,
+		// Per-meal consumed macros tracking (Kitchen sync feature)
+		addBreakfastConsumedKcalColumn,
+		addBreakfastConsumedProteinColumn,
+		addBreakfastConsumedCarbsColumn,
+		addBreakfastConsumedFatColumn,
+		addLunchConsumedKcalColumn,
+		addLunchConsumedProteinColumn,
+		addLunchConsumedCarbsColumn,
+		addLunchConsumedFatColumn,
+		addDinnerConsumedKcalColumn,
+		addDinnerConsumedProteinColumn,
+		addDinnerConsumedCarbsColumn,
+		addDinnerConsumedFatColumn,
 	}
 
 	for _, migration := range alterMigrations {
@@ -310,6 +323,20 @@ const addConsumedCaloriesColumn = `ALTER TABLE daily_logs ADD COLUMN consumed_ca
 const addConsumedProteinGColumn = `ALTER TABLE daily_logs ADD COLUMN consumed_protein_g INTEGER DEFAULT 0`
 const addConsumedCarbsGColumn = `ALTER TABLE daily_logs ADD COLUMN consumed_carbs_g INTEGER DEFAULT 0`
 const addConsumedFatGColumn = `ALTER TABLE daily_logs ADD COLUMN consumed_fat_g INTEGER DEFAULT 0`
+
+// Per-meal consumed macros tracking (Kitchen sync feature)
+const addBreakfastConsumedKcalColumn = `ALTER TABLE daily_logs ADD COLUMN breakfast_consumed_kcal INTEGER DEFAULT 0`
+const addBreakfastConsumedProteinColumn = `ALTER TABLE daily_logs ADD COLUMN breakfast_consumed_protein_g INTEGER DEFAULT 0`
+const addBreakfastConsumedCarbsColumn = `ALTER TABLE daily_logs ADD COLUMN breakfast_consumed_carbs_g INTEGER DEFAULT 0`
+const addBreakfastConsumedFatColumn = `ALTER TABLE daily_logs ADD COLUMN breakfast_consumed_fat_g INTEGER DEFAULT 0`
+const addLunchConsumedKcalColumn = `ALTER TABLE daily_logs ADD COLUMN lunch_consumed_kcal INTEGER DEFAULT 0`
+const addLunchConsumedProteinColumn = `ALTER TABLE daily_logs ADD COLUMN lunch_consumed_protein_g INTEGER DEFAULT 0`
+const addLunchConsumedCarbsColumn = `ALTER TABLE daily_logs ADD COLUMN lunch_consumed_carbs_g INTEGER DEFAULT 0`
+const addLunchConsumedFatColumn = `ALTER TABLE daily_logs ADD COLUMN lunch_consumed_fat_g INTEGER DEFAULT 0`
+const addDinnerConsumedKcalColumn = `ALTER TABLE daily_logs ADD COLUMN dinner_consumed_kcal INTEGER DEFAULT 0`
+const addDinnerConsumedProteinColumn = `ALTER TABLE daily_logs ADD COLUMN dinner_consumed_protein_g INTEGER DEFAULT 0`
+const addDinnerConsumedCarbsColumn = `ALTER TABLE daily_logs ADD COLUMN dinner_consumed_carbs_g INTEGER DEFAULT 0`
+const addDinnerConsumedFatColumn = `ALTER TABLE daily_logs ADD COLUMN dinner_consumed_fat_g INTEGER DEFAULT 0`
 
 // Training sessions table for multiple sessions per day (Issue #31)
 const createTrainingSessionsTable = `

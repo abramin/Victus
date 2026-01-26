@@ -437,6 +437,7 @@ export function MealPointsDashboard({ log, profile, onDayTypeChange }: MealPoint
                   onClearDraft={() => plateBuilder.clearMealDraft(meal)}
                   macroTargets={mealData[meal]}
                   macroSpent={plateBuilder.drafts[meal].spentByMacro}
+                  consumed={selectedLog?.mealsConsumed?.[meal]}
                 />
               ))}
             </div>

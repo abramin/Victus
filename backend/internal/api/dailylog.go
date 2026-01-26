@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"victus/internal/api/requests"
+	"victus/internal/domain"
 	"victus/internal/store"
 )
 
@@ -317,7 +318,19 @@ func (s *Server) addConsumedMacros(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate meal parameter if provided
+	var mealName *domain.MealName
+	if req.Meal != nil {
+		mn := domain.MealName(*req.Meal)
+		if !domain.ValidMealNames[mn] {
+			writeError(w, http.StatusBadRequest, "invalid_meal", "Meal must be 'breakfast', 'lunch', or 'dinner'")
+			return
+		}
+		mealName = &mn
+	}
+
 	macros := store.ConsumedMacros{
+		Meal:     mealName,
 		Calories: req.Calories,
 		ProteinG: req.ProteinG,
 		CarbsG:   req.CarbsG,

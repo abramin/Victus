@@ -42,8 +42,40 @@ type DailyLog struct {
 	ConsumedProteinG      int                    // Total consumed protein in grams
 	ConsumedCarbsG        int                    // Total consumed carbs in grams
 	ConsumedFatG          int                    // Total consumed fat in grams
+	MealConsumed          MealConsumed           // Per-meal consumed macros
 	CreatedAt             time.Time
 	UpdatedAt             time.Time
+}
+
+// MealName represents a meal type for per-meal tracking.
+type MealName string
+
+const (
+	MealBreakfast MealName = "breakfast"
+	MealLunch     MealName = "lunch"
+	MealDinner    MealName = "dinner"
+)
+
+// ValidMealNames contains all valid meal names for validation.
+var ValidMealNames = map[MealName]bool{
+	MealBreakfast: true,
+	MealLunch:     true,
+	MealDinner:    true,
+}
+
+// ConsumedMacros represents macros consumed for a single meal.
+type ConsumedMacros struct {
+	Calories int
+	ProteinG int
+	CarbsG   int
+	FatG     int
+}
+
+// MealConsumed holds per-meal consumption data.
+type MealConsumed struct {
+	Breakfast ConsumedMacros
+	Lunch     ConsumedMacros
+	Dinner    ConsumedMacros
 }
 
 // DailyLogInput represents the inputs needed to create a daily log.

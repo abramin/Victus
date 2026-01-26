@@ -67,6 +67,12 @@ func (s *DailyLogStore) GetByDate(ctx context.Context, date string) (*domain.Dai
 			fasting_override, COALESCE(fasted_items_kcal, 0),
 			COALESCE(consumed_calories, 0), COALESCE(consumed_protein_g, 0),
 			COALESCE(consumed_carbs_g, 0), COALESCE(consumed_fat_g, 0),
+			COALESCE(breakfast_consumed_kcal, 0), COALESCE(breakfast_consumed_protein_g, 0),
+			COALESCE(breakfast_consumed_carbs_g, 0), COALESCE(breakfast_consumed_fat_g, 0),
+			COALESCE(lunch_consumed_kcal, 0), COALESCE(lunch_consumed_protein_g, 0),
+			COALESCE(lunch_consumed_carbs_g, 0), COALESCE(lunch_consumed_fat_g, 0),
+			COALESCE(dinner_consumed_kcal, 0), COALESCE(dinner_consumed_protein_g, 0),
+			COALESCE(dinner_consumed_carbs_g, 0), COALESCE(dinner_consumed_fat_g, 0),
 			created_at, updated_at
 		FROM daily_logs
 		WHERE log_date = ?
@@ -104,6 +110,12 @@ func (s *DailyLogStore) GetByDate(ctx context.Context, date string) (*domain.Dai
 		&fastingOverride, &log.FastedItemsKcal,
 		&log.ConsumedCalories, &log.ConsumedProteinG,
 		&log.ConsumedCarbsG, &log.ConsumedFatG,
+		&log.MealConsumed.Breakfast.Calories, &log.MealConsumed.Breakfast.ProteinG,
+		&log.MealConsumed.Breakfast.CarbsG, &log.MealConsumed.Breakfast.FatG,
+		&log.MealConsumed.Lunch.Calories, &log.MealConsumed.Lunch.ProteinG,
+		&log.MealConsumed.Lunch.CarbsG, &log.MealConsumed.Lunch.FatG,
+		&log.MealConsumed.Dinner.Calories, &log.MealConsumed.Dinner.ProteinG,
+		&log.MealConsumed.Dinner.CarbsG, &log.MealConsumed.Dinner.FatG,
 		&createdAt, &updatedAt,
 	)
 
@@ -698,7 +710,9 @@ func (s *DailyLogStore) UpdateFastedItemsKcal(ctx context.Context, date string, 
 }
 
 // ConsumedMacros represents the macros to add to the daily log.
+// Meal is optional - if provided, also updates per-meal columns.
 type ConsumedMacros struct {
+	Meal     *domain.MealName // Optional: "breakfast", "lunch", or "dinner"
 	Calories int
 	ProteinG int
 	CarbsG   int
@@ -707,20 +721,41 @@ type ConsumedMacros struct {
 
 // AddConsumedMacros adds consumed macros to the existing totals for a given date.
 // This is additive - it increments the existing values rather than replacing them.
+// If Meal is specified, also updates the per-meal columns.
 // Returns ErrDailyLogNotFound if no log exists for that date.
 func (s *DailyLogStore) AddConsumedMacros(ctx context.Context, date string, macros ConsumedMacros) error {
-	const query = `
+	// Always update aggregate totals
+	baseQuery := `
 		UPDATE daily_logs
 		SET consumed_calories = COALESCE(consumed_calories, 0) + ?,
 		    consumed_protein_g = COALESCE(consumed_protein_g, 0) + ?,
 		    consumed_carbs_g = COALESCE(consumed_carbs_g, 0) + ?,
-		    consumed_fat_g = COALESCE(consumed_fat_g, 0) + ?,
-		    updated_at = datetime('now')
-		WHERE log_date = ?
-	`
+		    consumed_fat_g = COALESCE(consumed_fat_g, 0) + ?`
 
-	result, err := s.db.ExecContext(ctx, query,
-		macros.Calories, macros.ProteinG, macros.CarbsG, macros.FatG, date)
+	// If meal specified, also update per-meal columns
+	if macros.Meal != nil {
+		mealPrefix := string(*macros.Meal)
+		baseQuery += fmt.Sprintf(`,
+		    %s_consumed_kcal = COALESCE(%s_consumed_kcal, 0) + ?,
+		    %s_consumed_protein_g = COALESCE(%s_consumed_protein_g, 0) + ?,
+		    %s_consumed_carbs_g = COALESCE(%s_consumed_carbs_g, 0) + ?,
+		    %s_consumed_fat_g = COALESCE(%s_consumed_fat_g, 0) + ?`,
+			mealPrefix, mealPrefix, mealPrefix, mealPrefix,
+			mealPrefix, mealPrefix, mealPrefix, mealPrefix)
+	}
+
+	baseQuery += `,
+		    updated_at = datetime('now')
+		WHERE log_date = ?`
+
+	var args []interface{}
+	args = append(args, macros.Calories, macros.ProteinG, macros.CarbsG, macros.FatG)
+	if macros.Meal != nil {
+		args = append(args, macros.Calories, macros.ProteinG, macros.CarbsG, macros.FatG)
+	}
+	args = append(args, date)
+
+	result, err := s.db.ExecContext(ctx, baseQuery, args...)
 	if err != nil {
 		return err
 	}

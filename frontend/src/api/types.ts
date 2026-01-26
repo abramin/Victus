@@ -216,14 +216,36 @@ export interface DailyLog {
   consumedProteinG: number;                     // Total consumed protein in grams
   consumedCarbsG: number;                       // Total consumed carbs in grams
   consumedFatG: number;                         // Total consumed fat in grams
+  mealsConsumed: MealsConsumed;                 // Per-meal consumed macros
   createdAt?: string;
   updatedAt?: string;
 }
 
 /**
+ * Per-meal consumed macros.
+ */
+export interface MealConsumedMacros {
+  calories: number;
+  proteinG: number;
+  carbsG: number;
+  fatG: number;
+}
+
+/**
+ * Consumed macros for all meals.
+ */
+export interface MealsConsumed {
+  breakfast: MealConsumedMacros;
+  lunch: MealConsumedMacros;
+  dinner: MealConsumedMacros;
+}
+
+/**
  * Request body for adding consumed macros (additive).
+ * If meal is specified, also updates per-meal consumed values.
  */
 export interface AddConsumedMacrosRequest {
+  meal?: 'breakfast' | 'lunch' | 'dinner';  // Optional: specify which meal this is for
   calories: number;
   proteinG: number;
   carbsG: number;

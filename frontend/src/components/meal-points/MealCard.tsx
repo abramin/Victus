@@ -3,7 +3,7 @@ import { Panel } from '../common/Panel';
 import { MacroGauges } from './MacroGauges';
 import type { DraftedFood, MacroSpent } from './types';
 import { CARB_KCAL_PER_G, PROTEIN_KCAL_PER_G, FAT_KCAL_PER_G } from '../../constants';
-import type { FoodCategory, MacroPoints } from '../../api/types';
+import type { FoodCategory, MacroPoints, MealConsumedMacros } from '../../api/types';
 
 interface MealCardProps {
   meal: 'Breakfast' | 'Lunch' | 'Dinner';
@@ -25,6 +25,8 @@ interface MealCardProps {
   // Per-macro tracking for separate gauges
   macroTargets?: MacroPoints;
   macroSpent?: MacroSpent;
+  // Actual consumed macros from API (for syncing with Command Center)
+  consumed?: MealConsumedMacros;
   // Fasting protocol props
   isFasting?: boolean;
   bankedKcal?: number;
@@ -135,6 +137,7 @@ export function MealCard({
   onClearDraft,
   macroTargets,
   macroSpent,
+  consumed,
   isFasting = false,
   bankedKcal = 0,
   fastedItemsKcal = 0,
@@ -151,16 +154,19 @@ export function MealCard({
     fatGrams * FAT_KCAL_PER_G
   );
   
-  // Calculate consumed calories from drafted foods
-  // For now, we'll estimate based on points distribution (this should ideally come from the drafted foods data)
-  // TODO: Add actual kcal and macro data to DraftedFood interface
-  const consumedKcal = hasDraftedFoods ? (spentPoints / totalPoints) * totalBudgetKcal : 0;
-  
-  // Estimate macro distribution from drafted foods based on points
-  // This is a simplified calculation - ideally each DraftedFood should carry its macro breakdown
-  const proteinKcal = hasDraftedFoods ? (proteinPoints / totalPoints) * consumedKcal : 0;
-  const carbKcal = hasDraftedFoods ? (carbPoints / totalPoints) * consumedKcal : 0;
-  const fatKcal = hasDraftedFoods ? (fatPoints / totalPoints) * consumedKcal : 0;
+  // Use actual consumed data from API if available, otherwise fall back to drafted foods calculation
+  const consumedKcal = consumed?.calories ?? (hasDraftedFoods ? (spentPoints / totalPoints) * totalBudgetKcal : 0);
+
+  // Calculate macro breakdown from actual consumed data or estimate from drafted foods
+  const proteinKcal = consumed
+    ? consumed.proteinG * PROTEIN_KCAL_PER_G
+    : (hasDraftedFoods ? (proteinPoints / totalPoints) * consumedKcal : 0);
+  const carbKcal = consumed
+    ? consumed.carbsG * CARB_KCAL_PER_G
+    : (hasDraftedFoods ? (carbPoints / totalPoints) * consumedKcal : 0);
+  const fatKcal = consumed
+    ? consumed.fatG * FAT_KCAL_PER_G
+    : (hasDraftedFoods ? (fatPoints / totalPoints) * consumedKcal : 0);
   // Ghost card state for fasting
   if (isFasting) {
     const fastedItemsWarning = fastedItemsKcal >= 40;
