@@ -93,7 +93,7 @@ export function ProgramInstaller({ program, onClose, onInstalled }: ProgramInsta
     setError(null);
 
     try {
-      await installProgram(program.id, startDate, weekDayMapping);
+      await installProgram(program.id, { startDate, weekDayMapping });
       onInstalled();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to install program');
