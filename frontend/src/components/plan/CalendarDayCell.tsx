@@ -3,6 +3,8 @@ import { MacroDonutChart } from '../charts';
 import { TrainingBadge } from './TrainingBadge';
 import { DayTypeQuickSelector } from './DayTypeQuickSelector';
 import { AdherenceIndicator, calculateAdherenceStatus } from './AdherenceIndicator';
+import { MacroCell } from './MacroCell';
+import { MesoCell } from './MesoCell';
 import { DAY_TYPE_COLORS, DAY_TYPE_LABELS } from '../../constants';
 import { toDateKey } from '../../utils';
 
@@ -55,6 +57,13 @@ interface CalendarDayCellProps {
   isDragSource?: boolean;
   onDragStart?: (date: string) => void;
   onDragEnd?: () => void;
+  // Semantic zoom props
+  zoomMode?: 'macro' | 'meso' | 'micro';
+  heatmapIntensity?: number;
+  loadScore?: number;
+  avgRpe?: number;
+  onHover?: () => void;
+  onHoverLeave?: () => void;
 }
 
 /**
@@ -85,12 +94,19 @@ export function CalendarDayCell({
   isDragSource = false,
   onDragStart,
   onDragEnd,
+  // Semantic zoom props
+  zoomMode = 'micro',
+  heatmapIntensity = 0,
+  loadScore,
+  avgRpe,
+  onHover,
+  onHoverLeave,
 }: CalendarDayCellProps) {
   const isDisabled = !dayData.hasData;
-  const sessions = dayData.actualSessions?.length
+  const sessions = (dayData.actualSessions?.length ?? 0) > 0
     ? dayData.actualSessions
     : dayData.plannedSessions;
-  const hasTraining = sessions && sessions.length > 0 && sessions.some(s => s.type !== 'rest');
+  const hasTraining = (sessions?.length ?? 0) > 0 && sessions!.some(s => s.type !== 'rest');
   const dateKey = toDateKey(dayData.date);
 
   // Calculate adherence status for past days
@@ -161,6 +177,8 @@ export function CalendarDayCell({
   return (
     <div
       onClick={isDisabled ? undefined : onClick}
+      onMouseEnter={onHover}
+      onMouseLeave={onHoverLeave}
       className={cellClasses}
       onDragOver={handleDragOver}
       onDragEnter={handleDragEnter}
@@ -175,8 +193,33 @@ export function CalendarDayCell({
         }
       }}
     >
-      {/* Row 1: Day Number + Adherence + Mini Donut */}
-      <div className="flex items-center justify-between mb-2">
+      {/* Conditional rendering based on zoom mode */}
+      {zoomMode === 'macro' && (
+        <MacroCell
+          date={dayData.date}
+          isToday={isToday}
+          heatmapIntensity={heatmapIntensity}
+          hasData={dayData.hasData}
+        />
+      )}
+
+      {zoomMode === 'meso' && (
+        <MesoCell
+          date={dayData.date}
+          isToday={isToday}
+          heatmapIntensity={heatmapIntensity}
+          hasData={dayData.hasData}
+          plannedSessions={dayData.plannedSessions}
+          actualSessions={dayData.actualSessions}
+          loadScore={loadScore}
+          avgRpe={avgRpe}
+        />
+      )}
+
+      {zoomMode === 'micro' && (
+        <>
+          {/* Row 1: Day Number + Adherence + Mini Donut */}
+          <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-1.5">
           <span className={`text-sm font-medium ${isToday ? 'text-white' : 'text-gray-400'}`}>
             {dayData.date.getDate()}
@@ -243,11 +286,13 @@ export function CalendarDayCell({
         </div>
       )}
 
-      {/* Empty state for days without data */}
-      {!dayData.hasData && (
-        <div className="flex-1 flex items-center justify-center">
-          <span className="text-xs text-gray-600">--</span>
-        </div>
+          {/* Empty state for days without data */}
+          {!dayData.hasData && (
+            <div className="flex-1 flex items-center justify-center">
+              <span className="text-xs text-gray-600">--</span>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
