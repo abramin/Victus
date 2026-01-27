@@ -264,12 +264,12 @@ func (s *DailyLogStore) create(ctx context.Context, execer sqlExecer, log *domai
 		return 0, err
 	}
 
-	return result.LastInsertId()
+	return id, nil
 }
 
 // DeleteByDate removes the daily log for the given date.
 func (s *DailyLogStore) DeleteByDate(ctx context.Context, date string) error {
-	_, err := s.db.ExecContext(ctx, "DELETE FROM daily_logs WHERE log_date = ?", date)
+	_, err := s.db.ExecContext(ctx, "DELETE FROM daily_logs WHERE log_date = $1", date)
 	return err
 }
 
@@ -279,7 +279,7 @@ func (s *DailyLogStore) ListWeights(ctx context.Context, startDate string) ([]do
 	query := "SELECT log_date, weight_kg FROM daily_logs"
 	var args []interface{}
 	if startDate != "" {
-		query += " WHERE log_date >= ?"
+		query += " WHERE log_date >= $1"
 		args = append(args, startDate)
 	}
 	query += " ORDER BY log_date ASC"
@@ -316,7 +316,7 @@ func (s *DailyLogStore) ListHistoryPoints(ctx context.Context, startDate string)
 	`
 	var args []interface{}
 	if startDate != "" {
-		query += " WHERE log_date >= ?"
+		query += " WHERE log_date >= $1"
 		args = append(args, startDate)
 	}
 	query += " ORDER BY log_date ASC"
@@ -383,7 +383,7 @@ func (s *DailyLogStore) ListDailyTargets(ctx context.Context, startDate, endDate
 			COALESCE(estimated_tdee, 0),
 			active_calories_burned
 		FROM daily_logs
-		WHERE log_date >= ? AND log_date <= ?
+		WHERE log_date >= $1 AND log_date <= $2
 		ORDER BY log_date ASC
 	`
 
@@ -434,10 +434,10 @@ func (s *DailyLogStore) ListAdaptiveDataPoints(ctx context.Context, endDate stri
 	const query = `
 		SELECT log_date, weight_kg, total_calories, COALESCE(estimated_tdee, 0), COALESCE(formula_tdee, 0)
 		FROM daily_logs
-		WHERE log_date <= ?
+		WHERE log_date <= $1
 		  AND total_calories > 0
 		ORDER BY log_date DESC
-		LIMIT ?
+		LIMIT $2
 	`
 
 	rows, err := s.db.QueryContext(ctx, query, endDate, maxDays)
@@ -484,8 +484,8 @@ type RecoveryDataPoint struct {
 func (s *DailyLogStore) UpdateActiveCaloriesBurned(ctx context.Context, date string, calories *int) error {
 	const query = `
 		UPDATE daily_logs
-		SET active_calories_burned = ?, updated_at = datetime('now')
-		WHERE log_date = ?
+		SET active_calories_burned = $1, updated_at = $2
+		WHERE log_date = $3
 	`
 
 	var caloriesVal interface{}
@@ -493,7 +493,7 @@ func (s *DailyLogStore) UpdateActiveCaloriesBurned(ctx context.Context, date str
 		caloriesVal = *calories
 	}
 
-	result, err := s.db.ExecContext(ctx, query, caloriesVal, date)
+	result, err := s.db.ExecContext(ctx, query, caloriesVal, time.Now(), date)
 	if err != nil {
 		return err
 	}
@@ -517,7 +517,7 @@ func (s *DailyLogStore) GetRecentBodyFat(ctx context.Context, beforeDate string,
 	const query = `
 		SELECT body_fat_percent, log_date
 		FROM daily_logs
-		WHERE log_date < ?
+		WHERE log_date < $1
 		  AND body_fat_percent IS NOT NULL
 		ORDER BY log_date DESC
 		LIMIT 1
@@ -559,9 +559,9 @@ func (s *DailyLogStore) GetRecoveryData(ctx context.Context, endDate string, day
 	const query = `
 		SELECT log_date, sleep_quality
 		FROM daily_logs
-		WHERE log_date <= ?
+		WHERE log_date <= $1
 		ORDER BY log_date DESC
-		LIMIT ?
+		LIMIT $2
 	`
 
 	rows, err := s.db.QueryContext(ctx, query, endDate, days)
@@ -595,25 +595,16 @@ func (s *DailyLogStore) GetRecoveryData(ctx context.Context, endDate string, day
 // The beforeDate is exclusive - it looks at data before this date.
 // Returns nil if no RHR data exists within the period.
 func (s *DailyLogStore) GetRHRAverage(ctx context.Context, beforeDate string, days int) (*float64, error) {
-	const query = `
-		SELECT AVG(resting_heart_rate)
-		FROM daily_logs
-		WHERE log_date < ?
-		  AND resting_heart_rate IS NOT NULL
-		ORDER BY log_date DESC
-		LIMIT ?
-	`
-
-	// SQLite doesn't support LIMIT in AVG subquery directly, so we use a subquery
+	// PostgreSQL supports LIMIT in subquery for AVG
 	const avgQuery = `
 		SELECT AVG(rhr) FROM (
 			SELECT resting_heart_rate as rhr
 			FROM daily_logs
-			WHERE log_date < ?
+			WHERE log_date < $1
 			  AND resting_heart_rate IS NOT NULL
 			ORDER BY log_date DESC
-			LIMIT ?
-		)
+			LIMIT $2
+		) sub
 	`
 
 	var avg sql.NullFloat64
@@ -636,10 +627,10 @@ func (s *DailyLogStore) GetHRVHistory(ctx context.Context, beforeDate string, da
 	const query = `
 		SELECT hrv_ms
 		FROM daily_logs
-		WHERE log_date < ?
+		WHERE log_date < $1
 		  AND hrv_ms IS NOT NULL
 		ORDER BY log_date DESC
-		LIMIT ?
+		LIMIT $2
 	`
 
 	rows, err := s.db.QueryContext(ctx, query, beforeDate, days)
@@ -675,11 +666,11 @@ func (s *DailyLogStore) GetHRVHistory(ctx context.Context, beforeDate string, da
 func (s *DailyLogStore) UpdateFastingOverride(ctx context.Context, date string, override *string) error {
 	const query = `
 		UPDATE daily_logs
-		SET fasting_override = ?, updated_at = datetime('now')
-		WHERE log_date = ?
+		SET fasting_override = $1, updated_at = $2
+		WHERE log_date = $3
 	`
 
-	result, err := s.db.ExecContext(ctx, query, override, date)
+	result, err := s.db.ExecContext(ctx, query, override, time.Now(), date)
 	if err != nil {
 		return err
 	}
@@ -701,11 +692,11 @@ func (s *DailyLogStore) UpdateFastingOverride(ctx context.Context, date string, 
 func (s *DailyLogStore) UpdateFastedItemsKcal(ctx context.Context, date string, kcal int) error {
 	const query = `
 		UPDATE daily_logs
-		SET fasted_items_kcal = ?, updated_at = datetime('now')
-		WHERE log_date = ?
+		SET fasted_items_kcal = $1, updated_at = $2
+		WHERE log_date = $3
 	`
 
-	result, err := s.db.ExecContext(ctx, query, kcal, date)
+	result, err := s.db.ExecContext(ctx, query, kcal, time.Now(), date)
 	if err != nil {
 		return err
 	}
@@ -740,33 +731,35 @@ func (s *DailyLogStore) AddConsumedMacros(ctx context.Context, date string, macr
 	// Always update aggregate totals
 	baseQuery := `
 		UPDATE daily_logs
-		SET consumed_calories = COALESCE(consumed_calories, 0) + ?,
-		    consumed_protein_g = COALESCE(consumed_protein_g, 0) + ?,
-		    consumed_carbs_g = COALESCE(consumed_carbs_g, 0) + ?,
-		    consumed_fat_g = COALESCE(consumed_fat_g, 0) + ?`
+		SET consumed_calories = COALESCE(consumed_calories, 0) + $1,
+		    consumed_protein_g = COALESCE(consumed_protein_g, 0) + $2,
+		    consumed_carbs_g = COALESCE(consumed_carbs_g, 0) + $3,
+		    consumed_fat_g = COALESCE(consumed_fat_g, 0) + $4`
+
+	var args []interface{}
+	args = append(args, macros.Calories, macros.ProteinG, macros.CarbsG, macros.FatG)
+	paramNum := 5
 
 	// If meal specified, also update per-meal columns
 	if macros.Meal != nil {
 		mealPrefix := string(*macros.Meal)
 		baseQuery += fmt.Sprintf(`,
-		    %s_consumed_kcal = COALESCE(%s_consumed_kcal, 0) + ?,
-		    %s_consumed_protein_g = COALESCE(%s_consumed_protein_g, 0) + ?,
-		    %s_consumed_carbs_g = COALESCE(%s_consumed_carbs_g, 0) + ?,
-		    %s_consumed_fat_g = COALESCE(%s_consumed_fat_g, 0) + ?`,
-			mealPrefix, mealPrefix, mealPrefix, mealPrefix,
-			mealPrefix, mealPrefix, mealPrefix, mealPrefix)
-	}
-
-	baseQuery += `,
-		    updated_at = datetime('now')
-		WHERE log_date = ?`
-
-	var args []interface{}
-	args = append(args, macros.Calories, macros.ProteinG, macros.CarbsG, macros.FatG)
-	if macros.Meal != nil {
+		    %s_consumed_kcal = COALESCE(%s_consumed_kcal, 0) + $%d,
+		    %s_consumed_protein_g = COALESCE(%s_consumed_protein_g, 0) + $%d,
+		    %s_consumed_carbs_g = COALESCE(%s_consumed_carbs_g, 0) + $%d,
+		    %s_consumed_fat_g = COALESCE(%s_consumed_fat_g, 0) + $%d`,
+			mealPrefix, mealPrefix, paramNum,
+			mealPrefix, mealPrefix, paramNum+1,
+			mealPrefix, mealPrefix, paramNum+2,
+			mealPrefix, mealPrefix, paramNum+3)
 		args = append(args, macros.Calories, macros.ProteinG, macros.CarbsG, macros.FatG)
+		paramNum += 4
 	}
-	args = append(args, date)
+
+	baseQuery += fmt.Sprintf(`,
+		    updated_at = $%d
+		WHERE log_date = $%d`, paramNum, paramNum+1)
+	args = append(args, time.Now(), date)
 
 	result, err := s.db.ExecContext(ctx, baseQuery, args...)
 	if err != nil {
@@ -830,30 +823,37 @@ func (s *DailyLogStore) updateHealthKitMetrics(ctx context.Context, date string,
 	// Build dynamic update query based on which fields are provided
 	var setClauses []string
 	var args []interface{}
+	paramNum := 1
 
 	if metrics.Steps != nil {
-		setClauses = append(setClauses, "steps = ?")
+		setClauses = append(setClauses, fmt.Sprintf("steps = $%d", paramNum))
 		args = append(args, *metrics.Steps)
+		paramNum++
 	}
 	if metrics.ActiveCaloriesBurned != nil {
-		setClauses = append(setClauses, "active_calories_burned = ?")
+		setClauses = append(setClauses, fmt.Sprintf("active_calories_burned = $%d", paramNum))
 		args = append(args, *metrics.ActiveCaloriesBurned)
+		paramNum++
 	}
 	if metrics.RestingHeartRate != nil {
-		setClauses = append(setClauses, "resting_heart_rate = ?")
+		setClauses = append(setClauses, fmt.Sprintf("resting_heart_rate = $%d", paramNum))
 		args = append(args, *metrics.RestingHeartRate)
+		paramNum++
 	}
 	if metrics.SleepHours != nil {
-		setClauses = append(setClauses, "sleep_hours = ?")
+		setClauses = append(setClauses, fmt.Sprintf("sleep_hours = $%d", paramNum))
 		args = append(args, *metrics.SleepHours)
+		paramNum++
 	}
 	if metrics.WeightKg != nil {
-		setClauses = append(setClauses, "weight_kg = ?")
+		setClauses = append(setClauses, fmt.Sprintf("weight_kg = $%d", paramNum))
 		args = append(args, *metrics.WeightKg)
+		paramNum++
 	}
 	if metrics.BodyFatPercent != nil {
-		setClauses = append(setClauses, "body_fat_percent = ?")
+		setClauses = append(setClauses, fmt.Sprintf("body_fat_percent = $%d", paramNum))
 		args = append(args, *metrics.BodyFatPercent)
+		paramNum++
 	}
 
 	if len(setClauses) == 0 {
@@ -862,10 +862,12 @@ func (s *DailyLogStore) updateHealthKitMetrics(ctx context.Context, date string,
 	}
 
 	// Always update updated_at
-	setClauses = append(setClauses, "updated_at = datetime('now')")
+	setClauses = append(setClauses, fmt.Sprintf("updated_at = $%d", paramNum))
+	args = append(args, time.Now())
+	paramNum++
 
-	query := fmt.Sprintf("UPDATE daily_logs SET %s WHERE log_date = ?",
-		strings.Join(setClauses, ", "))
+	query := fmt.Sprintf("UPDATE daily_logs SET %s WHERE log_date = $%d",
+		strings.Join(setClauses, ", "), paramNum)
 	args = append(args, date)
 
 	result, err := s.db.ExecContext(ctx, query, args...)
@@ -896,11 +898,11 @@ func (s *DailyLogStore) createMinimalLog(ctx context.Context, date string, metri
 			day_type, active_calories_burned, steps,
 			created_at, updated_at
 		) VALUES (
-			?, ?, ?, ?,
-			50, ?,
+			$1, $2, $3, $4,
+			50, $5,
 			'rest', 0,
-			'fatburner', ?, ?,
-			datetime('now'), datetime('now')
+			'fatburner', $6, $7,
+			$8, $9
 		)
 	`
 
@@ -923,10 +925,12 @@ func (s *DailyLogStore) createMinimalLog(ctx context.Context, date string, metri
 		heartRate = *metrics.RestingHeartRate
 	}
 
+	now := time.Now()
 	_, err := s.db.ExecContext(ctx, query,
 		date, *metrics.WeightKg, bodyFatPercent, heartRate,
 		sleepHours,
 		activeCaloriesBurned, steps,
+		now, now,
 	)
 	if err != nil {
 		if isUniqueConstraint(err) {
@@ -965,7 +969,7 @@ func (s *DailyLogStore) ListByDateRange(ctx context.Context, startDate, endDate 
 			COALESCE(dinner_consumed_carbs_g, 0), COALESCE(dinner_consumed_fat_g, 0),
 			created_at, updated_at
 		FROM daily_logs
-		WHERE log_date >= ? AND log_date <= ?
+		WHERE log_date >= $1 AND log_date <= $2
 		ORDER BY log_date ASC
 	`
 
@@ -1079,31 +1083,39 @@ type SleepData struct {
 func (s *DailyLogStore) UpdateSleepData(ctx context.Context, date string, data SleepData) error {
 	var setClauses []string
 	var args []interface{}
+	paramNum := 1
 
 	if data.SleepQuality != nil {
-		setClauses = append(setClauses, "sleep_quality = ?")
+		setClauses = append(setClauses, fmt.Sprintf("sleep_quality = $%d", paramNum))
 		args = append(args, *data.SleepQuality)
+		paramNum++
 	}
 	if data.SleepHours != nil {
-		setClauses = append(setClauses, "sleep_hours = ?")
+		setClauses = append(setClauses, fmt.Sprintf("sleep_hours = $%d", paramNum))
 		args = append(args, *data.SleepHours)
+		paramNum++
 	}
 	if data.RestingHeartRate != nil {
-		setClauses = append(setClauses, "resting_heart_rate = ?")
+		setClauses = append(setClauses, fmt.Sprintf("resting_heart_rate = $%d", paramNum))
 		args = append(args, *data.RestingHeartRate)
+		paramNum++
 	}
 	if data.HRVMs != nil {
-		setClauses = append(setClauses, "hrv_ms = ?")
+		setClauses = append(setClauses, fmt.Sprintf("hrv_ms = $%d", paramNum))
 		args = append(args, *data.HRVMs)
+		paramNum++
 	}
 
 	if len(setClauses) == 0 {
 		return nil
 	}
 
-	setClauses = append(setClauses, "updated_at = datetime('now')")
-	query := fmt.Sprintf("UPDATE daily_logs SET %s WHERE log_date = ?",
-		strings.Join(setClauses, ", "))
+	setClauses = append(setClauses, fmt.Sprintf("updated_at = $%d", paramNum))
+	args = append(args, time.Now())
+	paramNum++
+
+	query := fmt.Sprintf("UPDATE daily_logs SET %s WHERE log_date = $%d",
+		strings.Join(setClauses, ", "), paramNum)
 	args = append(args, date)
 
 	result, err := s.db.ExecContext(ctx, query, args...)
@@ -1130,23 +1142,29 @@ type WeightData struct {
 func (s *DailyLogStore) UpdateWeightData(ctx context.Context, date string, data WeightData) error {
 	var setClauses []string
 	var args []interface{}
+	paramNum := 1
 
 	if data.WeightKg != nil {
-		setClauses = append(setClauses, "weight_kg = ?")
+		setClauses = append(setClauses, fmt.Sprintf("weight_kg = $%d", paramNum))
 		args = append(args, *data.WeightKg)
+		paramNum++
 	}
 	if data.BodyFatPercent != nil {
-		setClauses = append(setClauses, "body_fat_percent = ?")
+		setClauses = append(setClauses, fmt.Sprintf("body_fat_percent = $%d", paramNum))
 		args = append(args, *data.BodyFatPercent)
+		paramNum++
 	}
 
 	if len(setClauses) == 0 {
 		return nil
 	}
 
-	setClauses = append(setClauses, "updated_at = datetime('now')")
-	query := fmt.Sprintf("UPDATE daily_logs SET %s WHERE log_date = ?",
-		strings.Join(setClauses, ", "))
+	setClauses = append(setClauses, fmt.Sprintf("updated_at = $%d", paramNum))
+	args = append(args, time.Now())
+	paramNum++
+
+	query := fmt.Sprintf("UPDATE daily_logs SET %s WHERE log_date = $%d",
+		strings.Join(setClauses, ", "), paramNum)
 	args = append(args, date)
 
 	result, err := s.db.ExecContext(ctx, query, args...)
@@ -1166,11 +1184,11 @@ func (s *DailyLogStore) UpdateWeightData(ctx context.Context, date string, data 
 func (s *DailyLogStore) UpdateHRV(ctx context.Context, date string, hrvMs int) error {
 	const query = `
 		UPDATE daily_logs
-		SET hrv_ms = ?, updated_at = datetime('now')
-		WHERE log_date = ?
+		SET hrv_ms = $1, updated_at = $2
+		WHERE log_date = $3
 	`
 
-	result, err := s.db.ExecContext(ctx, query, hrvMs, date)
+	result, err := s.db.ExecContext(ctx, query, hrvMs, time.Now(), date)
 	if err != nil {
 		return err
 	}
@@ -1187,11 +1205,11 @@ func (s *DailyLogStore) UpdateHRV(ctx context.Context, date string, hrvMs int) e
 func (s *DailyLogStore) UpdateRHR(ctx context.Context, date string, rhr int) error {
 	const query = `
 		UPDATE daily_logs
-		SET resting_heart_rate = ?, updated_at = datetime('now')
-		WHERE log_date = ?
+		SET resting_heart_rate = $1, updated_at = $2
+		WHERE log_date = $3
 	`
 
-	result, err := s.db.ExecContext(ctx, query, rhr, date)
+	result, err := s.db.ExecContext(ctx, query, rhr, time.Now(), date)
 	if err != nil {
 		return err
 	}

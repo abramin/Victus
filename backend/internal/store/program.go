@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"victus/internal/domain"
@@ -51,10 +52,13 @@ func (s *TrainingProgramStore) Create(ctx context.Context, program *domain.Train
 			name, description, duration_weeks, training_days_per_week,
 			difficulty, focus, equipment, tags, cover_image_url,
 			status, is_template, created_at, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		RETURNING id
 	`
 
-	result, err := tx.ExecContext(ctx, programQuery,
+	now := time.Now()
+	var programID int64
+	err = tx.QueryRowContext(ctx, programQuery,
 		program.Name,
 		program.Description,
 		program.DurationWeeks,
@@ -66,12 +70,9 @@ func (s *TrainingProgramStore) Create(ctx context.Context, program *domain.Train
 		program.CoverImageURL,
 		program.Status,
 		program.IsTemplate,
-	)
-	if err != nil {
-		return 0, err
-	}
-
-	programID, err := result.LastInsertId()
+		now,
+		now,
+	).Scan(&programID)
 	if err != nil {
 		return 0, err
 	}
@@ -101,22 +102,24 @@ func (s *TrainingProgramStore) insertWeek(ctx context.Context, tx *sql.Tx, progr
 	const query = `
 		INSERT INTO program_weeks (
 			program_id, week_number, label, is_deload, volume_scale, intensity_scale
-		) VALUES (?, ?, ?, ?, ?, ?)
+		) VALUES ($1, $2, $3, $4, $5, $6)
+		RETURNING id
 	`
 
-	result, err := tx.ExecContext(ctx, query,
+	var weekID int64
+	err := tx.QueryRowContext(ctx, query,
 		programID,
 		week.WeekNumber,
 		week.Label,
 		week.IsDeload,
 		week.VolumeScale,
 		week.IntensityScale,
-	)
+	).Scan(&weekID)
 	if err != nil {
 		return 0, err
 	}
 
-	return result.LastInsertId()
+	return weekID, nil
 }
 
 func (s *TrainingProgramStore) insertDay(ctx context.Context, tx *sql.Tx, weekID int64, day *domain.ProgramDay) error {
@@ -124,7 +127,7 @@ func (s *TrainingProgramStore) insertDay(ctx context.Context, tx *sql.Tx, weekID
 		INSERT INTO program_days (
 			week_id, day_number, label, training_type, duration_min,
 			load_score, nutrition_day, notes
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	`
 
 	_, err := tx.ExecContext(ctx, query,
@@ -148,11 +151,12 @@ func (s *TrainingProgramStore) GetByID(ctx context.Context, id int64) (*domain.T
 			difficulty, focus, equipment, tags, cover_image_url,
 			status, is_template, created_at, updated_at
 		FROM training_programs
-		WHERE id = ?
+		WHERE id = $1
 	`
 
 	var program domain.TrainingProgram
-	var equipmentJSON, tagsJSON, createdAt, updatedAt string
+	var equipmentJSON, tagsJSON string
+	var createdAt, updatedAt time.Time
 	var description, coverImageURL sql.NullString
 
 	err := s.db.QueryRowContext(ctx, query, id).Scan(
@@ -193,8 +197,8 @@ func (s *TrainingProgramStore) GetByID(ctx context.Context, id int64) (*domain.T
 		program.Tags = []string{}
 	}
 
-	program.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", createdAt)
-	program.UpdatedAt, _ = time.Parse("2006-01-02 15:04:05", updatedAt)
+	program.CreatedAt = createdAt
+	program.UpdatedAt = updatedAt
 
 	// Load weeks and days
 	weeks, err := s.getWeeks(ctx, program.ID)
@@ -217,22 +221,27 @@ func (s *TrainingProgramStore) List(ctx context.Context, filters ProgramFilters)
 		WHERE 1=1
 	`
 	var args []interface{}
+	paramNum := 1
 
 	if filters.Difficulty != "" {
-		query += " AND difficulty = ?"
+		query += fmt.Sprintf(" AND difficulty = $%d", paramNum)
 		args = append(args, filters.Difficulty)
+		paramNum++
 	}
 	if filters.Focus != "" {
-		query += " AND focus = ?"
+		query += fmt.Sprintf(" AND focus = $%d", paramNum)
 		args = append(args, filters.Focus)
+		paramNum++
 	}
 	if filters.IsTemplate != nil {
-		query += " AND is_template = ?"
+		query += fmt.Sprintf(" AND is_template = $%d", paramNum)
 		args = append(args, *filters.IsTemplate)
+		paramNum++
 	}
 	if filters.Status != "" {
-		query += " AND status = ?"
+		query += fmt.Sprintf(" AND status = $%d", paramNum)
 		args = append(args, filters.Status)
+		paramNum++
 	}
 
 	query += " ORDER BY created_at DESC"
@@ -246,7 +255,8 @@ func (s *TrainingProgramStore) List(ctx context.Context, filters ProgramFilters)
 	var programs []*domain.TrainingProgram
 	for rows.Next() {
 		var program domain.TrainingProgram
-		var equipmentJSON, tagsJSON, createdAt, updatedAt string
+		var equipmentJSON, tagsJSON string
+		var createdAt, updatedAt time.Time
 		var description, coverImageURL sql.NullString
 
 		err := rows.Scan(
@@ -283,8 +293,8 @@ func (s *TrainingProgramStore) List(ctx context.Context, filters ProgramFilters)
 			program.Tags = []string{}
 		}
 
-		program.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", createdAt)
-		program.UpdatedAt, _ = time.Parse("2006-01-02 15:04:05", updatedAt)
+		program.CreatedAt = createdAt
+		program.UpdatedAt = updatedAt
 
 		programs = append(programs, &program)
 	}
@@ -317,10 +327,10 @@ func (s *TrainingProgramStore) Update(ctx context.Context, program *domain.Train
 
 	const query = `
 		UPDATE training_programs
-		SET name = ?, description = ?, duration_weeks = ?, training_days_per_week = ?,
-			difficulty = ?, focus = ?, equipment = ?, tags = ?, cover_image_url = ?,
-			status = ?, updated_at = datetime('now')
-		WHERE id = ?
+		SET name = $1, description = $2, duration_weeks = $3, training_days_per_week = $4,
+			difficulty = $5, focus = $6, equipment = $7, tags = $8, cover_image_url = $9,
+			status = $10, updated_at = $11
+		WHERE id = $12
 	`
 
 	result, err := s.db.ExecContext(ctx, query,
@@ -334,6 +344,7 @@ func (s *TrainingProgramStore) Update(ctx context.Context, program *domain.Train
 		string(tagsJSON),
 		program.CoverImageURL,
 		program.Status,
+		time.Now(),
 		program.ID,
 	)
 	if err != nil {
@@ -353,7 +364,7 @@ func (s *TrainingProgramStore) Update(ctx context.Context, program *domain.Train
 
 // Delete removes a training program and its weeks/days (cascade).
 func (s *TrainingProgramStore) Delete(ctx context.Context, id int64) error {
-	result, err := s.db.ExecContext(ctx, "DELETE FROM training_programs WHERE id = ?", id)
+	result, err := s.db.ExecContext(ctx, "DELETE FROM training_programs WHERE id = $1", id)
 	if err != nil {
 		return err
 	}
@@ -374,7 +385,7 @@ func (s *TrainingProgramStore) getWeeks(ctx context.Context, programID int64) ([
 	const query = `
 		SELECT id, program_id, week_number, label, is_deload, volume_scale, intensity_scale
 		FROM program_weeks
-		WHERE program_id = ?
+		WHERE program_id = $1
 		ORDER BY week_number ASC
 	`
 
@@ -428,7 +439,7 @@ func (s *TrainingProgramStore) getDays(ctx context.Context, weekID int64) ([]dom
 		SELECT id, week_id, day_number, label, training_type, duration_min,
 			   load_score, nutrition_day, COALESCE(notes, '')
 		FROM program_days
-		WHERE week_id = ?
+		WHERE week_id = $1
 		ORDER BY day_number ASC
 	`
 
@@ -493,21 +504,26 @@ func (s *TrainingProgramStore) CreateInstallation(ctx context.Context, installat
 		INSERT INTO program_installations (
 			program_id, start_date, week_day_mapping, current_week, status,
 			created_at, updated_at
-		) VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+		) VALUES ($1, $2, $3, $4, $5, $6, $7)
+		RETURNING id
 	`
 
-	result, err := s.db.ExecContext(ctx, query,
+	now := time.Now()
+	var id int64
+	err = s.db.QueryRowContext(ctx, query,
 		installation.ProgramID,
 		installation.StartDate.Format("2006-01-02"),
 		string(mappingJSON),
 		installation.CurrentWeek,
 		installation.Status,
-	)
+		now,
+		now,
+	).Scan(&id)
 	if err != nil {
 		return 0, err
 	}
 
-	return result.LastInsertId()
+	return id, nil
 }
 
 // GetActiveInstallation retrieves the currently active program installation.
@@ -521,7 +537,8 @@ func (s *TrainingProgramStore) GetActiveInstallation(ctx context.Context) (*doma
 	`
 
 	var installation domain.ProgramInstallation
-	var startDate, mappingJSON, createdAt, updatedAt string
+	var startDate time.Time
+	var mappingJSON string
 
 	err := s.db.QueryRowContext(ctx, query).Scan(
 		&installation.ID,
@@ -530,8 +547,8 @@ func (s *TrainingProgramStore) GetActiveInstallation(ctx context.Context) (*doma
 		&mappingJSON,
 		&installation.CurrentWeek,
 		&installation.Status,
-		&createdAt,
-		&updatedAt,
+		&installation.CreatedAt,
+		&installation.UpdatedAt,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrInstallationNotFound
@@ -540,9 +557,7 @@ func (s *TrainingProgramStore) GetActiveInstallation(ctx context.Context) (*doma
 		return nil, err
 	}
 
-	installation.StartDate, _ = time.Parse("2006-01-02", startDate)
-	installation.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", createdAt)
-	installation.UpdatedAt, _ = time.Parse("2006-01-02 15:04:05", updatedAt)
+	installation.StartDate = startDate
 
 	if err := json.Unmarshal([]byte(mappingJSON), &installation.WeekDayMapping); err != nil {
 		installation.WeekDayMapping = []int{}
@@ -564,11 +579,12 @@ func (s *TrainingProgramStore) GetInstallationByID(ctx context.Context, id int64
 		SELECT id, program_id, start_date, week_day_mapping, current_week, status,
 			   created_at, updated_at
 		FROM program_installations
-		WHERE id = ?
+		WHERE id = $1
 	`
 
 	var installation domain.ProgramInstallation
-	var startDate, mappingJSON, createdAt, updatedAt string
+	var startDate time.Time
+	var mappingJSON string
 
 	err := s.db.QueryRowContext(ctx, query, id).Scan(
 		&installation.ID,
@@ -577,8 +593,8 @@ func (s *TrainingProgramStore) GetInstallationByID(ctx context.Context, id int64
 		&mappingJSON,
 		&installation.CurrentWeek,
 		&installation.Status,
-		&createdAt,
-		&updatedAt,
+		&installation.CreatedAt,
+		&installation.UpdatedAt,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrInstallationNotFound
@@ -587,9 +603,7 @@ func (s *TrainingProgramStore) GetInstallationByID(ctx context.Context, id int64
 		return nil, err
 	}
 
-	installation.StartDate, _ = time.Parse("2006-01-02", startDate)
-	installation.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", createdAt)
-	installation.UpdatedAt, _ = time.Parse("2006-01-02 15:04:05", updatedAt)
+	installation.StartDate = startDate
 
 	if err := json.Unmarshal([]byte(mappingJSON), &installation.WeekDayMapping); err != nil {
 		installation.WeekDayMapping = []int{}
@@ -609,11 +623,11 @@ func (s *TrainingProgramStore) GetInstallationByID(ctx context.Context, id int64
 func (s *TrainingProgramStore) UpdateInstallationStatus(ctx context.Context, id int64, status domain.InstallationStatus) error {
 	const query = `
 		UPDATE program_installations
-		SET status = ?, updated_at = datetime('now')
-		WHERE id = ?
+		SET status = $1, updated_at = $2
+		WHERE id = $3
 	`
 
-	result, err := s.db.ExecContext(ctx, query, status, id)
+	result, err := s.db.ExecContext(ctx, query, status, time.Now(), id)
 	if err != nil {
 		return err
 	}
@@ -633,11 +647,11 @@ func (s *TrainingProgramStore) UpdateInstallationStatus(ctx context.Context, id 
 func (s *TrainingProgramStore) UpdateInstallationWeek(ctx context.Context, id int64, week int) error {
 	const query = `
 		UPDATE program_installations
-		SET current_week = ?, updated_at = datetime('now')
-		WHERE id = ?
+		SET current_week = $1, updated_at = $2
+		WHERE id = $3
 	`
 
-	result, err := s.db.ExecContext(ctx, query, week, id)
+	result, err := s.db.ExecContext(ctx, query, week, time.Now(), id)
 	if err != nil {
 		return err
 	}
@@ -655,7 +669,7 @@ func (s *TrainingProgramStore) UpdateInstallationWeek(ctx context.Context, id in
 
 // DeleteInstallation removes a program installation.
 func (s *TrainingProgramStore) DeleteInstallation(ctx context.Context, id int64) error {
-	result, err := s.db.ExecContext(ctx, "DELETE FROM program_installations WHERE id = ?", id)
+	result, err := s.db.ExecContext(ctx, "DELETE FROM program_installations WHERE id = $1", id)
 	if err != nil {
 		return err
 	}
