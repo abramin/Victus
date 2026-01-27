@@ -55,6 +55,7 @@ func NewServer(db store.DBTX) *Server {
 	// Create Ollama service for AI recipe naming (uses localhost:11434 by default)
 	ollamaURL := os.Getenv("OLLAMA_URL")
 	ollamaService := service.NewOllamaService(ollamaURL)
+	dailyLogService.SetOllamaService(ollamaService) // Enable AI insights
 
 	// Create solver service for Macro Tetris feature
 	solverService := service.NewSolverService(foodReferenceStore, ollamaService)
@@ -111,6 +112,7 @@ func NewServer(db store.DBTX) *Server {
 	mux.HandleFunc("PATCH /api/logs/{date}/fasting-override", srv.updateFastingOverride)
 	mux.HandleFunc("PATCH /api/logs/{date}/health-sync", srv.syncHealthData)
 	mux.HandleFunc("PATCH /api/logs/{date}/consumed-macros", srv.addConsumedMacros)
+	mux.HandleFunc("GET /api/logs/{date}/insight", srv.getDayInsight)
 
 	// Training config routes
 	mux.HandleFunc("GET /api/training-configs", srv.getTrainingConfigs)
@@ -124,6 +126,9 @@ func NewServer(db store.DBTX) *Server {
 	// Stats routes
 	mux.HandleFunc("GET /api/stats/weight-trend", srv.getWeightTrend)
 	mux.HandleFunc("GET /api/stats/history", srv.getHistorySummary)
+
+	// Calendar routes
+	mux.HandleFunc("GET /api/calendar/summary", srv.getCalendarSummary)
 
 	// Planned day types routes (Cockpit Dashboard)
 	mux.HandleFunc("GET /api/planned-days", srv.getPlannedDays)

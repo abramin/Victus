@@ -523,3 +523,65 @@ export const cursorBlink: Variants = {
     },
   },
 };
+// === NEURAL CALENDAR ANIMATIONS ===
+
+/**
+ * Cell heatmap glow animation for load-based visualization.
+ */
+export const cellHeatmapGlow: Variants = {
+  idle: { boxShadow: 'inset 0 0 0 rgba(255, 255, 255, 0)' },
+  glow: (intensity: number) => ({
+    boxShadow: `inset 0 0 ${intensity * 20}px rgba(${
+      intensity > 0.5 ? '239, 68, 68' : '59, 130, 246'
+    }, ${intensity * 0.3})`,
+    transition: { duration: 0.3 },
+  }),
+};
+
+/**
+ * Cell hover expansion for meso-tier semantic zoom.
+ */
+export const cellExpand: Variants = {
+  collapsed: { 
+    scale: 1, 
+    zIndex: 1,
+    boxShadow: 'none',
+  },
+  expanded: { 
+    scale: 1.12, 
+    zIndex: 50,
+    boxShadow: '0 20px 40px rgba(0, 0, 0, 0.4)',
+    transition: { type: 'spring', stiffness: 300, damping: 25 },
+  },
+};
+
+/**
+ * Drawer slide animation for Tactical Briefing side panel.
+ */
+export const drawerSlide: Variants = {
+  closed: { 
+    x: '100%',
+    opacity: 0,
+  },
+  open: { 
+    x: 0, 
+    opacity: 1,
+    transition: { type: 'spring', stiffness: 300, damping: 30 },
+  },
+};
+
+/**
+ * Data Ribbon path animation for calendar visualization.
+ */
+export const ribbonPath: Variants = {
+  hidden: { pathLength: 0, opacity: 0 },
+  visible: { 
+    pathLength: 1, 
+    opacity: 0.7,
+    transition: { duration: 1.5, ease: 'easeInOut' },
+  },
+  pulse: {
+    opacity: [0.5, 0.8, 0.5],
+    transition: { duration: 2, repeat: Infinity, ease: 'easeInOut' },
+  },
+};

@@ -126,6 +126,49 @@ func (s *OllamaService) IsAvailable(ctx context.Context) bool {
 	return s.enabled
 }
 
+// Generate sends a generic prompt to Ollama and returns the response.
+// Returns error if Ollama is unavailable or request fails.
+func (s *OllamaService) Generate(ctx context.Context, prompt string) (string, error) {
+	if !s.enabled {
+		return "", fmt.Errorf("ollama service is disabled")
+	}
+
+	req := ollamaRequest{
+		Model:  "llama3.2",
+		Prompt: prompt,
+		Stream: false,
+	}
+
+	body, err := json.Marshal(req)
+	if err != nil {
+		return "", err
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", s.baseURL+"/api/generate", bytes.NewReader(body))
+	if err != nil {
+		return "", err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := s.client.Do(httpReq)
+	if err != nil {
+		s.enabled = false
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("ollama returned status %d", resp.StatusCode)
+	}
+
+	var result ollamaResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", err
+	}
+
+	return strings.TrimSpace(result.Response), nil
+}
+
 // generateFallbackName creates a simple name when Ollama is unavailable.
 func generateFallbackName(ingredients []string) string {
 	if len(ingredients) == 0 {

@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"strings"
 	"time"
 
 	"victus/internal/domain"
@@ -15,6 +17,7 @@ type DailyLogService struct {
 	sessionStore   *store.TrainingSessionStore
 	profileStore   *store.ProfileStore
 	metabolicStore *store.MetabolicStore
+	ollamaService  *OllamaService
 }
 
 // NewDailyLogService creates a new DailyLogService.
@@ -30,6 +33,12 @@ func NewDailyLogService(ls *store.DailyLogStore, ss *store.TrainingSessionStore,
 // This is optional - if not set, Flux calculations are skipped.
 func (s *DailyLogService) SetMetabolicStore(ms *store.MetabolicStore) {
 	s.metabolicStore = ms
+}
+
+// SetOllamaService sets the Ollama service for AI-generated insights.
+// This is optional - if not set, insights will use templated fallbacks.
+func (s *DailyLogService) SetOllamaService(os *OllamaService) {
+	s.ollamaService = os
 }
 
 // Create creates a new daily log with calculated targets.
@@ -689,4 +698,267 @@ func (s *DailyLogService) calculateRecoveryAndAdjustments(ctx context.Context, d
 	adjustmentMultipliers := domain.CalculateAdjustmentMultipliers(adjustmentInput)
 
 	return &recoveryScore, &adjustmentMultipliers
+}
+
+// CalendarSummary represents the calendar visualization data
+type CalendarSummary struct {
+	Days          []CalendarSummaryPoint
+	Normalization NormalizationMetadata
+}
+
+// CalendarSummaryPoint represents a single day in the calendar
+type CalendarSummaryPoint struct {
+	Date                string
+	DayType             string
+	LoadNormalized      float64
+	CaloriesNormalized  float64
+	LoadRaw             float64
+	CaloriesRaw         int
+	HeatmapIntensity    float64
+	HasTraining         bool
+	PrimaryTrainingType *string
+	SessionsCount       int
+	AvgRpe              *int
+}
+
+// NormalizationMetadata provides context for denormalizing values
+type NormalizationMetadata struct {
+	MaxCalories int
+	MaxLoad     float64
+}
+
+// DayInsight represents AI-generated or templated insight for a day
+type DayInsight struct {
+	Insight   string
+	Generated bool
+}
+
+// GetCalendarSummary returns lightweight calendar visualization data with normalized values
+func (s *DailyLogService) GetCalendarSummary(ctx context.Context, startDate, endDate string) (*CalendarSummary, error) {
+	// Fetch daily targets for range
+	targets, err := s.logStore.ListDailyTargets(ctx, startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+
+	// Fetch training sessions for range
+	sessionsList, err := s.sessionStore.GetSessionsForDateRange(ctx, startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert sessions slice to map for O(1) lookups
+	sessionsMap := make(map[string]store.SessionsByDate)
+	for _, s := range sessionsList {
+		sessionsMap[s.Date] = s
+	}
+
+	// Calculate training load for each day
+	points := []CalendarSummaryPoint{}
+	maxLoad := 0.0
+	maxCalories := 0
+
+	for _, target := range targets {
+		daySessions, hasSessions := sessionsMap[target.Date]
+
+		// Calculate daily load
+		var loadRaw float64
+		if hasSessions {
+			loadRaw = domain.CalculateDailyLoad(daySessions.ActualSessions)
+		}
+
+		if loadRaw > maxLoad {
+			maxLoad = loadRaw
+		}
+		if target.Targets.TotalCalories > maxCalories {
+			maxCalories = target.Targets.TotalCalories
+		}
+
+		// Build point with raw values
+		point := CalendarSummaryPoint{
+			Date:          target.Date,
+			DayType:       string(target.Targets.DayType),
+			LoadRaw:       loadRaw,
+			CaloriesRaw:   target.Targets.TotalCalories,
+			HasTraining:   hasSessions && len(daySessions.ActualSessions) > 0,
+			SessionsCount: 0,
+		}
+
+		if hasSessions {
+			point.SessionsCount = len(daySessions.ActualSessions)
+		}
+
+		// Add primary training type and avg RPE
+		if hasSessions && len(daySessions.ActualSessions) > 0 {
+			primaryType := string(daySessions.ActualSessions[0].Type)
+			point.PrimaryTrainingType = &primaryType
+
+			// Calculate average RPE
+			totalRpe := 0
+			rpeCount := 0
+			for _, session := range daySessions.ActualSessions {
+				if session.PerceivedIntensity != nil {
+					totalRpe += *session.PerceivedIntensity
+					rpeCount++
+				}
+			}
+			if rpeCount > 0 {
+				avgRpe := totalRpe / rpeCount
+				point.AvgRpe = &avgRpe
+			}
+		}
+
+		points = append(points, point)
+	}
+
+	// Normalize values (0.0-1.0)
+	for i := range points {
+		if maxLoad > 0 {
+			points[i].LoadNormalized = points[i].LoadRaw / maxLoad
+			points[i].HeatmapIntensity = points[i].LoadNormalized
+		}
+		if maxCalories > 0 {
+			points[i].CaloriesNormalized = float64(points[i].CaloriesRaw) / float64(maxCalories)
+		}
+	}
+
+	return &CalendarSummary{
+		Days: points,
+		Normalization: NormalizationMetadata{
+			MaxCalories: maxCalories,
+			MaxLoad:     maxLoad,
+		},
+	}, nil
+}
+
+// GetDayInsight returns AI-generated or templated insight for a specific day
+func (s *DailyLogService) GetDayInsight(ctx context.Context, date string) (*DayInsight, error) {
+	// Fetch daily log with full details
+	log, err := s.logStore.GetByDate(ctx, date)
+	if err != nil {
+		return nil, err
+	}
+
+	// Build context data for Ollama
+	// Use actual sessions if available, otherwise use planned sessions
+	sessions := log.ActualSessions
+	if len(sessions) == 0 {
+		sessions = log.PlannedSessions
+	}
+
+	sessionTypes := []string{}
+	totalDuration := 0
+	totalRPE := 0
+	rpeCount := 0
+
+	for _, session := range sessions {
+		sessionTypes = append(sessionTypes, string(session.Type))
+		totalDuration += session.DurationMin
+		if session.PerceivedIntensity != nil {
+			totalRPE += *session.PerceivedIntensity
+			rpeCount++
+		}
+	}
+
+	avgRPE := 0
+	if rpeCount > 0 {
+		avgRPE = totalRPE / rpeCount
+	}
+
+	// Calculate protein percentage
+	proteinPercent := 0
+	if log.CalculatedTargets.TotalCalories > 0 {
+		proteinPercent = (log.ConsumedProteinG * 4 * 100) / log.CalculatedTargets.TotalCalories
+	}
+
+	// Fallback insight
+	fallbackInsight := generateTemplatedInsight(log, avgRPE, proteinPercent)
+
+	// Try AI-generated insight if Ollama service is available
+	if s.ollamaService != nil {
+		// Build prompt with safety checks for nil values
+		sleepHours := 0.0
+		if log.SleepHours != nil {
+			sleepHours = *log.SleepHours
+		}
+		hrvMs := 0
+		if log.HRVMs != nil {
+			hrvMs = *log.HRVMs
+		}
+
+		prompt := buildDayInsightPrompt(
+			sessionTypes, totalDuration, avgRPE,
+			string(log.DayType), proteinPercent,
+			log.ConsumedProteinG, log.CalculatedTargets.TotalProteinG,
+			log.ConsumedCarbsG, log.CalculatedTargets.TotalCarbsG,
+			sleepHours, int(log.SleepQuality), hrvMs,
+		)
+
+		// Call Ollama with context timeout
+		insightCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+
+		insight, err := s.ollamaService.Generate(insightCtx, prompt)
+		if err == nil && len(insight) > 0 {
+			return &DayInsight{
+				Insight:   insight,
+				Generated: true,
+			}, nil
+		}
+	}
+
+	// Return fallback
+	return &DayInsight{
+		Insight:   fallbackInsight,
+		Generated: false,
+	}, nil
+}
+
+// buildDayInsightPrompt creates the Ollama prompt for day insights
+func buildDayInsightPrompt(
+	sessionTypes []string, totalDuration, avgRPE int,
+	dayType string, proteinPercent int,
+	consumedProtein, targetProtein int,
+	consumedCarbs, targetCarbs int,
+	sleepHours float64, sleepQuality, hrvMs int,
+) string {
+	sessionStr := "No training"
+	if len(sessionTypes) > 0 {
+		sessionStr = fmt.Sprintf("%s (%d min, RPE %d/10)", 
+			strings.Join(sessionTypes, " + "), totalDuration, avgRPE)
+	}
+
+	return fmt.Sprintf(`You are a performance coach analyzing a training day. Generate a concise 1-2 sentence insight focusing on the correlation between fueling and physical output.
+
+Data:
+- Training: %s
+- Day Type: %s
+- Protein: %d%% of calories (%dg consumed vs %dg target)
+- Carbs: %dg consumed vs %dg target
+- Sleep: %.1fh (quality: %d/100)
+- HRV: %dms
+
+Format: Start with "[RESULT]:" followed by your insight. Be direct and data-driven.`,
+		sessionStr, dayType, proteinPercent,
+		consumedProtein, targetProtein,
+		consumedCarbs, targetCarbs,
+		sleepHours, sleepQuality, hrvMs)
+}
+
+// generateTemplatedInsight creates a fallback insight when Ollama is unavailable
+func generateTemplatedInsight(log *domain.DailyLog, avgRPE, proteinPercent int) string {
+	// Use actual sessions if available, otherwise use planned sessions
+	sessions := log.ActualSessions
+	if len(sessions) == 0 {
+		sessions = log.PlannedSessions
+	}
+
+	if len(sessions) == 0 {
+		return "[RESULT]: Rest day with no training sessions logged."
+	}
+
+	session := sessions[0]
+
+	return fmt.Sprintf("[RESULT]: %s session completed with %d%% protein intake.",
+		session.Type, proteinPercent)
 }

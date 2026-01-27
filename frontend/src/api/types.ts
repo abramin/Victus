@@ -1071,3 +1071,32 @@ export interface AuditStatus {
   mismatches: AuditMismatch[];
   checkedAt: string;
 }
+
+// === CALENDAR SUMMARY TYPES ===
+
+export interface CalendarSummaryPoint {
+  date: string;
+  dayType: DayType;
+  loadNormalized: number;
+  caloriesNormalized: number;
+  loadRaw: number;
+  caloriesRaw: number;
+  heatmapIntensity: number;
+  hasTraining: boolean;
+  primaryTrainingType?: TrainingType;
+  sessionsCount: number;
+  avgRpe?: number;
+}
+
+export interface CalendarSummaryResponse {
+  days: CalendarSummaryPoint[];
+  normalization: {
+    maxCalories: number;
+    maxLoad: number;
+  };
+}
+
+export interface DayInsightResponse {
+  insight: string;
+  generated: boolean;
+}

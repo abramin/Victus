@@ -37,6 +37,8 @@ import type {
   SolverRequest,
   SolverResponse,
   WeeklyDebrief,
+  CalendarSummaryResponse,
+  DayInsightResponse,
 } from './types';
 
 const API_BASE = '/api';
@@ -791,4 +793,29 @@ import type { AuditStatus } from './types';
 export async function getAuditStatus(signal?: AbortSignal): Promise<AuditStatus> {
   const response = await fetch(`${API_BASE}/audit/status`, { signal });
   return handleResponse<AuditStatus>(response);
+}
+
+// === CALENDAR SUMMARY ===
+
+export async function getCalendarSummary(
+  start: string,
+  end: string,
+  signal?: AbortSignal
+): Promise<CalendarSummaryResponse> {
+  const response = await fetch(
+    `${API_BASE}/calendar/summary?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`,
+    { signal }
+  );
+  return handleResponse<CalendarSummaryResponse>(response);
+}
+
+export async function getDayInsight(
+  date: string,
+  signal?: AbortSignal
+): Promise<DayInsightResponse> {
+  const response = await fetch(
+    `${API_BASE}/logs/${encodeURIComponent(date)}/insight`,
+    { signal }
+  );
+  return handleResponse<DayInsightResponse>(response);
 }

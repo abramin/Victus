@@ -1,15 +1,16 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import type { DayType, MealTargets, UserProfile, TrainingSession, ActualTrainingSession, DailyTargetsRangePoint } from '../../api/types';
 import { getDailyTargetsRange, upsertPlannedDay } from '../../api/client';
-import { DayTargetsPanel } from '../day-view';
+import { useCalendarSummary } from '../../hooks/useCalendarSummary';
 import { calculateMealTargets } from '../targets/mealTargets';
 import { CalendarDayCell, EmptyCalendarCell, type CalendarDayData } from './CalendarDayCell';
 import { CalendarLegend } from './CalendarLegend';
+import { DataRibbon } from './DataRibbon';
+import { TacticalBriefing } from './TacticalBriefing';
 import {
   CARB_KCAL_PER_G,
   PROTEIN_KCAL_PER_G,
   FAT_KCAL_PER_G,
-  TRAINING_LABELS,
 } from '../../constants';
 import { toDateKey } from '../../utils';
 
@@ -55,8 +56,6 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<'All Days' | 'Performance' | 'Fatburner' | 'Metabolize'>('All Days');
   const [showStats, setShowStats] = useState(false);
-  const [selectedDay, setSelectedDay] = useState<DayData | null>(null);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [rangeData, setRangeData] = useState<DailyTargetsRangePoint[]>([]);
   const [rangeLoading, setRangeLoading] = useState(false);
   const [rangeError, setRangeError] = useState<string | null>(null);
@@ -65,11 +64,22 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [dragSource, setDragSource] = useState<string | null>(null);
 
+  // Semantic zoom state
+  const [zoomMode, setZoomMode] = useState<'macro' | 'meso' | 'micro'>('macro');
+  const [hoveredCell, setHoveredCell] = useState<string | null>(null);
+  const [tacticalBriefingOpen, setTacticalBriefingOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
 
   // Today's date key for isPast comparison
   const todayKey = toDateKey(new Date());
+
+  // Fetch calendar summary for heatmap and ribbon visualization
+  const startDate = toDateKey(new Date(year, month, 1));
+  const endDate = toDateKey(new Date(year, month + 1, 0));
+  const { summary: calendarSummary } = useCalendarSummary(startDate, endDate);
 
   useEffect(() => {
     let isActive = true;
@@ -100,8 +110,8 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
   }, [year, month]);
 
   useEffect(() => {
-    setSelectedDay(null);
-    setIsDialogOpen(false);
+    setSelectedDate(null);
+    setTacticalBriefingOpen(false);
   }, [year, month]);
 
   // Build lookup map from range data
@@ -112,6 +122,21 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
     }
     return map;
   }, [rangeData]);
+
+  // Build lookup map from calendar summary for heatmap data
+  const summaryByDate = useMemo(() => {
+    const map = new Map<string, { heatmapIntensity: number; loadScore: number; avgRpe?: number }>();
+    if (calendarSummary?.days) {
+      for (const day of calendarSummary.days) {
+        map.set(day.date, {
+          heatmapIntensity: day.heatmapIntensity,
+          loadScore: day.loadRaw,
+          avgRpe: day.avgRpe,
+        });
+      }
+    }
+    return map;
+  }, [calendarSummary]);
 
   // Get first day of month and generate calendar grid
   const startingDayOfWeek = new Date(year, month, 1).getDay();
@@ -284,35 +309,6 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
     return toDateKey(date) < todayKey;
   };
 
-  const selectedMealTargets: MealTargets | null = selectedDay?.mealTargets ?? null;
-
-  const selectedDateLabel = selectedDay
-    ? selectedDay.date.toLocaleDateString('en-US', {
-      weekday: 'long',
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric',
-    })
-    : 'Select a day';
-
-  // Generate training context string for the modal
-  const getTrainingContext = (dayData: DayData): string | undefined => {
-    const sessions = dayData.actualSessions?.length ? dayData.actualSessions : dayData.plannedSessions;
-    if (!sessions || sessions.length === 0) return undefined;
-
-    const nonRestSessions = sessions.filter(s => s.type !== 'rest');
-    if (nonRestSessions.length === 0) return undefined;
-
-    const totalDuration = nonRestSessions.reduce((sum, s) => sum + s.durationMin, 0);
-    const primaryType = nonRestSessions[0].type;
-    const label = TRAINING_LABELS[primaryType];
-
-    if (nonRestSessions.length === 1) {
-      return `${label} (${totalDuration}min)`;
-    }
-    return `${label} +${nonRestSessions.length - 1} (${totalDuration}min total)`;
-  };
-
   // Refetch calendar data helper - used after optimistic update failures
   const refetchCalendarData = useCallback(async () => {
     const startDate = toDateKey(new Date(year, month, 1));
@@ -329,6 +325,27 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
   const handleDragEnd = useCallback(() => {
     setDragSource(null);
     setDropTarget(null);
+  }, []);
+
+  // Semantic zoom handlers
+  const handleCellHover = useCallback((date: string) => {
+    setHoveredCell(date);
+    setZoomMode('meso');
+  }, []);
+
+  const handleCellHoverLeave = useCallback(() => {
+    setHoveredCell(null);
+    setZoomMode('macro');
+  }, []);
+
+  const handleCellClick = useCallback((date: string) => {
+    setSelectedDate(date);
+    setTacticalBriefingOpen(true);
+  }, []);
+
+  const closeTacticalBriefing = useCallback(() => {
+    setTacticalBriefingOpen(false);
+    setSelectedDate(null);
   }, []);
 
   // Handle drag-and-drop day type swap between two days
@@ -410,18 +427,6 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
     }
   }, [refetchCalendarData]);
 
-  const openDayDialog = (dayData: DayData) => {
-    if (!dayData.hasData) {
-      return;
-    }
-    setSelectedDay(dayData);
-    setIsDialogOpen(true);
-  };
-
-  const closeDayDialog = () => {
-    setIsDialogOpen(false);
-  };
-
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -483,9 +488,14 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
       )}
 
       {/* Calendar Grid */}
-      <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
+      <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden relative">
+        {/* DataRibbon visualization (behind cells) */}
+        {calendarSummary?.days && (
+          <DataRibbon days={calendarSummary.days} columns={7} rowHeight={140} />
+        )}
+
         {/* Day Headers */}
-        <div className="grid grid-cols-7 bg-gray-800/50">
+        <div className="grid grid-cols-7 bg-gray-800/50 relative z-10">
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
             <div key={day} className="p-3 text-center text-sm font-medium text-gray-400">
               {day}
@@ -494,15 +504,14 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
         </div>
 
         {/* Calendar Days */}
-        <div className="grid grid-cols-7">
+        <div className="grid grid-cols-7 relative z-10">
           {calendarDays.map((dayData, index) => {
             if (!dayData) {
               return <EmptyCalendarCell key={`empty-${index}`} />;
             }
 
-            const isSelected = selectedDay?.date.getDate() === dayData.date.getDate()
-              && selectedDay?.date.getMonth() === dayData.date.getMonth()
-              && selectedDay?.date.getFullYear() === dayData.date.getFullYear();
+            const cellDateKey = toDateKey(dayData.date);
+            const isSelected = selectedDate === cellDateKey;
             const isFiltered = !matchesViewFilter(dayData);
 
             // Convert DayData to CalendarDayData for the cell component
@@ -515,9 +524,11 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
               plannedSessions: dayData.plannedSessions,
               actualSessions: dayData.actualSessions,
             };
-
-            const cellDateKey = toDateKey(dayData.date);
             const cellIsPast = isPast(dayData.date);
+
+            // Get heatmap and load data from summary
+            const summaryData = summaryByDate.get(cellDateKey);
+            const cellZoomMode = hoveredCell === cellDateKey ? 'meso' : zoomMode;
 
             return (
               <CalendarDayCell
@@ -528,7 +539,7 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
                 isFiltered={isFiltered}
                 isPast={cellIsPast}
                 showStats={showStats}
-                onClick={() => openDayDialog(dayData)}
+                onClick={() => handleCellClick(cellDateKey)}
                 onDayTypeChange={handleDayTypeChange}
                 isDropTarget={dropTarget === cellDateKey}
                 isValidDropTarget={!cellIsPast && dayData.hasData}
@@ -538,6 +549,13 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
                 isDragSource={dragSource === cellDateKey}
                 onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}
+                // Semantic zoom props
+                zoomMode={cellZoomMode}
+                heatmapIntensity={summaryData?.heatmapIntensity ?? 0}
+                loadScore={summaryData?.loadScore}
+                avgRpe={summaryData?.avgRpe}
+                onHover={() => handleCellHover(cellDateKey)}
+                onHoverLeave={handleCellHoverLeave}
               />
             );
           })}
@@ -562,60 +580,12 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
         </div>
       </details>
 
-      {selectedDay && selectedMealTargets && (
-        <div
-          className={`fixed inset-0 z-50 flex items-center justify-center transition ${
-            isDialogOpen ? 'pointer-events-auto' : 'pointer-events-none'
-          }`}
-          aria-hidden={!isDialogOpen}
-        >
-          <button
-            type="button"
-            aria-label="Close day view"
-            onClick={closeDayDialog}
-            className={`absolute inset-0 z-0 bg-black/70 backdrop-blur-sm transition-opacity duration-300 ${
-              isDialogOpen ? 'opacity-100' : 'opacity-0'
-            }`}
-          />
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label="Day view"
-            className={`relative z-10 w-full max-w-4xl mx-4 transition-all duration-300 ${
-              isDialogOpen ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95'
-            }`}
-          >
-            <div className="flex justify-end mb-3">
-              <button
-                type="button"
-                aria-label="Close day view"
-                onClick={closeDayDialog}
-                className="p-2 rounded-full bg-gray-900/80 border border-gray-700 text-gray-300 hover:text-white hover:border-gray-500 transition"
-              >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 6l12 12M18 6l-12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="relative">
-              <DayTargetsPanel
-                title="Day View"
-                dateLabel={selectedDateLabel}
-                dayType={selectedDay.dayType ?? 'fatburner'}
-                mealTargets={selectedMealTargets}
-                mealRatios={profile.mealRatios}
-                totalFruitG={selectedDay.fruitG ?? profile.fruitTargetG}
-                totalVeggiesG={selectedDay.veggiesG ?? profile.veggieTargetG}
-                waterL={selectedDay.waterL}
-                helperText="Adjusted to your current meal distribution."
-                trainingContext={getTrainingContext(selectedDay)}
-                mealGrams={selectedDay.mealGrams}
-                totalCalories={selectedDay.totalCalories}
-              />
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Tactical Briefing Drawer */}
+      <TacticalBriefing
+        isOpen={tacticalBriefingOpen}
+        date={selectedDate}
+        onClose={closeTacticalBriefing}
+      />
     </div>
   );
 }

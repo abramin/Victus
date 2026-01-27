@@ -7,3 +7,4 @@ export * from './format';
 export * from './math';
 export * from './equality';
 export * from './recovery';
+export * from './colors';

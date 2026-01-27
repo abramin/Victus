@@ -4,6 +4,8 @@ import type { UserProfile } from '../../api/types';
 import { BasicInfoStep } from './BasicInfoStep';
 import { ActivityGoalsStep } from './ActivityGoalsStep';
 import { FuelMixtureStep } from './FuelMixtureStep';
+import { TypewriterText } from './primitives/TypewriterText';
+import { SegmentedLoader } from './primitives/SegmentedLoader';
 import { CARB_KCAL_PER_G, PROTEIN_KCAL_PER_G, FAT_KCAL_PER_G } from '../../constants';
 
 interface OnboardingWizardProps {
@@ -110,25 +112,34 @@ export function OnboardingWizard({ onComplete, saving, error }: OnboardingWizard
   const progressPercent = ((currentStep + 1) / STEPS.length) * 100;
 
   return (
-    <div className="min-h-screen bg-black flex flex-col items-center px-4 py-12">
-      {/* Header */}
-      <div className="text-center mb-8">
-        <h1 className="text-4xl font-bold text-white mb-2">Welcome to Victus</h1>
+    <div className="min-h-screen bg-black flex flex-col items-center px-4 py-12 relative">
+      {/* Scanline overlay */}
+      <div className="fixed inset-0 pointer-events-none opacity-[0.03]" aria-hidden="true">
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-emerald-500/20 to-transparent h-32 animate-scanline" />
+      </div>
+
+      {/* Content with z-index layering */}
+      <div className="relative z-10 flex flex-col items-center w-full">
+        {/* Header */}
+        <div className="text-center mb-8">
+        <TypewriterText
+          text="INITIALIZING VICTUS_OS // USER_CALIBRATION"
+          className="text-3xl font-bold mb-2"
+        />
         <p className="text-gray-400">Let's set up your nutrition profile to get started</p>
       </div>
 
       {/* Progress Indicator */}
       <div className="w-full max-w-2xl mb-8">
-        <div className="flex justify-between items-center mb-2">
-          <span className="text-sm text-gray-400">Step {currentStep + 1} of {STEPS.length}</span>
-          <span className="text-sm text-gray-400">{Math.round(progressPercent)}% complete</span>
+        <div className="flex justify-between items-center mb-3">
+          <span className="text-sm font-mono text-emerald-400">
+            STEP_{currentStep + 1}_OF_{STEPS.length}
+          </span>
+          <span className="text-sm font-mono text-emerald-400">
+            {Math.round(progressPercent)}% COMPLETE
+          </span>
         </div>
-        <div className="h-1 bg-gray-800 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-white transition-all duration-300 ease-out"
-            style={{ width: `${progressPercent}%` }}
-          />
-        </div>
+        <SegmentedLoader progress={progressPercent} />
       </div>
 
       {/* Step Content */}
@@ -186,6 +197,7 @@ export function OnboardingWizard({ onComplete, saving, error }: OnboardingWizard
             </motion.button>
           )}
         </div>
+      </div>
       </div>
     </div>
   );
