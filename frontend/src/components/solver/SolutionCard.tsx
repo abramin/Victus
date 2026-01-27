@@ -67,6 +67,18 @@ function AlertTriangleIcon() {
   );
 }
 
+function SparklesIcon() {
+  return (
+    <svg className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
+      <path d="M5 3v4" />
+      <path d="M3 5h4" />
+      <path d="M19 17v4" />
+      <path d="M17 19h4" />
+    </svg>
+  );
+}
+
 /**
  * Get the appropriate icon for an ingredient based on its primary macro category.
  */
@@ -198,7 +210,7 @@ export function SolutionCard({ solution, onLogMeal, rank }: SolutionCardProps) {
         ))}
       </div>
 
-      {/* Tactical Prep - glowing instruction box */}
+      {/* Operational Steps - glowing instruction box */}
       {refinement?.tacticalPrep && (
         <motion.div
           variants={instructionGlow}
@@ -207,24 +219,45 @@ export function SolutionCard({ solution, onLogMeal, rank }: SolutionCardProps) {
           className="bg-emerald-900/20 border border-emerald-500/20 rounded-lg p-3 mb-4"
         >
           <span className="text-xs text-emerald-500 font-mono font-bold block mb-1">
-            TACTICAL PREP:
+            OPERATIONAL STEPS:
           </span>
           <p className="text-sm text-gray-300">{refinement.tacticalPrep}</p>
         </motion.div>
       )}
 
-      {/* Absurdity Alert */}
+      {/* Logistic Alert - Enhanced with pulsating border */}
       {refinement?.absurdityAlert && (
         <motion.div
           variants={absurdityAlertPulse}
           initial="idle"
           animate="warning"
-          className="flex items-start gap-2 bg-amber-900/20 border border-amber-500/30 rounded-lg p-3 mb-4"
+          className="flex items-start gap-2 bg-amber-900/30 border-2 border-amber-500/50 rounded-lg p-3 mb-4 shadow-[0_0_15px_rgba(245,158,11,0.3)]"
         >
           <AlertTriangleIcon />
-          <span className="text-xs text-amber-300 font-mono">
-            [LOGISTIC ALERT]: {refinement.absurdityAlert}
-          </span>
+          <div className="flex-1">
+            <span className="text-xs text-amber-400 font-mono font-bold block mb-1">
+              LOGISTIC ALERT:
+            </span>
+            <span className="text-sm text-amber-200">{refinement.absurdityAlert}</span>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Flavor Patch - Zero-calorie taste suggestions */}
+      {refinement?.flavorPatch && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="flex items-start gap-2 bg-cyan-900/20 border border-cyan-500/20 rounded-lg p-3 mb-4"
+        >
+          <SparklesIcon />
+          <div className="flex-1">
+            <span className="text-xs text-cyan-400 font-mono font-bold block mb-1">
+              FLAVOR PATCH:
+            </span>
+            <span className="text-sm text-cyan-200">{refinement.flavorPatch}</span>
+          </div>
         </motion.div>
       )}
 

@@ -278,8 +278,9 @@ type semanticRefinerPayload struct {
 // semanticRefinerResponse is the expected JSON response from Ollama.
 type semanticRefinerResponse struct {
 	MissionTitle      string  `json:"missionTitle"`
-	TacticalPrep      string  `json:"tacticalPrep"`
-	AbsurdityAlert    *string `json:"absurdityAlert"`
+	OperationalSteps  string  `json:"operationalSteps"`
+	LogisticAlert     *string `json:"logisticAlert"`
+	FlavorPatch       *string `json:"flavorPatch"`
 	ContextualInsight string  `json:"contextualInsight"`
 }
 
@@ -306,27 +307,28 @@ func (s *OllamaService) GenerateSemanticRefinement(
 		return fallback
 	}
 
-	prompt := fmt.Sprintf(`You are a tactical nutrition briefer for an elite performance system. Transform this meal solution into a mission briefing.
+	prompt := fmt.Sprintf(`You are the Victus Neural OS Chef. Transform this meal solution into a tactical field ration briefing.
 
 SOLUTION DATA:
 %s
 
-Generate a JSON response with EXACTLY these fields and nothing else:
+Generate a JSON response with EXACTLY these fields:
 {
-  "missionTitle": "Creative tactical name in CAPS (e.g., 'ANABOLIC RECOVERY STACK: BETA-7', 'PROTEIN SYNTHESIS PROTOCOL: ALPHA-3')",
-  "tacticalPrep": "Single sentence prep instruction (e.g., 'Layer Greek yogurt with berries, drizzle honey, and serve immediately.')",
-  "absurdityAlert": null or "Warning text if portions are excessive",
+  "missionTitle": "[MAIN INGREDIENT] [PREPARATION] // [CODE] in CAPS. Example: 'WHEY CHIA SLUDGE // MK-1'",
+  "operationalSteps": "Specific 1-sentence mechanical instruction. If ingredients are incompatible raw (dry whey + seeds), mandate a liquid binder. Example: 'Hydrate chia in 200ml water for 10 mins before folding in whey to create a bio-available pudding.'",
+  "logisticAlert": null or "Problem WITH the fix. Example: 'PROTEIN OVERLOAD DETECTED. Consume 50%% immediately; refrigerate remaining 50%% for +3hr post-op recovery.'",
+  "flavorPatch": null or "One zero-calorie additive. Example: 'Add cinnamon or sea salt to neutralize whey sweetness.'",
   "contextualInsight": "1-2 sentences on why this works for today's training/day type"
 }
 
 CRITICAL RULES:
-- Return ONLY valid JSON, no preamble or explanation
-- missionTitle must be in CAPS with a colon and alphanumeric designator
-- tacticalPrep must be a complete, actionable sentence
-- absurdityAlert should be null unless there's a real concern
-- contextualInsight should reference the day type or training if provided
+- Return ONLY valid JSON, no preamble
+- missionTitle: [INGREDIENT] [PREP] // [CODE] format in CAPS
+- operationalSteps: specific measurements/timing, mandate liquid binders for dry combos
+- logisticAlert: provide the SOLUTION, not just the problem
+- flavorPatch: only zero-calorie additions (spices, extracts, citrus zest)
 
-TONE: Military briefing meets sports nutrition. Crisp and professional.`, string(payloadJSON))
+TONE: Military briefing meets sports nutrition.`, string(payloadJSON))
 
 	req := ollamaRequest{
 		Model:  "llama3.2",
@@ -385,14 +387,15 @@ TONE: Military briefing meets sports nutrition. Crisp and professional.`, string
 	if len(refinerResp.MissionTitle) < 5 || len(refinerResp.MissionTitle) > 100 {
 		return fallback
 	}
-	if len(refinerResp.TacticalPrep) < 10 || len(refinerResp.TacticalPrep) > 300 {
+	if len(refinerResp.OperationalSteps) < 10 || len(refinerResp.OperationalSteps) > 300 {
 		return fallback
 	}
 
 	return domain.SemanticRefinement{
 		MissionTitle:      refinerResp.MissionTitle,
-		TacticalPrep:      refinerResp.TacticalPrep,
-		AbsurdityAlert:    refinerResp.AbsurdityAlert,
+		TacticalPrep:      refinerResp.OperationalSteps,
+		AbsurdityAlert:    refinerResp.LogisticAlert,
+		FlavorPatch:       refinerResp.FlavorPatch,
 		ContextualInsight: refinerResp.ContextualInsight,
 		GeneratedByLLM:    true,
 		Model:             "llama3.2",
@@ -432,6 +435,7 @@ func buildFallbackRefinement(solution domain.SolverSolution, absurdity *domain.A
 		MissionTitle:      missionTitle,
 		TacticalPrep:      tacticalPrep,
 		AbsurdityAlert:    absurdityAlert,
+		FlavorPatch:       nil,
 		ContextualInsight: solution.WhyText,
 		GeneratedByLLM:    false,
 		Model:             "",

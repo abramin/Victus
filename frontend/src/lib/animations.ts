@@ -487,16 +487,22 @@ export const instructionGlow: Variants = {
 
 /**
  * Absurdity alert warning animation.
- * Amber pulse for logistic warnings.
+ * Amber pulse with pulsating glow for logistic warnings.
  */
 export const absurdityAlertPulse: Variants = {
   idle: {
     opacity: 1,
+    boxShadow: '0 0 10px rgba(245, 158, 11, 0.2)',
   },
   warning: {
-    opacity: [1, 0.7, 1],
+    opacity: [1, 0.85, 1],
+    boxShadow: [
+      '0 0 10px rgba(245, 158, 11, 0.2)',
+      '0 0 20px rgba(245, 158, 11, 0.5)',
+      '0 0 10px rgba(245, 158, 11, 0.2)',
+    ],
     transition: {
-      duration: 1,
+      duration: 1.5,
       repeat: Infinity,
       ease: 'easeInOut',
     },
