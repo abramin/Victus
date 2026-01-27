@@ -385,3 +385,135 @@ export const successGlow: Variants = {
     transition: { duration: 0.5 },
   },
 };
+
+// === FUEL MIXTURE ANIMATIONS (Bio-Initialization) ===
+
+/**
+ * Liquid fill animation for macro tanks.
+ * Uses spring physics for organic fluid feel.
+ */
+export const liquidFill: Variants = {
+  empty: {
+    height: 0,
+  },
+  filled: (fillPercent: number) => ({
+    height: `${fillPercent}%`,
+    transition: {
+      type: 'spring',
+      stiffness: 80,
+      damping: 15,
+    },
+  }),
+};
+
+/**
+ * Overflow warning flicker for tanks exceeding max.
+ */
+export const overflowFlicker: Variants = {
+  idle: {
+    opacity: 0,
+  },
+  warning: {
+    opacity: [0.2, 0.5, 0.2],
+    transition: {
+      duration: 0.5,
+      repeat: Infinity,
+      ease: 'easeInOut',
+    },
+  },
+};
+
+/**
+ * Engage button pulsing glow animation.
+ */
+export const engagePulse: Variants = {
+  idle: {
+    boxShadow: '0 0 5px rgba(16, 185, 129, 0.3)',
+  },
+  pulse: {
+    boxShadow: [
+      '0 0 5px rgba(16, 185, 129, 0.3)',
+      '0 0 30px rgba(16, 185, 129, 0.6)',
+      '0 0 5px rgba(16, 185, 129, 0.3)',
+    ],
+    transition: {
+      duration: 1.5,
+      repeat: Infinity,
+      ease: 'easeInOut',
+    },
+  },
+};
+
+// === CHEF-IN-THE-LOOP ANIMATIONS (Semantic Refiner) ===
+
+/**
+ * Pulsing match score indicator for Blueprint Card.
+ * Creates a subtle breathing effect to draw attention.
+ */
+export const matchScorePulse: Variants = {
+  idle: { scale: 1, opacity: 1 },
+  pulse: {
+    scale: [1, 1.05, 1],
+    opacity: [1, 0.85, 1],
+    transition: {
+      duration: 2,
+      repeat: Infinity,
+      ease: 'easeInOut',
+    },
+  },
+};
+
+/**
+ * Glowing instruction box for tactical prep section.
+ * Emerald glow effect to distinguish AI-generated content.
+ */
+export const instructionGlow: Variants = {
+  idle: {
+    boxShadow: '0 0 0 rgba(16, 185, 129, 0)',
+  },
+  glow: {
+    boxShadow: [
+      '0 0 0 rgba(16, 185, 129, 0)',
+      '0 0 15px rgba(16, 185, 129, 0.3)',
+      '0 0 8px rgba(16, 185, 129, 0.15)',
+    ],
+    transition: {
+      duration: 1.5,
+      repeat: Infinity,
+      ease: 'easeInOut',
+    },
+  },
+};
+
+/**
+ * Absurdity alert warning animation.
+ * Amber pulse for logistic warnings.
+ */
+export const absurdityAlertPulse: Variants = {
+  idle: {
+    opacity: 1,
+  },
+  warning: {
+    opacity: [1, 0.7, 1],
+    transition: {
+      duration: 1,
+      repeat: Infinity,
+      ease: 'easeInOut',
+    },
+  },
+};
+
+/**
+ * Typewriter cursor blink animation.
+ */
+export const cursorBlink: Variants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: [1, 0, 1],
+    transition: {
+      duration: 1,
+      repeat: Infinity,
+      ease: 'steps(2)',
+    },
+  },
+};

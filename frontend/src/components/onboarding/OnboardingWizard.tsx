@@ -1,8 +1,9 @@
 import { useState } from 'react';
+import { motion } from 'framer-motion';
 import type { UserProfile } from '../../api/types';
 import { BasicInfoStep } from './BasicInfoStep';
 import { ActivityGoalsStep } from './ActivityGoalsStep';
-import { NutritionTargetsStep } from './NutritionTargetsStep';
+import { FuelMixtureStep } from './FuelMixtureStep';
 import { CARB_KCAL_PER_G, PROTEIN_KCAL_PER_G, FAT_KCAL_PER_G } from '../../constants';
 
 interface OnboardingWizardProps {
@@ -139,7 +140,7 @@ export function OnboardingWizard({ onComplete, saving, error }: OnboardingWizard
           <ActivityGoalsStep data={data} onChange={updateData} />
         )}
         {currentStep === 2 && (
-          <NutritionTargetsStep data={data} onChange={updateData} />
+          <FuelMixtureStep data={data} onChange={updateData} />
         )}
 
         {/* Error Display */}
@@ -173,14 +174,16 @@ export function OnboardingWizard({ onComplete, saving, error }: OnboardingWizard
               Next
             </button>
           ) : (
-            <button
+            <motion.button
               type="button"
               onClick={handleComplete}
               disabled={saving}
-              className="px-6 py-3 bg-white text-black rounded-lg font-medium hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-8 py-3 bg-emerald-600 text-white rounded-lg font-mono font-medium tracking-wide hover:bg-emerald-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed animate-engage-pulse"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
             >
-              {saving ? 'Saving...' : 'Complete Setup'}
-            </button>
+              {saving ? '> ENGAGING...' : '[ ENGAGE SYSTEMS ]'}
+            </motion.button>
           )}
         </div>
       </div>

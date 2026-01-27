@@ -25,6 +25,17 @@ func NewSolverService(foodStore *store.FoodReferenceStore, ollama *OllamaService
 // Uses the pantry foods from the database and optionally generates
 // creative recipe names via Ollama.
 func (s *SolverService) Solve(ctx context.Context, budget domain.MacroBudget) (*domain.SolverResponse, error) {
+	return s.SolveWithContext(ctx, budget, nil)
+}
+
+// SolveWithContext finds meal combinations with optional training context for semantic refinement.
+// When trainingCtx is provided, generates AI-enhanced recipe presentation with tactical names,
+// preparation instructions, and contextual insights.
+func (s *SolverService) SolveWithContext(
+	ctx context.Context,
+	budget domain.MacroBudget,
+	trainingCtx *domain.TrainingContextForSolver,
+) (*domain.SolverResponse, error) {
 	// Get pantry foods with nutritional data
 	pantry, err := s.foodStore.ListPantryFoods(ctx)
 	if err != nil {
@@ -48,14 +59,29 @@ func (s *SolverService) Solve(ctx context.Context, budget domain.MacroBudget) (*
 	// Run the solver algorithm
 	result := domain.SolveMacros(req)
 
-	// Enhance recipe names with Ollama (if available)
+	// Enhance solutions with Ollama (if available)
 	if s.ollama != nil && result.Computed {
 		for i := range result.Solutions {
+			// Get ingredient names for recipe naming
 			ingredientNames := make([]string, len(result.Solutions[i].Ingredients))
 			for j, ing := range result.Solutions[i].Ingredients {
 				ingredientNames[j] = ing.Food.FoodItem
 			}
+
+			// Generate simple recipe name (fallback if no refinement)
 			result.Solutions[i].RecipeName = s.ollama.GenerateRecipeName(ctx, ingredientNames)
+
+			// Check for absurdity (pure domain function)
+			absurdity := domain.CheckAbsurdity(result.Solutions[i])
+
+			// Generate semantic refinement with training context
+			refinement := s.ollama.GenerateSemanticRefinement(ctx, result.Solutions[i], trainingCtx, absurdity)
+			result.Solutions[i].Refinement = &refinement
+
+			// If LLM generated a mission title, use it as the recipe name
+			if refinement.GeneratedByLLM && refinement.MissionTitle != "" {
+				result.Solutions[i].RecipeName = refinement.MissionTitle
+			}
 		}
 	}
 

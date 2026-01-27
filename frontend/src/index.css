@@ -106,3 +106,33 @@ body {
 .animate-glow-pulse {
   animation: glow-pulse 1.5s ease-in-out infinite;
 }
+
+/* Liquid wave animation for fuel tanks surface */
+@keyframes liquid-wave {
+  0%, 100% {
+    transform: translateY(0) scaleY(1);
+  }
+  50% {
+    transform: translateY(-2px) scaleY(1.1);
+  }
+}
+
+.animate-liquid-wave {
+  animation: liquid-wave 2s ease-in-out infinite;
+}
+
+/* Engage button pulsing glow for Bio-Initialization */
+@keyframes engage-pulse {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(16, 185, 129, 0.3),
+                0 0 10px rgba(16, 185, 129, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 15px rgba(16, 185, 129, 0.5),
+                0 0 30px rgba(16, 185, 129, 0.3);
+  }
+}
+
+.animate-engage-pulse {
+  animation: engage-pulse 1.5s ease-in-out infinite;
+}

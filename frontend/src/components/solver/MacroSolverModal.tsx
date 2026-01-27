@@ -5,7 +5,12 @@ import { TerminalLoader } from './TerminalLoader';
 import { MacroStackVisualization } from './MacroStackVisualization';
 import { SolutionCard } from './SolutionCard';
 import { solveMacros } from '../../api/client';
-import type { SolverSolution, SolverRequest } from '../../api/types';
+import type {
+  SolverSolution,
+  SolverRequest,
+  DayType,
+  PlannedTrainingForSolver,
+} from '../../api/types';
 import { staggerContainer, fadeInUp } from '../../lib/animations';
 
 interface MacroSolverModalProps {
@@ -16,6 +21,21 @@ interface MacroSolverModalProps {
   remainingCarbsG: number;
   remainingFatG: number;
   onLogSolution?: (solution: SolverSolution) => void;
+  /** Optional training context for semantic refinement */
+  dayType?: DayType;
+  plannedTraining?: PlannedTrainingForSolver[];
+}
+
+/**
+ * Infer meal time from current hour.
+ * Breakfast: 5-10, Lunch: 11-15, Dinner: 16-21, Snack: otherwise
+ */
+function inferMealTime(): 'breakfast' | 'lunch' | 'dinner' | 'snack' {
+  const hour = new Date().getHours();
+  if (hour >= 5 && hour < 11) return 'breakfast';
+  if (hour >= 11 && hour < 16) return 'lunch';
+  if (hour >= 16 && hour < 22) return 'dinner';
+  return 'snack';
 }
 
 type ModalState = 'computing' | 'stacking' | 'results' | 'empty' | 'error';
@@ -31,6 +51,8 @@ export function MacroSolverModal({
   remainingCarbsG,
   remainingFatG,
   onLogSolution,
+  dayType,
+  plannedTraining,
 }: MacroSolverModalProps) {
   const [state, setState] = useState<ModalState>('computing');
   const [solutions, setSolutions] = useState<SolverSolution[]>([]);
@@ -50,6 +72,10 @@ export function MacroSolverModal({
         remainingCarbsG: Math.max(0, Math.round(remainingCarbsG)),
         remainingFatG: Math.max(0, Math.round(remainingFatG)),
         remainingCalories: Math.max(0, Math.round(remainingCalories)),
+        // Training context for semantic refinement
+        dayType,
+        plannedTraining,
+        mealTime: inferMealTime(),
       };
 
       // Run API call and minimum delay in parallel
@@ -77,7 +103,7 @@ export function MacroSolverModal({
       setError(err instanceof Error ? err.message : 'Failed to solve macros');
       setState('error');
     }
-  }, [remainingCalories, remainingProteinG, remainingCarbsG, remainingFatG]);
+  }, [remainingCalories, remainingProteinG, remainingCarbsG, remainingFatG, dayType, plannedTraining]);
 
   useEffect(() => {
     if (!isOpen) {

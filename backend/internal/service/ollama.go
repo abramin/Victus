@@ -261,6 +261,221 @@ Return ONLY the narrative text, no preamble or explanation.`, string(payloadJSON
 	}
 }
 
+// semanticRefinerPayload is the JSON structure sent to Ollama for semantic refinement.
+type semanticRefinerPayload struct {
+	Ingredients     []string `json:"ingredients"`
+	TotalCalories   int      `json:"totalCalories"`
+	TotalProteinG   float64  `json:"totalProteinG"`
+	TotalCarbsG     float64  `json:"totalCarbsG"`
+	TotalFatG       float64  `json:"totalFatG"`
+	MatchScore      float64  `json:"matchScore"`
+	DayType         string   `json:"dayType,omitempty"`
+	PlannedTraining []string `json:"plannedTraining,omitempty"`
+	MealTime        string   `json:"mealTime,omitempty"`
+	AbsurdityHint   string   `json:"absurdityHint,omitempty"`
+}
+
+// semanticRefinerResponse is the expected JSON response from Ollama.
+type semanticRefinerResponse struct {
+	MissionTitle      string  `json:"missionTitle"`
+	TacticalPrep      string  `json:"tacticalPrep"`
+	AbsurdityAlert    *string `json:"absurdityAlert"`
+	ContextualInsight string  `json:"contextualInsight"`
+}
+
+// GenerateSemanticRefinement creates tactical presentation for a solver solution.
+// Returns AI-enhanced recipe naming, preparation instructions, and contextual insights.
+// Falls back to domain-generated content if Ollama is unavailable.
+func (s *OllamaService) GenerateSemanticRefinement(
+	ctx context.Context,
+	solution domain.SolverSolution,
+	trainingCtx *domain.TrainingContextForSolver,
+	absurdity *domain.AbsurdityWarning,
+) domain.SemanticRefinement {
+	fallback := buildFallbackRefinement(solution, absurdity)
+
+	if !s.enabled {
+		return fallback
+	}
+
+	// Build the payload
+	payload := buildSemanticRefinerPayload(solution, trainingCtx, absurdity)
+
+	payloadJSON, err := json.Marshal(payload)
+	if err != nil {
+		return fallback
+	}
+
+	prompt := fmt.Sprintf(`You are a tactical nutrition briefer for an elite performance system. Transform this meal solution into a mission briefing.
+
+SOLUTION DATA:
+%s
+
+Generate a JSON response with EXACTLY these fields and nothing else:
+{
+  "missionTitle": "Creative tactical name in CAPS (e.g., 'ANABOLIC RECOVERY STACK: BETA-7', 'PROTEIN SYNTHESIS PROTOCOL: ALPHA-3')",
+  "tacticalPrep": "Single sentence prep instruction (e.g., 'Layer Greek yogurt with berries, drizzle honey, and serve immediately.')",
+  "absurdityAlert": null or "Warning text if portions are excessive",
+  "contextualInsight": "1-2 sentences on why this works for today's training/day type"
+}
+
+CRITICAL RULES:
+- Return ONLY valid JSON, no preamble or explanation
+- missionTitle must be in CAPS with a colon and alphanumeric designator
+- tacticalPrep must be a complete, actionable sentence
+- absurdityAlert should be null unless there's a real concern
+- contextualInsight should reference the day type or training if provided
+
+TONE: Military briefing meets sports nutrition. Crisp and professional.`, string(payloadJSON))
+
+	req := ollamaRequest{
+		Model:  "llama3.2",
+		Prompt: prompt,
+		Stream: false,
+	}
+
+	body, err := json.Marshal(req)
+	if err != nil {
+		return fallback
+	}
+
+	// Use 15s timeout (between recipe name 10s and debrief 30s)
+	refinerCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+
+	httpReq, err := http.NewRequestWithContext(refinerCtx, "POST", s.baseURL+"/api/generate", bytes.NewReader(body))
+	if err != nil {
+		return fallback
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := s.client.Do(httpReq)
+	if err != nil {
+		s.enabled = false
+		return fallback
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fallback
+	}
+
+	var ollamaResp ollamaResponse
+	if err := json.NewDecoder(resp.Body).Decode(&ollamaResp); err != nil {
+		return fallback
+	}
+
+	// Parse the JSON response from Ollama
+	responseText := strings.TrimSpace(ollamaResp.Response)
+
+	// Try to extract JSON from the response (in case there's preamble)
+	jsonStart := strings.Index(responseText, "{")
+	jsonEnd := strings.LastIndex(responseText, "}")
+	if jsonStart == -1 || jsonEnd == -1 || jsonEnd <= jsonStart {
+		return fallback
+	}
+	responseText = responseText[jsonStart : jsonEnd+1]
+
+	var refinerResp semanticRefinerResponse
+	if err := json.Unmarshal([]byte(responseText), &refinerResp); err != nil {
+		return fallback
+	}
+
+	// Validate the response
+	if len(refinerResp.MissionTitle) < 5 || len(refinerResp.MissionTitle) > 100 {
+		return fallback
+	}
+	if len(refinerResp.TacticalPrep) < 10 || len(refinerResp.TacticalPrep) > 300 {
+		return fallback
+	}
+
+	return domain.SemanticRefinement{
+		MissionTitle:      refinerResp.MissionTitle,
+		TacticalPrep:      refinerResp.TacticalPrep,
+		AbsurdityAlert:    refinerResp.AbsurdityAlert,
+		ContextualInsight: refinerResp.ContextualInsight,
+		GeneratedByLLM:    true,
+		Model:             "llama3.2",
+	}
+}
+
+// buildFallbackRefinement creates a semantic refinement when Ollama is unavailable.
+func buildFallbackRefinement(solution domain.SolverSolution, absurdity *domain.AbsurdityWarning) domain.SemanticRefinement {
+	// Generate a simple tactical name from ingredients
+	var missionTitle string
+	if len(solution.Ingredients) == 1 {
+		missionTitle = fmt.Sprintf("SIMPLE %s PROTOCOL", strings.ToUpper(solution.Ingredients[0].Food.FoodItem))
+	} else if len(solution.Ingredients) == 2 {
+		missionTitle = fmt.Sprintf("%s & %s STACK",
+			strings.ToUpper(solution.Ingredients[0].Food.FoodItem),
+			strings.ToUpper(solution.Ingredients[1].Food.FoodItem))
+	} else {
+		missionTitle = fmt.Sprintf("%s MIX: STANDARD", strings.ToUpper(solution.Ingredients[0].Food.FoodItem))
+	}
+
+	// Truncate if too long
+	if len(missionTitle) > 50 {
+		missionTitle = missionTitle[:50]
+	}
+
+	// Simple tactical prep
+	tacticalPrep := "Combine ingredients and serve."
+
+	// Use absurdity warning if provided
+	var absurdityAlert *string
+	if absurdity != nil {
+		alert := absurdity.Description
+		absurdityAlert = &alert
+	}
+
+	return domain.SemanticRefinement{
+		MissionTitle:      missionTitle,
+		TacticalPrep:      tacticalPrep,
+		AbsurdityAlert:    absurdityAlert,
+		ContextualInsight: solution.WhyText,
+		GeneratedByLLM:    false,
+		Model:             "",
+	}
+}
+
+// buildSemanticRefinerPayload converts solver solution to the LLM payload format.
+func buildSemanticRefinerPayload(
+	solution domain.SolverSolution,
+	trainingCtx *domain.TrainingContextForSolver,
+	absurdity *domain.AbsurdityWarning,
+) semanticRefinerPayload {
+	ingredients := make([]string, len(solution.Ingredients))
+	for i, ing := range solution.Ingredients {
+		ingredients[i] = fmt.Sprintf("%s %s", ing.Display, ing.Food.FoodItem)
+	}
+
+	payload := semanticRefinerPayload{
+		Ingredients:   ingredients,
+		TotalCalories: solution.TotalMacros.CaloriesKcal,
+		TotalProteinG: solution.TotalMacros.ProteinG,
+		TotalCarbsG:   solution.TotalMacros.CarbsG,
+		TotalFatG:     solution.TotalMacros.FatG,
+		MatchScore:    solution.MatchScore,
+	}
+
+	if trainingCtx != nil {
+		payload.DayType = string(trainingCtx.DayType)
+		payload.MealTime = trainingCtx.MealTime
+
+		// Format training sessions
+		for _, sess := range trainingCtx.PlannedSessions {
+			payload.PlannedTraining = append(payload.PlannedTraining,
+				fmt.Sprintf("%s %dmin", sess.Type, sess.DurationMin))
+		}
+	}
+
+	if absurdity != nil {
+		payload.AbsurdityHint = absurdity.Description
+	}
+
+	return payload
+}
+
 // buildDebriefPayload converts domain types to the LLM payload format.
 func buildDebriefPayload(input domain.DebriefInput, debrief *domain.WeeklyDebrief) debriefLLMPayload {
 	var days []debriefDayShort
