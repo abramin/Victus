@@ -191,10 +191,12 @@ export function BodyMapVisualizer({
 
   const getMuscleColor = (muscle: MuscleGroup): string => {
     const data = muscleMap.get(muscle);
-    if (data && data.fatiguePercent > 0) {
-      // Use continuous color interpolation for organic gradient
+    if (data) {
+      // Always show interpolated color when we have muscle data
+      // 0% fatigue = indigo (fresh), scaling up through the spectrum
       return getInterpolatedColor(data.fatiguePercent);
     }
+    // Only show base skin tone if no data exists for this muscle
     return THEME.muscleBase;
   };
 
@@ -430,7 +432,7 @@ export function BodyMapVisualizer({
               <div className="flex items-center gap-2">
                 <div
                   className="w-3 h-3 rounded-sm"
-                  style={{ backgroundColor: tooltipData.color }}
+                  style={{ backgroundColor: getMuscleColor(hoveredMuscle!) }}
                 />
                 <span className="text-zinc-300">
                   {tooltipData.fatiguePercent}% Fatigue
