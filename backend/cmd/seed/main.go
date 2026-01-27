@@ -868,9 +868,9 @@ func createNutritionPlan(db *sql.DB, config SeedConfig) error {
 			target_carbs_g, target_protein_g, target_fats_g,
 			actual_weight_kg, actual_intake_kcal, days_logged,
 			created_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`
 
-		_, err := db.Exec(weekQuery,
+		_, err = db.Exec(weekQuery,
 			planID, week, weekStartDate.Format("2006-01-02"), weekEndDate.Format("2006-01-02"),
 			projectedWeight, projectedTDEE, targetIntake,
 			targetCarbs, targetProtein, targetFat,
@@ -893,7 +893,7 @@ func seedPlannedDayTypes(db *sql.DB, config SeedConfig, actualDayTypes map[strin
 
 	query := `
 	INSERT INTO planned_day_types (plan_date, day_type, created_at, updated_at)
-	VALUES (?, ?, ?, ?)`
+	VALUES ($1, $2, $3, $4)`
 
 	// Insert past 30 days (matching actual day types)
 	for dateStr, dayType := range actualDayTypes {
@@ -942,19 +942,18 @@ func seedPlanHistory(db *sql.DB, config SeedConfig) error {
 		name, start_date, start_weight_kg, goal_weight_kg, duration_weeks,
 		required_weekly_change_kg, required_daily_deficit_kcal, status,
 		created_at, updated_at
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`
 
-	result, err := db.Exec(query,
+	var completedPlanID int64
+	err := db.QueryRow(query,
 		"Summer Cut 2025",
 		completedStartDate.Format("2006-01-02"), completedStartWeight, completedGoalWeight, completedDuration,
 		completedWeeklyChange, completedDailyDeficit, "completed",
 		createdAt, createdAt,
-	)
+	).Scan(&completedPlanID)
 	if err != nil {
 		return fmt.Errorf("failed to insert completed plan: %w", err)
 	}
-
-	completedPlanID, _ := result.LastInsertId()
 
 	// Add weekly targets for completed plan (all 8 weeks with actual data)
 	for week := 1; week <= completedDuration; week++ {
@@ -975,9 +974,9 @@ func seedPlanHistory(db *sql.DB, config SeedConfig) error {
 			target_carbs_g, target_protein_g, target_fats_g,
 			actual_weight_kg, actual_intake_kcal, days_logged,
 			created_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`
 
-		_, err := db.Exec(weekQuery,
+		_, err = db.Exec(weekQuery,
 			completedPlanID, week, weekStartDate.Format("2006-01-02"), weekEndDate.Format("2006-01-02"),
 			projectedWeight, projectedTDEE, targetIntake,
 			int((float64(targetIntake)*0.45)/4), int((float64(targetIntake)*0.30)/4), int((float64(targetIntake)*0.25)/9),
@@ -997,17 +996,16 @@ func seedPlanHistory(db *sql.DB, config SeedConfig) error {
 	abandonedWeeklyChange := (abandonedGoalWeight - abandonedStartWeight) / float64(abandonedDuration)
 	abandonedDailyDeficit := abandonedWeeklyChange * 7700 / 7
 
-	result, err = db.Exec(query,
+	var abandonedPlanID int64
+	err = db.QueryRow(query,
 		"New Year Resolution",
 		abandonedStartDate.Format("2006-01-02"), abandonedStartWeight, abandonedGoalWeight, abandonedDuration,
 		abandonedWeeklyChange, abandonedDailyDeficit, "abandoned",
 		createdAt, createdAt,
-	)
+	).Scan(&abandonedPlanID)
 	if err != nil {
 		return fmt.Errorf("failed to insert abandoned plan: %w", err)
 	}
-
-	abandonedPlanID, _ := result.LastInsertId()
 
 	// Add weekly targets for abandoned plan (only 3 weeks have data)
 	for week := 1; week <= abandonedDuration; week++ {
@@ -1033,9 +1031,9 @@ func seedPlanHistory(db *sql.DB, config SeedConfig) error {
 			target_carbs_g, target_protein_g, target_fats_g,
 			actual_weight_kg, actual_intake_kcal, days_logged,
 			created_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`
 
-		_, err := db.Exec(weekQuery,
+		_, err = db.Exec(weekQuery,
 			abandonedPlanID, week, weekStartDate.Format("2006-01-02"), weekEndDate.Format("2006-01-02"),
 			projectedWeight, projectedTDEE, targetIntake,
 			int((float64(targetIntake)*0.45)/4), int((float64(targetIntake)*0.30)/4), int((float64(targetIntake)*0.25)/9),
