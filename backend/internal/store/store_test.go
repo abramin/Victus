@@ -378,6 +378,175 @@ func (s *DailyLogStoreSuite) TestLogMultipleDates() {
 	})
 }
 
+// --- ListAdaptiveDataPoints Tests ---
+// Justification: Tests edge cases for adaptive TDEE data retrieval not covered
+// by feature scenarios.
+
+func (s *DailyLogStoreSuite) TestListAdaptiveDataPointsEmptyHistory() {
+	s.Run("returns empty slice when no logs exist", func() {
+		result, err := s.store.ListAdaptiveDataPoints(s.ctx, "2026-01-15", 28)
+		s.Require().NoError(err)
+		s.Empty(result)
+	})
+}
+
+func (s *DailyLogStoreSuite) TestListAdaptiveDataPointsFiltersZeroCalories() {
+	s.Run("excludes logs with zero total calories", func() {
+		// Create log with calories
+		logWithCalories := &domain.DailyLog{
+			Date:         "2026-01-10",
+			WeightKg:     85,
+			SleepQuality: 80,
+			DayType:      domain.DayTypeFatburner,
+			CalculatedTargets: domain.DailyTargets{
+				TotalCalories: 1800,
+				DayType:       domain.DayTypeFatburner,
+			},
+			EstimatedTDEE: 2200,
+			FormulaTDEE:   2200,
+		}
+		_, err := s.store.Create(s.ctx, logWithCalories)
+		s.Require().NoError(err)
+
+		// Create log without calories (zero)
+		logWithoutCalories := &domain.DailyLog{
+			Date:         "2026-01-11",
+			WeightKg:     85,
+			SleepQuality: 80,
+			DayType:      domain.DayTypeFatburner,
+			CalculatedTargets: domain.DailyTargets{
+				TotalCalories: 0,
+				DayType:       domain.DayTypeFatburner,
+			},
+		}
+		_, err = s.store.Create(s.ctx, logWithoutCalories)
+		s.Require().NoError(err)
+
+		result, err := s.store.ListAdaptiveDataPoints(s.ctx, "2026-01-15", 28)
+		s.Require().NoError(err)
+		s.Len(result, 1, "Should only include logs with calories > 0")
+		s.Equal("2026-01-10", result[0].Date)
+	})
+}
+
+func (s *DailyLogStoreSuite) TestListAdaptiveDataPointsDateBoundary() {
+	s.Run("respects endDate boundary", func() {
+		dates := []string{"2026-01-10", "2026-01-15", "2026-01-20"}
+		for _, date := range dates {
+			log := &domain.DailyLog{
+				Date:         date,
+				WeightKg:     85,
+				SleepQuality: 80,
+				DayType:      domain.DayTypeFatburner,
+				CalculatedTargets: domain.DailyTargets{
+					TotalCalories: 1800,
+					DayType:       domain.DayTypeFatburner,
+				},
+				EstimatedTDEE: 2200,
+				FormulaTDEE:   2200,
+			}
+			_, err := s.store.Create(s.ctx, log)
+			s.Require().NoError(err)
+		}
+
+		// Query with endDate before the last log
+		result, err := s.store.ListAdaptiveDataPoints(s.ctx, "2026-01-15", 28)
+		s.Require().NoError(err)
+		s.Len(result, 2, "Should exclude logs after endDate")
+	})
+}
+
+func (s *DailyLogStoreSuite) TestListAdaptiveDataPointsMaxDaysLimit() {
+	s.Run("respects maxDays limit", func() {
+		// Create 10 logs
+		for i := 0; i < 10; i++ {
+			date := time.Date(2026, 1, 10+i, 0, 0, 0, 0, time.UTC).Format("2006-01-02")
+			log := &domain.DailyLog{
+				Date:         date,
+				WeightKg:     85,
+				SleepQuality: 80,
+				DayType:      domain.DayTypeFatburner,
+				CalculatedTargets: domain.DailyTargets{
+					TotalCalories: 1800,
+					DayType:       domain.DayTypeFatburner,
+				},
+				EstimatedTDEE: 2200,
+				FormulaTDEE:   2200,
+			}
+			_, err := s.store.Create(s.ctx, log)
+			s.Require().NoError(err)
+		}
+
+		// Request only 5 days
+		result, err := s.store.ListAdaptiveDataPoints(s.ctx, "2026-01-25", 5)
+		s.Require().NoError(err)
+		s.Len(result, 5, "Should respect maxDays limit")
+	})
+}
+
+func (s *DailyLogStoreSuite) TestListAdaptiveDataPointsWithGaps() {
+	s.Run("handles gaps in date sequence", func() {
+		// Create logs with gaps
+		dates := []string{"2026-01-05", "2026-01-10", "2026-01-15"} // Gaps between dates
+		for _, date := range dates {
+			log := &domain.DailyLog{
+				Date:         date,
+				WeightKg:     85,
+				SleepQuality: 80,
+				DayType:      domain.DayTypeFatburner,
+				CalculatedTargets: domain.DailyTargets{
+					TotalCalories: 1800,
+					DayType:       domain.DayTypeFatburner,
+				},
+				EstimatedTDEE: 2200,
+				FormulaTDEE:   2200,
+			}
+			_, err := s.store.Create(s.ctx, log)
+			s.Require().NoError(err)
+		}
+
+		result, err := s.store.ListAdaptiveDataPoints(s.ctx, "2026-01-20", 28)
+		s.Require().NoError(err)
+		s.Len(result, 3, "Should return all logs regardless of gaps")
+	})
+}
+
+func (s *DailyLogStoreSuite) TestListAdaptiveDataPointsFieldValues() {
+	s.Run("returns correct field values", func() {
+		log := &domain.DailyLog{
+			Date:         "2026-01-15",
+			WeightKg:     87.5,
+			SleepQuality: 80,
+			DayType:      domain.DayTypeFatburner,
+			CalculatedTargets: domain.DailyTargets{
+				TotalCalories: 1950,
+				DayType:       domain.DayTypeFatburner,
+			},
+			EstimatedTDEE: 2350,
+			FormulaTDEE:   2300,
+		}
+		_, err := s.store.Create(s.ctx, log)
+		s.Require().NoError(err)
+
+		result, err := s.store.ListAdaptiveDataPoints(s.ctx, "2026-01-15", 28)
+		s.Require().NoError(err)
+		s.Require().Len(result, 1)
+
+		point := result[0]
+		s.Equal("2026-01-15", point.Date)
+		s.InDelta(87.5, point.WeightKg, 0.01)
+		s.Equal(1950, point.TargetCalories)
+		s.Equal(2350, point.EstimatedTDEE)
+		s.Equal(2300, point.FormulaTDEE)
+	})
+}
+
+// Note: Concurrency tests for duplicate log creation are not included because
+// SQLite's in-memory mode (:memory:) doesn't support proper concurrent testing -
+// each goroutine may get a separate database connection with isolated state.
+// The duplicate constraint is already validated by TestLogDateUniqueness.
+// For production, the UNIQUE constraint on (log_date) enforces this at the DB level.
+
 // --- Training Session Store Suite ---
 
 type TrainingSessionStoreSuite struct {
