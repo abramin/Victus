@@ -51,7 +51,7 @@ func (s *TrainingConfigStore) GetByType(ctx context.Context, trainingType domain
 	const query = `
 		SELECT type, met, load_score
 		FROM training_configs
-		WHERE type = ?
+		WHERE type = $1
 	`
 
 	var cfg domain.TrainingTypeConfig

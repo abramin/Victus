@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"time"
 
 	"victus/internal/domain"
 )
@@ -27,7 +28,7 @@ func (s *PlannedDayTypeStore) GetByDate(ctx context.Context, date string) (*doma
 	const query = `
 		SELECT id, plan_date, day_type
 		FROM planned_day_types
-		WHERE plan_date = ?
+		WHERE plan_date = $1
 	`
 
 	var pdt domain.PlannedDayType
@@ -51,7 +52,7 @@ func (s *PlannedDayTypeStore) ListByDateRange(ctx context.Context, startDate, en
 	const query = `
 		SELECT id, plan_date, day_type
 		FROM planned_day_types
-		WHERE plan_date >= ? AND plan_date <= ?
+		WHERE plan_date >= $1 AND plan_date <= $2
 		ORDER BY plan_date ASC
 	`
 
@@ -81,18 +82,18 @@ func (s *PlannedDayTypeStore) ListByDateRange(ctx context.Context, startDate, en
 func (s *PlannedDayTypeStore) Upsert(ctx context.Context, pdt *domain.PlannedDayType) error {
 	const query = `
 		INSERT INTO planned_day_types (plan_date, day_type, updated_at)
-		VALUES (?, ?, datetime('now'))
+		VALUES ($1, $2, $3)
 		ON CONFLICT(plan_date) DO UPDATE SET
 			day_type = excluded.day_type,
-			updated_at = datetime('now')
+			updated_at = excluded.updated_at
 	`
 
-	_, err := s.db.ExecContext(ctx, query, pdt.Date, pdt.DayType)
+	_, err := s.db.ExecContext(ctx, query, pdt.Date, pdt.DayType, time.Now())
 	return err
 }
 
 // DeleteByDate removes the planned day type for the given date.
 func (s *PlannedDayTypeStore) DeleteByDate(ctx context.Context, date string) error {
-	_, err := s.db.ExecContext(ctx, "DELETE FROM planned_day_types WHERE plan_date = ?", date)
+	_, err := s.db.ExecContext(ctx, "DELETE FROM planned_day_types WHERE plan_date = $1", date)
 	return err
 }

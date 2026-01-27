@@ -51,10 +51,13 @@ func (s *NutritionPlanStore) Create(ctx context.Context, plan *domain.NutritionP
 			name, start_date, start_weight_kg, goal_weight_kg, duration_weeks,
 			required_weekly_change_kg, required_daily_deficit_kcal, status,
 			created_at, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		RETURNING id
 	`
 
-	result, err := tx.ExecContext(ctx, planQuery,
+	now := time.Now()
+	var planID int64
+	err = tx.QueryRowContext(ctx, planQuery,
 		plan.Name,
 		plan.StartDate.Format("2006-01-02"),
 		plan.StartWeightKg,
@@ -63,12 +66,9 @@ func (s *NutritionPlanStore) Create(ctx context.Context, plan *domain.NutritionP
 		plan.RequiredWeeklyChangeKg,
 		plan.RequiredDailyDeficitKcal,
 		plan.Status,
-	)
-	if err != nil {
-		return 0, err
-	}
-
-	planID, err := result.LastInsertId()
+		now,
+		now,
+	).Scan(&planID)
 	if err != nil {
 		return 0, err
 	}
@@ -80,7 +80,7 @@ func (s *NutritionPlanStore) Create(ctx context.Context, plan *domain.NutritionP
 			projected_weight_kg, projected_tdee, target_intake_kcal,
 			target_carbs_g, target_protein_g, target_fats_g,
 			days_logged
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 0)
 	`
 
 	for _, target := range plan.WeeklyTargets {
@@ -116,7 +116,7 @@ func (s *NutritionPlanStore) GetByID(ctx context.Context, id int64) (*domain.Nut
 			required_weekly_change_kg, required_daily_deficit_kcal, status,
 			created_at, updated_at
 		FROM nutrition_plans
-		WHERE id = ?
+		WHERE id = $1
 	`
 
 	var plan domain.NutritionPlan
@@ -178,11 +178,11 @@ func (s *NutritionPlanStore) GetActive(ctx context.Context) (*domain.NutritionPl
 func (s *NutritionPlanStore) UpdateStatus(ctx context.Context, id int64, status domain.PlanStatus) error {
 	const query = `
 		UPDATE nutrition_plans
-		SET status = ?, updated_at = datetime('now')
-		WHERE id = ?
+		SET status = $1, updated_at = $2
+		WHERE id = $3
 	`
 
-	result, err := s.db.ExecContext(ctx, query, status, id)
+	result, err := s.db.ExecContext(ctx, query, status, time.Now(), id)
 	if err != nil {
 		return err
 	}
@@ -202,8 +202,8 @@ func (s *NutritionPlanStore) UpdateStatus(ctx context.Context, id int64, status 
 func (s *NutritionPlanStore) UpdateWeeklyActuals(ctx context.Context, planID int64, weekNumber int, actualWeight *float64, actualIntake *int, daysLogged int) error {
 	const query = `
 		UPDATE weekly_targets
-		SET actual_weight_kg = ?, actual_intake_kcal = ?, days_logged = ?
-		WHERE plan_id = ? AND week_number = ?
+		SET actual_weight_kg = $1, actual_intake_kcal = $2, days_logged = $3
+		WHERE plan_id = $4 AND week_number = $5
 	`
 
 	result, err := s.db.ExecContext(ctx, query, actualWeight, actualIntake, daysLogged, planID, weekNumber)
@@ -234,10 +234,10 @@ func (s *NutritionPlanStore) UpdatePlan(ctx context.Context, plan *domain.Nutrit
 	// Update plan fields
 	const updatePlanQuery = `
 		UPDATE nutrition_plans
-		SET goal_weight_kg = ?, duration_weeks = ?,
-			required_weekly_change_kg = ?, required_daily_deficit_kcal = ?,
-			updated_at = datetime('now')
-		WHERE id = ?
+		SET goal_weight_kg = $1, duration_weeks = $2,
+			required_weekly_change_kg = $3, required_daily_deficit_kcal = $4,
+			updated_at = $5
+		WHERE id = $6
 	`
 
 	result, err := tx.ExecContext(ctx, updatePlanQuery,
@@ -245,6 +245,7 @@ func (s *NutritionPlanStore) UpdatePlan(ctx context.Context, plan *domain.Nutrit
 		plan.DurationWeeks,
 		plan.RequiredWeeklyChangeKg,
 		plan.RequiredDailyDeficitKcal,
+		time.Now(),
 		plan.ID,
 	)
 	if err != nil {
@@ -260,7 +261,7 @@ func (s *NutritionPlanStore) UpdatePlan(ctx context.Context, plan *domain.Nutrit
 	}
 
 	// Delete existing weekly targets
-	_, err = tx.ExecContext(ctx, "DELETE FROM weekly_targets WHERE plan_id = ?", plan.ID)
+	_, err = tx.ExecContext(ctx, "DELETE FROM weekly_targets WHERE plan_id = $1", plan.ID)
 	if err != nil {
 		return err
 	}
@@ -272,7 +273,7 @@ func (s *NutritionPlanStore) UpdatePlan(ctx context.Context, plan *domain.Nutrit
 			projected_weight_kg, projected_tdee, target_intake_kcal,
 			target_carbs_g, target_protein_g, target_fats_g,
 			actual_weight_kg, actual_intake_kcal, days_logged
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 	`
 
 	for _, target := range plan.WeeklyTargets {
@@ -301,7 +302,7 @@ func (s *NutritionPlanStore) UpdatePlan(ctx context.Context, plan *domain.Nutrit
 
 // Delete removes a nutrition plan and its weekly targets (cascade).
 func (s *NutritionPlanStore) Delete(ctx context.Context, id int64) error {
-	_, err := s.db.ExecContext(ctx, "DELETE FROM nutrition_plans WHERE id = ?", id)
+	_, err := s.db.ExecContext(ctx, "DELETE FROM nutrition_plans WHERE id = $1", id)
 	return err
 }
 
@@ -367,7 +368,7 @@ func (s *NutritionPlanStore) getWeeklyTargets(ctx context.Context, planID int64)
 			target_carbs_g, target_protein_g, target_fats_g,
 			actual_weight_kg, actual_intake_kcal, days_logged
 		FROM weekly_targets
-		WHERE plan_id = ?
+		WHERE plan_id = $1
 		ORDER BY week_number ASC
 	`
 

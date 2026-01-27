@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"time"
 
 	"victus/internal/domain"
 )
@@ -29,10 +30,12 @@ func (s *MetabolicStore) Create(ctx context.Context, record *domain.MetabolicHis
 			was_swing_constrained, bmr_floor_applied, adherence_gate_passed,
 			confidence, data_points_used, ema_weight_kg, bmr_value,
 			notification_pending
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		RETURNING id
 	`
 
-	result, err := s.db.ExecContext(ctx, query,
+	var id int64
+	err := s.db.QueryRowContext(ctx, query,
 		record.DailyLogID,
 		record.CalculatedTDEE,
 		record.PreviousTDEE,
@@ -46,12 +49,12 @@ func (s *MetabolicStore) Create(ctx context.Context, record *domain.MetabolicHis
 		record.EMAWeightKg,
 		record.BMRValue,
 		record.NotificationPending,
-	)
+	).Scan(&id)
 	if err != nil {
 		return 0, err
 	}
 
-	return result.LastInsertId()
+	return id, nil
 }
 
 // CreateWithTx inserts a new metabolic history record within a transaction.
@@ -62,10 +65,12 @@ func (s *MetabolicStore) CreateWithTx(ctx context.Context, tx *sql.Tx, record *d
 			was_swing_constrained, bmr_floor_applied, adherence_gate_passed,
 			confidence, data_points_used, ema_weight_kg, bmr_value,
 			notification_pending
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		RETURNING id
 	`
 
-	result, err := tx.ExecContext(ctx, query,
+	var id int64
+	err := tx.QueryRowContext(ctx, query,
 		record.DailyLogID,
 		record.CalculatedTDEE,
 		record.PreviousTDEE,
@@ -79,12 +84,12 @@ func (s *MetabolicStore) CreateWithTx(ctx context.Context, tx *sql.Tx, record *d
 		record.EMAWeightKg,
 		record.BMRValue,
 		record.NotificationPending,
-	)
+	).Scan(&id)
 	if err != nil {
 		return 0, err
 	}
 
-	return result.LastInsertId()
+	return id, nil
 }
 
 // GetLatest returns the most recent metabolic history record.
@@ -118,7 +123,7 @@ func (s *MetabolicStore) GetByDailyLogID(ctx context.Context, dailyLogID int64) 
 			confidence, data_points_used, ema_weight_kg, bmr_value,
 			notification_pending, notification_dismissed_at
 		FROM metabolic_history
-		WHERE daily_log_id = ?
+		WHERE daily_log_id = $1
 	`
 
 	record, err := s.scanRecord(s.db.QueryRowContext(ctx, query, dailyLogID))
@@ -164,11 +169,11 @@ func (s *MetabolicStore) GetPendingNotification(ctx context.Context) (*domain.Fl
 func (s *MetabolicStore) DismissNotification(ctx context.Context, id int64) error {
 	const query = `
 		UPDATE metabolic_history
-		SET notification_pending = 0, notification_dismissed_at = datetime('now')
-		WHERE id = ?
+		SET notification_pending = 0, notification_dismissed_at = $1
+		WHERE id = $2
 	`
 
-	result, err := s.db.ExecContext(ctx, query, id)
+	result, err := s.db.ExecContext(ctx, query, time.Now(), id)
 	if err != nil {
 		return err
 	}
@@ -195,7 +200,7 @@ func (s *MetabolicStore) ListForChart(ctx context.Context, weeks int) ([]domain.
 			mh.was_swing_constrained
 		FROM metabolic_history mh
 		JOIN daily_logs dl ON dl.id = mh.daily_log_id
-		WHERE mh.calculated_at >= date('now', '-' || ? || ' days')
+		WHERE mh.calculated_at >= CURRENT_DATE - $1 * INTERVAL '1 day'
 		ORDER BY mh.calculated_at ASC
 	`
 
@@ -250,7 +255,7 @@ func (s *MetabolicStore) CountRecentLogs(ctx context.Context, days int) (int, er
 	const query = `
 		SELECT COUNT(*)
 		FROM daily_logs
-		WHERE log_date >= date('now', '-' || ? || ' days')
+		WHERE log_date >= CURRENT_DATE - $1 * INTERVAL '1 day'
 		AND total_calories > 0
 	`
 
@@ -267,7 +272,7 @@ func (s *MetabolicStore) ListRecentWeights(ctx context.Context, days int) ([]dom
 	const query = `
 		SELECT log_date, weight_kg
 		FROM daily_logs
-		WHERE log_date >= date('now', '-' || ? || ' days')
+		WHERE log_date >= CURRENT_DATE - $1 * INTERVAL '1 day'
 		ORDER BY log_date ASC
 	`
 

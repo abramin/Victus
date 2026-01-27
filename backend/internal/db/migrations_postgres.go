@@ -6,6 +6,11 @@ import (
 	"strings"
 )
 
+// RunMigrations applies all database migrations.
+func RunMigrations(db *sql.DB) error {
+	return RunPostgresMigrations(db)
+}
+
 // RunPostgresMigrations applies all database migrations for PostgreSQL.
 func RunPostgresMigrations(db *sql.DB) error {
 	migrations := []string{

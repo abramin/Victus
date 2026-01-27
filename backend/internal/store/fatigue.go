@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"time"
 
 	"victus/internal/domain"
 )
@@ -89,7 +90,7 @@ func (s *FatigueStore) GetArchetypeByName(ctx context.Context, name domain.Arche
 	const query = `
 		SELECT id, name, display_name, muscle_coefficients
 		FROM training_archetypes
-		WHERE name = ?
+		WHERE name = $1
 	`
 
 	var a domain.ArchetypeConfig
@@ -159,7 +160,7 @@ func (s *FatigueStore) GetMuscleFatigue(ctx context.Context, muscleGroupID int) 
 		SELECT mf.muscle_group_id, mg.name, mf.fatigue_percent, mf.last_updated
 		FROM muscle_fatigue mf
 		JOIN muscle_groups mg ON mf.muscle_group_id = mg.id
-		WHERE mf.muscle_group_id = ?
+		WHERE mf.muscle_group_id = $1
 	`
 
 	var r MuscleFatigueRow
@@ -180,13 +181,13 @@ func (s *FatigueStore) GetMuscleFatigue(ctx context.Context, muscleGroupID int) 
 func (s *FatigueStore) UpsertMuscleFatigue(ctx context.Context, muscleGroupID int, fatiguePercent float64) error {
 	const query = `
 		INSERT INTO muscle_fatigue (muscle_group_id, fatigue_percent, last_updated)
-		VALUES (?, ?, datetime('now'))
+		VALUES ($1, $2, $3)
 		ON CONFLICT(muscle_group_id) DO UPDATE SET
 			fatigue_percent = excluded.fatigue_percent,
 			last_updated = excluded.last_updated
 	`
 
-	_, err := s.db.ExecContext(ctx, query, muscleGroupID, fatiguePercent)
+	_, err := s.db.ExecContext(ctx, query, muscleGroupID, fatiguePercent, time.Now())
 	return err
 }
 
@@ -194,13 +195,13 @@ func (s *FatigueStore) UpsertMuscleFatigue(ctx context.Context, muscleGroupID in
 func (s *FatigueStore) UpsertMuscleFatigueWithTx(ctx context.Context, tx *sql.Tx, muscleGroupID int, fatiguePercent float64) error {
 	const query = `
 		INSERT INTO muscle_fatigue (muscle_group_id, fatigue_percent, last_updated)
-		VALUES (?, ?, datetime('now'))
+		VALUES ($1, $2, $3)
 		ON CONFLICT(muscle_group_id) DO UPDATE SET
 			fatigue_percent = excluded.fatigue_percent,
 			last_updated = excluded.last_updated
 	`
 
-	_, err := tx.ExecContext(ctx, query, muscleGroupID, fatiguePercent)
+	_, err := tx.ExecContext(ctx, query, muscleGroupID, fatiguePercent, time.Now())
 	return err
 }
 
@@ -208,16 +209,16 @@ func (s *FatigueStore) UpsertMuscleFatigueWithTx(ctx context.Context, tx *sql.Tx
 func (s *FatigueStore) RecordFatigueEvent(ctx context.Context, tx *sql.Tx, trainingSessionID int64, archetypeID int, totalLoad float64) error {
 	const query = `
 		INSERT INTO fatigue_events (training_session_id, archetype_id, total_load, applied_at)
-		VALUES (?, ?, ?, datetime('now'))
+		VALUES ($1, $2, $3, $4)
 	`
 
-	_, err := tx.ExecContext(ctx, query, trainingSessionID, archetypeID, totalLoad)
+	_, err := tx.ExecContext(ctx, query, trainingSessionID, archetypeID, totalLoad, time.Now())
 	return err
 }
 
 // GetMuscleGroupIDByName retrieves the ID for a muscle group by name.
 func (s *FatigueStore) GetMuscleGroupIDByName(ctx context.Context, name domain.MuscleGroup) (int, error) {
-	const query = `SELECT id FROM muscle_groups WHERE name = ?`
+	const query = `SELECT id FROM muscle_groups WHERE name = $1`
 
 	var id int
 	err := s.db.QueryRowContext(ctx, query, name).Scan(&id)

@@ -27,22 +27,20 @@ func (s *BodyIssueStore) Create(ctx context.Context, input domain.BodyPartIssueI
 
 	const query = `
 		INSERT INTO body_part_issues (date, body_part, symptom, severity, raw_text, session_id, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		RETURNING id
 	`
 
-	result, err := s.db.ExecContext(ctx, query,
+	var id int64
+	err := s.db.QueryRowContext(ctx, query,
 		input.Date,
 		input.BodyPart,
 		input.Symptom,
 		severity,
 		input.RawText,
 		input.SessionID,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	id, err := result.LastInsertId()
+		time.Now(),
+	).Scan(&id)
 	if err != nil {
 		return nil, err
 	}
@@ -64,29 +62,28 @@ func (s *BodyIssueStore) CreateBatch(ctx context.Context, inputs []domain.BodyPa
 
 	const query = `
 		INSERT INTO body_part_issues (date, body_part, symptom, severity, raw_text, session_id, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		RETURNING id
 	`
 
 	var ids []int64
+	now := time.Now()
 	for _, input := range inputs {
 		severity := domain.GetSymptomSeverity(input.Symptom)
 		if severity == 0 {
 			severity = domain.IssueSeverityMinor
 		}
 
-		result, err := tx.ExecContext(ctx, query,
+		var id int64
+		err := tx.QueryRowContext(ctx, query,
 			input.Date,
 			input.BodyPart,
 			input.Symptom,
 			severity,
 			input.RawText,
 			input.SessionID,
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		id, err := result.LastInsertId()
+			now,
+		).Scan(&id)
 		if err != nil {
 			return nil, err
 		}
@@ -117,11 +114,11 @@ func (s *BodyIssueStore) GetByID(ctx context.Context, id int64) (*domain.BodyPar
 	const query = `
 		SELECT id, date, body_part, symptom, severity, raw_text, session_id, created_at
 		FROM body_part_issues
-		WHERE id = ?
+		WHERE id = $1
 	`
 
 	var issue domain.BodyPartIssue
-	var createdAtStr string
+	var createdAt time.Time
 
 	err := s.db.QueryRowContext(ctx, query, id).Scan(
 		&issue.ID,
@@ -131,7 +128,7 @@ func (s *BodyIssueStore) GetByID(ctx context.Context, id int64) (*domain.BodyPar
 		&issue.Severity,
 		&issue.RawText,
 		&issue.SessionID,
-		&createdAtStr,
+		&createdAt,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -140,7 +137,7 @@ func (s *BodyIssueStore) GetByID(ctx context.Context, id int64) (*domain.BodyPar
 		return nil, err
 	}
 
-	issue.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", createdAtStr)
+	issue.CreatedAt = createdAt
 	return &issue, nil
 }
 
@@ -149,7 +146,7 @@ func (s *BodyIssueStore) GetByDateRange(ctx context.Context, startDate, endDate 
 	const query = `
 		SELECT id, date, body_part, symptom, severity, raw_text, session_id, created_at
 		FROM body_part_issues
-		WHERE date >= ? AND date <= ?
+		WHERE date >= $1 AND date <= $2
 		ORDER BY date DESC, created_at DESC
 	`
 
@@ -162,7 +159,7 @@ func (s *BodyIssueStore) GetByDateRange(ctx context.Context, startDate, endDate 
 	var issues []domain.BodyPartIssue
 	for rows.Next() {
 		var issue domain.BodyPartIssue
-		var createdAtStr string
+		var createdAt time.Time
 
 		if err := rows.Scan(
 			&issue.ID,
@@ -172,12 +169,12 @@ func (s *BodyIssueStore) GetByDateRange(ctx context.Context, startDate, endDate 
 			&issue.Severity,
 			&issue.RawText,
 			&issue.SessionID,
-			&createdAtStr,
+			&createdAt,
 		); err != nil {
 			return nil, err
 		}
 
-		issue.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", createdAtStr)
+		issue.CreatedAt = createdAt
 		issues = append(issues, issue)
 	}
 
@@ -190,7 +187,7 @@ func (s *BodyIssueStore) GetActiveIssues(ctx context.Context) ([]domain.BodyPart
 	const query = `
 		SELECT id, date, body_part, symptom, severity, raw_text, session_id, created_at
 		FROM body_part_issues
-		WHERE date >= date('now', '-' || ? || ' days')
+		WHERE date >= CURRENT_DATE - $1 * INTERVAL '1 day'
 		ORDER BY date DESC, created_at DESC
 	`
 
@@ -203,7 +200,7 @@ func (s *BodyIssueStore) GetActiveIssues(ctx context.Context) ([]domain.BodyPart
 	var issues []domain.BodyPartIssue
 	for rows.Next() {
 		var issue domain.BodyPartIssue
-		var createdAtStr string
+		var createdAt time.Time
 
 		if err := rows.Scan(
 			&issue.ID,
@@ -213,12 +210,12 @@ func (s *BodyIssueStore) GetActiveIssues(ctx context.Context) ([]domain.BodyPart
 			&issue.Severity,
 			&issue.RawText,
 			&issue.SessionID,
-			&createdAtStr,
+			&createdAt,
 		); err != nil {
 			return nil, err
 		}
 
-		issue.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", createdAtStr)
+		issue.CreatedAt = createdAt
 		issues = append(issues, issue)
 	}
 
@@ -230,8 +227,8 @@ func (s *BodyIssueStore) GetActiveIssuesByMuscle(ctx context.Context, muscle dom
 	const query = `
 		SELECT id, date, body_part, symptom, severity, raw_text, session_id, created_at
 		FROM body_part_issues
-		WHERE body_part = ?
-		  AND date >= date('now', '-' || ? || ' days')
+		WHERE body_part = $1
+		  AND date >= CURRENT_DATE - $2 * INTERVAL '1 day'
 		ORDER BY date DESC, created_at DESC
 	`
 
@@ -244,7 +241,7 @@ func (s *BodyIssueStore) GetActiveIssuesByMuscle(ctx context.Context, muscle dom
 	var issues []domain.BodyPartIssue
 	for rows.Next() {
 		var issue domain.BodyPartIssue
-		var createdAtStr string
+		var createdAt time.Time
 
 		if err := rows.Scan(
 			&issue.ID,
@@ -254,12 +251,12 @@ func (s *BodyIssueStore) GetActiveIssuesByMuscle(ctx context.Context, muscle dom
 			&issue.Severity,
 			&issue.RawText,
 			&issue.SessionID,
-			&createdAtStr,
+			&createdAt,
 		); err != nil {
 			return nil, err
 		}
 
-		issue.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", createdAtStr)
+		issue.CreatedAt = createdAt
 		issues = append(issues, issue)
 	}
 
@@ -268,14 +265,14 @@ func (s *BodyIssueStore) GetActiveIssuesByMuscle(ctx context.Context, muscle dom
 
 // Delete removes a body part issue by ID.
 func (s *BodyIssueStore) Delete(ctx context.Context, id int64) error {
-	const query = `DELETE FROM body_part_issues WHERE id = ?`
+	const query = `DELETE FROM body_part_issues WHERE id = $1`
 	_, err := s.db.ExecContext(ctx, query, id)
 	return err
 }
 
 // DeleteByDate removes all body part issues for a specific date.
 func (s *BodyIssueStore) DeleteByDate(ctx context.Context, date string) error {
-	const query = `DELETE FROM body_part_issues WHERE date = ?`
+	const query = `DELETE FROM body_part_issues WHERE date = $1`
 	_, err := s.db.ExecContext(ctx, query, date)
 	return err
 }

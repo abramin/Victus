@@ -5,7 +5,7 @@ FRONTEND_PORT ?= 5173
 export BACKEND_PORT
 export FRONTEND_PORT
 
-.PHONY: app-up app-down app-clean wait-backend wait-frontend e2e e2e-native test seed
+.PHONY: app-up app-down app-clean db-clean wait-backend wait-frontend e2e e2e-native test seed
 
 app-up:
 	docker compose up -d --build backend frontend
@@ -16,6 +16,11 @@ app-down:
 
 app-clean:
 	docker compose down --remove-orphans --volumes --rmi local
+
+# Clean PostgreSQL database (removes volume and restarts services so migrations run)
+db-clean:
+	docker compose down --volumes
+	docker volume rm victus_postgres_data 2>/dev/null || true
 
 wait-backend:
 	@printf "Waiting for backend..."; \

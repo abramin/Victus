@@ -111,18 +111,18 @@ func (s *ProfileStore) Upsert(ctx context.Context, p *domain.UserProfile) error 
 			fasting_protocol, eating_window_start, eating_window_end,
 			created_at, updated_at
 		) VALUES (
-			1, ?, ?, ?, ?,
-			?, ?, ?, ?,
-			?, ?, ?,
-			?, ?, ?,
-			?, ?, ?,
-			?, ?,
-			?, ?,
-			?, ?, ?,
-			?, ?,
-			?,
-			?, ?, ?,
-			datetime('now'), datetime('now')
+			1, $1, $2, $3, $4,
+			$5, $6, $7, $8,
+			$9, $10, $11,
+			$12, $13, $14,
+			$15, $16, $17,
+			$18, $19,
+			$20, $21,
+			$22, $23, $24,
+			$25, $26,
+			$27,
+			$28, $29, $30,
+			$31, $32
 		)
 		ON CONFLICT(id) DO UPDATE SET
 			height_cm = excluded.height_cm,
@@ -155,7 +155,7 @@ func (s *ProfileStore) Upsert(ctx context.Context, p *domain.UserProfile) error 
 			fasting_protocol = excluded.fasting_protocol,
 			eating_window_start = excluded.eating_window_start,
 			eating_window_end = excluded.eating_window_end,
-			updated_at = datetime('now')
+			updated_at = excluded.updated_at
 	`
 
 	// Convert nullable fields for database
@@ -168,6 +168,7 @@ func (s *ProfileStore) Upsert(ctx context.Context, p *domain.UserProfile) error 
 		bodyFatPercent = p.BodyFatPercent
 	}
 
+	now := time.Now()
 	_, err := s.db.ExecContext(ctx, query,
 		p.HeightCM, p.BirthDate.Format("2006-01-02"), p.Sex, p.Goal,
 		currentWeightKg, p.TargetWeightKg, p.TimeframeWeeks, p.TargetWeeklyChangeKg,
@@ -180,6 +181,7 @@ func (s *ProfileStore) Upsert(ctx context.Context, p *domain.UserProfile) error 
 		p.TDEESource, p.ManualTDEE,
 		p.RecalibrationTolerance,
 		p.FastingProtocol, p.EatingWindowStart, p.EatingWindowEnd,
+		now, now,
 	)
 
 	return err

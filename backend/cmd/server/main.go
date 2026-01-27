@@ -19,22 +19,20 @@ func main() {
 	_ = loadEnvFile(".env")
 
 	port := getEnv("PORT", "8080")
-	dbPath := getEnv("DB_PATH", "data/victus.sqlite")
-	databaseURL := os.Getenv("DATABASE_URL")
 
-	database, err := db.Connect(db.Config{Path: dbPath, DatabaseURL: databaseURL})
+	database, err := db.Connect(db.Config{})
 	if err != nil {
 		log.Fatalf("failed to connect database: %v", err)
 	}
 	defer database.Close()
 
-	// Run migrations based on database type
-	if err := db.RunMigrationsWithType(database); err != nil {
+	// Run migrations
+	if err := db.RunMigrations(database.DB); err != nil {
 		log.Fatalf("failed to run migrations: %v", err)
 	}
 	log.Println("database migrations completed")
 
-	srv := api.NewServer(database.NewRebindDB())
+	srv := api.NewServer(database)
 
 	server := &http.Server{
 		Addr:         ":" + port,
@@ -49,15 +47,9 @@ func main() {
 		corsOrigin = "*"
 	}
 
-	// Log database info
-	dbInfo := dbPath
-	if database.Type == db.DBTypePostgres {
-		dbInfo = "PostgreSQL"
-	}
-
 	log.Println("victus backend starting")
 	log.Printf("  port: %s", port)
-	log.Printf("  database: %s", dbInfo)
+	log.Printf("  database: PostgreSQL")
 	log.Printf("  cors: %s", corsOrigin)
 
 	go func() {

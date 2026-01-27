@@ -32,7 +32,7 @@ func (s *TrainingSessionStore) createForLog(ctx context.Context, execer sqlExece
 		INSERT INTO training_sessions (
 			daily_log_id, session_order, is_planned, training_type,
 			duration_min, perceived_intensity, notes
-		) VALUES (?, ?, ?, ?, ?, ?, ?)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`
 
 	for _, session := range sessions {
@@ -68,7 +68,7 @@ func (s *TrainingSessionStore) GetByLogID(ctx context.Context, logID int64) ([]d
 		SELECT id, session_order, is_planned, training_type,
 		       duration_min, perceived_intensity, notes
 		FROM training_sessions
-		WHERE daily_log_id = ?
+		WHERE daily_log_id = $1
 		ORDER BY session_order
 	`
 
@@ -113,7 +113,7 @@ func (s *TrainingSessionStore) GetByLogID(ctx context.Context, logID int64) ([]d
 
 // DeleteByLogID removes all sessions for a daily log.
 func (s *TrainingSessionStore) DeleteByLogID(ctx context.Context, logID int64) error {
-	_, err := s.db.ExecContext(ctx, "DELETE FROM training_sessions WHERE daily_log_id = ?", logID)
+	_, err := s.db.ExecContext(ctx, "DELETE FROM training_sessions WHERE daily_log_id = $1", logID)
 	return err
 }
 
@@ -133,7 +133,7 @@ func (s *TrainingSessionStore) getSessionsByLogIDAndType(ctx context.Context, lo
 		SELECT id, session_order, is_planned, training_type,
 		       duration_min, perceived_intensity, notes
 		FROM training_sessions
-		WHERE daily_log_id = ? AND is_planned = ?
+		WHERE daily_log_id = $1 AND is_planned = $2
 		ORDER BY session_order
 	`
 
@@ -187,7 +187,7 @@ func (s *TrainingSessionStore) DeleteActualByLogIDWithTx(ctx context.Context, tx
 }
 
 func (s *TrainingSessionStore) deleteActualByLogID(ctx context.Context, execer sqlExecer, logID int64) error {
-	_, err := execer.ExecContext(ctx, "DELETE FROM training_sessions WHERE daily_log_id = ? AND is_planned = 0", logID)
+	_, err := execer.ExecContext(ctx, "DELETE FROM training_sessions WHERE daily_log_id = $1 AND is_planned = false", logID)
 	return err
 }
 
@@ -213,7 +213,7 @@ func (s *TrainingSessionStore) GetSessionsForDateRange(ctx context.Context, star
 			ts.notes
 		FROM daily_logs dl
 		LEFT JOIN training_sessions ts ON dl.id = ts.daily_log_id
-		WHERE dl.log_date >= ? AND dl.log_date <= ?
+		WHERE dl.log_date >= $1 AND dl.log_date <= $2
 		ORDER BY dl.log_date ASC, ts.is_planned DESC, ts.session_order ASC
 	`
 

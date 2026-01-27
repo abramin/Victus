@@ -5,16 +5,12 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
-	"path/filepath"
 	"time"
 
 	"victus/internal/db"
-
-	_ "modernc.org/sqlite"
 )
 
 type SeedConfig struct {
-	DBPath        string
 	StartDate     time.Time
 	WeeksOfData   int
 	InitialWeight float64
@@ -26,20 +22,18 @@ type SeedConfig struct {
 
 func main() {
 	// Create database connection
-	dbPath := filepath.Join(".", "data", "victus.sqlite")
-	database, err := db.Connect(db.Config{Path: dbPath})
+	database, err := db.Connect(db.Config{})
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 	defer database.Close()
 
 	// Run migrations to ensure tables exist
-	if err := db.RunMigrationsWithType(database); err != nil {
+	if err := db.RunMigrations(database.DB); err != nil {
 		log.Fatalf("Failed to run migrations: %v", err)
 	}
 
 	config := SeedConfig{
-		DBPath:        dbPath,
 		StartDate:     time.Now().AddDate(0, 0, -30), // Start 30 days ago
 		WeeksOfData:   5,                             // 5 weeks covers 30+ days
 		InitialWeight: 78.0,                          // kg - realistic starting weight
@@ -50,7 +44,7 @@ func main() {
 	}
 
 	fmt.Println("🌱 Seeding Victus database with 30 days of data...")
-	fmt.Printf("Database: %s\n", config.DBPath)
+	fmt.Println("Database: PostgreSQL")
 	fmt.Printf("Start Date: %s\n", config.StartDate.Format("2006-01-02"))
 
 	if err := seedDatabase(database.DB, config); err != nil {
@@ -117,7 +111,7 @@ func createUserProfile(db *sql.DB, config SeedConfig) error {
 
 	query := `
 	INSERT INTO user_profile (
-		id, height_cm, birth_date, sex, goal, 
+		id, height_cm, birth_date, sex, goal,
 		target_weight_kg, target_weekly_change_kg, timeframe_weeks,
 		current_weight_kg,
 		carb_ratio, protein_ratio, fat_ratio,
@@ -129,9 +123,9 @@ func createUserProfile(db *sql.DB, config SeedConfig) error {
 		maltodextrin_g, whey_g, collagen_g,
 		created_at, updated_at
 	) VALUES (
-		1, ?, ?, ?, ?,
-		?, ?, ?,
-		?,
+		1, $1, $2, $3, $4,
+		$5, $6, $7,
+		$8,
 		0.45, 0.30, 0.25,
 		0.30, 0.30, 0.40,
 		1.15, 4.35, 3.5,
@@ -139,7 +133,7 @@ func createUserProfile(db *sql.DB, config SeedConfig) error {
 		'mifflin_st_jeor', 20.0,
 		'formula', 0,
 		10, 20, 5,
-		?, ?
+		$9, $10
 	)`
 
 	_, err := db.Exec(query,
@@ -415,21 +409,21 @@ func insertDailyLog(db *sql.DB, params dailyLogParams) (int64, error) {
 		hrv_ms,
 		created_at, updated_at
 	) VALUES (
-		?, ?, ?, ?,
-		?, ?,
-		?, ?,
-		?, ?, ?,
-		?, ?, ?,
-		?, ?, ?,
-		?, ?, ?,
-		?, ?, ?,
-		?, ?, ?,
-		'formula', ?, ?, ?,
-		?,
-		?, ?
-	)`
+		$1, $2, $3, $4,
+		$5, $6,
+		$7, $8,
+		$9, $10, $11,
+		$12, $13, $14,
+		$15, $16, $17,
+		$18, $19, $20,
+		$21, $22, $23,
+		$24, $25, $26,
+		'formula', $27, $28, $29,
+		$30,
+		$31, $32
+	) RETURNING id`
 
-	now := time.Now().UTC().Format("2006-01-02 15:04:05")
+	now := time.Now().UTC()
 
 	// Calculate meal distributions
 	carbPerMeal := struct{ breakfast, lunch, dinner int }{
@@ -448,7 +442,8 @@ func insertDailyLog(db *sql.DB, params dailyLogParams) (int64, error) {
 		dinner:    int(float64(params.fatTargetG) * 0.35),
 	}
 
-	result, err := db.Exec(query,
+	var id int64
+	err := db.QueryRow(query,
 		params.date, params.weight, params.bodyFatPercent, params.restingHeartRate,
 		params.sleepQuality, params.sleepHours,
 		params.trainingType, params.trainingDurationMin,
@@ -461,13 +456,13 @@ func insertDailyLog(db *sql.DB, params dailyLogParams) (int64, error) {
 		params.tdeeConfidence, params.dataPointsUsed, params.formulaTdee,
 		params.hrvMs,
 		now, now,
-	)
+	).Scan(&id)
 
 	if err != nil {
 		return 0, err
 	}
 
-	return result.LastInsertId()
+	return id, nil
 }
 
 // trainingSessionResult holds info about an inserted session for fatigue processing
@@ -484,18 +479,14 @@ func insertTrainingSession(db *sql.DB, logID int64, trainingType string, duratio
 	INSERT INTO training_sessions (
 		daily_log_id, session_order, is_planned, training_type, duration_min, perceived_intensity, notes, archetype_id, created_at
 	) VALUES (
-		?, ?, ?, ?, ?, ?, ?, ?, ?
-	)`
+		$1, $2, $3, $4, $5, $6, $7, $8, $9
+	) RETURNING id`
 
 	// Get current max order for this log
 	var maxOrder int
-	plannedInt := 0
-	if isPlanned {
-		plannedInt = 1
-	}
 	err := db.QueryRow(
-		"SELECT COALESCE(MAX(session_order), 0) FROM training_sessions WHERE daily_log_id = ? AND is_planned = ?",
-		logID, plannedInt,
+		"SELECT COALESCE(MAX(session_order), 0) FROM training_sessions WHERE daily_log_id = $1 AND is_planned = $2",
+		logID, isPlanned,
 	).Scan(&maxOrder)
 	if err != nil {
 		return nil, err
@@ -503,7 +494,7 @@ func insertTrainingSession(db *sql.DB, logID int64, trainingType string, duratio
 
 	order := maxOrder + 1
 	intensity := rand.Intn(4) + 6 // RPE 6-9 (realistic training intensity)
-	now := time.Now().UTC().Format("2006-01-02 15:04:05")
+	now := time.Now().UTC()
 
 	// Add notes to ~20% of actual (non-planned) sessions
 	var notes *string
@@ -528,12 +519,8 @@ func insertTrainingSession(db *sql.DB, logID int64, trainingType string, duratio
 		archetypeIDPtr = &archetypeID
 	}
 
-	result, err := db.Exec(query, logID, order, plannedInt, trainingType, durationMin, intensity, notes, archetypeIDPtr, now)
-	if err != nil {
-		return nil, err
-	}
-
-	sessionID, err := result.LastInsertId()
+	var sessionID int64
+	err = db.QueryRow(query, logID, order, isPlanned, trainingType, durationMin, intensity, notes, archetypeIDPtr, now).Scan(&sessionID)
 	if err != nil {
 		return nil, err
 	}
@@ -766,7 +753,7 @@ func seedFatigueData(db *sql.DB, sessions []trainingSessionResult) error {
 		// Insert fatigue event record
 		eventQuery := `
 			INSERT INTO fatigue_events (training_session_id, archetype_id, total_load, applied_at)
-			VALUES (?, ?, ?, ?)`
+			VALUES ($1, $2, $3, $4)`
 		appliedAt := session.sessionTime.Format("2006-01-02 15:04:05")
 		_, err := db.Exec(eventQuery, session.sessionID, session.archetypeID, totalLoad, appliedAt)
 		if err != nil {
@@ -790,7 +777,7 @@ func seedFatigueData(db *sql.DB, sessions []trainingSessionResult) error {
 	// Insert current muscle fatigue state
 	fatigueQuery := `
 		INSERT INTO muscle_fatigue (muscle_group_id, fatigue_percent, last_updated)
-		VALUES (?, ?, datetime('now'))`
+		VALUES ($1, $2, NOW())`
 
 	musclesWithFatigue := 0
 	for muscle, fatigue := range muscleFatigue {
@@ -828,21 +815,17 @@ func createNutritionPlan(db *sql.DB, config SeedConfig) error {
 		name, start_date, start_weight_kg, goal_weight_kg, duration_weeks,
 		required_weekly_change_kg, required_daily_deficit_kcal, status,
 		created_at, updated_at
-	) VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)`
+	) VALUES ($1, $2, $3, $4, $5, $6, $7, 'active', $8, $9) RETURNING id`
 
-	result, err := db.Exec(query,
+	var planID int64
+	err := db.QueryRow(query,
 		"Weight Loss Plan",
 		planStartDate, startWeight, goalWeight, durationWeeks,
 		weeklyChange, dailyDeficit,
 		createdAt, createdAt,
-	)
+	).Scan(&planID)
 	if err != nil {
 		return fmt.Errorf("failed to insert nutrition plan: %w", err)
-	}
-
-	planID, err := result.LastInsertId()
-	if err != nil {
-		return fmt.Errorf("failed to get plan ID: %w", err)
 	}
 
 	// Create weekly targets for all 12 weeks

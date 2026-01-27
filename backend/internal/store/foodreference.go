@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"victus/internal/domain"
 )
@@ -56,7 +57,7 @@ func (s *FoodReferenceStore) ListByCategory(ctx context.Context, category domain
 	const query = `
 		SELECT id, category, food_item, plate_multiplier
 		FROM food_reference
-		WHERE category = ?
+		WHERE category = $1
 		ORDER BY food_item
 	`
 
@@ -90,8 +91,8 @@ func (s *FoodReferenceStore) ListByCategory(ctx context.Context, category domain
 func (s *FoodReferenceStore) UpdatePlateMultiplier(ctx context.Context, id int64, multiplier *float64) error {
 	const query = `
 		UPDATE food_reference
-		SET plate_multiplier = ?, updated_at = datetime('now')
-		WHERE id = ?
+		SET plate_multiplier = $1, updated_at = $2
+		WHERE id = $3
 	`
 
 	var val interface{}
@@ -99,7 +100,7 @@ func (s *FoodReferenceStore) UpdatePlateMultiplier(ctx context.Context, id int64
 		val = *multiplier
 	}
 
-	_, err := s.db.ExecContext(ctx, query, val, id)
+	_, err := s.db.ExecContext(ctx, query, val, time.Now(), id)
 	return err
 }
 

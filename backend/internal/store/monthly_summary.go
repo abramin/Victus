@@ -30,7 +30,7 @@ func (s *MonthlySummaryStore) Upsert(ctx context.Context, summary domain.Monthly
 	const query = `
 		INSERT INTO monthly_summaries
 			(year_month, activity_type, session_count, total_calories, avg_calories_per_session, data_source, raw_activity_name)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		ON CONFLICT (year_month, activity_type) DO UPDATE SET
 			session_count = EXCLUDED.session_count,
 			total_calories = COALESCE(EXCLUDED.total_calories, monthly_summaries.total_calories),
@@ -55,7 +55,7 @@ func (s *MonthlySummaryStore) Upsert(ctx context.Context, summary domain.Monthly
 	}
 
 	rowsAffected, _ := result.RowsAffected()
-	// SQLite returns 1 for both insert and update with ON CONFLICT
+	// PostgreSQL returns 1 for both insert and update with ON CONFLICT
 	// We'll assume it's a create since we can't easily distinguish
 	return rowsAffected > 0, nil
 }
@@ -65,9 +65,9 @@ func (s *MonthlySummaryStore) Upsert(ctx context.Context, summary domain.Monthly
 func (s *MonthlySummaryStore) UpdateCalories(ctx context.Context, yearMonth string, activityType domain.TrainingType, calories int) error {
 	const query = `
 		UPDATE monthly_summaries
-		SET total_calories = ?,
-		    avg_calories_per_session = CASE WHEN session_count > 0 THEN ? / session_count ELSE 0 END
-		WHERE year_month = ? AND activity_type = ?
+		SET total_calories = $1,
+		    avg_calories_per_session = CASE WHEN session_count > 0 THEN $2 / session_count ELSE 0 END
+		WHERE year_month = $3 AND activity_type = $4
 	`
 
 	result, err := s.db.ExecContext(ctx, query, calories, calories, yearMonth, string(activityType))
@@ -81,7 +81,7 @@ func (s *MonthlySummaryStore) UpdateCalories(ctx context.Context, yearMonth stri
 		const insertQuery = `
 			INSERT INTO monthly_summaries
 				(year_month, activity_type, session_count, total_calories, avg_calories_per_session, data_source, raw_activity_name)
-			VALUES (?, ?, 0, ?, 0, 'garmin_import', '')
+			VALUES ($1, $2, 0, $3, 0, 'garmin_import', '')
 		`
 		_, err = s.db.ExecContext(ctx, insertQuery, yearMonth, string(activityType), calories)
 		return err
@@ -96,7 +96,7 @@ func (s *MonthlySummaryStore) GetByYearMonth(ctx context.Context, yearMonth stri
 		SELECT id, year_month, activity_type, session_count, total_calories,
 		       avg_calories_per_session, data_source, raw_activity_name, created_at
 		FROM monthly_summaries
-		WHERE year_month = ?
+		WHERE year_month = $1
 		ORDER BY session_count DESC
 	`
 
@@ -116,7 +116,7 @@ func (s *MonthlySummaryStore) GetRange(ctx context.Context, from, to string) ([]
 		SELECT id, year_month, activity_type, session_count, total_calories,
 		       avg_calories_per_session, data_source, raw_activity_name, created_at
 		FROM monthly_summaries
-		WHERE year_month >= ? AND year_month <= ?
+		WHERE year_month >= $1 AND year_month <= $2
 		ORDER BY year_month DESC, session_count DESC
 	`
 
@@ -154,7 +154,7 @@ func (s *MonthlySummaryStore) scanSummaries(rows *sql.Rows) ([]domain.MonthlySum
 		var summary domain.MonthlySummary
 		var activityType string
 		var totalCalories, avgCals sql.NullInt64
-		var createdAt string
+		var createdAt time.Time
 
 		err := rows.Scan(
 			&summary.ID,
@@ -178,7 +178,7 @@ func (s *MonthlySummaryStore) scanSummaries(rows *sql.Rows) ([]domain.MonthlySum
 		if avgCals.Valid {
 			summary.AvgCaloriesPerSession = int(avgCals.Int64)
 		}
-		summary.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", createdAt)
+		summary.CreatedAt = createdAt
 
 		summaries = append(summaries, summary)
 	}

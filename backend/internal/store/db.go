@@ -6,7 +6,7 @@ import (
 )
 
 // DBTX is the interface for database operations.
-// Both *sql.DB and *db.RebindDB satisfy this interface.
+// Both *sql.DB and *db.DB satisfy this interface.
 type DBTX interface {
 	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
 	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
