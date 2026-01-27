@@ -6,12 +6,11 @@ import (
 	"testing"
 	"time"
 
-	"victus/internal/db"
 	"victus/internal/domain"
 	"victus/internal/store"
+	"victus/internal/testutil"
 
 	"github.com/stretchr/testify/suite"
-	_ "modernc.org/sqlite"
 )
 
 // Justification: Service integration tests verify orchestration of domain logic
@@ -19,6 +18,7 @@ import (
 
 type AnalysisServiceSuite struct {
 	suite.Suite
+	pg           *testutil.PostgresContainer
 	db           *sql.DB
 	planStore    *store.NutritionPlanStore
 	profileStore *store.ProfileStore
@@ -33,27 +33,21 @@ func TestAnalysisServiceSuite(t *testing.T) {
 	suite.Run(t, new(AnalysisServiceSuite))
 }
 
-func (s *AnalysisServiceSuite) SetupTest() {
-	var err error
-	s.db, err = sql.Open("sqlite", ":memory:")
-	s.Require().NoError(err)
+func (s *AnalysisServiceSuite) SetupSuite() {
+	s.pg = testutil.SetupPostgres(s.T())
+	s.db = s.pg.DB
+}
 
-	err = db.RunMigrations(s.db)
-	s.Require().NoError(err)
+func (s *AnalysisServiceSuite) SetupTest() {
+	s.ctx = context.Background()
+	s.Require().NoError(s.pg.ClearTables(s.ctx))
 
 	s.planStore = store.NewNutritionPlanStore(s.db)
 	s.profileStore = store.NewProfileStore(s.db)
 	s.logStore = store.NewDailyLogStore(s.db)
 	s.sessionStore = store.NewTrainingSessionStore(s.db)
 	s.service = NewAnalysisService(s.planStore, s.profileStore, s.logStore)
-	s.ctx = context.Background()
 	s.now = time.Date(2026, 1, 15, 12, 0, 0, 0, time.UTC)
-}
-
-func (s *AnalysisServiceSuite) TearDownTest() {
-	if s.db != nil {
-		s.db.Close()
-	}
 }
 
 func (s *AnalysisServiceSuite) createProfile() {

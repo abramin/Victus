@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"encoding/json"
 	"io"
@@ -10,37 +11,33 @@ import (
 	"testing"
 	"time"
 
-	"victus/internal/db"
+	"victus/internal/testutil"
 
 	"github.com/stretchr/testify/suite"
-	_ "modernc.org/sqlite"
 )
 
 type HandlerSuite struct {
 	suite.Suite
+	pg     *testutil.PostgresContainer
 	db     *sql.DB
 	server *Server
+	ctx    context.Context
 }
 
 func TestHandlerSuite(t *testing.T) {
 	suite.Run(t, new(HandlerSuite))
 }
 
-func (s *HandlerSuite) SetupTest() {
-	var err error
-	s.db, err = sql.Open("sqlite", ":memory:")
-	s.Require().NoError(err)
-
-	err = db.RunMigrations(s.db)
-	s.Require().NoError(err)
-
-	s.server = NewServer(s.db)
+func (s *HandlerSuite) SetupSuite() {
+	s.pg = testutil.SetupPostgres(s.T())
+	s.db = s.pg.DB
 }
 
-func (s *HandlerSuite) TearDownTest() {
-	if s.db != nil {
-		s.db.Close()
-	}
+func (s *HandlerSuite) SetupTest() {
+	s.ctx = context.Background()
+	s.Require().NoError(s.pg.ClearTables(s.ctx))
+
+	s.server = NewServer(s.db)
 }
 
 func (s *HandlerSuite) doRequest(method, path string, body interface{}) *httptest.ResponseRecorder {
@@ -95,7 +92,7 @@ func (s *HandlerSuite) createDailyLogForDate(date string) {
 func (s *HandlerSuite) insertLegacyLog(date string) {
 	_, err := s.db.Exec(
 		`INSERT INTO daily_logs (log_date, weight_kg, sleep_quality, planned_training_type, planned_duration_min)
-		 VALUES (?, ?, ?, ?, ?)`,
+		 VALUES ($1, $2, $3, $4, $5)`,
 		date, 85, 80, "rest", 0,
 	)
 	s.Require().NoError(err)

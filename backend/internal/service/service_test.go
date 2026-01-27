@@ -6,16 +6,16 @@ import (
 	"testing"
 	"time"
 
-	"victus/internal/db"
 	"victus/internal/domain"
 	"victus/internal/store"
+	"victus/internal/testutil"
 
 	"github.com/stretchr/testify/suite"
-	_ "modernc.org/sqlite"
 )
 
 type DailyLogServiceSuite struct {
 	suite.Suite
+	pg             *testutil.PostgresContainer
 	db             *sql.DB
 	profileStore   *store.ProfileStore
 	logStore       *store.DailyLogStore
@@ -30,27 +30,21 @@ func TestDailyLogServiceSuite(t *testing.T) {
 	suite.Run(t, new(DailyLogServiceSuite))
 }
 
-func (s *DailyLogServiceSuite) SetupTest() {
-	var err error
-	s.db, err = sql.Open("sqlite", ":memory:")
-	s.Require().NoError(err)
+func (s *DailyLogServiceSuite) SetupSuite() {
+	s.pg = testutil.SetupPostgres(s.T())
+	s.db = s.pg.DB
+}
 
-	err = db.RunMigrations(s.db)
-	s.Require().NoError(err)
+func (s *DailyLogServiceSuite) SetupTest() {
+	s.ctx = context.Background()
+	s.Require().NoError(s.pg.ClearTables(s.ctx))
 
 	s.profileStore = store.NewProfileStore(s.db)
 	s.logStore = store.NewDailyLogStore(s.db)
 	s.sessionStore = store.NewTrainingSessionStore(s.db)
 	s.profileService = NewProfileService(s.profileStore)
 	s.logService = NewDailyLogService(s.logStore, s.sessionStore, s.profileStore)
-	s.ctx = context.Background()
 	s.now = time.Date(2025, 1, 15, 12, 0, 0, 0, time.UTC)
-}
-
-func (s *DailyLogServiceSuite) TearDownTest() {
-	if s.db != nil {
-		s.db.Close()
-	}
 }
 
 func (s *DailyLogServiceSuite) validProfile() *domain.UserProfile {
@@ -449,6 +443,7 @@ func (s *DailyLogServiceSuite) TestNoRecoveryScoreWithoutHistory() {
 
 type ProfileServiceSuite struct {
 	suite.Suite
+	pg      *testutil.PostgresContainer
 	db      *sql.DB
 	store   *store.ProfileStore
 	service *ProfileService
@@ -460,24 +455,18 @@ func TestProfileServiceSuite(t *testing.T) {
 	suite.Run(t, new(ProfileServiceSuite))
 }
 
-func (s *ProfileServiceSuite) SetupTest() {
-	var err error
-	s.db, err = sql.Open("sqlite", ":memory:")
-	s.Require().NoError(err)
+func (s *ProfileServiceSuite) SetupSuite() {
+	s.pg = testutil.SetupPostgres(s.T())
+	s.db = s.pg.DB
+}
 
-	err = db.RunMigrations(s.db)
-	s.Require().NoError(err)
+func (s *ProfileServiceSuite) SetupTest() {
+	s.ctx = context.Background()
+	s.Require().NoError(s.pg.ClearTables(s.ctx))
 
 	s.store = store.NewProfileStore(s.db)
 	s.service = NewProfileService(s.store)
-	s.ctx = context.Background()
 	s.now = time.Date(2025, 1, 15, 12, 0, 0, 0, time.UTC)
-}
-
-func (s *ProfileServiceSuite) TearDownTest() {
-	if s.db != nil {
-		s.db.Close()
-	}
 }
 
 func (s *ProfileServiceSuite) TestProfileUpsertFlow() {

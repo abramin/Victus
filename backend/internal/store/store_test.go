@@ -6,11 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"victus/internal/db"
 	"victus/internal/domain"
+	"victus/internal/testutil"
 
 	"github.com/stretchr/testify/suite"
-	_ "modernc.org/sqlite"
 )
 
 // Justification: Store tests verify persistence and schema constraints beyond
@@ -20,6 +19,7 @@ import (
 
 type ProfileStoreSuite struct {
 	suite.Suite
+	pg    *testutil.PostgresContainer
 	db    *sql.DB
 	store *ProfileStore
 	ctx   context.Context
@@ -29,22 +29,15 @@ func TestProfileStoreSuite(t *testing.T) {
 	suite.Run(t, new(ProfileStoreSuite))
 }
 
-func (s *ProfileStoreSuite) SetupTest() {
-	var err error
-	s.db, err = sql.Open("sqlite", ":memory:")
-	s.Require().NoError(err)
-
-	err = db.RunMigrations(s.db)
-	s.Require().NoError(err)
-
-	s.store = NewProfileStore(s.db)
-	s.ctx = context.Background()
+func (s *ProfileStoreSuite) SetupSuite() {
+	s.pg = testutil.SetupPostgres(s.T())
+	s.db = s.pg.DB
 }
 
-func (s *ProfileStoreSuite) TearDownTest() {
-	if s.db != nil {
-		s.db.Close()
-	}
+func (s *ProfileStoreSuite) SetupTest() {
+	s.ctx = context.Background()
+	s.Require().NoError(s.pg.ClearTables(s.ctx))
+	s.store = NewProfileStore(s.db)
 }
 
 func (s *ProfileStoreSuite) validProfile() *domain.UserProfile {
@@ -141,6 +134,7 @@ func (s *ProfileStoreSuite) TestProfileRemoval() {
 
 type DailyLogStoreSuite struct {
 	suite.Suite
+	pg    *testutil.PostgresContainer
 	db    *sql.DB
 	store *DailyLogStore
 	ctx   context.Context
@@ -150,22 +144,15 @@ func TestDailyLogStoreSuite(t *testing.T) {
 	suite.Run(t, new(DailyLogStoreSuite))
 }
 
-func (s *DailyLogStoreSuite) SetupTest() {
-	var err error
-	s.db, err = sql.Open("sqlite", ":memory:")
-	s.Require().NoError(err)
-
-	err = db.RunMigrations(s.db)
-	s.Require().NoError(err)
-
-	s.store = NewDailyLogStore(s.db)
-	s.ctx = context.Background()
+func (s *DailyLogStoreSuite) SetupSuite() {
+	s.pg = testutil.SetupPostgres(s.T())
+	s.db = s.pg.DB
 }
 
-func (s *DailyLogStoreSuite) TearDownTest() {
-	if s.db != nil {
-		s.db.Close()
-	}
+func (s *DailyLogStoreSuite) SetupTest() {
+	s.ctx = context.Background()
+	s.Require().NoError(s.pg.ClearTables(s.ctx))
+	s.store = NewDailyLogStore(s.db)
 }
 
 func (s *DailyLogStoreSuite) TestLogNotFoundBeforeCreation() {
@@ -273,30 +260,6 @@ func (s *DailyLogStoreSuite) TestLogNullableFieldRoundTrip() {
 
 		s.Require().NotNil(loaded.SleepHours)
 		s.Equal(7.5, *loaded.SleepHours)
-	})
-}
-
-func (s *DailyLogStoreSuite) TestLogTargetsDefaultsForLegacyRows() {
-	s.Run("null calculated targets scan without error", func() {
-		_, err := s.db.ExecContext(
-			s.ctx,
-			`INSERT INTO daily_logs (log_date, weight_kg, sleep_quality, planned_training_type, planned_duration_min)
-			 VALUES (?, ?, ?, ?, ?)`,
-			"2025-02-01", 85, 80, "rest", 0,
-		)
-		s.Require().NoError(err)
-
-		log, err := s.store.GetByDate(s.ctx, "2025-02-01")
-		s.Require().NoError(err)
-		s.Equal(domain.DayTypeFatburner, log.CalculatedTargets.DayType)
-		s.Equal(0, log.CalculatedTargets.TotalCalories)
-		s.Equal(0, log.CalculatedTargets.Meals.Breakfast.Carbs)
-
-		points, err := s.store.ListDailyTargets(s.ctx, "2025-02-01", "2025-02-01")
-		s.Require().NoError(err)
-		s.Require().Len(points, 1)
-		s.Equal(domain.DayTypeFatburner, points[0].Targets.DayType)
-		s.Equal(0, points[0].Targets.TotalCalories)
 	})
 }
 
@@ -541,16 +504,11 @@ func (s *DailyLogStoreSuite) TestListAdaptiveDataPointsFieldValues() {
 	})
 }
 
-// Note: Concurrency tests for duplicate log creation are not included because
-// SQLite's in-memory mode (:memory:) doesn't support proper concurrent testing -
-// each goroutine may get a separate database connection with isolated state.
-// The duplicate constraint is already validated by TestLogDateUniqueness.
-// For production, the UNIQUE constraint on (log_date) enforces this at the DB level.
-
 // --- Training Session Store Suite ---
 
 type TrainingSessionStoreSuite struct {
 	suite.Suite
+	pg           *testutil.PostgresContainer
 	db           *sql.DB
 	logStore     *DailyLogStore
 	sessionStore *TrainingSessionStore
@@ -561,23 +519,16 @@ func TestTrainingSessionStoreSuite(t *testing.T) {
 	suite.Run(t, new(TrainingSessionStoreSuite))
 }
 
-func (s *TrainingSessionStoreSuite) SetupTest() {
-	var err error
-	s.db, err = sql.Open("sqlite", ":memory:")
-	s.Require().NoError(err)
-
-	err = db.RunMigrations(s.db)
-	s.Require().NoError(err)
-
-	s.logStore = NewDailyLogStore(s.db)
-	s.sessionStore = NewTrainingSessionStore(s.db)
-	s.ctx = context.Background()
+func (s *TrainingSessionStoreSuite) SetupSuite() {
+	s.pg = testutil.SetupPostgres(s.T())
+	s.db = s.pg.DB
 }
 
-func (s *TrainingSessionStoreSuite) TearDownTest() {
-	if s.db != nil {
-		s.db.Close()
-	}
+func (s *TrainingSessionStoreSuite) SetupTest() {
+	s.ctx = context.Background()
+	s.Require().NoError(s.pg.ClearTables(s.ctx))
+	s.logStore = NewDailyLogStore(s.db)
+	s.sessionStore = NewTrainingSessionStore(s.db)
 }
 
 func (s *TrainingSessionStoreSuite) createDailyLog(date string) int64 {
@@ -644,6 +595,7 @@ func (s *TrainingSessionStoreSuite) TestSessionCascadeDelete() {
 
 type NutritionPlanStoreSuite struct {
 	suite.Suite
+	pg    *testutil.PostgresContainer
 	db    *sql.DB
 	store *NutritionPlanStore
 	ctx   context.Context
@@ -654,42 +606,27 @@ func TestNutritionPlanStoreSuite(t *testing.T) {
 	suite.Run(t, new(NutritionPlanStoreSuite))
 }
 
+func (s *NutritionPlanStoreSuite) SetupSuite() {
+	s.pg = testutil.SetupPostgres(s.T())
+	s.db = s.pg.DB
+}
+
 func (s *NutritionPlanStoreSuite) SetupTest() {
-	var err error
-	s.db, err = sql.Open("sqlite", ":memory:")
-	s.Require().NoError(err)
-
-	err = db.RunMigrations(s.db)
-	s.Require().NoError(err)
-
-	s.store = NewNutritionPlanStore(s.db)
 	s.ctx = context.Background()
+	s.Require().NoError(s.pg.ClearTables(s.ctx))
+	s.store = NewNutritionPlanStore(s.db)
 	s.now = time.Date(2026, 1, 24, 12, 0, 0, 0, time.UTC)
-}
-
-func (s *NutritionPlanStoreSuite) TearDownTest() {
-	if s.db != nil {
-		s.db.Close()
-	}
-}
-
-// clearPlans removes all plans and weekly targets to ensure test isolation between subtests.
-func (s *NutritionPlanStoreSuite) clearPlans() {
-	_, err := s.db.ExecContext(s.ctx, "DELETE FROM weekly_targets")
-	s.Require().NoError(err)
-	_, err = s.db.ExecContext(s.ctx, "DELETE FROM nutrition_plans")
-	s.Require().NoError(err)
 }
 
 func (s *NutritionPlanStoreSuite) validPlan() *domain.NutritionPlan {
 	return &domain.NutritionPlan{
-		StartDate:              s.now,
-		StartWeightKg:          90.0,
-		GoalWeightKg:           80.0,
-		DurationWeeks:          20,
-		RequiredWeeklyChangeKg: -0.5,
+		StartDate:                s.now,
+		StartWeightKg:            90.0,
+		GoalWeightKg:             80.0,
+		DurationWeeks:            20,
+		RequiredWeeklyChangeKg:   -0.5,
 		RequiredDailyDeficitKcal: -550,
-		Status:                 domain.PlanStatusActive,
+		Status:                   domain.PlanStatusActive,
 		WeeklyTargets: []domain.WeeklyTarget{
 			{
 				WeekNumber:        1,
@@ -733,7 +670,6 @@ func (s *NutritionPlanStoreSuite) TestPlanNotFoundBeforeCreation() {
 // [KEEP] Tests field-level persistence integrity for weekly targets - not asserted at HTTP level
 func (s *NutritionPlanStoreSuite) TestPlanCreationAndRetrieval() {
 	s.Run("creates plan with weekly targets", func() {
-		s.clearPlans()
 		plan := s.validPlan()
 		planID, err := s.store.Create(s.ctx, plan)
 		s.Require().NoError(err)
@@ -751,7 +687,9 @@ func (s *NutritionPlanStoreSuite) TestPlanCreationAndRetrieval() {
 	})
 
 	s.Run("weekly targets preserve all fields", func() {
-		s.clearPlans()
+		// Clear tables to avoid active plan constraint
+		s.Require().NoError(s.pg.ClearTables(s.ctx))
+
 		plan := s.validPlan()
 		planID, err := s.store.Create(s.ctx, plan)
 		s.Require().NoError(err)
@@ -777,7 +715,6 @@ func (s *NutritionPlanStoreSuite) TestPlanCreationAndRetrieval() {
 // [KEEP] "allows creating new plan after completing previous" - sequence behavior not in feature
 func (s *NutritionPlanStoreSuite) TestActivePlanConstraint() {
 	s.Run("prevents creating second active plan", func() {
-		s.clearPlans()
 		plan1 := s.validPlan()
 		_, err := s.store.Create(s.ctx, plan1)
 		s.Require().NoError(err)
@@ -789,7 +726,9 @@ func (s *NutritionPlanStoreSuite) TestActivePlanConstraint() {
 	})
 
 	s.Run("allows creating new plan after completing previous", func() {
-		s.clearPlans()
+		// Clear tables to start fresh
+		s.Require().NoError(s.pg.ClearTables(s.ctx))
+
 		plan1 := s.validPlan()
 		planID, err := s.store.Create(s.ctx, plan1)
 		s.Require().NoError(err)
@@ -808,7 +747,6 @@ func (s *NutritionPlanStoreSuite) TestActivePlanConstraint() {
 // [OVERLAP] plan.feature: "Fetch active nutrition plan"
 func (s *NutritionPlanStoreSuite) TestGetActivePlan() {
 	s.Run("returns active plan", func() {
-		s.clearPlans()
 		plan := s.validPlan()
 		planID, err := s.store.Create(s.ctx, plan)
 		s.Require().NoError(err)
@@ -823,7 +761,6 @@ func (s *NutritionPlanStoreSuite) TestGetActivePlan() {
 // [OVERLAP] plan.feature: "Complete a nutrition plan", "Abandon a nutrition plan"
 func (s *NutritionPlanStoreSuite) TestUpdateStatus() {
 	s.Run("updates plan status", func() {
-		s.clearPlans()
 		plan := s.validPlan()
 		planID, err := s.store.Create(s.ctx, plan)
 		s.Require().NoError(err)
@@ -845,7 +782,6 @@ func (s *NutritionPlanStoreSuite) TestUpdateStatus() {
 // [KEEP] Tests UpdateWeeklyActuals store method - no corresponding feature scenario yet
 func (s *NutritionPlanStoreSuite) TestUpdateWeeklyActuals() {
 	s.Run("updates actual values for a week", func() {
-		s.clearPlans()
 		plan := s.validPlan()
 		planID, err := s.store.Create(s.ctx, plan)
 		s.Require().NoError(err)
@@ -867,7 +803,9 @@ func (s *NutritionPlanStoreSuite) TestUpdateWeeklyActuals() {
 	})
 
 	s.Run("handles nil actual values", func() {
-		s.clearPlans()
+		// Clear tables to avoid active plan constraint
+		s.Require().NoError(s.pg.ClearTables(s.ctx))
+
 		plan := s.validPlan()
 		planID, err := s.store.Create(s.ctx, plan)
 		s.Require().NoError(err)
@@ -889,7 +827,6 @@ func (s *NutritionPlanStoreSuite) TestUpdateWeeklyActuals() {
 // [KEEP] "is idempotent on missing plan" - store-specific behavior
 func (s *NutritionPlanStoreSuite) TestDeletePlan() {
 	s.Run("deletes plan making it inaccessible", func() {
-		s.clearPlans()
 		plan := s.validPlan()
 		s.Require().Len(plan.WeeklyTargets, 2, "test plan should have weekly targets")
 
@@ -920,7 +857,6 @@ func (s *NutritionPlanStoreSuite) TestDeletePlan() {
 // [KEEP] Verifies ordering behavior (start_date DESC) not asserted at HTTP level
 func (s *NutritionPlanStoreSuite) TestListAllPlans() {
 	s.Run("returns all plans ordered by start date descending", func() {
-		s.clearPlans()
 		// Create plan 1
 		plan1 := s.validPlan()
 		planID1, err := s.store.Create(s.ctx, plan1)
@@ -945,9 +881,231 @@ func (s *NutritionPlanStoreSuite) TestListAllPlans() {
 	})
 
 	s.Run("returns empty slice when no plans", func() {
-		s.clearPlans()
+		// Clear tables to ensure no plans exist
+		s.Require().NoError(s.pg.ClearTables(s.ctx))
+
 		plans, err := s.store.ListAll(s.ctx)
 		s.Require().NoError(err)
 		s.Empty(plans)
+	})
+}
+
+// --- Food Reference Store Suite ---
+// Justification: Tests food reference persistence and retrieval not covered by feature scenarios.
+// These verify data integrity for the macro tetris solver and food library.
+
+type FoodReferenceStoreSuite struct {
+	suite.Suite
+	pg    *testutil.PostgresContainer
+	db    *sql.DB
+	store *FoodReferenceStore
+	ctx   context.Context
+}
+
+func TestFoodReferenceStoreSuite(t *testing.T) {
+	suite.Run(t, new(FoodReferenceStoreSuite))
+}
+
+func (s *FoodReferenceStoreSuite) SetupSuite() {
+	s.pg = testutil.SetupPostgres(s.T())
+	s.db = s.pg.DB
+}
+
+func (s *FoodReferenceStoreSuite) SetupTest() {
+	s.ctx = context.Background()
+	// Clear only food_reference for these tests, preserving seeded data in first run
+	_, err := s.db.ExecContext(s.ctx, "DELETE FROM food_reference")
+	s.Require().NoError(err)
+	s.store = NewFoodReferenceStore(s.db)
+}
+
+func (s *FoodReferenceStoreSuite) seedFoodReference(category domain.FoodCategory, foodItem string, plateMultiplier *float64) int64 {
+	var pm interface{}
+	if plateMultiplier != nil {
+		pm = *plateMultiplier
+	}
+	var id int64
+	err := s.db.QueryRowContext(s.ctx,
+		`INSERT INTO food_reference (category, food_item, plate_multiplier) VALUES ($1, $2, $3) RETURNING id`,
+		category, foodItem, pm,
+	).Scan(&id)
+	s.Require().NoError(err)
+	return id
+}
+
+func (s *FoodReferenceStoreSuite) seedFoodNutrition(category domain.FoodCategory, foodItem string, protein, carbs, fat float64, isPantry bool) int64 {
+	var id int64
+	err := s.db.QueryRowContext(s.ctx,
+		`INSERT INTO food_reference (category, food_item, protein_g_per_100, carbs_g_per_100, fat_g_per_100, is_pantry_staple)
+		 VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+		category, foodItem, protein, carbs, fat, isPantry,
+	).Scan(&id)
+	s.Require().NoError(err)
+	return id
+}
+
+func (s *FoodReferenceStoreSuite) TestListAllEmptyTable() {
+	s.Run("returns empty slice when no foods exist", func() {
+		foods, err := s.store.ListAll(s.ctx)
+		s.Require().NoError(err)
+		s.Empty(foods)
+	})
+}
+
+func (s *FoodReferenceStoreSuite) TestListAllOrdering() {
+	s.Run("returns foods ordered by category then name", func() {
+		// Insert in random order
+		s.seedFoodReference(domain.FoodCategoryHighProtein, "Chicken Breast", nil)
+		s.seedFoodReference(domain.FoodCategoryHighCarb, "Rice", nil)
+		s.seedFoodReference(domain.FoodCategoryHighCarb, "Oats", nil)
+		s.seedFoodReference(domain.FoodCategoryHighFat, "Avocado", nil)
+
+		foods, err := s.store.ListAll(s.ctx)
+		s.Require().NoError(err)
+		s.Require().Len(foods, 4)
+
+		// Verify ordering: high_carb comes before high_fat (alphabetically)
+		// Within high_carb: Oats before Rice
+		s.Equal(domain.FoodCategoryHighCarb, foods[0].Category)
+		s.Equal("Oats", foods[0].FoodItem)
+		s.Equal(domain.FoodCategoryHighCarb, foods[1].Category)
+		s.Equal("Rice", foods[1].FoodItem)
+	})
+}
+
+func (s *FoodReferenceStoreSuite) TestListAllPlateMultiplier() {
+	s.Run("preserves null and non-null plate multipliers", func() {
+		pm := 1.5
+		s.seedFoodReference(domain.FoodCategoryHighCarb, "With Multiplier", &pm)
+		s.seedFoodReference(domain.FoodCategoryHighCarb, "Without Multiplier", nil)
+
+		foods, err := s.store.ListAll(s.ctx)
+		s.Require().NoError(err)
+		s.Require().Len(foods, 2)
+
+		// Find the food with multiplier
+		var withMultiplier, withoutMultiplier *domain.FoodReference
+		for i := range foods {
+			if foods[i].FoodItem == "With Multiplier" {
+				withMultiplier = &foods[i]
+			} else {
+				withoutMultiplier = &foods[i]
+			}
+		}
+
+		s.Require().NotNil(withMultiplier.PlateMultiplier)
+		s.InDelta(1.5, *withMultiplier.PlateMultiplier, 0.001)
+		s.Nil(withoutMultiplier.PlateMultiplier)
+	})
+}
+
+func (s *FoodReferenceStoreSuite) TestListByCategory() {
+	s.Run("filters by category", func() {
+		s.seedFoodReference(domain.FoodCategoryHighProtein, "Chicken", nil)
+		s.seedFoodReference(domain.FoodCategoryHighProtein, "Beef", nil)
+		s.seedFoodReference(domain.FoodCategoryHighCarb, "Rice", nil)
+
+		foods, err := s.store.ListByCategory(s.ctx, domain.FoodCategoryHighProtein)
+		s.Require().NoError(err)
+		s.Require().Len(foods, 2)
+
+		for _, food := range foods {
+			s.Equal(domain.FoodCategoryHighProtein, food.Category)
+		}
+	})
+
+	s.Run("returns empty slice for category with no foods", func() {
+		// Clear table to avoid duplicate key violations
+		_, err := s.db.ExecContext(s.ctx, "DELETE FROM food_reference")
+		s.Require().NoError(err)
+
+		s.seedFoodReference(domain.FoodCategoryHighCarb, "Rice", nil)
+
+		foods, err := s.store.ListByCategory(s.ctx, domain.FoodCategoryHighFat)
+		s.Require().NoError(err)
+		s.Empty(foods)
+	})
+}
+
+func (s *FoodReferenceStoreSuite) TestUpdatePlateMultiplier() {
+	s.Run("sets plate multiplier", func() {
+		id := s.seedFoodReference(domain.FoodCategoryHighCarb, "Rice", nil)
+
+		newMultiplier := 2.0
+		err := s.store.UpdatePlateMultiplier(s.ctx, id, &newMultiplier)
+		s.Require().NoError(err)
+
+		foods, err := s.store.ListAll(s.ctx)
+		s.Require().NoError(err)
+		s.Require().Len(foods, 1)
+		s.Require().NotNil(foods[0].PlateMultiplier)
+		s.InDelta(2.0, *foods[0].PlateMultiplier, 0.001)
+	})
+
+	s.Run("clears plate multiplier when nil", func() {
+		// Clear table to avoid duplicate key violations
+		_, err := s.db.ExecContext(s.ctx, "DELETE FROM food_reference")
+		s.Require().NoError(err)
+
+		pm := 1.5
+		id := s.seedFoodReference(domain.FoodCategoryHighCarb, "Rice", &pm)
+
+		err = s.store.UpdatePlateMultiplier(s.ctx, id, nil)
+		s.Require().NoError(err)
+
+		foods, err := s.store.ListAll(s.ctx)
+		s.Require().NoError(err)
+		s.Require().Len(foods, 1)
+		s.Nil(foods[0].PlateMultiplier)
+	})
+}
+
+func (s *FoodReferenceStoreSuite) TestListPantryFoods() {
+	s.Run("returns foods with nutritional data", func() {
+		// Food with nutrition data
+		s.seedFoodNutrition(domain.FoodCategoryHighProtein, "Chicken", 25.0, 0.0, 3.0, true)
+		// Food without nutrition data (all zeros)
+		s.seedFoodReference(domain.FoodCategoryHighCarb, "Unknown Food", nil)
+
+		foods, err := s.store.ListPantryFoods(s.ctx)
+		s.Require().NoError(err)
+		s.Require().Len(foods, 1)
+		s.Equal("Chicken", foods[0].FoodItem)
+	})
+
+	s.Run("prioritizes pantry staples", func() {
+		// Clear table to start fresh
+		_, err := s.db.ExecContext(s.ctx, "DELETE FROM food_reference")
+		s.Require().NoError(err)
+
+		s.seedFoodNutrition(domain.FoodCategoryHighProtein, "Exotic Meat", 20.0, 0.0, 5.0, false)
+		s.seedFoodNutrition(domain.FoodCategoryHighProtein, "Chicken", 25.0, 0.0, 3.0, true)
+
+		foods, err := s.store.ListPantryFoods(s.ctx)
+		s.Require().NoError(err)
+		s.Require().Len(foods, 2)
+
+		// Pantry staples should come first
+		s.True(foods[0].IsPantryStaple, "First food should be pantry staple")
+		s.Equal("Chicken", foods[0].FoodItem)
+	})
+
+	s.Run("includes all required nutrition fields", func() {
+		// Clear table to start fresh
+		_, err := s.db.ExecContext(s.ctx, "DELETE FROM food_reference")
+		s.Require().NoError(err)
+
+		s.seedFoodNutrition(domain.FoodCategoryHighProtein, "Greek Yogurt", 10.0, 4.0, 5.0, true)
+
+		foods, err := s.store.ListPantryFoods(s.ctx)
+		s.Require().NoError(err)
+		s.Require().Len(foods, 1)
+
+		food := foods[0]
+		s.Equal(domain.FoodCategoryHighProtein, food.Category)
+		s.Equal("Greek Yogurt", food.FoodItem)
+		s.InDelta(10.0, food.ProteinGPer100, 0.001)
+		s.InDelta(4.0, food.CarbsGPer100, 0.001)
+		s.InDelta(5.0, food.FatGPer100, 0.001)
 	})
 }

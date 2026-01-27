@@ -1,11 +1,15 @@
 SHELL := /bin/sh
 BACKEND_PORT ?= 8080
 FRONTEND_PORT ?= 5173
+POSTGRES_PORT ?= 5432
+DATABASE_URL ?= postgres://victus:victus@localhost:$(POSTGRES_PORT)/victus?sslmode=disable
 
 export BACKEND_PORT
 export FRONTEND_PORT
+export POSTGRES_PORT
+export DATABASE_URL
 
-.PHONY: app-up app-down app-clean db-clean wait-backend wait-frontend e2e e2e-native test seed
+.PHONY: app-up app-down app-clean db-up db-clean wait-db wait-backend wait-frontend e2e e2e-native test seed
 
 app-up:
 	docker compose up -d --build backend frontend
@@ -16,6 +20,19 @@ app-down:
 
 app-clean:
 	docker compose down --remove-orphans --volumes --rmi local
+
+# Start only the PostgreSQL database
+db-up:
+	docker compose up -d postgres
+
+# Wait for PostgreSQL to be ready
+wait-db:
+	@printf "Waiting for PostgreSQL..."; \
+	for i in $$(seq 1 30); do \
+		if docker compose exec -T postgres pg_isready -U victus >/dev/null 2>&1; then echo " ok"; exit 0; fi; \
+		sleep 1; \
+	done; \
+	echo " failed"; exit 1
 
 # Clean PostgreSQL database (removes volume and restarts services so migrations run)
 db-clean:
@@ -50,5 +67,5 @@ test:
 	cd backend && go test ./...
 
 # Seed database with 4 weeks of realistic test data
-seed:
-	cd backend && go run ./cmd/seed/main.go
+seed: db-up wait-db
+	cd backend && DATABASE_URL="$(DATABASE_URL)" go run ./cmd/seed

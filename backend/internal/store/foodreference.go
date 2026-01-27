@@ -115,7 +115,7 @@ func (s *FoodReferenceStore) ListPantryFoods(ctx context.Context) ([]domain.Food
 			COALESCE(fat_g_per_100, 0) as fat_g_per_100,
 			COALESCE(serving_unit, 'g') as serving_unit,
 			COALESCE(serving_size_g, 100) as serving_size_g,
-			COALESCE(is_pantry_staple, 0) as is_pantry_staple
+			COALESCE(is_pantry_staple, false) as is_pantry_staple
 		FROM food_reference
 		WHERE protein_g_per_100 > 0 OR carbs_g_per_100 > 0 OR fat_g_per_100 > 0
 		ORDER BY is_pantry_staple DESC, food_item
@@ -130,15 +130,13 @@ func (s *FoodReferenceStore) ListPantryFoods(ctx context.Context) ([]domain.Food
 	var result []domain.FoodNutrition
 	for rows.Next() {
 		var fn domain.FoodNutrition
-		var isPantry int
 		if err := rows.Scan(
 			&fn.ID, &fn.Category, &fn.FoodItem,
 			&fn.ProteinGPer100, &fn.CarbsGPer100, &fn.FatGPer100,
-			&fn.ServingUnit, &fn.ServingSizeG, &isPantry,
+			&fn.ServingUnit, &fn.ServingSizeG, &fn.IsPantryStaple,
 		); err != nil {
 			return nil, err
 		}
-		fn.IsPantryStaple = isPantry == 1
 		result = append(result, fn)
 	}
 
