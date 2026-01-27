@@ -3,7 +3,6 @@ package api
 import (
 	"encoding/json"
 	"errors"
-	stdlog "log"
 	"net/http"
 	"time"
 
@@ -41,7 +40,7 @@ func (s *Server) createDailyLog(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusConflict, "already_exists", "A daily log already exists for this date")
 			return
 		}
-		writeError(w, http.StatusInternalServerError, "internal_error", "")
+		writeInternalError(w, err, "createDailyLog")
 		return
 	}
 
@@ -68,7 +67,7 @@ func (s *Server) getTodayLog(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal_error", "")
+		writeInternalError(w, err, "getTodayLog")
 		return
 	}
 
@@ -97,7 +96,7 @@ func (s *Server) getLogByDate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal_error", "")
+		writeInternalError(w, err, "getLogByDate")
 		return
 	}
 
@@ -131,7 +130,7 @@ func (s *Server) getLogsRange(w http.ResponseWriter, r *http.Request) {
 
 	points, err := s.dailyLogService.GetDailyTargetsRangeWithSessions(r.Context(), startDate, endDate)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal_error", "")
+		writeInternalError(w, err, "getLogsRange")
 		return
 	}
 
@@ -143,7 +142,7 @@ func (s *Server) getLogsRange(w http.ResponseWriter, r *http.Request) {
 func (s *Server) deleteTodayLog(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 	if err := s.dailyLogService.DeleteToday(r.Context(), now); err != nil {
-		writeError(w, http.StatusInternalServerError, "internal_error", "")
+		writeInternalError(w, err, "deleteTodayLog")
 		return
 	}
 
@@ -167,7 +166,7 @@ func (s *Server) updateActiveCalories(w http.ResponseWriter, r *http.Request) {
 	log, err := s.dailyLogService.UpdateActiveCaloriesBurned(r.Context(), date, req.ActiveCaloriesBurned)
 	if err != nil {
 		if !handleDailyLogError(w, err, "No log exists for this date") {
-			writeError(w, http.StatusInternalServerError, "internal_error", "")
+			writeInternalError(w, err, "updateActiveCalories")
 		}
 		return
 	}
@@ -204,8 +203,7 @@ func (s *Server) updateActualTraining(w http.ResponseWriter, r *http.Request) {
 	log, err := s.dailyLogService.UpdateActualTraining(r.Context(), date, sessions)
 	if err != nil {
 		if !handleDailyLogError(w, err, "No log exists for this date") {
-			stdlog.Printf("ERROR: UpdateActualTraining failed for date %s: %v", date, err)
-			writeError(w, http.StatusInternalServerError, "internal_error", "")
+			writeInternalError(w, err, "updateActualTraining")
 		}
 		return
 	}
@@ -238,7 +236,7 @@ func (s *Server) updateFastingOverride(w http.ResponseWriter, r *http.Request) {
 	log, err := s.dailyLogService.UpdateFastingOverride(r.Context(), date, req.FastingOverride)
 	if err != nil {
 		if !handleDailyLogError(w, err, "No log exists for this date") {
-			writeError(w, http.StatusInternalServerError, "internal_error", "")
+			writeInternalError(w, err, "updateFastingOverride")
 		}
 		return
 	}
@@ -275,7 +273,7 @@ func (s *Server) syncHealthData(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "weight_required", "Weight is required to create a new daily log")
 			return
 		}
-		writeError(w, http.StatusInternalServerError, "internal_error", "")
+		writeInternalError(w, err, "syncHealthData")
 		return
 	}
 
@@ -326,7 +324,7 @@ func (s *Server) addConsumedMacros(w http.ResponseWriter, r *http.Request) {
 	log, err := s.dailyLogService.AddConsumedMacros(r.Context(), date, macros)
 	if err != nil {
 		if !handleDailyLogError(w, err, "No log exists for this date") {
-			writeError(w, http.StatusInternalServerError, "internal_error", "")
+			writeInternalError(w, err, "addConsumedMacros")
 		}
 		return
 	}

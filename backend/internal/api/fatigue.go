@@ -64,7 +64,7 @@ type ApplyLoadRequest struct {
 func (s *Server) getBodyStatus(w http.ResponseWriter, r *http.Request) {
 	status, err := s.fatigueService.GetBodyStatus(r.Context(), time.Now())
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal_error", "Failed to retrieve body status")
+		writeInternalError(w, err, "getBodyStatus")
 		return
 	}
 
@@ -78,7 +78,7 @@ func (s *Server) getBodyStatus(w http.ResponseWriter, r *http.Request) {
 func (s *Server) getArchetypes(w http.ResponseWriter, r *http.Request) {
 	archetypes, err := s.fatigueService.GetAllArchetypes(r.Context())
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal_error", "Failed to retrieve archetypes")
+		writeInternalError(w, err, "getArchetypes")
 		return
 	}
 
@@ -123,7 +123,7 @@ func (s *Server) applyFatigueByParams(w http.ResponseWriter, r *http.Request) {
 	// Apply the load
 	report, err := s.fatigueService.ApplyLoadByParams(r.Context(), archetype, req.DurationMin, req.RPE)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal_error", "Failed to apply fatigue load")
+		writeInternalError(w, err, "applyFatigueByParams")
 		return
 	}
 
@@ -173,7 +173,7 @@ func (s *Server) applySessionLoad(w http.ResponseWriter, r *http.Request) {
 	// Apply the load
 	report, err := s.fatigueService.ApplySessionLoad(r.Context(), sessionID, archetype, req.DurationMin, req.RPE)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal_error", "Failed to apply session load")
+		writeInternalError(w, err, "applySessionLoad")
 		return
 	}
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useBodyStatus } from '../../hooks/useBodyStatus';
 import { BodyMapVisualizer } from '../body-map';
@@ -169,6 +169,11 @@ function MuscleStatusCard({
 export function PhysiqueDashboard() {
   const { bodyStatus, loading, error, refresh } = useBodyStatus();
   const [selectedMuscle, setSelectedMuscle] = useState<MuscleGroup | null>(null);
+
+  // Refresh body status on mount to get latest fatigue data after workout logging
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
 
   if (loading) {
     return (

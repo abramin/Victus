@@ -258,11 +258,23 @@ export function LogWorkoutView({ log, onUpdateActual, saving }: LogWorkoutViewPr
 
       // Calculate aggregated values for fatigue
       const activeSessions = sessions.filter(s => s.type !== 'rest');
-      const totalDuration = activeSessions.reduce((sum, s) => sum + s.durationMin, 0);
+      const rawDuration = activeSessions.reduce((sum, s) => sum + s.durationMin, 0);
+      // Cap duration at 480 min (backend limit) - fatigue calculation uses capped value
+      const totalDuration = Math.min(rawDuration, 480);
       const rpeValues = activeSessions.map(s => s.perceivedIntensity ?? DEFAULT_RPE);
       const avgRpe = rpeValues.length > 0
         ? Math.round(rpeValues.reduce((a, b) => a + b, 0) / rpeValues.length)
         : DEFAULT_RPE;
+
+      // Debug: Log values to understand why fatigue isn't being applied
+      console.log('🏋️ Fatigue check:', {
+        selectedArchetype,
+        totalDuration,
+        rawDuration,
+        avgRpe,
+        activeSessionCount: activeSessions.length,
+        willApplyFatigue: !!(selectedArchetype && totalDuration > 0),
+      });
 
       // If archetype selected, apply fatigue and show detailed report
       if (selectedArchetype && totalDuration > 0) {
@@ -276,12 +288,14 @@ export function LogWorkoutView({ log, onUpdateActual, saving }: LogWorkoutViewPr
           setShowFatigueReport(true);
         } catch (error) {
           // Log error for debugging - check browser console
-          console.error('Failed to apply fatigue:', {
-            error,
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          console.error('Failed to apply fatigue:', errorMessage, {
             archetype: selectedArchetype,
             totalDuration,
             avgRpe,
           });
+          // Temporarily show alert for debugging
+          alert(`Fatigue apply failed: ${errorMessage}\nArchetype: ${selectedArchetype}\nDuration: ${totalDuration}min\nRPE: ${avgRpe}`);
           // If fatigue apply fails, fall back to simple receipt
           const totalLoad = sessions.reduce((sum, session) => sum + getSessionLoadScore(session), 0);
           if (totalLoad > 0) {

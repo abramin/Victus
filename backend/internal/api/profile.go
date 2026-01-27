@@ -5,12 +5,19 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"victus/internal/api/requests"
 	"victus/internal/domain"
 	"victus/internal/store"
 )
+
+// isDebugMode returns true if DEBUG_MODE environment variable is set to "true" or "1".
+func isDebugMode() bool {
+	val := os.Getenv("DEBUG_MODE")
+	return val == "true" || val == "1"
+}
 
 // writeError writes a JSON error response and logs it.
 func writeError(w http.ResponseWriter, status int, code, msg string) {
@@ -22,6 +29,30 @@ func writeError(w http.ResponseWriter, status int, code, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(APIError{Error: code, Message: msg})
+}
+
+// writeInternalError writes an internal server error, with detailed message in debug mode.
+func writeInternalError(w http.ResponseWriter, err error, context string) {
+	if isDebugMode() {
+		msg := err.Error()
+		if context != "" {
+			msg = context + ": " + msg
+		}
+		log.Printf("ERROR 500 internal_error: %s", msg)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(APIError{Error: "internal_error", Message: msg})
+	} else {
+		// In production, log the full error but don't expose it to client
+		if context != "" {
+			log.Printf("ERROR 500 internal_error [%s]: %v", context, err)
+		} else {
+			log.Printf("ERROR 500 internal_error: %v", err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(APIError{Error: "internal_error"})
+	}
 }
 
 // APIError represents a JSON error response.
@@ -40,7 +71,7 @@ func (s *Server) getProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal_error", "")
+		writeInternalError(w, err, "getProfile")
 		return
 	}
 
@@ -74,7 +105,7 @@ func (s *Server) upsertProfile(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "validation_error", err.Error())
 			return
 		}
-		writeError(w, http.StatusInternalServerError, "internal_error", "")
+		writeInternalError(w, err, "upsertProfile")
 		return
 	}
 
@@ -86,7 +117,7 @@ func (s *Server) upsertProfile(w http.ResponseWriter, r *http.Request) {
 // deleteProfile handles DELETE /api/profile
 func (s *Server) deleteProfile(w http.ResponseWriter, r *http.Request) {
 	if err := s.profileService.Delete(r.Context()); err != nil {
-		writeError(w, http.StatusInternalServerError, "internal_error", "")
+		writeInternalError(w, err, "deleteProfile")
 		return
 	}
 

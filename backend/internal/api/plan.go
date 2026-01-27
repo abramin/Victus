@@ -3,7 +3,6 @@ package api
 import (
 	"encoding/json"
 	"errors"
-	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -49,7 +48,7 @@ func (s *Server) createPlan(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "validation_error", err.Error())
 			return
 		}
-		writeError(w, http.StatusInternalServerError, "internal_error", "")
+		writeInternalError(w, err, "createPlan")
 		return
 	}
 
@@ -66,7 +65,7 @@ func (s *Server) getActivePlan(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusNotFound, "not_found", "No active nutrition plan exists")
 			return
 		}
-		writeError(w, http.StatusInternalServerError, "internal_error", "")
+		writeInternalError(w, err, "getActivePlan")
 		return
 	}
 
@@ -87,7 +86,7 @@ func (s *Server) getPlanByID(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusNotFound, "not_found", "Nutrition plan not found")
 			return
 		}
-		writeError(w, http.StatusInternalServerError, "internal_error", "")
+		writeInternalError(w, err, "getPlanByID")
 		return
 	}
 
@@ -99,7 +98,7 @@ func (s *Server) getPlanByID(w http.ResponseWriter, r *http.Request) {
 func (s *Server) listPlans(w http.ResponseWriter, r *http.Request) {
 	plans, err := s.planService.ListAll(r.Context())
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal_error", "")
+		writeInternalError(w, err, "listPlans")
 		return
 	}
 
@@ -125,7 +124,7 @@ func (s *Server) completePlan(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusNotFound, "not_found", "Nutrition plan not found")
 			return
 		}
-		writeError(w, http.StatusInternalServerError, "internal_error", "")
+		writeInternalError(w, err, "completePlan")
 		return
 	}
 
@@ -144,7 +143,7 @@ func (s *Server) abandonPlan(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusNotFound, "not_found", "Nutrition plan not found")
 			return
 		}
-		writeError(w, http.StatusInternalServerError, "internal_error", "")
+		writeInternalError(w, err, "abandonPlan")
 		return
 	}
 
@@ -163,7 +162,7 @@ func (s *Server) pausePlan(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusNotFound, "not_found", "Nutrition plan not found")
 			return
 		}
-		writeError(w, http.StatusInternalServerError, "internal_error", "")
+		writeInternalError(w, err, "pausePlan")
 		return
 	}
 
@@ -182,7 +181,7 @@ func (s *Server) resumePlan(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusNotFound, "not_found", "Nutrition plan not found")
 			return
 		}
-		writeError(w, http.StatusInternalServerError, "internal_error", "")
+		writeInternalError(w, err, "resumePlan")
 		return
 	}
 
@@ -215,8 +214,7 @@ func (s *Server) recalibratePlan(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "validation_error", err.Error())
 			return
 		}
-		log.Printf("recalibratePlan error: %v", err)
-		writeError(w, http.StatusInternalServerError, "internal_error", "")
+		writeInternalError(w, err, "recalibratePlan")
 		return
 	}
 
@@ -232,7 +230,7 @@ func (s *Server) deletePlan(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.planService.Delete(r.Context(), id); err != nil {
-		writeError(w, http.StatusInternalServerError, "internal_error", "")
+		writeInternalError(w, err, "deletePlan")
 		return
 	}
 
@@ -247,7 +245,7 @@ func (s *Server) getCurrentWeekTarget(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusNotFound, "not_found", "No active nutrition plan exists")
 			return
 		}
-		writeError(w, http.StatusInternalServerError, "internal_error", "")
+		writeInternalError(w, err, "getCurrentWeekTarget")
 		return
 	}
 
