@@ -1,9 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Modal } from '../common/Modal';
 import { TerminalLoader } from './TerminalLoader';
+import { MacroStackVisualization } from './MacroStackVisualization';
 import { SolutionCard } from './SolutionCard';
 import { solveMacros } from '../../api/client';
 import type { SolverSolution, SolverRequest } from '../../api/types';
+import { staggerContainer, fadeInUp } from '../../lib/animations';
 
 interface MacroSolverModalProps {
   isOpen: boolean;
@@ -15,7 +18,10 @@ interface MacroSolverModalProps {
   onLogSolution?: (solution: SolverSolution) => void;
 }
 
-type ModalState = 'loading' | 'results' | 'empty' | 'error';
+type ModalState = 'computing' | 'stacking' | 'results' | 'empty' | 'error';
+
+const MIN_COMPUTING_TIME_MS = 1500;
+const STACKING_DURATION_MS = 1500;
 
 export function MacroSolverModal({
   isOpen,
@@ -26,55 +32,74 @@ export function MacroSolverModal({
   remainingFatG,
   onLogSolution,
 }: MacroSolverModalProps) {
-  const [state, setState] = useState<ModalState>('loading');
+  const [state, setState] = useState<ModalState>('computing');
   const [solutions, setSolutions] = useState<SolverSolution[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const controllerRef = useRef<AbortController | null>(null);
+
+  const fetchSolutions = useCallback(async () => {
+    try {
+      setState('computing');
+      setError(null);
+
+      const controller = new AbortController();
+      controllerRef.current = controller;
+
+      const request: SolverRequest = {
+        remainingProteinG: Math.max(0, Math.round(remainingProteinG)),
+        remainingCarbsG: Math.max(0, Math.round(remainingCarbsG)),
+        remainingFatG: Math.max(0, Math.round(remainingFatG)),
+        remainingCalories: Math.max(0, Math.round(remainingCalories)),
+      };
+
+      // Run API call and minimum delay in parallel
+      const minDelay = new Promise((resolve) => setTimeout(resolve, MIN_COMPUTING_TIME_MS));
+      const apiCall = solveMacros(request, controller.signal);
+
+      const [, response] = await Promise.all([minDelay, apiCall]);
+
+      if (response.computed && response.solutions.length > 0) {
+        setSolutions(response.solutions);
+        setState('stacking');
+
+        // Transition to results after stacking animation
+        setTimeout(() => {
+          setState('results');
+        }, STACKING_DURATION_MS);
+      } else {
+        setState('empty');
+      }
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        return;
+      }
+      console.error('Solver error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to solve macros');
+      setState('error');
+    }
+  }, [remainingCalories, remainingProteinG, remainingCarbsG, remainingFatG]);
 
   useEffect(() => {
     if (!isOpen) {
       // Reset state when modal closes
-      setState('loading');
+      setState('computing');
       setSolutions([]);
       setError(null);
+      if (controllerRef.current) {
+        controllerRef.current.abort();
+        controllerRef.current = null;
+      }
       return;
     }
 
-    const controller = new AbortController();
-
-    const fetchSolutions = async () => {
-      try {
-        setState('loading');
-        setError(null);
-
-        const request: SolverRequest = {
-          remainingProteinG: Math.max(0, Math.round(remainingProteinG)),
-          remainingCarbsG: Math.max(0, Math.round(remainingCarbsG)),
-          remainingFatG: Math.max(0, Math.round(remainingFatG)),
-          remainingCalories: Math.max(0, Math.round(remainingCalories)),
-        };
-
-        const response = await solveMacros(request, controller.signal);
-
-        if (response.computed && response.solutions.length > 0) {
-          setSolutions(response.solutions);
-          setState('results');
-        } else {
-          setState('empty');
-        }
-      } catch (err) {
-        if (err instanceof Error && err.name === 'AbortError') {
-          return;
-        }
-        console.error('Solver error:', err);
-        setError(err instanceof Error ? err.message : 'Failed to solve macros');
-        setState('error');
-      }
-    };
-
     fetchSolutions();
 
-    return () => controller.abort();
-  }, [isOpen, remainingCalories, remainingProteinG, remainingCarbsG, remainingFatG]);
+    return () => {
+      if (controllerRef.current) {
+        controllerRef.current.abort();
+      }
+    };
+  }, [isOpen, fetchSolutions]);
 
   const handleLogMeal = (solution: SolverSolution) => {
     if (onLogSolution) {
@@ -83,8 +108,12 @@ export function MacroSolverModal({
     onClose();
   };
 
+  const handleRetry = () => {
+    fetchSolutions();
+  };
+
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Auto-Fill Macros">
+    <Modal isOpen={isOpen} onClose={onClose} title="RATION GENERATOR">
       <div className="space-y-4">
         {/* Remaining budget summary */}
         <div className="bg-gray-800/50 rounded-lg p-3">
@@ -110,49 +139,94 @@ export function MacroSolverModal({
         </div>
 
         {/* Content based on state */}
-        {state === 'loading' && <TerminalLoader />}
-
-        {state === 'results' && (
-          <div className="space-y-4">
-            <div className="text-sm text-gray-400">
-              Found {solutions.length} solution{solutions.length !== 1 ? 's' : ''} for your remaining
-              macros:
-            </div>
-            {solutions.map((solution, index) => (
-              <SolutionCard
-                key={index}
-                solution={solution}
-                rank={index + 1}
-                onLogMeal={() => handleLogMeal(solution)}
-              />
-            ))}
-          </div>
-        )}
-
-        {state === 'empty' && (
-          <div className="text-center py-8">
-            <div className="text-4xl mb-3">🤔</div>
-            <h3 className="text-lg font-medium text-white mb-2">No matches found</h3>
-            <p className="text-sm text-gray-400">
-              We couldn&apos;t find a good combination with your pantry staples. Try adjusting your
-              remaining targets or check your food preferences.
-            </p>
-          </div>
-        )}
-
-        {state === 'error' && (
-          <div className="text-center py-8">
-            <div className="text-4xl mb-3">⚠️</div>
-            <h3 className="text-lg font-medium text-white mb-2">Something went wrong</h3>
-            <p className="text-sm text-gray-400">{error}</p>
-            <button
-              onClick={() => setState('loading')}
-              className="mt-4 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm transition-colors"
+        <AnimatePresence mode="wait">
+          {state === 'computing' && (
+            <motion.div
+              key="computing"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
             >
-              Try Again
-            </button>
-          </div>
-        )}
+              <TerminalLoader />
+            </motion.div>
+          )}
+
+          {state === 'stacking' && solutions.length > 0 && (
+            <motion.div
+              key="stacking"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <MacroStackVisualization
+                solution={solutions[0]}
+                remainingCalories={remainingCalories}
+              />
+            </motion.div>
+          )}
+
+          {state === 'results' && (
+            <motion.div
+              key="results"
+              variants={staggerContainer}
+              initial="hidden"
+              animate="show"
+              className="space-y-4"
+            >
+              <motion.div variants={fadeInUp} className="text-sm text-gray-400">
+                Found {solutions.length} solution{solutions.length !== 1 ? 's' : ''} for your
+                remaining macros:
+              </motion.div>
+              {solutions.map((solution, index) => (
+                <motion.div key={index} variants={fadeInUp}>
+                  <SolutionCard
+                    solution={solution}
+                    rank={index + 1}
+                    onLogMeal={() => handleLogMeal(solution)}
+                  />
+                </motion.div>
+              ))}
+            </motion.div>
+          )}
+
+          {state === 'empty' && (
+            <motion.div
+              key="empty"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="text-center py-8"
+            >
+              <div className="text-4xl mb-3">?</div>
+              <h3 className="text-lg font-medium text-white mb-2">No matches found</h3>
+              <p className="text-sm text-gray-400">
+                We couldn&apos;t find a good combination with your pantry staples. Try adjusting
+                your remaining targets or check your food preferences.
+              </p>
+            </motion.div>
+          )}
+
+          {state === 'error' && (
+            <motion.div
+              key="error"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="text-center py-8"
+            >
+              <div className="text-4xl mb-3">!</div>
+              <h3 className="text-lg font-medium text-white mb-2">Something went wrong</h3>
+              <p className="text-sm text-gray-400">{error}</p>
+              <button
+                onClick={handleRetry}
+                className="mt-4 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm transition-colors"
+              >
+                Try Again
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </Modal>
   );

@@ -60,3 +60,49 @@ body {
 .animate-scanline {
   animation: scanline 8s linear infinite;
 }
+
+/* Holographic shimmer effect for Generate Ration button */
+@keyframes shimmer-holographic {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.animate-shimmer::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(16, 185, 129, 0.15) 20%,
+    rgba(59, 130, 246, 0.25) 50%,
+    rgba(168, 85, 247, 0.15) 80%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer-holographic 2.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* Glow pulse for success states */
+@keyframes glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(16, 185, 129, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.6);
+  }
+}
+
+.animate-glow-pulse {
+  animation: glow-pulse 1.5s ease-in-out infinite;
+}

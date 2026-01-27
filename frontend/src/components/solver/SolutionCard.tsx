@@ -1,4 +1,6 @@
+import { motion } from 'framer-motion';
 import type { SolverSolution } from '../../api/types';
+import { hoverLift } from '../../lib/animations';
 
 interface SolutionCardProps {
   solution: SolverSolution;
@@ -21,8 +23,18 @@ export function SolutionCard({ solution, onLogMeal, rank }: SolutionCardProps) {
         ? 'bg-yellow-500/10'
         : 'bg-orange-500/10';
 
+  const matchBorder =
+    solution.matchScore >= 90
+      ? 'hover:border-emerald-500/30'
+      : solution.matchScore >= 75
+        ? 'hover:border-yellow-500/30'
+        : 'hover:border-orange-500/30';
+
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+    <motion.div
+      whileHover={hoverLift}
+      className={`bg-gray-900 border border-gray-800 rounded-xl p-4 transition-colors ${matchBorder}`}
+    >
       {/* Header with match score */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
@@ -83,6 +95,6 @@ export function SolutionCard({ solution, onLogMeal, rank }: SolutionCardProps) {
       >
         Log This Meal
       </button>
-    </div>
+    </motion.div>
   );
 }

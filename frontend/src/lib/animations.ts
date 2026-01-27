@@ -317,3 +317,71 @@ export const tokenHighlight: Variants = {
     },
   },
 };
+
+// === MACRO TETRIS ANIMATIONS (Phase 2) ===
+
+/**
+ * Ingredient block fly-in from right for MacroStack visualization.
+ * Each ingredient animates with spring physics and staggered delay.
+ */
+export const ingredientFlyIn: Variants = {
+  hidden: {
+    x: 100,
+    opacity: 0,
+    scale: 0.8,
+  },
+  visible: (i: number) => ({
+    x: 0,
+    opacity: 1,
+    scale: 1,
+    transition: {
+      delay: i * 0.12,
+      type: 'spring',
+      stiffness: 180,
+      damping: 18,
+    },
+  }),
+};
+
+/**
+ * Stack container for orchestrating ingredient animations.
+ */
+export const stackContainer: Variants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.12,
+      delayChildren: 0.2,
+    },
+  },
+};
+
+/**
+ * Terminal text line appearance for typewriter effect.
+ */
+export const terminalLine: Variants = {
+  hidden: { opacity: 0, x: -10 },
+  visible: {
+    opacity: 1,
+    x: 0,
+    transition: { duration: 0.2 },
+  },
+};
+
+/**
+ * Success glow animation for terminal "Solution Found" message.
+ */
+export const successGlow: Variants = {
+  initial: {
+    textShadow: '0 0 0 rgba(16, 185, 129, 0)',
+  },
+  glow: {
+    textShadow: [
+      '0 0 0 rgba(16, 185, 129, 0)',
+      '0 0 10px rgba(16, 185, 129, 0.8)',
+      '0 0 5px rgba(16, 185, 129, 0.4)',
+    ],
+    transition: { duration: 0.5 },
+  },
+};
