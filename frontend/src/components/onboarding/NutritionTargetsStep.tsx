@@ -55,13 +55,13 @@ export function NutritionTargetsStep({ data, onChange }: NutritionTargetsStepPro
   }, [data.carbsG, data.proteinG, data.fatG]);
 
   const handleRecalculate = () => {
-    // Set recommended values
-    const calories = recommendedCalories;
+    // Guard against invalid calculations - ensure minimum 1200 calories
+    const calories = Math.max(1200, recommendedCalories);
 
     // Default macro split: 40% carbs, 30% protein, 30% fat
-    const proteinG = Math.round((calories * 0.3) / 4);
-    const carbsG = Math.round((calories * 0.4) / 4);
-    const fatG = Math.round((calories * 0.3) / 9);
+    const proteinG = Math.max(0, Math.round((calories * 0.3) / 4));
+    const carbsG = Math.max(0, Math.round((calories * 0.4) / 4));
+    const fatG = Math.max(0, Math.round((calories * 0.3) / 9));
 
     onChange({
       dailyCalories: calories,
