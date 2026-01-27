@@ -13,11 +13,11 @@ var ErrMetabolicHistoryNotFound = errors.New("metabolic history not found")
 
 // MetabolicStore handles database operations for metabolic history records.
 type MetabolicStore struct {
-	db *sql.DB
+	db DBTX
 }
 
 // NewMetabolicStore creates a new MetabolicStore.
-func NewMetabolicStore(db *sql.DB) *MetabolicStore {
+func NewMetabolicStore(db DBTX) *MetabolicStore {
 	return &MetabolicStore{db: db}
 }
 

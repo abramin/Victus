@@ -22,11 +22,11 @@ var ErrInsufficientData = errors.New("insufficient data")
 
 // DailyLogStore handles database operations for daily logs.
 type DailyLogStore struct {
-	db *sql.DB
+	db DBTX
 }
 
 // NewDailyLogStore creates a new DailyLogStore.
-func NewDailyLogStore(db *sql.DB) *DailyLogStore {
+func NewDailyLogStore(db DBTX) *DailyLogStore {
 	return &DailyLogStore{db: db}
 }
 
@@ -78,7 +78,7 @@ func (s *DailyLogStore) GetByDate(ctx context.Context, date string) (*domain.Dai
 			COALESCE(dinner_consumed_carbs_g, 0), COALESCE(dinner_consumed_fat_g, 0),
 			created_at, updated_at
 		FROM daily_logs
-		WHERE log_date = ?
+		WHERE log_date = $1
 	`
 
 	var (
@@ -172,7 +172,7 @@ func (s *DailyLogStore) GetByDate(ctx context.Context, date string) (*domain.Dai
 // Returns ErrDailyLogNotFound if no log exists for that date.
 func (s *DailyLogStore) GetIDByDate(ctx context.Context, date string) (int64, error) {
 	var id int64
-	err := s.db.QueryRowContext(ctx, "SELECT id FROM daily_logs WHERE log_date = ?", date).Scan(&id)
+	err := s.db.QueryRowContext(ctx, "SELECT id FROM daily_logs WHERE log_date = $1", date).Scan(&id)
 	if errors.Is(err, sql.ErrNoRows) {
 		return 0, ErrDailyLogNotFound
 	}
@@ -205,17 +205,18 @@ func (s *DailyLogStore) create(ctx context.Context, execer sqlExecer, log *domai
 			tdee_source_used, tdee_confidence, data_points_used, notes,
 			created_at, updated_at
 		) VALUES (
-			?, ?, ?, ?, ?,
-			?, ?,
+			$1, $2, $3, $4, $5,
+			$6, $7,
 			'rest', 0,
-			?, ?, ?, ?,
-			?, ?, ?,
-			?, ?, ?,
-			?, ?, ?,
-			?, ?, ?, ?, ?, ?,
-			?, ?, ?, ?,
-			datetime('now'), datetime('now')
+			$8, $9, $10, $11,
+			$12, $13, $14,
+			$15, $16, $17,
+			$18, $19, $20,
+			$21, $22, $23, $24, $25, $26,
+			$27, $28, $29, $30,
+			$31, $32
 		)
+		RETURNING id
 	`
 
 	// Handle nullable fields
@@ -235,7 +236,9 @@ func (s *DailyLogStore) create(ctx context.Context, execer sqlExecer, log *domai
 		sleepHours = *log.SleepHours
 	}
 
-	result, err := execer.ExecContext(ctx, query,
+	now := time.Now()
+	var id int64
+	err := execer.QueryRowContext(ctx, query,
 		log.Date, log.WeightKg, bodyFatPercent, heartRate, hrvMs,
 		log.SleepQuality, sleepHours,
 		// planned_training_type and planned_duration_min use default values ('rest', 0)
@@ -252,7 +255,8 @@ func (s *DailyLogStore) create(ctx context.Context, execer sqlExecer, log *domai
 		log.CalculatedTargets.WaterL, log.DayType,
 		log.EstimatedTDEE, log.FormulaTDEE,
 		log.TDEESourceUsed, log.TDEEConfidence, log.DataPointsUsed, log.Notes,
-	)
+		now, now,
+	).Scan(&id)
 	if err != nil {
 		if isUniqueConstraint(err) {
 			return 0, ErrDailyLogAlreadyExists

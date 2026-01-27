@@ -1,7 +1,6 @@
 package api
 
 import (
-	"database/sql"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -35,7 +34,7 @@ type Server struct {
 }
 
 // NewServer configures routes and middleware.
-func NewServer(db *sql.DB) *Server {
+func NewServer(db store.DBTX) *Server {
 	profileStore := store.NewProfileStore(db)
 	dailyLogStore := store.NewDailyLogStore(db)
 	trainingSessionStore := store.NewTrainingSessionStore(db)

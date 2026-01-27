@@ -9,11 +9,11 @@ import (
 
 // FoodReferenceStore handles database operations for food reference items.
 type FoodReferenceStore struct {
-	db *sql.DB
+	db DBTX
 }
 
 // NewFoodReferenceStore creates a new FoodReferenceStore.
-func NewFoodReferenceStore(db *sql.DB) *FoodReferenceStore {
+func NewFoodReferenceStore(db DBTX) *FoodReferenceStore {
 	return &FoodReferenceStore{db: db}
 }
 

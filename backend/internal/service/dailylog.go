@@ -231,6 +231,22 @@ func (s *DailyLogService) GetByDate(ctx context.Context, date string) (*domain.D
 	}
 	log.ActualSessions = actual
 
+	// Calculate CNS status if HRV is present
+	if log.HRVMs != nil {
+		hrvHistory, _ := s.logStore.GetHRVHistory(ctx, log.Date, domain.HRVBaselineWindowDays)
+		cnsInput := domain.CNSInput{
+			CurrentHRV: *log.HRVMs,
+			HRVHistory: hrvHistory,
+		}
+		cnsResult := domain.CalculateCNSStatus(cnsInput)
+		if cnsResult != nil {
+			log.CNSResult = cnsResult
+			if cnsResult.Status == domain.CNSStatusDepleted {
+				log.TrainingOverrides = domain.CalculateTrainingOverride(cnsResult.Status, log.PlannedSessions)
+			}
+		}
+	}
+
 	return log, nil
 }
 

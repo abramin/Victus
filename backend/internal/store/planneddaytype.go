@@ -13,11 +13,11 @@ var ErrPlannedDayTypeNotFound = errors.New("planned day type not found")
 
 // PlannedDayTypeStore handles database operations for planned day types.
 type PlannedDayTypeStore struct {
-	db *sql.DB
+	db DBTX
 }
 
 // NewPlannedDayTypeStore creates a new PlannedDayTypeStore.
-func NewPlannedDayTypeStore(db *sql.DB) *PlannedDayTypeStore {
+func NewPlannedDayTypeStore(db DBTX) *PlannedDayTypeStore {
 	return &PlannedDayTypeStore{db: db}
 }
 

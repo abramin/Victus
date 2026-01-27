@@ -9,11 +9,11 @@ import (
 
 // TrainingSessionStore handles database operations for training sessions.
 type TrainingSessionStore struct {
-	db *sql.DB
+	db DBTX
 }
 
 // NewTrainingSessionStore creates a new TrainingSessionStore.
-func NewTrainingSessionStore(db *sql.DB) *TrainingSessionStore {
+func NewTrainingSessionStore(db DBTX) *TrainingSessionStore {
 	return &TrainingSessionStore{db: db}
 }
 

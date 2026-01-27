@@ -17,11 +17,11 @@ var (
 
 // NutritionPlanStore handles database operations for nutrition plans.
 type NutritionPlanStore struct {
-	db *sql.DB
+	db DBTX
 }
 
 // NewNutritionPlanStore creates a new NutritionPlanStore.
-func NewNutritionPlanStore(db *sql.DB) *NutritionPlanStore {
+func NewNutritionPlanStore(db DBTX) *NutritionPlanStore {
 	return &NutritionPlanStore{db: db}
 }
 

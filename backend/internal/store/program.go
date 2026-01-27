@@ -19,11 +19,11 @@ var (
 
 // TrainingProgramStore handles database operations for training programs.
 type TrainingProgramStore struct {
-	db *sql.DB
+	db DBTX
 }
 
 // NewTrainingProgramStore creates a new TrainingProgramStore.
-func NewTrainingProgramStore(db *sql.DB) *TrainingProgramStore {
+func NewTrainingProgramStore(db DBTX) *TrainingProgramStore {
 	return &TrainingProgramStore{db: db}
 }
 

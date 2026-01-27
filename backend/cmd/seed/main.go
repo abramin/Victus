@@ -34,7 +34,7 @@ func main() {
 	defer database.Close()
 
 	// Run migrations to ensure tables exist
-	if err := db.RunMigrations(database); err != nil {
+	if err := db.RunMigrationsWithType(database); err != nil {
 		log.Fatalf("Failed to run migrations: %v", err)
 	}
 
@@ -53,7 +53,7 @@ func main() {
 	fmt.Printf("Database: %s\n", config.DBPath)
 	fmt.Printf("Start Date: %s\n", config.StartDate.Format("2006-01-02"))
 
-	if err := seedDatabase(database, config); err != nil {
+	if err := seedDatabase(database.DB, config); err != nil {
 		log.Fatalf("Seeding failed: %v", err)
 	}
 

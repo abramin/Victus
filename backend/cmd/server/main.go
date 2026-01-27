@@ -34,7 +34,7 @@ func main() {
 	}
 	log.Println("database migrations completed")
 
-	srv := api.NewServer(database.DB)
+	srv := api.NewServer(database.NewRebindDB())
 
 	server := &http.Server{
 		Addr:         ":" + port,

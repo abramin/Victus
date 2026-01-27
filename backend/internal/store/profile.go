@@ -14,11 +14,11 @@ var ErrProfileNotFound = errors.New("profile not found")
 
 // ProfileStore handles database operations for user profiles.
 type ProfileStore struct {
-	db *sql.DB
+	db DBTX
 }
 
 // NewProfileStore creates a new ProfileStore.
-func NewProfileStore(db *sql.DB) *ProfileStore {
+func NewProfileStore(db DBTX) *ProfileStore {
 	return &ProfileStore{db: db}
 }
 

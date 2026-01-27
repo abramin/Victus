@@ -10,11 +10,11 @@ import (
 
 // FatigueStore handles database operations for muscle fatigue and archetypes.
 type FatigueStore struct {
-	db *sql.DB
+	db DBTX
 }
 
 // NewFatigueStore creates a new FatigueStore.
-func NewFatigueStore(db *sql.DB) *FatigueStore {
+func NewFatigueStore(db DBTX) *FatigueStore {
 	return &FatigueStore{db: db}
 }
 

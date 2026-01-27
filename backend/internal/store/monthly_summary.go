@@ -10,11 +10,11 @@ import (
 
 // MonthlySummaryStore handles persistence for monthly activity summaries.
 type MonthlySummaryStore struct {
-	db *sql.DB
+	db DBTX
 }
 
 // NewMonthlySummaryStore creates a new monthly summary store.
-func NewMonthlySummaryStore(db *sql.DB) *MonthlySummaryStore {
+func NewMonthlySummaryStore(db DBTX) *MonthlySummaryStore {
 	return &MonthlySummaryStore{db: db}
 }
 

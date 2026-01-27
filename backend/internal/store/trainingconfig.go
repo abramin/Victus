@@ -2,18 +2,17 @@ package store
 
 import (
 	"context"
-	"database/sql"
 
 	"victus/internal/domain"
 )
 
 // TrainingConfigStore handles database operations for training configurations.
 type TrainingConfigStore struct {
-	db *sql.DB
+	db DBTX
 }
 
 // NewTrainingConfigStore creates a new TrainingConfigStore.
-func NewTrainingConfigStore(db *sql.DB) *TrainingConfigStore {
+func NewTrainingConfigStore(db DBTX) *TrainingConfigStore {
 	return &TrainingConfigStore{db: db}
 }
 

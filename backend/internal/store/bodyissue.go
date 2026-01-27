@@ -10,11 +10,11 @@ import (
 
 // BodyIssueStore handles database operations for body part issues.
 type BodyIssueStore struct {
-	db *sql.DB
+	db DBTX
 }
 
 // NewBodyIssueStore creates a new BodyIssueStore.
-func NewBodyIssueStore(db *sql.DB) *BodyIssueStore {
+func NewBodyIssueStore(db DBTX) *BodyIssueStore {
 	return &BodyIssueStore{db: db}
 }
 
