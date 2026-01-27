@@ -7,9 +7,21 @@ import (
 	"strings"
 )
 
-// RunMigrations applies all database migrations.
+// RunMigrationsWithType applies all database migrations based on the database type.
+func RunMigrationsWithType(database *DB) error {
+	if database.Type == DBTypePostgres {
+		return RunPostgresMigrations(database.DB)
+	}
+	return runSQLiteMigrations(database.DB)
+}
+
+// RunMigrations applies all database migrations for SQLite (backward compatibility).
 // This function is idempotent - safe to run multiple times.
 func RunMigrations(db *sql.DB) error {
+	return runSQLiteMigrations(db)
+}
+
+func runSQLiteMigrations(db *sql.DB) error {
 	// Enable foreign key enforcement (SQLite disables by default)
 	if _, err := db.Exec("PRAGMA foreign_keys = ON"); err != nil {
 		return fmt.Errorf("failed to enable foreign keys: %w", err)
