@@ -28,6 +28,7 @@ type Server struct {
 	weeklyDebriefService *service.WeeklyDebriefService
 	importService        *service.ImportService
 	bodyIssueService     *service.BodyIssueService
+	auditService         *service.AuditService
 	plannedDayTypeStore  *store.PlannedDayTypeStore
 	foodReferenceStore   *store.FoodReferenceStore
 	monthlySummaryStore  *store.MonthlySummaryStore
@@ -68,6 +69,9 @@ func NewServer(db *sql.DB) *Server {
 	fatigueService := service.NewFatigueService(fatigueStore)
 	fatigueService.SetBodyIssueStore(bodyIssueStore) // Enable Semantic Body fatigue modifiers
 
+	// Create audit service for Strategy Auditor (Check Engine light)
+	auditService := service.NewAuditService(fatigueStore, dailyLogStore, plannedDayTypeStore, ollamaURL)
+
 	mux := http.NewServeMux()
 	srv := &Server{
 		mux:                  mux,
@@ -83,6 +87,7 @@ func NewServer(db *sql.DB) *Server {
 		weeklyDebriefService: weeklyDebriefService,
 		importService:        service.NewImportService(dailyLogStore, monthlySummaryStore),
 		bodyIssueService:     service.NewBodyIssueService(bodyIssueStore),
+		auditService:         auditService,
 		plannedDayTypeStore:  plannedDayTypeStore,
 		foodReferenceStore:   foodReferenceStore,
 		monthlySummaryStore:  monthlySummaryStore,
@@ -182,6 +187,9 @@ func NewServer(db *sql.DB) *Server {
 	mux.HandleFunc("GET /api/body-issues/active", srv.getActiveBodyIssues)
 	mux.HandleFunc("GET /api/body-issues/modifiers", srv.getFatigueModifiers)
 	mux.HandleFunc("GET /api/body-issues/vocabulary", srv.getSemanticVocabulary)
+
+	// Strategy Auditor routes (Check Engine light - Phase 4.2)
+	mux.HandleFunc("GET /api/audit/status", srv.getAuditStatus)
 
 	return srv
 }

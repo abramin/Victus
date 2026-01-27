@@ -1005,3 +1005,43 @@ export interface MuscleFatigueModifier {
   modifier: number;
   issueCount: number;
 }
+
+// =============================================================================
+// STRATEGY AUDITOR TYPES (Phase 4.2 - Check Engine Light)
+// =============================================================================
+
+/**
+ * AuditRuleID identifies a specific mismatch rule.
+ */
+export type AuditRuleID =
+  | 'high_fatigue_low_carbs'
+  | 'cns_depleted_performance'
+  | 'heavy_training_low_protein'
+  | 'recovery_overreached';
+
+/**
+ * AuditSeverity indicates how critical a mismatch is.
+ */
+export type AuditSeverity = 'warning' | 'critical';
+
+/**
+ * AuditMismatch represents a detected strategy mismatch.
+ */
+export interface AuditMismatch {
+  id: AuditRuleID;
+  rule: string;
+  severity: AuditSeverity;
+  summary: string;
+  explanation?: string;
+  relatedData?: Record<string, unknown>;
+}
+
+/**
+ * AuditStatus represents the current audit state for the Check Engine light.
+ */
+export interface AuditStatus {
+  hasMismatch: boolean;
+  severity?: AuditSeverity;
+  mismatches: AuditMismatch[];
+  checkedAt: string;
+}

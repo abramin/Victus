@@ -3,6 +3,7 @@ import { usePlan } from '../../hooks/usePlan';
 import { usePlanAnalysis } from '../../hooks/usePlanAnalysis';
 import { useProfile } from '../../hooks/useProfile';
 import { useDailyLog } from '../../hooks/useDailyLog';
+import { useStrategyAuditor } from '../../hooks/useStrategyAuditor';
 import { PlanCreationForm } from './PlanCreationForm';
 import { WeeklyTargetsTable } from './WeeklyTargetsTable';
 import { DualTrackChart } from './DualTrackChart';
@@ -10,6 +11,7 @@ import { RecalibrationPrompt } from './RecalibrationPrompt';
 import { PlanProgressTimeline } from './PlanProgressTimeline';
 import { PlanHealthPanel } from './PlanHealthPanel';
 import { AdjustStrategyModal } from './AdjustStrategyModal';
+import { CheckEngineLight, DiagnosticPanel } from '../strategy-auditor';
 import type { CreatePlanRequest, RecalibrationOption } from '../../api/types';
 
 export function PlanOverview() {
@@ -17,8 +19,10 @@ export function PlanOverview() {
   const { plan, loading: planLoading, creating, createError, create, complete, abandon, pause, resume, recalibrate } = usePlan();
   const { analysis, loading: analysisLoading, error: analysisError } = usePlanAnalysis();
   const { log } = useDailyLog();
+  const { status: auditStatus } = useStrategyAuditor();
 
   const [showAdjustModal, setShowAdjustModal] = useState(false);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
 
   const loading = profileLoading || planLoading;
 
@@ -115,7 +119,17 @@ export function PlanOverview() {
     <div className="space-y-6">
       {/* Top Bar: Progress Title + Action Buttons */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <h2 className="text-lg font-semibold text-gray-900">Plan Progress</h2>
+        <div className="flex items-center gap-4">
+          <h2 className="text-lg font-semibold text-gray-900">Plan Progress</h2>
+          {/* Check Engine Light */}
+          {plan.status === 'active' && auditStatus && (
+            <CheckEngineLight
+              hasMismatch={auditStatus.hasMismatch}
+              severity={auditStatus.severity}
+              onClick={() => setShowDiagnostics(!showDiagnostics)}
+            />
+          )}
+        </div>
         <div className="flex items-center gap-3">
           {plan.status === 'active' && (
             <>
@@ -155,6 +169,16 @@ export function PlanOverview() {
           )}
         </div>
       </div>
+
+      {/* Diagnostic Panel (slides down when Check Engine light is clicked) */}
+      {plan.status === 'active' && auditStatus && (
+        <DiagnosticPanel
+          isOpen={showDiagnostics}
+          mismatches={auditStatus.mismatches}
+          checkedAt={auditStatus.checkedAt}
+          onClose={() => setShowDiagnostics(false)}
+        />
+      )}
 
       {/* Progress Timeline */}
       <PlanProgressTimeline

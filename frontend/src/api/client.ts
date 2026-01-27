@@ -777,3 +777,18 @@ export async function getFatigueModifiers(signal?: AbortSignal): Promise<MuscleF
   const response = await fetch(`${API_BASE}/body-issues/modifiers`, { signal });
   return handleResponse<MuscleFatigueModifier[]>(response);
 }
+
+// =============================================================================
+// Strategy Auditor API (Phase 4.2 - Check Engine Light)
+// =============================================================================
+
+import type { AuditStatus } from './types';
+
+/**
+ * Get the current audit status including any detected mismatches.
+ * Used by the Check Engine light feature.
+ */
+export async function getAuditStatus(signal?: AbortSignal): Promise<AuditStatus> {
+  const response = await fetch(`${API_BASE}/audit/status`, { signal });
+  return handleResponse<AuditStatus>(response);
+}
