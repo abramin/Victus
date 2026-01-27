@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+import { motion, useSpring, useTransform } from 'framer-motion';
 import type { VitalityScore } from '../../api/types';
 
 interface VitalityScoreGaugeProps {
@@ -7,11 +9,26 @@ interface VitalityScoreGaugeProps {
 /**
  * Circular gauge displaying the overall vitality score (0-100).
  * Changes color based on score: red (<50), yellow (50-70), green (>70).
+ * Features animated "spin up" effect on mount.
  */
 export function VitalityScoreGauge({ score }: VitalityScoreGaugeProps) {
   const percentage = Math.min(100, Math.max(0, score.overall));
   const circumference = 2 * Math.PI * 45; // radius = 45
-  const offset = circumference - (percentage / 100) * circumference;
+
+  // Animated gauge fill
+  const [targetPercent, setTargetPercent] = useState(0);
+
+  useEffect(() => {
+    // Small delay to sync with section fade-in
+    const timer = setTimeout(() => setTargetPercent(percentage), 100);
+    return () => clearTimeout(timer);
+  }, [percentage]);
+
+  const springValue = useSpring(targetPercent, { stiffness: 50, damping: 20 });
+  const strokeOffset = useTransform(
+    springValue,
+    (v) => circumference - (v / 100) * circumference
+  );
 
   // Determine color based on score
   const getColor = (value: number) => {
@@ -44,8 +61,8 @@ export function VitalityScoreGauge({ score }: VitalityScoreGaugeProps) {
             strokeWidth="8"
             fill="none"
           />
-          {/* Progress circle */}
-          <circle
+          {/* Progress circle - animated spin up */}
+          <motion.circle
             cx="50"
             cy="50"
             r="45"
@@ -54,8 +71,7 @@ export function VitalityScoreGauge({ score }: VitalityScoreGaugeProps) {
             fill="none"
             strokeLinecap="round"
             strokeDasharray={circumference}
-            strokeDashoffset={offset}
-            className="transition-all duration-1000 ease-out"
+            style={{ strokeDashoffset: strokeOffset }}
           />
         </svg>
         {/* Center text */}

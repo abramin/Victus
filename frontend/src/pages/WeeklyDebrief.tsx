@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { useWeeklyDebrief } from '../hooks/useWeeklyDebrief';
 import type { DebriefDay } from '../api/types';
 import {
@@ -8,6 +9,7 @@ import {
   RecommendationsList,
   DayDetailModal,
 } from '../components/debrief';
+import { staggerContainer, fadeInUp } from '../lib/animations';
 
 interface WeeklyDebriefProps {
   current?: boolean;
@@ -109,9 +111,14 @@ export function WeeklyDebrief({ current = false }: WeeklyDebriefProps) {
 
   return (
     <div className="min-h-screen bg-black">
-      <div className="max-w-5xl mx-auto p-6 space-y-8">
+      <motion.div
+        className="max-w-5xl mx-auto p-6 space-y-8"
+        variants={staggerContainer}
+        initial="hidden"
+        animate="show"
+      >
         {/* Header */}
-        <header className="text-center">
+        <motion.header variants={fadeInUp} className="text-center">
           <p className="text-xs uppercase tracking-widest text-slate-500 mb-2">
             Mission Report
           </p>
@@ -119,36 +126,36 @@ export function WeeklyDebrief({ current = false }: WeeklyDebriefProps) {
           <p className="text-sm text-slate-400 mt-1">
             {formatDateRange(debrief.weekStartDate, debrief.weekEndDate)}
           </p>
-        </header>
+        </motion.header>
 
         {/* Module A: Vitality Score */}
-        <section className="bg-slate-900/50 rounded-xl border border-slate-800 p-6">
+        <motion.section variants={fadeInUp} className="bg-slate-900/50 rounded-xl border border-slate-800 p-6">
           <VitalityScoreGauge score={debrief.vitalityScore} />
-        </section>
+        </motion.section>
 
         {/* Module B: Narrative */}
-        <section>
+        <motion.section variants={fadeInUp}>
           <NarrativePanel
             narrative={debrief.narrative}
             onDateClick={handleDateClick}
           />
-        </section>
+        </motion.section>
 
         {/* Module C: Recommendations */}
-        <section>
+        <motion.section variants={fadeInUp}>
           <RecommendationsList recommendations={debrief.recommendations} />
-        </section>
+        </motion.section>
 
         {/* Daily Breakdown Table */}
-        <section>
+        <motion.section variants={fadeInUp}>
           <DailyBreakdownTable
             days={debrief.dailyBreakdown}
             onDayClick={handleDayClick}
           />
-        </section>
+        </motion.section>
 
         {/* Footer */}
-        <footer className="text-center pt-4 border-t border-slate-800">
+        <motion.footer variants={fadeInUp} className="text-center pt-4 border-t border-slate-800">
           <p className="text-xs text-slate-600">
             Generated {formatTimestamp(debrief.generatedAt)}
           </p>
@@ -159,8 +166,8 @@ export function WeeklyDebrief({ current = false }: WeeklyDebriefProps) {
           >
             Regenerate Report
           </button>
-        </footer>
-      </div>
+        </motion.footer>
+      </motion.div>
 
       {/* Day Detail Modal */}
       <DayDetailModal

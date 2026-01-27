@@ -1,4 +1,6 @@
+import { motion } from 'framer-motion';
 import type { DebriefDay } from '../../api/types';
+import { staggerContainerFast, fadeInUp } from '../../lib/animations';
 
 interface DailyBreakdownTableProps {
   days: DebriefDay[];
@@ -42,11 +44,16 @@ export function DailyBreakdownTable({ days, onDayClick }: DailyBreakdownTablePro
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-800/50">
+          <motion.tbody
+            className="divide-y divide-slate-800/50"
+            variants={staggerContainerFast}
+            initial="hidden"
+            animate="show"
+          >
             {days.map((day) => (
               <DayRow key={day.date} day={day} onClick={onDayClick} />
             ))}
-          </tbody>
+          </motion.tbody>
         </table>
       </div>
 
@@ -71,7 +78,8 @@ function DayRow({ day, onClick }: DayRowProps) {
   const trainingStatus = getTrainingStatus(day.plannedSessions, day.actualSessions);
 
   return (
-    <tr
+    <motion.tr
+      variants={fadeInUp}
       className={`${onClick ? 'cursor-pointer hover:bg-slate-800/30' : ''} transition-colors`}
       onClick={() => onClick?.(day)}
     >
@@ -132,7 +140,7 @@ function DayRow({ day, onClick }: DayRowProps) {
           hrvMs={day.hrvMs}
         />
       </td>
-    </tr>
+    </motion.tr>
   );
 }
 

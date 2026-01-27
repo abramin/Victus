@@ -1,4 +1,6 @@
+import { motion } from 'framer-motion';
 import type { TacticalRecommendation } from '../../api/types';
+import { staggerContainerFast, fadeInUp } from '../../lib/animations';
 
 interface RecommendationCardProps {
   recommendation: TacticalRecommendation;
@@ -106,11 +108,18 @@ export function RecommendationsList({ recommendations }: RecommendationsListProp
   return (
     <div className="space-y-3">
       <h3 className="text-sm font-semibold text-white">Tactical Recommendations</h3>
-      <div className="space-y-3">
+      <motion.div
+        className="space-y-3"
+        variants={staggerContainerFast}
+        initial="hidden"
+        animate="show"
+      >
         {sorted.map((rec, index) => (
-          <RecommendationCard key={index} recommendation={rec} />
+          <motion.div key={index} variants={fadeInUp}>
+            <RecommendationCard recommendation={rec} />
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
     </div>
   );
 }
