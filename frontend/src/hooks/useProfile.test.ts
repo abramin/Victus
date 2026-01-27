@@ -45,6 +45,8 @@ describe('useProfile', () => {
   });
 
   it('should start in loading state', () => {
+    // Invariant: UI must show loading indicator during initial fetch to prevent
+    // user interaction with incomplete data.
     vi.mocked(getProfile).mockImplementation(() => new Promise(() => {})); // Never resolves
 
     const { result } = renderHook(() => useProfile());
@@ -55,6 +57,8 @@ describe('useProfile', () => {
   });
 
   it('should load profile successfully', async () => {
+    // Invariant: Profile data must be available for all downstream calculations
+    // (targets, meal points, water). Missing profile breaks the entire app flow.
     vi.mocked(getProfile).mockResolvedValue(mockProfile);
 
     const { result } = renderHook(() => useProfile());
@@ -68,6 +72,9 @@ describe('useProfile', () => {
   });
 
   it('should handle null profile (no profile exists)', async () => {
+    // Invariant: Hook must distinguish "profile doesn't exist" (null profile, no error)
+    // from "API failed" (error state). UI routing depends on this: null → onboarding,
+    // error → retry prompt.
     vi.mocked(getProfile).mockResolvedValue(null);
 
     const { result } = renderHook(() => useProfile());
@@ -81,6 +88,8 @@ describe('useProfile', () => {
   });
 
   it('should handle API error', async () => {
+    // Invariant: API errors must surface to UI for user feedback. Swallowing errors
+    // would leave users stuck without actionable information.
     const error = new ApiError(500, 'internal_error', 'Server error');
     vi.mocked(getProfile).mockRejectedValue(error);
 
@@ -95,6 +104,8 @@ describe('useProfile', () => {
   });
 
   it('should handle non-API error', async () => {
+    // Invariant: Network failures and unexpected errors must not crash the app.
+    // Generic error message provides graceful degradation.
     vi.mocked(getProfile).mockRejectedValue(new Error('Network error'));
 
     const { result } = renderHook(() => useProfile());
@@ -107,6 +118,8 @@ describe('useProfile', () => {
   });
 
   it('should save profile successfully', async () => {
+    // Invariant: Save operation must return success status and update local state.
+    // UI depends on return value for success feedback and state on profile for display.
     vi.mocked(getProfile).mockResolvedValue(mockProfile);
     vi.mocked(saveProfile).mockResolvedValue({ ...mockProfile, currentWeightKg: 79 });
 
@@ -127,6 +140,8 @@ describe('useProfile', () => {
   });
 
   it('should handle save error', async () => {
+    // Invariant: Save errors must be captured in saveError (not error) to distinguish
+    // from load errors. UI shows different feedback for save vs load failures.
     vi.mocked(getProfile).mockResolvedValue(mockProfile);
     const error = new ApiError(400, 'validation_error', 'Invalid data');
     vi.mocked(saveProfile).mockRejectedValue(error);
@@ -147,8 +162,10 @@ describe('useProfile', () => {
   });
 
   it('should set saving state during save', async () => {
+    // Invariant: saving flag must be true during async operation to prevent
+    // double-submission and enable loading UI on save button.
     vi.mocked(getProfile).mockResolvedValue(mockProfile);
-    
+
     let resolvePromise: (value: UserProfile) => void;
     vi.mocked(saveProfile).mockImplementation(
       () => new Promise((resolve) => { resolvePromise = resolve; })
@@ -179,6 +196,8 @@ describe('useProfile', () => {
   });
 
   it('should refresh profile', async () => {
+    // Invariant: refresh() must fetch fresh data from server. Used after external
+    // changes (e.g., onboarding completion) to sync UI with backend state.
     vi.mocked(getProfile).mockResolvedValue(mockProfile);
 
     const { result } = renderHook(() => useProfile());

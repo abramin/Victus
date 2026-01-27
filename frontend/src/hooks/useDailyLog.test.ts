@@ -78,6 +78,8 @@ describe('useDailyLog', () => {
   });
 
   it('should start in loading state', () => {
+    // Invariant: UI must show loading indicator during initial fetch. Daily log
+    // drives the entire daily dashboard view - incomplete state causes layout shifts.
     vi.mocked(getTodayLog).mockImplementation(() => new Promise(() => {})); // Never resolves
 
     const { result } = renderHook(() => useDailyLog());
@@ -88,6 +90,8 @@ describe('useDailyLog', () => {
   });
 
   it('should load today log successfully', async () => {
+    // Invariant: Log data must populate calculatedTargets for meal point display.
+    // Missing log with hasLogToday=false triggers "create log" UI flow.
     vi.mocked(getTodayLog).mockResolvedValue(mockLog);
 
     const { result } = renderHook(() => useDailyLog());
@@ -102,6 +106,8 @@ describe('useDailyLog', () => {
   });
 
   it('should handle null log (no log today)', async () => {
+    // Invariant: Hook must distinguish "no log exists yet" (null log, hasLogToday=false)
+    // from "API failed". UI shows different flows: null → create log form, error → retry.
     vi.mocked(getTodayLog).mockResolvedValue(null);
 
     const { result } = renderHook(() => useDailyLog());
@@ -116,6 +122,8 @@ describe('useDailyLog', () => {
   });
 
   it('should handle API error on load', async () => {
+    // Invariant: API errors must surface to UI. Hiding errors would leave users
+    // unable to diagnose why their daily targets aren't showing.
     const error = new ApiError(500, 'internal_error', 'Server error');
     vi.mocked(getTodayLog).mockRejectedValue(error);
 
@@ -130,6 +138,8 @@ describe('useDailyLog', () => {
   });
 
   it('should create a new log', async () => {
+    // Invariant: create() must return the created log for immediate UI update.
+    // Backend calculates targets; client needs them to display meal points.
     vi.mocked(getTodayLog).mockResolvedValue(null);
     vi.mocked(createDailyLog).mockResolvedValue(mockLog);
 
@@ -150,6 +160,8 @@ describe('useDailyLog', () => {
   });
 
   it('should handle create error', async () => {
+    // Invariant: Create errors go to saveError (not error) to distinguish from
+    // load failures. UI shows inline validation feedback vs. full-page error.
     vi.mocked(getTodayLog).mockResolvedValue(null);
     const error = new ApiError(400, 'validation_error', 'Invalid data');
     vi.mocked(createDailyLog).mockRejectedValue(error);
@@ -170,6 +182,9 @@ describe('useDailyLog', () => {
   });
 
   it('should replace existing log', async () => {
+    // Invariant: replace() must delete-then-create atomically. Backend enforces
+    // one log per day; updating requires this two-step operation. Preserves
+    // actual training sessions from deleted log.
     vi.mocked(getTodayLog).mockResolvedValue(mockLog);
     vi.mocked(deleteTodayLog).mockResolvedValue(undefined);
     vi.mocked(createDailyLog).mockResolvedValue({ ...mockLog, weightKg: 79 });
@@ -192,8 +207,10 @@ describe('useDailyLog', () => {
   });
 
   it('should set saving state during create', async () => {
+    // Invariant: saving flag prevents double-submission and enables loading
+    // indicator on submit button.
     vi.mocked(getTodayLog).mockResolvedValue(null);
-    
+
     let resolvePromise: (value: DailyLog) => void;
     vi.mocked(createDailyLog).mockImplementation(
       () => new Promise((resolve) => { resolvePromise = resolve; })
@@ -224,6 +241,8 @@ describe('useDailyLog', () => {
   });
 
   it('should update actual training sessions', async () => {
+    // Invariant: Actual training updates affect training load calculations (ACR).
+    // Hook must persist changes and refresh local state for immediate UI feedback.
     vi.mocked(getTodayLog).mockResolvedValue(mockLog);
     const updatedLog = {
       ...mockLog,
@@ -251,6 +270,8 @@ describe('useDailyLog', () => {
   });
 
   it('should refresh log', async () => {
+    // Invariant: refresh() must fetch fresh data from server. Used when external
+    // changes occur (e.g., actual training logged from different component).
     vi.mocked(getTodayLog).mockResolvedValue(mockLog);
 
     const { result } = renderHook(() => useDailyLog());
