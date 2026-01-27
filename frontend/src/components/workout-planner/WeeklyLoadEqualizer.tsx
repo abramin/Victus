@@ -14,6 +14,7 @@ interface WeeklyLoadEqualizerProps {
   chronicLoad: number;
   hoveredDate?: string | null;
   projectedLoad?: number;
+  ghostColor?: string;
 }
 
 /**
@@ -25,24 +26,29 @@ export function WeeklyLoadEqualizer({
   chronicLoad,
   hoveredDate,
   projectedLoad = 0,
+  ghostColor = '#6b7280',
 }: WeeklyLoadEqualizerProps) {
-  // Calculate max for scaling
+  // Calculate max for scaling (include ghost load in max calculation)
   const overloadThreshold = chronicLoad > 0 ? chronicLoad * 1.5 : 15;
   const maxInData = Math.max(
     ...weekLoads.map((d) => d.load + (d.date === hoveredDate ? projectedLoad : 0))
   );
   const maxValue = Math.max(maxInData, overloadThreshold, 10) * 1.1; // Add 10% headroom
 
-  // Prepare chart data
+  // Prepare chart data with separate base and ghost segments
   const chartData = weekLoads.map((day, index) => {
     const isHovered = day.date === hoveredDate;
-    const totalLoad = day.load + (isHovered ? projectedLoad : 0);
-    const acr = chronicLoad > 0 ? totalLoad / chronicLoad : 1;
-    const zone = totalLoad === 0 ? 'empty' : getLoadZone(acr);
+    const ghostLoad = isHovered ? projectedLoad : 0;
+    const totalLoad = day.load + ghostLoad;
+    const acr = chronicLoad > 0 ? day.load / chronicLoad : 1;
+    const zone = day.load === 0 ? 'empty' : getLoadZone(acr);
 
     return {
       name: DAY_LABELS[index],
-      load: totalLoad,
+      date: day.date,
+      baseLoad: day.load,
+      ghostLoad,
+      totalLoad,
       color: LOAD_ZONE_COLORS[zone as keyof typeof LOAD_ZONE_COLORS],
       isHovered,
     };
@@ -81,16 +87,36 @@ export function WeeklyLoadEqualizer({
               strokeDasharray="4 4"
               strokeOpacity={0.5}
             />
+            {/* Base load bar */}
             <Bar
-              dataKey="load"
+              dataKey="baseLoad"
+              stackId="load"
+              radius={[0, 0, 0, 0]}
+              maxBarSize={40}
+            >
+              {chartData.map((entry, index) => (
+                <Cell
+                  key={`base-${index}`}
+                  fill={entry.color}
+                  opacity={0.85}
+                />
+              ))}
+            </Bar>
+            {/* Ghost load bar (stacked on top) */}
+            <Bar
+              dataKey="ghostLoad"
+              stackId="load"
               radius={[4, 4, 0, 0]}
               maxBarSize={40}
             >
               {chartData.map((entry, index) => (
                 <Cell
-                  key={`cell-${index}`}
-                  fill={entry.color}
-                  opacity={entry.isHovered ? 1 : 0.85}
+                  key={`ghost-${index}`}
+                  fill={entry.isHovered ? ghostColor : 'transparent'}
+                  opacity={0.5}
+                  stroke={entry.isHovered ? ghostColor : 'transparent'}
+                  strokeWidth={entry.isHovered ? 2 : 0}
+                  strokeDasharray="4 2"
                 />
               ))}
             </Bar>

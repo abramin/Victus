@@ -1,6 +1,9 @@
-import type { DayType, TrainingType } from '../../api/types';
-import { DayDropZone, type PlannedSessionDraft } from './DayDropZone';
+import { useCallback } from 'react';
+import { motion, useAnimation } from 'framer-motion';
+import type { DayType, TrainingType, TrainingConfig } from '../../api/types';
+import { DayDropZone, type PlannedSessionDraft, type DayRecoveryWarning } from './DayDropZone';
 import { calculateSessionLoad } from './loadCalculations';
+import { shiverAnimation } from '../../lib/animations';
 import type { SessionDragData } from './DraggableSessionCard';
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -16,8 +19,13 @@ interface CalendarBoardProps {
   plannedDays: Map<string, PlannedDayData>;
   isDragging: boolean;
   activeDragType: TrainingType | null;
+  selectedSession?: { type: TrainingType; config: TrainingConfig } | null;
+  recoveryWarnings?: Map<string, DayRecoveryWarning>;
   onSessionDrop: (date: string, data: SessionDragData) => void;
   onRemoveSession: (date: string, sessionId: string) => void;
+  onDayDragEnter?: (date: string) => void;
+  onDayDragLeave?: () => void;
+  onClickToPlace?: (date: string) => void;
 }
 
 /**
@@ -38,10 +46,48 @@ export function CalendarBoard({
   plannedDays,
   isDragging,
   activeDragType,
+  selectedSession,
+  recoveryWarnings,
   onSessionDrop,
   onRemoveSession,
+  onDayDragEnter,
+  onDayDragLeave,
+  onClickToPlace,
 }: CalendarBoardProps) {
   const today = formatLocalDate(new Date());
+
+  // Animation controls for each day (for shiver effect)
+  // Using individual useAnimation calls for each day
+  const day0 = useAnimation();
+  const day1 = useAnimation();
+  const day2 = useAnimation();
+  const day3 = useAnimation();
+  const day4 = useAnimation();
+  const day5 = useAnimation();
+  const day6 = useAnimation();
+  const dayControls = [day0, day1, day2, day3, day4, day5, day6];
+
+  // Trigger shiver on adjacent days when a session is dropped
+  const handleDropWithShiver = useCallback(
+    (date: string, data: SessionDragData) => {
+      const dropIndex = weekDates.indexOf(date);
+
+      // Shiver adjacent days (within 2 positions)
+      [-2, -1, 1, 2].forEach((offset, i) => {
+        const targetIndex = dropIndex + offset;
+        if (targetIndex >= 0 && targetIndex < 7) {
+          setTimeout(() => {
+            dayControls[targetIndex].start('shiver').then(() => {
+              dayControls[targetIndex].start('idle');
+            });
+          }, i * 50); // Staggered timing for ripple effect
+        }
+      });
+
+      onSessionDrop(date, data);
+    },
+    [weekDates, onSessionDrop, dayControls]
+  );
 
   return (
     <div className="grid grid-cols-7 gap-2">
@@ -63,21 +109,32 @@ export function CalendarBoard({
         const isPast = date < today;
 
         return (
-          <DayDropZone
+          <motion.div
             key={date}
-            date={date}
-            dayName={DAY_NAMES[index]}
-            dayNumber={dayNumber}
-            sessions={sessions}
-            dayType={dayType}
-            totalLoad={totalLoad}
-            isToday={isToday}
-            isPast={isPast}
-            isDragging={isDragging}
-            activeDragType={activeDragType}
-            onDrop={onSessionDrop}
-            onRemoveSession={onRemoveSession}
-          />
+            variants={shiverAnimation}
+            initial="idle"
+            animate={dayControls[index]}
+          >
+            <DayDropZone
+              date={date}
+              dayName={DAY_NAMES[index]}
+              dayNumber={dayNumber}
+              sessions={sessions}
+              dayType={dayType}
+              totalLoad={totalLoad}
+              isToday={isToday}
+              isPast={isPast}
+              isDragging={isDragging}
+              activeDragType={activeDragType}
+              selectedSession={selectedSession}
+              recoveryWarning={recoveryWarnings?.get(date)}
+              onDrop={handleDropWithShiver}
+              onRemoveSession={onRemoveSession}
+              onDragEnterZone={onDayDragEnter}
+              onDragLeaveZone={onDayDragLeave}
+              onClickToPlace={onClickToPlace}
+            />
+          </motion.div>
         );
       })}
     </div>

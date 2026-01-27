@@ -163,3 +163,95 @@ export const colorMorphTransition: Transition = {
   damping: 20,
   mass: 1,
 };
+
+// === PLANNER ANIMATIONS ===
+// For Workout Planner interactions
+
+/**
+ * Shiver effect for adjacent day cards when a session is dropped nearby.
+ * Creates a ripple-like awareness effect.
+ */
+export const shiverAnimation: Variants = {
+  idle: { x: 0 },
+  shiver: {
+    x: [0, -1, 1, -0.5, 0.5, 0],
+    transition: { duration: 0.3, ease: 'easeInOut' },
+  },
+};
+
+/**
+ * Pulse animation for drop zone when receiving a session.
+ */
+export const dropReceivePulse: Variants = {
+  idle: { scale: 1, boxShadow: '0 0 0 rgba(59, 130, 246, 0)' },
+  pulse: {
+    scale: [1, 1.02, 1],
+    boxShadow: [
+      '0 0 0 rgba(59, 130, 246, 0)',
+      '0 0 20px rgba(59, 130, 246, 0.4)',
+      '0 0 0 rgba(59, 130, 246, 0)',
+    ],
+    transition: { duration: 0.4 },
+  },
+};
+
+/**
+ * Stagger container for Smart Fill card dealing animation.
+ * Faster stagger for dramatic card-dealing effect.
+ */
+export const dealingStagger: Variants = {
+  hidden: { opacity: 1 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+      delayChildren: 0.1,
+    },
+  },
+};
+
+/**
+ * Card dealing animation for Smart Fill feature.
+ * Cards fly from deck position to their target day.
+ */
+export const cardDealVariants: Variants = {
+  initial: {
+    y: 100,
+    scale: 0.8,
+    opacity: 0,
+    rotateZ: -5,
+  },
+  animate: {
+    y: 0,
+    scale: 1,
+    opacity: 1,
+    rotateZ: 0,
+    transition: {
+      type: 'spring',
+      stiffness: 200,
+      damping: 20,
+    },
+  },
+  exit: {
+    y: -20,
+    opacity: 0,
+    transition: { duration: 0.2 },
+  },
+};
+
+/**
+ * Selection ring animation for click-to-select cards.
+ */
+export const selectionRing: Variants = {
+  unselected: {
+    boxShadow: '0 0 0 0 rgba(255, 255, 255, 0)',
+  },
+  selected: {
+    boxShadow: [
+      '0 0 0 0 rgba(255, 255, 255, 0)',
+      '0 0 0 4px rgba(255, 255, 255, 0.3)',
+      '0 0 0 2px rgba(255, 255, 255, 0.5)',
+    ],
+    transition: { duration: 0.3 },
+  },
+};

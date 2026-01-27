@@ -1,11 +1,16 @@
-import { useState, useEffect, useCallback } from 'react';
-import type { TrainingConfig } from '../../api/types';
-import { getTrainingConfigs } from '../../api/client';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import type { TrainingConfig, TrainingType, MuscleFatigue } from '../../api/types';
+import { getTrainingConfigs, getBodyStatus } from '../../api/client';
 import { SessionDeck } from './SessionDeck';
 import { CalendarBoard, formatWeekRange } from './CalendarBoard';
 import { WeeklyLoadEqualizer } from './WeeklyLoadEqualizer';
 import { ConfigureSessionModal } from './ConfigureSessionModal';
+import { SmartFillButton } from './SmartFillButton';
+import { RecoveryIndicator } from './RecoveryIndicator';
 import { usePlannerState } from './usePlannerState';
+import { useRecoveryContext } from './useRecoveryContext';
+import { calculateSessionLoad } from './loadCalculations';
+import { getSessionCategory } from './sessionCategories';
 import type { SessionDragData } from './DraggableSessionCard';
 
 /**
@@ -19,6 +24,9 @@ export function WorkoutPlanner() {
   const [configs, setConfigs] = useState<TrainingConfig[]>([]);
   const [configsLoading, setConfigsLoading] = useState(true);
   const [configsError, setConfigsError] = useState<string | null>(null);
+
+  // Body status for recovery context
+  const [bodyStatus, setBodyStatus] = useState<MuscleFatigue[] | null>(null);
 
   // Planner state
   const {
@@ -38,22 +46,63 @@ export function WorkoutPlanner() {
     saveError,
     isDragging,
     activeDragType,
+    activeDragConfig,
+    hoveredDropDate,
     handleDragStart,
     handleDragEnd,
+    handleDayDragEnter,
+    handleDayDragLeave,
+    selectedSession,
+    handleSelectSession,
+    handlePlaceSession,
     configuringSession,
     setConfiguringSession,
   } = usePlannerState();
 
-  // Fetch training configs on mount
+  // Calculate projected ghost load when dragging over a day
+  const projectedGhostLoad = useMemo(() => {
+    if (!activeDragConfig || !hoveredDropDate) return 0;
+    const DEFAULT_PREVIEW_DURATION = 30;
+    const DEFAULT_PREVIEW_RPE = 5;
+    return calculateSessionLoad(
+      activeDragConfig.loadScore,
+      DEFAULT_PREVIEW_DURATION,
+      DEFAULT_PREVIEW_RPE
+    );
+  }, [activeDragConfig, hoveredDropDate]);
+
+  // Get ghost bar color from active drag category
+  const ghostColor = useMemo(() => {
+    if (!activeDragType) return '#6b7280'; // gray-500 default
+    return getSessionCategory(activeDragType).color;
+  }, [activeDragType]);
+
+  // Recovery context for fatigue warnings
+  const { warnings: recoveryWarnings, regionRecovery, overallScore } = useRecoveryContext(
+    bodyStatus,
+    draftDays,
+    weekDates
+  );
+
+  // Fetch training configs and body status on mount
   useEffect(() => {
     const controller = new AbortController();
 
-    async function fetchConfigs() {
+    async function fetchData() {
       try {
         setConfigsLoading(true);
         setConfigsError(null);
-        const data = await getTrainingConfigs(controller.signal);
-        setConfigs(data);
+
+        // Fetch both in parallel
+        const [configsData, bodyStatusData] = await Promise.all([
+          getTrainingConfigs(controller.signal),
+          getBodyStatus(controller.signal).catch(() => null), // Don't fail if body status unavailable
+        ]);
+
+        setConfigs(configsData);
+        if (bodyStatusData) {
+          setBodyStatus(bodyStatusData.muscles);
+        }
       } catch (err) {
         if (err instanceof Error && err.name !== 'AbortError') {
           setConfigsError(err.message);
@@ -63,7 +112,7 @@ export function WorkoutPlanner() {
       }
     }
 
-    fetchConfigs();
+    fetchData();
     return () => controller.abort();
   }, []);
 
@@ -97,6 +146,21 @@ export function WorkoutPlanner() {
       // Error is already captured in saveError state
     }
   }, [savePlan]);
+
+  // Handle Smart Fill completion
+  const handleSmartFillComplete = useCallback(
+    (sessions: { date: string; trainingType: TrainingType; durationMin: number; rpe: number; loadScore: number }[]) => {
+      sessions.forEach((session) => {
+        addSession(session.date, {
+          trainingType: session.trainingType,
+          durationMin: session.durationMin,
+          rpe: session.rpe,
+          loadScore: session.loadScore,
+        });
+      });
+    },
+    [addSession]
+  );
 
   // Format week display
   const weekDisplay = formatWeekRange(weekStartDate);
@@ -153,6 +217,12 @@ export function WorkoutPlanner() {
             {hasUnsavedChanges && !saveError && (
               <span className="text-xs text-amber-400">Unsaved changes</span>
             )}
+            <SmartFillButton
+              weekDates={weekDates}
+              configs={configs}
+              onFillComplete={handleSmartFillComplete}
+              disabled={configsLoading || hasUnsavedChanges}
+            />
             <button
               onClick={resetDraft}
               disabled={!hasUnsavedChanges || isSaving}
@@ -180,13 +250,22 @@ export function WorkoutPlanner() {
           </div>
         )}
 
-        {/* Weekly load equalizer */}
-        <WeeklyLoadEqualizer
-          weekLoads={weekLoads}
-          chronicLoad={0} // TODO: Fetch from history
-          hoveredDate={null}
-          projectedLoad={0}
-        />
+        {/* Recovery indicator and Weekly load equalizer */}
+        <div className="flex items-start gap-4">
+          <RecoveryIndicator
+            regionRecovery={regionRecovery}
+            overallScore={overallScore}
+          />
+          <div className="flex-1">
+            <WeeklyLoadEqualizer
+              weekLoads={weekLoads}
+              chronicLoad={0} // TODO: Fetch from history
+              hoveredDate={hoveredDropDate}
+              projectedLoad={projectedGhostLoad}
+              ghostColor={ghostColor}
+            />
+          </div>
+        </div>
 
         {/* Calendar board */}
         <CalendarBoard
@@ -194,8 +273,13 @@ export function WorkoutPlanner() {
           plannedDays={draftDays}
           isDragging={isDragging}
           activeDragType={activeDragType}
+          selectedSession={selectedSession}
+          recoveryWarnings={recoveryWarnings}
           onSessionDrop={handleSessionDrop}
           onRemoveSession={removeSession}
+          onDayDragEnter={handleDayDragEnter}
+          onDayDragLeave={handleDayDragLeave}
+          onClickToPlace={handlePlaceSession}
         />
       </div>
 
@@ -203,8 +287,10 @@ export function WorkoutPlanner() {
       <SessionDeck
         configs={configs}
         loading={configsLoading}
+        selectedSession={selectedSession}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
+        onSelectSession={handleSelectSession}
       />
 
       {/* Configure session modal */}

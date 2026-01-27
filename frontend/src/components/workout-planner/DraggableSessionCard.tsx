@@ -6,8 +6,10 @@ import { getSessionCategory } from './sessionCategories';
 interface DraggableSessionCardProps {
   trainingConfig: TrainingConfig;
   disabled?: boolean;
+  isSelected?: boolean;
   onDragStart?: (trainingType: TrainingType, config: TrainingConfig) => void;
   onDragEnd?: () => void;
+  onClick?: (trainingType: TrainingType, config: TrainingConfig) => void;
 }
 
 /**
@@ -17,8 +19,10 @@ interface DraggableSessionCardProps {
 export function DraggableSessionCard({
   trainingConfig,
   disabled,
+  isSelected,
   onDragStart,
   onDragEnd,
+  onClick,
 }: DraggableSessionCardProps) {
   const [isDragging, setIsDragging] = useState(false);
 
@@ -50,6 +54,13 @@ export function DraggableSessionCard({
     onDragEnd?.();
   };
 
+  const handleClick = (e: React.MouseEvent) => {
+    // Don't trigger click if we just finished dragging
+    if (isDragging) return;
+    e.stopPropagation();
+    onClick?.(type, trainingConfig);
+  };
+
   if (disabled) {
     return (
       <div className="w-28 h-32 rounded-xl border-2 border-gray-700 bg-gray-800 opacity-50 cursor-not-allowed p-2.5 relative overflow-hidden">
@@ -65,16 +76,18 @@ export function DraggableSessionCard({
       draggable
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
+      onClick={handleClick}
       className={`
-        w-28 h-32 rounded-xl border-2 ${category.borderClass}
+        w-24 h-28 rounded-xl border-2 ${category.borderClass}
         bg-gray-800 cursor-grab active:cursor-grabbing
-        p-2.5 relative overflow-hidden
+        p-2 relative overflow-hidden
         transition-all duration-200
         hover:scale-105 hover:shadow-lg
         ${isDragging ? 'opacity-50 scale-105' : ''}
+        ${isSelected ? 'ring-2 ring-white ring-offset-2 ring-offset-gray-900 scale-105' : ''}
       `}
       style={{
-        boxShadow: isDragging
+        boxShadow: isDragging || isSelected
           ? `0 0 20px ${category.glowColor}`
           : `0 0 10px ${category.glowColor}`,
       }}

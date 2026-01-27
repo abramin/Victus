@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import type { DayType, TrainingConfig, TrainingType } from '../../api/types';
 import { upsertPlannedDay } from '../../api/client';
 import { calculateSessionLoad } from './loadCalculations';
@@ -87,6 +87,13 @@ export function usePlannerState() {
   const [isDragging, setIsDragging] = useState(false);
   const [activeDragType, setActiveDragType] = useState<TrainingType | null>(null);
   const [activeDragConfig, setActiveDragConfig] = useState<TrainingConfig | null>(null);
+  const [hoveredDropDate, setHoveredDropDate] = useState<string | null>(null);
+
+  // Click-to-select state
+  const [selectedSession, setSelectedSession] = useState<{
+    type: TrainingType;
+    config: TrainingConfig;
+  } | null>(null);
 
   // Configuration modal state
   const [configuringSession, setConfiguringSession] = useState<ConfiguringSession | null>(null);
@@ -211,6 +218,45 @@ export function usePlannerState() {
     setIsDragging(false);
     setActiveDragType(null);
     setActiveDragConfig(null);
+    setHoveredDropDate(null);
+  }, []);
+
+  const handleDayDragEnter = useCallback((date: string) => {
+    setHoveredDropDate(date);
+  }, []);
+
+  const handleDayDragLeave = useCallback(() => {
+    setHoveredDropDate(null);
+  }, []);
+
+  // Click-to-select handlers
+  const handleSelectSession = useCallback((type: TrainingType, config: TrainingConfig) => {
+    setSelectedSession((prev) => (prev?.type === type ? null : { type, config }));
+  }, []);
+
+  const handlePlaceSession = useCallback((date: string) => {
+    if (!selectedSession) return;
+    setConfiguringSession({
+      trainingType: selectedSession.type,
+      config: selectedSession.config,
+      targetDate: date,
+    });
+    setSelectedSession(null);
+  }, [selectedSession]);
+
+  const clearSelection = useCallback(() => {
+    setSelectedSession(null);
+  }, []);
+
+  // ESC key to clear selection
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSelectedSession(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   // Reset draft
@@ -289,8 +335,17 @@ export function usePlannerState() {
     isDragging,
     activeDragType,
     activeDragConfig,
+    hoveredDropDate,
     handleDragStart,
     handleDragEnd,
+    handleDayDragEnter,
+    handleDayDragLeave,
+
+    // Click-to-select state
+    selectedSession,
+    handleSelectSession,
+    handlePlaceSession,
+    clearSelection,
 
     // Configuration modal
     configuringSession,

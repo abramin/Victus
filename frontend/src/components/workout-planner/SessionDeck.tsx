@@ -5,27 +5,37 @@ import { SESSION_CATEGORIES } from './sessionCategories';
 interface SessionDeckProps {
   configs: TrainingConfig[];
   loading?: boolean;
+  selectedSession?: { type: TrainingType; config: TrainingConfig } | null;
   onDragStart?: (trainingType: TrainingType, config: TrainingConfig) => void;
   onDragEnd?: () => void;
+  onSelectSession?: (trainingType: TrainingType, config: TrainingConfig) => void;
 }
 
 /**
- * The "Deck" - a horizontal scrollable drawer containing all training type cards.
- * Cards are grouped by category: Strength, Cardio, Recovery, Mixed.
+ * The "Deck" - a grouped grid of training type cards.
+ * Cards are organized by category: Strength, Cardio, Recovery, Mixed.
+ * Supports both drag-to-add and click-to-select interactions.
  */
-export function SessionDeck({ configs, loading, onDragStart, onDragEnd }: SessionDeckProps) {
+export function SessionDeck({
+  configs,
+  loading,
+  selectedSession,
+  onDragStart,
+  onDragEnd,
+  onSelectSession,
+}: SessionDeckProps) {
   if (loading) {
     return (
       <div className="bg-gray-900 border-t border-gray-800 p-4">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-white font-semibold">Session Library</h3>
-          <span className="text-gray-500 text-sm">Loading...</span>
+          <h3 className="text-white font-semibold text-sm">Session Library</h3>
+          <span className="text-gray-500 text-xs">Loading...</span>
         </div>
-        <div className="flex gap-3 overflow-x-auto pb-2">
-          {[1, 2, 3, 4].map((i) => (
+        <div className="flex flex-wrap gap-2">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
             <div
               key={i}
-              className="w-28 h-32 rounded-xl bg-gray-800 animate-pulse flex-shrink-0"
+              className="w-24 h-28 rounded-xl bg-gray-800 animate-pulse"
             />
           ))}
         </div>
@@ -34,42 +44,65 @@ export function SessionDeck({ configs, loading, onDragStart, onDragEnd }: Sessio
   }
 
   // Group configs by category
-  const strengthConfigs = configs.filter((c) =>
-    SESSION_CATEGORIES.strength.types.includes(c.type)
-  );
-  const cardioConfigs = configs.filter((c) =>
-    SESSION_CATEGORIES.cardio.types.includes(c.type)
-  );
-  const recoveryConfigs = configs.filter((c) =>
-    SESSION_CATEGORIES.recovery.types.includes(c.type)
-  );
-  const mixedConfigs = configs.filter((c) =>
-    SESSION_CATEGORIES.mixed.types.includes(c.type)
-  );
-
-  // Combine in display order: strength, cardio, recovery, mixed
-  const sortedConfigs = [
-    ...strengthConfigs,
-    ...cardioConfigs,
-    ...recoveryConfigs,
-    ...mixedConfigs
-  ];
+  const groupedConfigs: { category: (typeof SESSION_CATEGORIES)[keyof typeof SESSION_CATEGORIES]; key: string; configs: TrainingConfig[] }[] = [
+    {
+      category: SESSION_CATEGORIES.strength,
+      key: 'strength',
+      configs: configs.filter((c) => SESSION_CATEGORIES.strength.types.includes(c.type)),
+    },
+    {
+      category: SESSION_CATEGORIES.cardio,
+      key: 'cardio',
+      configs: configs.filter((c) => SESSION_CATEGORIES.cardio.types.includes(c.type)),
+    },
+    {
+      category: SESSION_CATEGORIES.recovery,
+      key: 'recovery',
+      configs: configs.filter((c) => SESSION_CATEGORIES.recovery.types.includes(c.type)),
+    },
+    {
+      category: SESSION_CATEGORIES.mixed,
+      key: 'mixed',
+      configs: configs.filter((c) => SESSION_CATEGORIES.mixed.types.includes(c.type)),
+    },
+  ].filter((g) => g.configs.length > 0);
 
   return (
     <div className="bg-gray-900 border-t border-gray-800 p-4">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-white font-semibold">Session Library</h3>
-        <span className="text-gray-500 text-sm">Drag to calendar</span>
+        <h3 className="text-white font-semibold text-sm">Session Library</h3>
+        <span className="text-gray-500 text-xs">
+          {selectedSession ? 'Click a day to place' : 'Drag or click to select'}
+        </span>
       </div>
 
-      <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4">
-        {sortedConfigs.map((config) => (
-          <div key={config.type} className="flex-shrink-0">
-            <DraggableSessionCard
-              trainingConfig={config}
-              onDragStart={onDragStart}
-              onDragEnd={onDragEnd}
-            />
+      <div className="space-y-3">
+        {groupedConfigs.map(({ category, key, configs: categoryConfigs }) => (
+          <div key={key}>
+            {/* Category header */}
+            <div className="flex items-center gap-2 mb-2">
+              <div
+                className="w-2 h-2 rounded-full"
+                style={{ backgroundColor: category.color }}
+              />
+              <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">
+                {category.label}
+              </span>
+            </div>
+
+            {/* Grid of cards */}
+            <div className="flex flex-wrap gap-2">
+              {categoryConfigs.map((config) => (
+                <DraggableSessionCard
+                  key={config.type}
+                  trainingConfig={config}
+                  isSelected={selectedSession?.type === config.type}
+                  onDragStart={onDragStart}
+                  onDragEnd={onDragEnd}
+                  onClick={onSelectSession}
+                />
+              ))}
+            </div>
           </div>
         ))}
       </div>

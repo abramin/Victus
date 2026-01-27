@@ -1,9 +1,19 @@
 import { useState, useCallback } from 'react';
-import type { DayType, TrainingType } from '../../api/types';
+import { motion, AnimatePresence } from 'framer-motion';
+import type { DayType, TrainingType, TrainingConfig, MuscleGroup } from '../../api/types';
 import { DAY_TYPE_COLORS, TRAINING_ICONS, TRAINING_LABELS } from '../../constants';
 import { getSessionCategory } from './sessionCategories';
 import { formatLoad } from './loadCalculations';
 import { parseSessionDragData, type SessionDragData } from './DraggableSessionCard';
+
+/**
+ * Recovery warning for a specific day.
+ */
+export interface DayRecoveryWarning {
+  severity: 'caution' | 'warning';
+  conflictingMuscles: MuscleGroup[];
+  maxFatigue: number;
+}
 
 /**
  * A planned session in draft state.
@@ -27,8 +37,13 @@ interface DayDropZoneProps {
   isPast: boolean;
   isDragging: boolean;
   activeDragType: TrainingType | null;
+  selectedSession?: { type: TrainingType; config: TrainingConfig } | null;
+  recoveryWarning?: DayRecoveryWarning | null;
   onDrop: (date: string, data: SessionDragData) => void;
   onRemoveSession: (date: string, sessionId: string) => void;
+  onDragEnterZone?: (date: string) => void;
+  onDragLeaveZone?: () => void;
+  onClickToPlace?: (date: string) => void;
 }
 
 /**
@@ -46,10 +61,16 @@ export function DayDropZone({
   isPast,
   isDragging,
   activeDragType,
+  selectedSession,
+  recoveryWarning,
   onDrop,
   onRemoveSession,
+  onDragEnterZone,
+  onDragLeaveZone,
+  onClickToPlace,
 }: DayDropZoneProps) {
   const [isOver, setIsOver] = useState(false);
+  const canClickToPlace = selectedSession && !isPast;
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     if (isPast) return;
@@ -61,13 +82,15 @@ export function DayDropZone({
     if (isPast) return;
     e.preventDefault();
     setIsOver(true);
-  }, [isPast]);
+    onDragEnterZone?.(date);
+  }, [isPast, date, onDragEnterZone]);
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     // Only trigger if leaving the container itself
     if (e.currentTarget.contains(e.relatedTarget as Node)) return;
     setIsOver(false);
-  }, []);
+    onDragLeaveZone?.();
+  }, [onDragLeaveZone]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -81,9 +104,17 @@ export function DayDropZone({
     }
   }, [isPast, date, onDrop]);
 
+  const handleClick = useCallback(() => {
+    if (isPast || !selectedSession) return;
+    onClickToPlace?.(date);
+  }, [isPast, selectedSession, date, onClickToPlace]);
+
   // Get category color for glow effect
   const activeCategory = activeDragType ? getSessionCategory(activeDragType) : null;
   const dayTypeColors = dayType ? DAY_TYPE_COLORS[dayType] : null;
+
+  // Get selected session category for styling
+  const selectedCategory = selectedSession ? getSessionCategory(selectedSession.type) : null;
 
   return (
     <div
@@ -91,6 +122,8 @@ export function DayDropZone({
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
+      onClick={handleClick}
+      data-planner-interactive="true"
       className={`
         relative flex flex-col
         min-h-[180px] rounded-xl
@@ -101,6 +134,7 @@ export function DayDropZone({
           : 'border-gray-700 bg-gray-800'
         }
         ${isToday ? 'ring-2 ring-blue-500/50' : ''}
+        ${canClickToPlace ? 'cursor-pointer hover:border-blue-400 hover:bg-blue-500/5' : ''}
       `}
     >
       {/* Day header */}
@@ -120,12 +154,37 @@ export function DayDropZone({
         )}
       </div>
 
+      {/* Recovery warning icon */}
+      <AnimatePresence>
+        {recoveryWarning && (
+          <motion.div
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0, opacity: 0 }}
+            className={`
+              absolute -top-1.5 -right-1.5 z-10
+              w-5 h-5 rounded-full
+              flex items-center justify-center
+              text-[10px] font-bold
+              shadow-lg cursor-help
+              ${recoveryWarning.severity === 'warning'
+                ? 'bg-red-500 text-white shadow-red-500/50'
+                : 'bg-amber-500 text-gray-900 shadow-amber-500/50'
+              }
+            `}
+            title={`${recoveryWarning.conflictingMuscles.length} muscle group(s) at ${Math.round(recoveryWarning.maxFatigue)}% fatigue`}
+          >
+            {recoveryWarning.severity === 'warning' ? '!' : '⚠'}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Sessions list */}
       <div className="flex-1 p-2 space-y-1 overflow-auto">
         {sessions.length === 0 ? (
           <div className="h-full flex items-center justify-center">
             <span className="text-gray-600 text-xs">
-              {isDragging ? 'Drop here' : 'No sessions'}
+              {isDragging ? 'Drop here' : canClickToPlace ? 'Click to place' : 'No sessions'}
             </span>
           </div>
         ) : (
@@ -164,6 +223,23 @@ export function DayDropZone({
               + {TRAINING_LABELS[activeDragType]}
             </span>
           )}
+        </div>
+      )}
+
+      {/* Click-to-place overlay */}
+      {canClickToPlace && !isDragging && (
+        <div
+          className={`
+            absolute inset-1 border-2 border-dashed rounded-lg
+            flex items-end justify-center pb-3
+            pointer-events-none opacity-40 hover:opacity-70
+            ${selectedCategory?.borderClass || 'border-blue-500'}
+            ${selectedCategory?.bgClass || 'bg-blue-500/10'}
+          `}
+        >
+          <span className="text-xs text-gray-400">
+            + {TRAINING_LABELS[selectedSession.type]}
+          </span>
         </div>
       )}
     </div>
