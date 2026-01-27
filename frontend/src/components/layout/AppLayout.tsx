@@ -3,6 +3,7 @@ import { Sidebar } from './Sidebar';
 import { TabBar } from './TabBar';
 import { ScanlineOverlay } from '../common';
 import { slideInLeft, staggerContainer, fadeInUp } from '../../lib/animations';
+import { SemanticFeedbackProvider } from '../../contexts/SemanticFeedbackContext';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -10,6 +11,7 @@ interface AppLayoutProps {
 
 export function AppLayout({ children }: AppLayoutProps) {
   return (
+    <SemanticFeedbackProvider>
     <div className="flex min-h-screen bg-black relative" data-testid="app-layout">
       {/* Scanline overlay - subtle ambient animation */}
       <ScanlineOverlay />
@@ -41,5 +43,6 @@ export function AppLayout({ children }: AppLayoutProps) {
 
       <TabBar />
     </div>
+    </SemanticFeedbackProvider>
   );
 }

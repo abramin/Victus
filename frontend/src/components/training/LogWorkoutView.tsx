@@ -6,8 +6,12 @@ import { SessionCard } from './SessionCard';
 import { ActualVsPlannedComparison } from './ActualVsPlannedComparison';
 import { ArchetypeSelector } from '../body-map/ArchetypeSelector';
 import { SessionReportModal } from '../body-map/SessionReportModal';
-import { applyFatigue } from '../../api/client';
+import { SemanticHighlighter } from '../semantic/SemanticHighlighter';
+import { useSemanticDetection, extractIssuesFromTokens } from '../semantic';
+import { useSemanticFeedbackOptional } from '../../contexts/SemanticFeedbackContext';
+import { applyFatigue, createBodyIssues } from '../../api/client';
 import type { DailyLog, ActualTrainingSession, TrainingSession, TrainingType, Archetype, SessionFatigueReport } from '../../api/types';
+import type { SemanticToken } from '../semantic/semanticDictionary';
 import { TRAINING_LABELS } from '../../constants';
 
 type SessionWithId = Omit<ActualTrainingSession, 'sessionOrder'> & { _id: string };
@@ -130,7 +134,10 @@ export function LogWorkoutView({ log, onUpdateActual, saving }: LogWorkoutViewPr
   const [selectedArchetype, setSelectedArchetype] = useState<Archetype | null>(null);
   const [fatigueReport, setFatigueReport] = useState<SessionFatigueReport | null>(null);
   const [showFatigueReport, setShowFatigueReport] = useState(false);
+  const [sessionTokens, setSessionTokens] = useState<Record<string, SemanticToken[]>>({});
   const idCounterRef = useRef(0);
+  const notesContainerRef = useRef<HTMLDivElement>(null);
+  const semanticFeedback = useSemanticFeedbackOptional();
 
   const generateId = useCallback(() => {
     idCounterRef.current += 1;
@@ -219,6 +226,36 @@ export function LogWorkoutView({ log, onUpdateActual, saving }: LogWorkoutViewPr
     if (result) {
       setHasUnsavedChanges(false);
 
+      // Collect all semantic tokens and create body issues
+      const allTokens: SemanticToken[] = [];
+      const allIssues: Array<{ bodyPart: string; symptom: string; rawText: string }> = [];
+
+      sessions.forEach((session) => {
+        const tokens = sessionTokens[session._id] || [];
+        if (tokens.length > 0 && session.notes) {
+          allTokens.push(...tokens);
+          const issues = extractIssuesFromTokens(session.notes, tokens);
+          allIssues.push(...issues);
+        }
+      });
+
+      // If we have semantic detections, call the body issues API and trigger animation
+      if (allIssues.length > 0 && log?.date) {
+        try {
+          await createBodyIssues({
+            date: log.date,
+            issues: allIssues,
+          });
+
+          // Trigger the particle animation
+          if (semanticFeedback && notesContainerRef.current && allTokens.length > 0) {
+            semanticFeedback.triggerAnimation(allTokens, notesContainerRef.current);
+          }
+        } catch (err) {
+          console.error('Failed to save body issues:', err);
+        }
+      }
+
       // Calculate aggregated values for fatigue
       const activeSessions = sessions.filter(s => s.type !== 'rest');
       const totalDuration = activeSessions.reduce((sum, s) => sum + s.durationMin, 0);
@@ -237,7 +274,14 @@ export function LogWorkoutView({ log, onUpdateActual, saving }: LogWorkoutViewPr
           });
           setFatigueReport(report);
           setShowFatigueReport(true);
-        } catch {
+        } catch (error) {
+          // Log error for debugging - check browser console
+          console.error('Failed to apply fatigue:', {
+            error,
+            archetype: selectedArchetype,
+            totalDuration,
+            avgRpe,
+          });
           // If fatigue apply fails, fall back to simple receipt
           const totalLoad = sessions.reduce((sum, session) => sum + getSessionLoadScore(session), 0);
           if (totalLoad > 0) {
@@ -727,14 +771,16 @@ export function LogWorkoutView({ log, onUpdateActual, saving }: LogWorkoutViewPr
                       {/* Footer: Add Note + Clear RPE */}
                       <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-800">
                         {isNotesVisible ? (
-                          <div className="flex-1 mr-4">
-                            <textarea
+                          <div className="flex-1 mr-4" ref={notesContainerRef}>
+                            <SemanticHighlighter
                               value={session.notes || ''}
-                              onChange={(e) => updateSession(session._id, { notes: e.target.value })}
+                              onChange={(value) => updateSession(session._id, { notes: value })}
                               placeholder="How did it feel? Any observations..."
                               rows={2}
                               disabled={isQuickMode || saving}
-                              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/20 resize-none disabled:opacity-50"
+                              onTokensChange={(tokens) =>
+                                setSessionTokens((prev) => ({ ...prev, [session._id]: tokens }))
+                              }
                             />
                           </div>
                         ) : (

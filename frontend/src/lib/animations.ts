@@ -255,3 +255,65 @@ export const selectionRing: Variants = {
     transition: { duration: 0.3 },
   },
 };
+
+// === SEMANTIC BODY ANIMATIONS (Phase 4) ===
+
+/**
+ * Particle fly animation for semantic tokens flying to Body Map icon.
+ * Tokens shrink and fly to target position.
+ */
+export const particleFly: Variants = {
+  initial: {
+    scale: 1,
+    opacity: 1,
+  },
+  animate: (target: { x: number; y: number }) => ({
+    x: target.x,
+    y: target.y,
+    scale: 0.1,
+    opacity: 0,
+    transition: {
+      duration: 0.6,
+      ease: [0.32, 0.72, 0, 1], // Custom easing for natural arc
+    },
+  }),
+};
+
+/**
+ * Receive pulse animation for sidebar icon when particles arrive.
+ */
+export const iconReceivePulse: Variants = {
+  idle: {
+    scale: 1,
+    filter: 'brightness(1)',
+  },
+  pulse: {
+    scale: [1, 1.3, 1],
+    filter: ['brightness(1)', 'brightness(1.5)', 'brightness(1)'],
+    transition: {
+      duration: 0.4,
+      ease: 'easeOut',
+    },
+  },
+};
+
+/**
+ * Token highlight glow for detected semantic tokens.
+ */
+export const tokenHighlight: Variants = {
+  idle: {
+    boxShadow: '0 0 0 rgba(59, 130, 246, 0)',
+  },
+  highlighted: {
+    boxShadow: [
+      '0 0 0 rgba(59, 130, 246, 0)',
+      '0 0 8px rgba(59, 130, 246, 0.5)',
+      '0 0 4px rgba(59, 130, 246, 0.3)',
+    ],
+    transition: {
+      duration: 1,
+      repeat: Infinity,
+      ease: 'easeInOut',
+    },
+  },
+};

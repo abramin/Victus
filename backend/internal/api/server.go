@@ -27,6 +27,7 @@ type Server struct {
 	solverService        *service.SolverService
 	weeklyDebriefService *service.WeeklyDebriefService
 	importService        *service.ImportService
+	bodyIssueService     *service.BodyIssueService
 	plannedDayTypeStore  *store.PlannedDayTypeStore
 	foodReferenceStore   *store.FoodReferenceStore
 	monthlySummaryStore  *store.MonthlySummaryStore
@@ -45,6 +46,7 @@ func NewServer(db *sql.DB) *Server {
 	programStore := store.NewTrainingProgramStore(db)
 	metabolicStore := store.NewMetabolicStore(db)
 	monthlySummaryStore := store.NewMonthlySummaryStore(db)
+	bodyIssueStore := store.NewBodyIssueStore(db)
 
 	// Create services
 	dailyLogService := service.NewDailyLogService(dailyLogStore, trainingSessionStore, profileStore)
@@ -62,6 +64,10 @@ func NewServer(db *sql.DB) *Server {
 		dailyLogStore, trainingSessionStore, profileStore, metabolicStore, ollamaService,
 	)
 
+	// Create fatigue service with body issue integration
+	fatigueService := service.NewFatigueService(fatigueStore)
+	fatigueService.SetBodyIssueStore(bodyIssueStore) // Enable Semantic Body fatigue modifiers
+
 	mux := http.NewServeMux()
 	srv := &Server{
 		mux:                  mux,
@@ -70,12 +76,13 @@ func NewServer(db *sql.DB) *Server {
 		trainingConfigStore:  trainingConfigStore,
 		planService:          service.NewNutritionPlanService(planStore, profileStore),
 		analysisService:      service.NewAnalysisService(planStore, profileStore, dailyLogStore),
-		fatigueService:       service.NewFatigueService(fatigueStore),
+		fatigueService:       fatigueService,
 		programService:       service.NewTrainingProgramService(programStore, plannedDayTypeStore),
 		metabolicService:     service.NewMetabolicService(metabolicStore, dailyLogStore),
 		solverService:        solverService,
 		weeklyDebriefService: weeklyDebriefService,
 		importService:        service.NewImportService(dailyLogStore, monthlySummaryStore),
+		bodyIssueService:     service.NewBodyIssueService(bodyIssueStore),
 		plannedDayTypeStore:  plannedDayTypeStore,
 		foodReferenceStore:   foodReferenceStore,
 		monthlySummaryStore:  monthlySummaryStore,
@@ -169,6 +176,12 @@ func NewServer(db *sql.DB) *Server {
 	// Garmin Data Import routes
 	mux.HandleFunc("POST /api/import/garmin", srv.uploadGarminData)
 	mux.HandleFunc("GET /api/stats/monthly-summaries", srv.getMonthlySummaries)
+
+	// Body Issues routes (Semantic Tagger - Phase 4)
+	mux.HandleFunc("POST /api/body-issues", srv.createBodyIssues)
+	mux.HandleFunc("GET /api/body-issues/active", srv.getActiveBodyIssues)
+	mux.HandleFunc("GET /api/body-issues/modifiers", srv.getFatigueModifiers)
+	mux.HandleFunc("GET /api/body-issues/vocabulary", srv.getSemanticVocabulary)
 
 	return srv
 }

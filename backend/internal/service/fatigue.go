@@ -11,12 +11,18 @@ import (
 
 // FatigueService handles business logic for muscle fatigue and body status.
 type FatigueService struct {
-	fatigueStore *store.FatigueStore
+	fatigueStore   *store.FatigueStore
+	bodyIssueStore *store.BodyIssueStore // Optional: for issue-based fatigue modifiers
 }
 
 // NewFatigueService creates a new FatigueService.
 func NewFatigueService(fs *store.FatigueStore) *FatigueService {
 	return &FatigueService{fatigueStore: fs}
+}
+
+// SetBodyIssueStore enables body issue fatigue modifiers.
+func (s *FatigueService) SetBodyIssueStore(bs *store.BodyIssueStore) {
+	s.bodyIssueStore = bs
 }
 
 // ApplyLoadByParams applies fatigue based on archetype, duration, and RPE.
@@ -116,6 +122,7 @@ func (s *FatigueService) GetArchetypeByName(ctx context.Context, name domain.Arc
 
 // GetBodyStatus returns current body fatigue with decay applied.
 // Implements lazy decay calculation on read.
+// If bodyIssueStore is set, also applies fatigue modifiers from detected body issues.
 func (s *FatigueService) GetBodyStatus(ctx context.Context, asOf time.Time) (*domain.BodyStatus, error) {
 	// Get all muscle groups for complete body map
 	muscleGroups, err := s.fatigueStore.GetAllMuscleGroups(ctx)
@@ -133,6 +140,25 @@ func (s *FatigueService) GetBodyStatus(ctx context.Context, asOf time.Time) (*do
 	fatigueMap := make(map[int]store.MuscleFatigueRow)
 	for _, row := range fatigueRows {
 		fatigueMap[row.MuscleGroupID] = row
+	}
+
+	// Get issue-based fatigue modifiers if bodyIssueStore is available
+	issueModifiers := make(map[domain.MuscleGroup]float64)
+	if s.bodyIssueStore != nil {
+		issues, err := s.bodyIssueStore.GetActiveIssues(ctx)
+		if err == nil { // Ignore errors, just skip modifiers
+			for _, issue := range issues {
+				issueDate, err := time.Parse("2006-01-02", issue.Date)
+				if err != nil {
+					continue
+				}
+				daysSince := int(asOf.Sub(issueDate).Hours() / 24)
+				modifier := domain.CalculateIssueFatigueModifier(issue.Severity, daysSince)
+				if modifier > 0 {
+					issueModifiers[issue.BodyPart] += modifier
+				}
+			}
+		}
 	}
 
 	// Build complete muscle status list with decay applied
@@ -157,6 +183,11 @@ func (s *FatigueService) GetBodyStatus(ctx context.Context, asOf time.Time) (*do
 			// No fatigue entry = fresh muscle
 			fatiguePercent = 0
 			lastUpdated = ""
+		}
+
+		// Apply issue-based modifier if present
+		if modifier, exists := issueModifiers[mg.Name]; exists {
+			fatiguePercent = domain.AddFatigue(fatiguePercent, modifier)
 		}
 
 		state := domain.BuildMuscleFatigueState(mg.ID, mg.Name, fatiguePercent, lastUpdated)

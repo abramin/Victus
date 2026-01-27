@@ -1,4 +1,8 @@
+import { useRef, useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { useSemanticFeedbackOptional } from '../../contexts/SemanticFeedbackContext';
+import { iconReceivePulse } from '../../lib/animations';
 
 export type NavItem = 'today' | 'kitchen' | 'strategy' | 'schedule' | 'workout-planner' | 'programs' | 'physique' | 'history' | 'debrief' | 'log-workout' | 'profile';
 
@@ -149,6 +153,26 @@ const NAV_SECTIONS: NavSection[] = [
 ];
 
 export function Sidebar({ currentNav, onNavChange }: SidebarProps) {
+  const bodyStatusRef = useRef<HTMLAnchorElement>(null);
+  const semanticFeedback = useSemanticFeedbackOptional();
+  const [isPulsing, setIsPulsing] = useState(false);
+
+  // Register the Body Status icon as the animation target
+  useEffect(() => {
+    if (semanticFeedback && bodyStatusRef.current) {
+      semanticFeedback.registerTarget(bodyStatusRef.current);
+    }
+  }, [semanticFeedback]);
+
+  // Subscribe to receive pulse events
+  useEffect(() => {
+    if (!semanticFeedback) return;
+    return semanticFeedback.onReceivePulse(() => {
+      setIsPulsing(true);
+      setTimeout(() => setIsPulsing(false), 400);
+    });
+  }, [semanticFeedback]);
+
   return (
     <aside className="w-56 bg-black border-r border-gray-800 flex-col min-h-screen hidden lg:flex">
       {/* Logo */}
@@ -172,24 +196,40 @@ export function Sidebar({ currentNav, onNavChange }: SidebarProps) {
               {section.title}
             </h3>
             <div className="space-y-1">
-              {section.items.map((item) => (
-                <NavLink
-                  key={item.id}
-                  to={item.path}
-                  data-testid={`nav-${item.id}`}
-                  onClick={() => onNavChange?.(item.id)}
-                  className={({ isActive }) =>
-                    `w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                      isActive
-                        ? 'bg-gray-800 text-white'
-                        : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
-                    }`
-                  }
-                >
-                  {item.icon}
-                  {item.label}
-                </NavLink>
-              ))}
+              {section.items.map((item) => {
+                const isBodyStatus = item.id === 'physique';
+                const NavComponent = isBodyStatus ? motion.a : 'a';
+
+                return (
+                  <NavLink
+                    key={item.id}
+                    to={item.path}
+                    ref={isBodyStatus ? bodyStatusRef : undefined}
+                    data-testid={`nav-${item.id}`}
+                    onClick={() => onNavChange?.(item.id)}
+                    className={({ isActive }) =>
+                      `w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                        isActive
+                          ? 'bg-gray-800 text-white'
+                          : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+                      } ${isBodyStatus && isPulsing ? 'animate-pulse bg-emerald-900/50' : ''}`
+                    }
+                  >
+                    {isBodyStatus && isPulsing ? (
+                      <motion.span
+                        initial={{ scale: 1 }}
+                        animate={{ scale: [1, 1.3, 1] }}
+                        transition={{ duration: 0.4 }}
+                      >
+                        {item.icon}
+                      </motion.span>
+                    ) : (
+                      item.icon
+                    )}
+                    {item.label}
+                  </NavLink>
+                );
+              })}
             </div>
           </div>
         ))}

@@ -943,3 +943,65 @@ export interface MonthlySummary {
   rawActivityName: string;
   createdAt: string;
 }
+
+// =============================================================================
+// SEMANTIC BODY (PHASE 4) - BODY PART ISSUES
+// =============================================================================
+
+/**
+ * IssueSeverity represents the severity level of a body part issue.
+ * 1 = Minor (+5% fatigue): tight, stiff, restricted, weak
+ * 2 = Moderate (+10% fatigue): sore, ache, tender, fatigued, cramping
+ * 3 = Severe (+15% fatigue): pain, sharp, burning, tingling, numb, swollen, clicky
+ */
+export type IssueSeverity = 1 | 2 | 3;
+
+/**
+ * BodyPartIssue represents a detected issue from workout notes.
+ */
+export interface BodyPartIssue {
+  id: number;
+  date: string;
+  bodyPart: MuscleGroup;
+  symptom: string;
+  severity: IssueSeverity;
+  rawText: string;
+  sessionId?: number;
+  createdAt: string;
+}
+
+/**
+ * CreateBodyIssueInput represents a single body part issue to create.
+ */
+export interface CreateBodyIssueInput {
+  bodyPart: string;
+  symptom: string;
+  rawText: string;
+  sessionId?: number;
+}
+
+/**
+ * CreateBodyIssuesRequest represents the request body for creating body part issues.
+ */
+export interface CreateBodyIssuesRequest {
+  date: string;
+  issues: CreateBodyIssueInput[];
+}
+
+/**
+ * CreateBodyIssuesResponse represents the response after creating body part issues.
+ */
+export interface CreateBodyIssuesResponse {
+  issues: BodyPartIssue[];
+  count: number;
+}
+
+/**
+ * MuscleFatigueModifier represents the fatigue contribution from body issues.
+ */
+export interface MuscleFatigueModifier {
+  muscle: MuscleGroup;
+  displayName: string;
+  modifier: number;
+  issueCount: number;
+}

@@ -38,6 +38,8 @@ func RunMigrations(db *sql.DB) error {
 		createMetabolicHistoryTable,
 		// Garmin Data Ingestion feature
 		createMonthlySummariesTable,
+		// Semantic Body (Phase 4) - body part issues from workout notes
+		createBodyPartIssuesTable,
 	}
 
 	for i, migration := range migrations {
@@ -705,6 +707,24 @@ CREATE TABLE IF NOT EXISTS monthly_summaries (
 );
 
 CREATE INDEX IF NOT EXISTS idx_monthly_summaries_year_month ON monthly_summaries(year_month);
+`
+
+// Body Part Issues table for Semantic Body (Phase 4) - stores detected issues from workout notes
+const createBodyPartIssuesTable = `
+CREATE TABLE IF NOT EXISTS body_part_issues (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    date TEXT NOT NULL,
+    body_part TEXT NOT NULL,
+    symptom TEXT NOT NULL,
+    severity INTEGER NOT NULL CHECK (severity BETWEEN 1 AND 3),
+    raw_text TEXT NOT NULL,
+    session_id INTEGER REFERENCES training_sessions(id) ON DELETE SET NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_body_part_issues_date ON body_part_issues(date);
+CREATE INDEX IF NOT EXISTS idx_body_part_issues_body_part ON body_part_issues(body_part);
+CREATE INDEX IF NOT EXISTS idx_body_part_issues_session ON body_part_issues(session_id);
 `
 
 // migrateTrainingSessionsConstraint fixes the unique constraint on training_sessions

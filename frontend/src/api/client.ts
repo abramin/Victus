@@ -678,3 +678,102 @@ export async function getCurrentWeekDebrief(signal?: AbortSignal): Promise<Weekl
 
   return handleResponse<WeeklyDebrief>(response);
 }
+
+// =============================================================================
+// Garmin Data Import API
+// =============================================================================
+
+import type { GarminImportResult, MonthlySummary } from './types';
+
+/**
+ * Upload a Garmin export file (CSV or ZIP) for import.
+ * Supports: Sleep (Sueño), Weight (Peso), HRV, RHR, and Activity summaries.
+ * @param file The CSV or ZIP file to upload
+ * @param year Optional year for date parsing (defaults to current year)
+ */
+export async function importGarminData(
+  file: File,
+  year?: number,
+  signal?: AbortSignal
+): Promise<GarminImportResult> {
+  const formData = new FormData();
+  formData.append('file', file);
+  if (year) {
+    formData.append('year', year.toString());
+  }
+
+  const response = await fetch(`${API_BASE}/import/garmin`, {
+    method: 'POST',
+    body: formData,
+    signal,
+  });
+
+  return handleResponse<GarminImportResult>(response);
+}
+
+/**
+ * Get monthly activity summaries.
+ * @param from Optional start year-month (e.g., "2025-01")
+ * @param to Optional end year-month (e.g., "2025-12")
+ */
+export async function getMonthlySummaries(
+  from?: string,
+  to?: string,
+  signal?: AbortSignal
+): Promise<MonthlySummary[]> {
+  const params = new URLSearchParams();
+  if (from) params.append('from', from);
+  if (to) params.append('to', to);
+
+  const url = params.toString()
+    ? `${API_BASE}/stats/monthly-summaries?${params}`
+    : `${API_BASE}/stats/monthly-summaries`;
+
+  const response = await fetch(url, { signal });
+  return handleResponse<MonthlySummary[]>(response);
+}
+
+// =============================================================================
+// Semantic Body API (Phase 4 - Body Part Issues)
+// =============================================================================
+
+import type {
+  BodyPartIssue,
+  CreateBodyIssuesRequest,
+  CreateBodyIssuesResponse,
+  MuscleFatigueModifier,
+} from './types';
+
+/**
+ * Create body part issues from detected semantic tokens.
+ */
+export async function createBodyIssues(
+  request: CreateBodyIssuesRequest,
+  signal?: AbortSignal
+): Promise<CreateBodyIssuesResponse> {
+  const response = await fetch(`${API_BASE}/body-issues`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(request),
+    signal,
+  });
+  return handleResponse<CreateBodyIssuesResponse>(response);
+}
+
+/**
+ * Get all active body part issues (within decay period).
+ */
+export async function getActiveBodyIssues(signal?: AbortSignal): Promise<BodyPartIssue[]> {
+  const response = await fetch(`${API_BASE}/body-issues/active`, { signal });
+  return handleResponse<BodyPartIssue[]>(response);
+}
+
+/**
+ * Get fatigue modifiers from active body issues.
+ */
+export async function getFatigueModifiers(signal?: AbortSignal): Promise<MuscleFatigueModifier[]> {
+  const response = await fetch(`${API_BASE}/body-issues/modifiers`, { signal });
+  return handleResponse<MuscleFatigueModifier[]>(response);
+}
