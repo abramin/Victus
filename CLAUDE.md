@@ -68,22 +68,95 @@ api/ → service/ → store/ → db/
 - `internal/api/server.go` - Route definitions and middleware
 
 ### API Endpoints
+
+**Core Resources**
 - `GET /api/health` - Health check
 - `GET/PUT/DELETE /api/profile` - User profile CRUD
+
+**Daily Logs**
 - `POST /api/logs` - Create daily log with calculated targets
 - `GET /api/logs` - Get logs by date range
 - `GET/DELETE /api/logs/today` - Today's log operations
 - `GET /api/logs/{date}` - Get log by date
 - `PATCH /api/logs/{date}/actual-training` - Update actual training sessions
-- `GET /api/training-configs` - Get training type configurations (MET, load scores)
+- `PATCH /api/logs/{date}/active-calories` - Update active calories (health sync)
+- `PATCH /api/logs/{date}/fasting-override` - Override fasting window
+- `PATCH /api/logs/{date}/health-sync` - Sync with health data sources
+- `PATCH /api/logs/{date}/consumed-macros` - Add consumed macro entry
+- `GET /api/logs/{date}/insight` - AI-generated day insight
+
+**Training & Body Status**
+- `GET /api/training-configs` - Training type configurations (MET, load scores)
+- `GET /api/body-status` - Current fatigue/readiness status
+- `GET /api/archetypes` - Fatigue archetype definitions
+- `POST /api/fatigue/apply` - Apply fatigue by parameters
+- `POST /api/sessions/{id}/apply-load` - Apply training load to session
+
+**Statistics & Calendar**
 - `GET /api/stats/weight-trend` - Weight trend with regression analysis
 - `GET /api/stats/history` - Historical summary with training compliance
+- `GET /api/stats/monthly-summaries` - Monthly aggregate data
+- `GET /api/calendar/summary` - Calendar visualization with normalized metrics
+
+**Planning & Day Types**
 - `GET/PUT/DELETE /api/planned-days/{date}` - Planned day types for calendar
-- `GET/PATCH /api/food-reference/{id}` - Food reference library
-- `POST/GET /api/plans` - Nutrition plan CRUD
+- `GET /api/food-reference` - Food reference library listing
+- `PATCH /api/food-reference/{id}` - Update food reference item
+
+**Nutrition Plans**
+- `POST /api/plans` - Create nutrition plan
+- `GET /api/plans` - List all plans
 - `GET /api/plans/active` - Get active plan
+- `GET /api/plans/current-week` - Current week target
+- `GET /api/plans/active/analysis` - Analyze active plan variance
+- `GET /api/plans/{id}` - Get plan by ID
 - `GET /api/plans/{id}/analysis` - Dual-track variance analysis
+- `POST /api/plans/{id}/complete` - Complete plan
+- `POST /api/plans/{id}/abandon` - Abandon plan
+- `POST /api/plans/{id}/pause` - Pause plan
+- `POST /api/plans/{id}/resume` - Resume plan
 - `POST /api/plans/{id}/recalibrate` - Apply recalibration strategy
+- `DELETE /api/plans/{id}` - Delete plan
+
+**Training Programs**
+- `GET /api/training-programs` - List training programs
+- `POST /api/training-programs` - Create training program
+- `GET /api/training-programs/{id}` - Get program details
+- `DELETE /api/training-programs/{id}` - Delete program
+- `GET /api/training-programs/{id}/waveform` - Get program waveform visualization
+- `POST /api/training-programs/{id}/install` - Install program to calendar
+
+**Program Installations**
+- `GET /api/program-installations/active` - Get active program installation
+- `GET /api/program-installations/{id}` - Get installation details
+- `POST /api/program-installations/{id}/abandon` - Abandon installation
+- `DELETE /api/program-installations/{id}` - Delete installation
+- `GET /api/program-installations/{id}/sessions` - Get scheduled sessions
+
+**Metabolic Flux Engine**
+- `GET /api/metabolic/chart` - Metabolic rate chart data
+- `GET /api/metabolic/notification` - Get pending metabolic notifications
+- `POST /api/metabolic/notification/{id}/dismiss` - Dismiss notification
+
+**Weekly Debrief (Mission Report)**
+- `GET /api/debrief/weekly` - Get weekly debrief report
+- `GET /api/debrief/weekly/{date}` - Get debrief for specific week
+- `GET /api/debrief/current` - Get current week debrief
+
+**Data Import**
+- `POST /api/import/garmin` - Upload Garmin data file
+
+**Body Issues (Semantic Tagger)**
+- `POST /api/body-issues` - Create body issues entry
+- `GET /api/body-issues/active` - Get active body issues
+- `GET /api/body-issues/modifiers` - Get fatigue modifiers from body issues
+- `GET /api/body-issues/vocabulary` - Get semantic vocabulary
+
+**Strategy Auditor**
+- `GET /api/audit/status` - Get audit status (Check Engine light)
+
+**Macro Tetris Solver**
+- `POST /api/solver/solve` - Solve macro puzzle with food combinations
 
 ### Frontend Structure
 - `src/pages/` - Page components (App.tsx is main entry)
@@ -99,12 +172,39 @@ Vite proxies `/api` requests to the backend (port 8080).
 - **BMR Equations**: mifflin_st_jeor (default), katch_mcardle, oxford_henry, harris_benedict
 - **Points System**: Converts gram-based macros to meal-level "points" for easier tracking
 
+## Key Features
+
+### Adaptive Load & Fatigue Management
+The app tracks training load via RPE (Rate of Perceived Exertion) and applies cumulative fatigue using archetypes. The **Semantic Body** system allows tagging specific body issues (e.g., "left knee soreness") which apply fatigue modifiers to relevant training types.
+
+### Metabolic Flux Engine
+Tracks metabolic rate adaptations over time based on actual intake and weight changes. Provides notifications when recalibration is recommended due to significant metabolic shifts.
+
+### Training Program Management
+Create multi-week training programs with periodization. Programs can be installed to the calendar, automatically populating planned training sessions. Includes waveform visualization for load planning.
+
+### Nutrition Plans with Dual-Track Analysis
+Plans track both target macros and actual intake. The analysis endpoint provides variance metrics and suggests recalibration strategies based on adherence and weight trends.
+
+### Macro Tetris Solver
+AI-powered meal planning that solves for food combinations matching target macros. Uses Ollama to generate creative recipe names for solved combinations.
+
+### Weekly Debrief (Mission Report)
+Generates comprehensive weekly summaries with AI insights covering training compliance, nutrition adherence, weight trends, and metabolic changes.
+
+### Strategy Auditor (Check Engine Light)
+Monitors system state for inconsistencies (e.g., outdated plans, missed training, metabolic drift) and surfaces actionable warnings.
+
+### Garmin Data Import
+Supports bulk import of Garmin training data to backfill historical training sessions and monthly summaries.
+
 ## Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PORT` | `8080` | Backend server port |
 | `DB_PATH` | `data/victus.sqlite` | SQLite database file (use `:memory:` for tests) |
+| `OLLAMA_URL` | `http://localhost:11434` | Ollama API endpoint for AI features (insights, recipe naming) |
 | `CORS_ALLOWED_ORIGIN` | `*` | CORS origin |
 
 ## CI/CD
@@ -117,13 +217,9 @@ GitHub Actions runs on push/PR to main:
 ## Review Agents
 
 Custom Claude commands in `.claude/commands/` for code review:
-- `/balance-review` - Over-abstraction, DRY, indirection/hop budget
-- `/complexity-review` - Readability and cognitive complexity
 - `/ddd-review` - Domain-driven design patterns
-- `/testing-review` - Test coverage and quality
-- `/qa` - OpenAPI contract completeness
-- `/adaptive-model` - Model and data integrity
 - `/frontend-review` - React/TypeScript correctness, performance (skip accessibility)
+- `/testing-review` - Test coverage and quality
 
 ## Go Style Guidelines
 

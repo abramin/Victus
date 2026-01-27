@@ -211,6 +211,35 @@ From `CLAUDE.md`:
 | `internal/domain/analysis.go` | Dual-track plan analysis |
 | `internal/db/migrations.go` | Database schema definition |
 
+### 3.5 Service Layer Mapping
+
+**Which service owns which endpoints:**
+
+| Service | Endpoints | Purpose |
+|---------|-----------|---------|
+| **ProfileService** | `/api/profile` (GET, PUT, DELETE) | User profile CRUD operations |
+| **DailyLogService** | `/api/logs`, `/api/logs/today`, `/api/logs/{date}`, `/api/logs/{date}/actual-training`, `/api/logs/{date}/active-calories`, `/api/logs/{date}/fasting-override`, `/api/logs/{date}/health-sync`, `/api/logs/{date}/consumed-macros`, `/api/logs/{date}/insight` | Daily log creation, updates, AI insights via Ollama |
+| **TrainingConfigStore** | `/api/training-configs` | Training type configurations (MET, load scores) - direct store access |
+| **FatigueService** | `/api/body-status`, `/api/archetypes`, `/api/fatigue/apply`, `/api/sessions/{id}/apply-load` | Body fatigue map, training load application |
+| **NutritionPlanService** | `/api/plans`, `/api/plans/active`, `/api/plans/current-week`, `/api/plans/{id}`, `/api/plans/{id}/complete`, `/api/plans/{id}/abandon`, `/api/plans/{id}/pause`, `/api/plans/{id}/resume`, `/api/plans/{id}/recalibrate` | Nutrition plan lifecycle management |
+| **AnalysisService** | `/api/plans/active/analysis`, `/api/plans/{id}/analysis`, `/api/stats/history`, `/api/stats/weight-trend` | Dual-track variance analysis, historical data |
+| **PlannedDayTypeStore** | `/api/planned-days`, `/api/planned-days/{date}` | Planned day types - direct store access |
+| **FoodReferenceStore** | `/api/food-reference`, `/api/food-reference/{id}` | Food reference library - direct store access |
+| **TrainingProgramService** | `/api/training-programs`, `/api/training-programs/{id}`, `/api/training-programs/{id}/waveform`, `/api/training-programs/{id}/install`, `/api/program-installations/active`, `/api/program-installations/{id}`, `/api/program-installations/{id}/abandon`, `/api/program-installations/{id}/sessions` | Training program and installation management |
+| **MetabolicService** | `/api/metabolic/chart`, `/api/metabolic/notification`, `/api/metabolic/notification/{id}/dismiss` | Metabolic Flux Engine, weekly strategy notifications |
+| **SolverService** | `/api/solver/solve` | Macro Tetris solver with AI recipe naming |
+| **WeeklyDebriefService** | `/api/debrief/weekly`, `/api/debrief/weekly/{date}`, `/api/debrief/current` | Mission Report generation with AI narrative |
+| **ImportService** | `/api/import/garmin`, `/api/stats/monthly-summaries` | Garmin data import, monthly activity summaries |
+| **BodyIssueService** | `/api/body-issues`, `/api/body-issues/active`, `/api/body-issues/modifiers`, `/api/body-issues/vocabulary` | Semantic Body tagger, body part issue tracking |
+| **AuditService** | `/api/audit/status` | Strategy Auditor (Check Engine light) |
+| **CalendarAPI** | `/api/calendar/summary` | Calendar heatmap data (handler-level logic) |
+
+**Key Observations:**
+- Most services follow the layered pattern: Handler → Service → Domain/Store
+- Some stores are accessed directly from handlers (TrainingConfigStore, PlannedDayTypeStore, FoodReferenceStore) for simple CRUD
+- DailyLogService integrates multiple dependencies: MetabolicStore, OllamaService
+- Ollama integration is used by: DailyLogService, SolverService, WeeklyDebriefService, AuditService
+
 ---
 
 ## 4. Frontend Architecture (React/TypeScript)
@@ -616,49 +645,151 @@ Daily TDEE adjustments based on:
 
 ## 8. API Reference
 
-### 8.1 Endpoints Overview
+### 8.1 Complete Endpoints Reference
 
-| Method | Path | Description |
-|--------|------|-------------|
-| **Health** |
-| GET | `/api/health` | Health check |
-| **Profile** |
-| GET | `/api/profile` | Get user profile |
-| PUT | `/api/profile` | Create/update profile |
-| DELETE | `/api/profile` | Delete profile |
-| **Daily Logs** |
-| POST | `/api/logs` | Create daily log with targets |
-| GET | `/api/logs` | Get logs for date range |
-| GET | `/api/logs/today` | Get today's log |
-| GET | `/api/logs/{date}` | Get log by date |
-| DELETE | `/api/logs/today` | Delete today's log |
-| PATCH | `/api/logs/{date}/actual-training` | Update actual training sessions |
-| PATCH | `/api/logs/{date}/active-calories` | Update active calories burned |
-| **Training** |
-| GET | `/api/training-configs` | Get all training type configs |
-| **Statistics** |
-| GET | `/api/stats/weight-trend` | Get weight trend data |
-| GET | `/api/stats/history` | Get history summary |
-| **Planned Days** |
-| GET | `/api/planned-days` | List planned day types |
-| PUT | `/api/planned-days/{date}` | Create/update planned day |
-| DELETE | `/api/planned-days/{date}` | Delete planned day |
-| **Food Reference** |
-| GET | `/api/food-reference` | Get all food reference items |
-| PATCH | `/api/food-reference/{id}` | Update food item |
-| **Nutrition Plans** |
-| POST | `/api/plans` | Create new plan |
-| GET | `/api/plans` | List all plans |
-| GET | `/api/plans/active` | Get active plan |
-| GET | `/api/plans/current-week` | Get current week target |
-| GET | `/api/plans/active/analysis` | Analyze active plan |
-| GET | `/api/plans/{id}` | Get plan by ID |
-| GET | `/api/plans/{id}/analysis` | Analyze specific plan |
-| POST | `/api/plans/{id}/complete` | Mark plan complete |
-| POST | `/api/plans/{id}/abandon` | Abandon plan |
-| DELETE | `/api/plans/{id}` | Delete plan |
+**Total: 66+ endpoints across 13 feature domains**
 
-### 8.2 Error Handling
+#### 8.1.1 Health Check
+| Method | Path | Query Params | Description |
+|--------|------|--------------|-------------|
+| GET | `/api/health` | - | Health check with timestamp |
+
+#### 8.1.2 Profile Management (3 endpoints)
+| Method | Path | Query Params | Description |
+|--------|------|--------------|-------------|
+| GET | `/api/profile` | - | Get user profile |
+| PUT | `/api/profile` | - | Create/update profile |
+| DELETE | `/api/profile` | - | Delete profile (resets all data) |
+
+#### 8.1.3 Daily Logs (11 endpoints)
+| Method | Path | Query Params | Description |
+|--------|------|--------------|-------------|
+| POST | `/api/logs` | - | Create daily log with calculated targets |
+| GET | `/api/logs` | `start`, `end` | Get logs for date range (YYYY-MM-DD) |
+| GET | `/api/logs/today` | - | Get today's log |
+| GET | `/api/logs/{date}` | - | Get log by specific date |
+| DELETE | `/api/logs/today` | - | Delete today's log |
+| PATCH | `/api/logs/{date}/actual-training` | - | Update actual training sessions (post-workout) |
+| PATCH | `/api/logs/{date}/active-calories` | - | Update active calories burned from wearable |
+| PATCH | `/api/logs/{date}/fasting-override` | - | Override fasting protocol for specific day |
+| PATCH | `/api/logs/{date}/health-sync` | - | Sync health data (RHR, HRV, sleep from wearable) |
+| PATCH | `/api/logs/{date}/consumed-macros` | - | Add consumed macros (additive, per-meal tracking) |
+| GET | `/api/logs/{date}/insight` | - | Get AI-generated day insight via Ollama |
+
+#### 8.1.4 Training & Body Status (5 endpoints)
+| Method | Path | Query Params | Description |
+|--------|------|--------------|-------------|
+| GET | `/api/training-configs` | - | Get training type configs (MET, load scores) |
+| GET | `/api/body-status` | - | Get current body fatigue map (all 15 muscle groups) |
+| GET | `/api/archetypes` | - | Get training archetypes with muscle coefficients |
+| POST | `/api/fatigue/apply` | - | Apply fatigue by archetype (no session ID required) |
+| POST | `/api/sessions/{id}/apply-load` | - | Apply session load to body map (linked to session) |
+
+#### 8.1.5 Statistics (3 endpoints)
+| Method | Path | Query Params | Description |
+|--------|------|--------------|-------------|
+| GET | `/api/stats/weight-trend` | `range` (7d, 30d, 90d, all) | Weight trend with linear regression |
+| GET | `/api/stats/history` | `range` (7d, 30d, 90d, all) | Historical summary with training compliance |
+| GET | `/api/stats/monthly-summaries` | `from`, `to` (YYYY-MM) | Monthly activity summaries from Garmin |
+
+#### 8.1.6 Calendar & Planning (4 endpoints)
+| Method | Path | Query Params | Description |
+|--------|------|--------------|-------------|
+| GET | `/api/calendar/summary` | `start`, `end` | Calendar with load/calorie heatmap |
+| GET | `/api/planned-days` | `start`, `end` | Get planned day types for date range |
+| PUT | `/api/planned-days/{date}` | - | Upsert planned day type |
+| DELETE | `/api/planned-days/{date}` | - | Delete planned day |
+
+#### 8.1.7 Food Reference (2 endpoints)
+| Method | Path | Query Params | Description |
+|--------|------|--------------|-------------|
+| GET | `/api/food-reference` | - | Get food reference library (all food items) |
+| PATCH | `/api/food-reference/{id}` | - | Update plate multiplier for food item |
+
+#### 8.1.8 Nutrition Plans (13 endpoints)
+| Method | Path | Query Params | Description |
+|--------|------|--------------|-------------|
+| POST | `/api/plans` | - | Create new nutrition plan |
+| GET | `/api/plans` | - | List all nutrition plans (summary view) |
+| GET | `/api/plans/active` | - | Get currently active plan (full details) |
+| GET | `/api/plans/current-week` | - | Get current week target for active plan |
+| GET | `/api/plans/active/analysis` | `date` (optional) | Analyze active plan (dual-track variance) |
+| GET | `/api/plans/{id}` | - | Get plan by ID (full details) |
+| GET | `/api/plans/{id}/analysis` | `date` (optional) | Analyze specific plan (dual-track variance) |
+| POST | `/api/plans/{id}/complete` | - | Mark plan as completed |
+| POST | `/api/plans/{id}/abandon` | - | Abandon plan |
+| POST | `/api/plans/{id}/pause` | - | Pause plan |
+| POST | `/api/plans/{id}/resume` | - | Resume paused plan |
+| POST | `/api/plans/{id}/recalibrate` | - | Apply recalibration strategy (increase deficit, extend timeline, etc.) |
+| DELETE | `/api/plans/{id}` | - | Delete plan permanently |
+
+#### 8.1.9 Training Programs (11 endpoints)
+| Method | Path | Query Params | Description |
+|--------|------|--------------|-------------|
+| GET | `/api/training-programs` | `difficulty`, `focus`, `templatesOnly` | List programs with optional filters |
+| POST | `/api/training-programs` | - | Create custom training program |
+| GET | `/api/training-programs/{id}` | - | Get program by ID (includes weeks and days) |
+| DELETE | `/api/training-programs/{id}` | - | Delete program |
+| GET | `/api/training-programs/{id}/waveform` | - | Get periodization waveform data for chart |
+| POST | `/api/training-programs/{id}/install` | - | Install program to calendar with day mapping |
+| GET | `/api/program-installations/active` | - | Get active program installation |
+| GET | `/api/program-installations/{id}` | - | Get installation by ID |
+| POST | `/api/program-installations/{id}/abandon` | - | Abandon installation (stop following program) |
+| DELETE | `/api/program-installations/{id}` | - | Delete installation permanently |
+| GET | `/api/program-installations/{id}/sessions` | - | Get scheduled sessions for installation |
+
+#### 8.1.10 Metabolic Flux Engine (3 endpoints)
+| Method | Path | Query Params | Description |
+|--------|------|--------------|-------------|
+| GET | `/api/metabolic/chart` | `weeks` (default: 12) | Metabolic history for graph visualization |
+| GET | `/api/metabolic/notification` | - | Get pending weekly strategy notification (null if none) |
+| POST | `/api/metabolic/notification/{id}/dismiss` | - | Dismiss notification after user acknowledges |
+
+#### 8.1.11 Macro Tetris Solver (1 endpoint)
+| Method | Path | Query Params | Description |
+|--------|------|--------------|-------------|
+| POST | `/api/solver/solve` | - | Solve remaining macros with food combinations + AI recipe naming |
+
+#### 8.1.12 Weekly Debrief / Mission Report (3 endpoints)
+| Method | Path | Query Params | Description |
+|--------|------|--------------|-------------|
+| GET | `/api/debrief/weekly` | - | Get most recent completed week debrief |
+| GET | `/api/debrief/weekly/{date}` | - | Get debrief for specific week (any day in week) |
+| GET | `/api/debrief/current` | - | Get in-progress debrief for current incomplete week |
+
+#### 8.1.13 Garmin Data Import (2 endpoints)
+| Method | Path | Query Params | Description |
+|--------|------|--------------|-------------|
+| POST | `/api/import/garmin` | - | Upload Garmin CSV/ZIP export (sleep, weight, HRV, activities) |
+| GET | `/api/stats/monthly-summaries` | `from`, `to` (YYYY-MM) | Get monthly activity summaries (listed above) |
+
+#### 8.1.14 Semantic Body / Body Issues (4 endpoints)
+| Method | Path | Query Params | Description |
+|--------|------|--------------|-------------|
+| POST | `/api/body-issues` | - | Create body part issues from semantic tokens in workout notes |
+| GET | `/api/body-issues/active` | - | Get active body issues (within decay period) |
+| GET | `/api/body-issues/modifiers` | - | Get fatigue modifiers from active body issues |
+| GET | `/api/body-issues/vocabulary` | - | Get semantic vocabulary for body part detection |
+
+#### 8.1.15 Strategy Auditor / Check Engine (1 endpoint)
+| Method | Path | Query Params | Description |
+|--------|------|--------------|-------------|
+| GET | `/api/audit/status` | - | Get audit status with detected strategy mismatches |
+
+### 8.2 Request/Response Formats
+
+**Content Type:** All endpoints use `application/json` for requests and responses.
+
+**Date Format:** ISO 8601 date strings (`YYYY-MM-DD`), e.g., `"2025-01-27"`
+
+**Common Request Patterns:**
+- `POST` - Create with JSON body
+- `GET` - Retrieve with query params
+- `PUT` - Upsert (create or replace) with JSON body
+- `PATCH` - Partial update with JSON body
+- `DELETE` - Remove resource
+
+### 8.3 Error Handling
 
 ```json
 {
@@ -668,12 +799,13 @@ Daily TDEE adjustments based on:
 ```
 
 Common error codes:
-- `not_found` - Resource doesn't exist
-- `validation_error` - Invalid input
-- `already_exists` - Duplicate resource
-- `internal_error` - Server error
+- `not_found` - Resource doesn't exist (404)
+- `validation_error` - Invalid input (400)
+- `already_exists` - Duplicate resource (409)
+- `internal_error` - Server error (500)
+- `forbidden` - Operation not allowed (403)
 
-### 8.3 CORS Configuration
+### 8.4 CORS Configuration
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -681,6 +813,19 @@ Common error codes:
 | `CORS_ALLOWED_METHODS` | `GET,POST,PUT,PATCH,DELETE,OPTIONS` | Allowed methods |
 | `CORS_ALLOWED_HEADERS` | `Content-Type,Authorization` | Allowed headers |
 | `CORS_MAX_AGE` | `3600` | Preflight cache (seconds) |
+
+### 8.5 Feature Integrations
+
+**Ollama AI Integration:**
+- **Endpoints using Ollama:** `/api/logs/{date}/insight`, `/api/solver/solve`, `/api/debrief/*`, `/api/audit/status`
+- **Default URL:** `localhost:11434` (configurable via `OLLAMA_URL` env var)
+- **Models:** Uses lightweight models for recipe naming, narrative generation, insights
+- **Fallback:** Graceful degradation to template-based responses if Ollama unavailable
+
+**Garmin Integration:**
+- **Import Format:** CSV or ZIP exports from Garmin Connect
+- **Supported Data:** Sleep (with RHR, HRV), Weight (with body fat %), standalone HRV/RHR, Activity summaries
+- **Date Parsing:** Handles Spanish locale (e.g., "Sueño", "Peso") with configurable year parameter
 
 ---
 
