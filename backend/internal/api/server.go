@@ -93,6 +93,9 @@ func NewServer(db store.DBTX) *Server {
 		monthlySummaryStore:  monthlySummaryStore,
 	}
 
+	// Enable AI phase insights for plans
+	srv.planService.SetOllamaService(ollamaService)
+
 	// Health
 	mux.HandleFunc("/api/health", srv.healthHandler)
 
@@ -150,6 +153,7 @@ func NewServer(db store.DBTX) *Server {
 	mux.HandleFunc("GET /api/plans/active/analysis", srv.analyzeActivePlan)
 	mux.HandleFunc("GET /api/plans/{id}", srv.getPlanByID)
 	mux.HandleFunc("GET /api/plans/{id}/analysis", srv.analyzePlan)
+	mux.HandleFunc("GET /api/plans/{id}/phase-insight", srv.getPhaseInsight)
 	mux.HandleFunc("POST /api/plans/{id}/complete", srv.completePlan)
 	mux.HandleFunc("POST /api/plans/{id}/abandon", srv.abandonPlan)
 	mux.HandleFunc("POST /api/plans/{id}/pause", srv.pausePlan)

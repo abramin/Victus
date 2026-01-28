@@ -5,7 +5,7 @@ import { useProfile } from '../../hooks/useProfile';
 import { useDailyLog } from '../../hooks/useDailyLog';
 import { useStrategyAuditor } from '../../hooks/useStrategyAuditor';
 import { PlanCreationForm } from './PlanCreationForm';
-import { WeeklyTargetsTable } from './WeeklyTargetsTable';
+import { CampaignMapView } from './CampaignMapView';
 import { DualTrackChart } from './DualTrackChart';
 import { RecalibrationPrompt } from './RecalibrationPrompt';
 import { PlanProgressTimeline } from './PlanProgressTimeline';
@@ -17,12 +17,13 @@ import type { CreatePlanRequest, RecalibrationOption } from '../../api/types';
 export function PlanOverview() {
   const { profile, loading: profileLoading, save: saveProfile } = useProfile();
   const { plan, loading: planLoading, creating, createError, create, complete, abandon, pause, resume, recalibrate } = usePlan();
-  const { analysis, loading: analysisLoading, error: analysisError } = usePlanAnalysis();
+  const { analysis, loading: analysisLoading, error: analysisError, refresh: refreshAnalysis } = usePlanAnalysis();
   const { log } = useDailyLog();
   const { status: auditStatus } = useStrategyAuditor();
 
   const [showAdjustModal, setShowAdjustModal] = useState(false);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [recentlyRecalibrated, setRecentlyRecalibrated] = useState(false);
 
   const loading = profileLoading || planLoading;
 
@@ -67,10 +68,13 @@ export function PlanOverview() {
     await resume();
   };
 
-  const handleRecalibrationSelect = async (option: RecalibrationOption) => {
+  const handleRecalibrationSelect = async (option: RecalibrationOption): Promise<void> => {
     const success = await recalibrate(option.type);
     if (success) {
-      setShowAdjustModal(false);
+      setRecentlyRecalibrated(true);
+      await refreshAnalysis();
+    } else {
+      throw new Error('Failed to apply strategy adjustment');
     }
   };
 
@@ -204,15 +208,18 @@ export function PlanOverview() {
         </div>
       )}
 
-      {/* Recalibration prompt (dismissible banner when needed) */}
-      {analysis?.recalibrationNeeded && analysis.options && plan.status === 'active' && (
-        <RecalibrationPrompt
-          varianceKg={analysis.varianceKg}
-          variancePercent={analysis.variancePercent}
-          options={analysis.options}
-          onSelectOption={handleRecalibrationSelect}
-        />
-      )}
+      {/* Recalibration prompt (suppressed after user just applied a recalibration) */}
+      {!recentlyRecalibrated &&
+        analysis?.recalibrationNeeded &&
+        analysis?.options?.length &&
+        plan.status === 'active' && (
+          <RecalibrationPrompt
+            varianceKg={analysis.varianceKg}
+            variancePercent={analysis.variancePercent}
+            options={analysis.options}
+            onSelectOption={handleRecalibrationSelect}
+          />
+        )}
 
       {/* Main Grid: Health Panel + Chart (4/8 split on large screens) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -241,12 +248,13 @@ export function PlanOverview() {
         </div>
       </div>
 
-      {/* Weekly Roadmap Table */}
-      <WeeklyTargetsTable
+      {/* Campaign Map Timeline */}
+      <CampaignMapView
         weeklyTargets={plan.weeklyTargets}
         currentWeek={plan.currentWeek}
         showPhases={true}
         showSparklines={true}
+        plan={plan}
       />
 
       {/* Adjust Strategy Modal */}
@@ -257,6 +265,7 @@ export function PlanOverview() {
           plan={plan}
           analysis={analysis}
           onApply={handleRecalibrationSelect}
+          recentlyRecalibrated={recentlyRecalibrated}
         />
       )}
     </div>

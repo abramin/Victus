@@ -138,7 +138,7 @@ func (s *MetabolicStore) GetPendingNotification(ctx context.Context) (*domain.Fl
 	const query = `
 		SELECT id, calculated_tdee, previous_tdee, delta_kcal, calculated_at
 		FROM metabolic_history
-		WHERE notification_pending = 1
+		WHERE notification_pending = true
 		ORDER BY calculated_at DESC
 		LIMIT 1
 	`
@@ -169,7 +169,7 @@ func (s *MetabolicStore) GetPendingNotification(ctx context.Context) (*domain.Fl
 func (s *MetabolicStore) DismissNotification(ctx context.Context, id int64) error {
 	const query = `
 		UPDATE metabolic_history
-		SET notification_pending = 0, notification_dismissed_at = $1
+		SET notification_pending = false, notification_dismissed_at = $1
 		WHERE id = $2
 	`
 

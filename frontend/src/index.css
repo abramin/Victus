@@ -49,16 +49,27 @@ body {
 
 /* Scanline animation for "living interface" effect */
 @keyframes scanline {
-  0% {
+  from {
     transform: translateY(-100%);
   }
-  100% {
-    transform: translateY(100vh);
+  to {
+    transform: translateY(100%);
   }
 }
 
 .animate-scanline {
   animation: scanline 8s linear infinite;
+}
+
+/* Scanline effect for Today cell in calendar */
+.scanline {
+  position: absolute;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(to right, transparent, white, transparent);
+  opacity: 0.8;
+  animation: scanline 3s linear infinite;
+  will-change: transform;
 }
 
 /* Holographic shimmer effect for Generate Ration button */
@@ -135,4 +146,49 @@ body {
 
 .animate-engage-pulse {
   animation: engage-pulse 1.5s ease-in-out infinite;
+}
+
+/* Animation delay utilities for staggered effects */
+.animation-delay-100 {
+  animation-delay: 100ms;
+}
+
+.animation-delay-200 {
+  animation-delay: 200ms;
+}
+
+.animation-delay-300 {
+  animation-delay: 300ms;
+}
+
+.animation-delay-400 {
+  animation-delay: 400ms;
+}
+
+.animation-delay-500 {
+  animation-delay: 500ms;
+}
+
+/* Glitch peek animation for future week cards hover */
+@keyframes glitch-peek {
+  0%, 100% {
+    opacity: 0.5;
+    transform: translateX(0);
+  }
+  25% {
+    opacity: 0.8;
+    transform: translateX(-2px);
+  }
+  50% {
+    opacity: 1;
+    transform: translateX(2px);
+  }
+  75% {
+    opacity: 0.8;
+    transform: translateX(-1px);
+  }
+}
+
+.animate-glitch-peek {
+  animation: glitch-peek 0.3s ease-out;
 }

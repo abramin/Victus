@@ -60,28 +60,25 @@ func (s *SolverService) SolveWithContext(
 	result := domain.SolveMacros(req)
 
 	// Enhance solutions with Ollama (if available)
-	if s.ollama != nil && result.Computed {
-		for i := range result.Solutions {
-			// Get ingredient names for recipe naming
-			ingredientNames := make([]string, len(result.Solutions[i].Ingredients))
-			for j, ing := range result.Solutions[i].Ingredients {
-				ingredientNames[j] = ing.Food.FoodItem
-			}
+	// Only generate AI refinement for the TOP solution to avoid frontend timeouts
+	// (3 solutions × 8s each = 24s, which can cause timeouts)
+	if s.ollama != nil && result.Computed && len(result.Solutions) > 0 {
+		// Generate full semantic refinement for the first (best match) solution
+		absurdity := domain.CheckAbsurdity(result.Solutions[0])
+		refinement := s.ollama.GenerateSemanticRefinement(ctx, result.Solutions[0], trainingCtx, absurdity)
+		result.Solutions[0].Refinement = &refinement
 
-			// Generate simple recipe name (fallback if no refinement)
-			result.Solutions[i].RecipeName = s.ollama.GenerateRecipeName(ctx, ingredientNames)
+		// Use the LLM-generated mission title as the recipe name
+		if refinement.GeneratedByLLM && refinement.MissionTitle != "" {
+			result.Solutions[0].RecipeName = refinement.MissionTitle
+		}
 
-			// Check for absurdity (pure domain function)
+		// For remaining solutions, use fast fallback refinement (no LLM call)
+		for i := 1; i < len(result.Solutions); i++ {
 			absurdity := domain.CheckAbsurdity(result.Solutions[i])
-
-			// Generate semantic refinement with training context
-			refinement := s.ollama.GenerateSemanticRefinement(ctx, result.Solutions[i], trainingCtx, absurdity)
-			result.Solutions[i].Refinement = &refinement
-
-			// If LLM generated a mission title, use it as the recipe name
-			if refinement.GeneratedByLLM && refinement.MissionTitle != "" {
-				result.Solutions[i].RecipeName = refinement.MissionTitle
-			}
+			fallbackRefinement := BuildFallbackRefinement(result.Solutions[i], absurdity)
+			result.Solutions[i].Refinement = &fallbackRefinement
+			result.Solutions[i].RecipeName = fallbackRefinement.MissionTitle
 		}
 	}
 

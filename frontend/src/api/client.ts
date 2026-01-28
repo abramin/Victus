@@ -39,9 +39,29 @@ import type {
   WeeklyDebrief,
   CalendarSummaryResponse,
   DayInsightResponse,
+  PhaseInsightResponse,
 } from './types';
 
 const API_BASE = '/api';
+
+/**
+ * Poll /api/health until the backend is reachable or maxAttempts is exhausted.
+ * Resolves true on success, false on timeout.
+ */
+export async function waitForBackend(maxAttempts = 60, intervalMs = 1000): Promise<boolean> {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      const response = await fetch(`${API_BASE}/health`);
+      if (response.ok) return true;
+    } catch {
+      // Network error – backend not ready yet
+    }
+    if (attempt < maxAttempts - 1) {
+      await new Promise<void>((resolve) => setTimeout(resolve, intervalMs));
+    }
+  }
+  return false;
+}
 
 export class ApiError extends Error {
   constructor(
@@ -413,6 +433,14 @@ export async function getPlanAnalysis(id: number, date?: string, signal?: AbortS
     : `${API_BASE}/plans/${id}/analysis`;
   const response = await fetch(url, { signal });
   return handleResponse<DualTrackAnalysis>(response);
+}
+
+export async function getPhaseInsight(id: number, weekNumber?: number, signal?: AbortSignal): Promise<PhaseInsightResponse> {
+  const url = weekNumber
+    ? `${API_BASE}/plans/${id}/phase-insight?week=${weekNumber}`
+    : `${API_BASE}/plans/${id}/phase-insight`;
+  const response = await fetch(url, { signal });
+  return handleResponse<PhaseInsightResponse>(response);
 }
 
 // Body Status / Fatigue API (Adaptive Load feature)
@@ -812,10 +840,15 @@ export async function getCalendarSummary(
 export async function getDayInsight(
   date: string,
   signal?: AbortSignal
-): Promise<DayInsightResponse> {
+): Promise<DayInsightResponse | null> {
   const response = await fetch(
     `${API_BASE}/logs/${encodeURIComponent(date)}/insight`,
     { signal }
   );
+
+  if (response.status === 404) {
+    return null;
+  }
+
   return handleResponse<DayInsightResponse>(response);
 }

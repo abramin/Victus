@@ -2,17 +2,16 @@ import { motion } from 'framer-motion';
 import { useMemo } from 'react';
 import type { CalendarSummaryPoint } from '../../api/types';
 import { ribbonPath } from '../../lib/animations';
-import { getHeatmapColor } from '../../utils';
 
 // SVG viewBox constants
 const SVG_ROW_HEIGHT = 100;
 const SVG_WIDTH = 100;
-const MAX_AMPLITUDE_PERCENT = 0.25; // Max wave height as percentage of row height
+const MAX_AMPLITUDE_PERCENT = 0.3; // Max wave height as percentage of row height (30%)
+const BASELINE_PERCENT = 0.9; // Baseline at bottom 10% of row
 
 // Stroke width constants (in pixels)
-const STROKE_WIDTH_MIN = 2;
-const STROKE_WIDTH_RANGE = 6;
-const STROKE_WIDTH_DEFAULT = 4;
+const STROKE_WIDTH_MIN = 1;
+const STROKE_WIDTH_RANGE = 5;
 
 interface DataRibbonProps {
   days: CalendarSummaryPoint[];
@@ -27,79 +26,76 @@ interface DataRibbonProps {
 }
 
 /**
- * Continuous "Stress Ribbon" that flows across calendar rows.
- * Visualizes the correlation between training load and calorie intake:
- * - Vertical amplitude = Training load (loadNormalized)
- * - Stroke thickness = Calorie intake (caloriesNormalized)
- * - Color gradient = Load intensity (blue → red)
+ * EKG-style biometric sparkline that visualizes training load vs calorie intake.
+ *
+ * Visual Language:
+ * - Height (Amplitude) = Training Load (high peak = intense session, flat = rest)
+ * - Thickness (Stroke Width) = Calories (thick = high intake, thin = deficit)
+ *
+ * Anchored to bottom of calendar rows with discrete peaks centered on days.
  */
 export function DataRibbon({ days, columns = 7, rowHeight = 140 }: DataRibbonProps) {
-  const pathData = useMemo(() => {
-    if (days.length === 0) return { path: '', viewHeight: SVG_ROW_HEIGHT };
+  // Calculate path data and fill area
+  const { pathData, areaPath, rows } = useMemo(() => {
+    if (days.length === 0) return { pathData: '', areaPath: '', rows: 1 };
 
-    // Calculate number of rows
     const rows = Math.ceil(days.length / columns);
-    const viewHeight = rows * SVG_ROW_HEIGHT;
-
-    // Calculate cell dimensions in viewBox units
     const cellWidth = SVG_WIDTH / columns;
     const cellHeight = SVG_ROW_HEIGHT;
     const maxAmplitude = cellHeight * MAX_AMPLITUDE_PERCENT;
-    const baseY = cellHeight / 2; // Center line for each row
+    const baseY = cellHeight * BASELINE_PERCENT; // Bottom baseline
 
-    // Build SVG path using cubic bezier curves for smooth flow
+    // Build SVG path for the waveform
     let path = '';
+    const points: Array<{ x: number; y: number }> = [];
+
     days.forEach((day, index) => {
       const col = index % columns;
       const row = Math.floor(index / columns);
 
       const x = (col + 0.5) * cellWidth; // Center of cell
-      const y = baseY + row * cellHeight - day.loadNormalized * maxAmplitude; // Higher load = lower y (wave goes up)
+      const y = baseY + row * cellHeight - day.loadNormalized * maxAmplitude; // Higher load = lower y
+
+      points.push({ x, y });
 
       if (index === 0) {
         path += `M ${x} ${y}`;
       } else {
-        // Cubic bezier curve to previous point
-        // Note: prevIndex is always >= 0 here because index > 0 in this branch
         const prevIndex = index - 1;
         const prevCol = prevIndex % columns;
         const prevRow = Math.floor(prevIndex / columns);
         const prevX = (prevCol + 0.5) * cellWidth;
         const prevY = baseY + prevRow * cellHeight - days[prevIndex].loadNormalized * maxAmplitude;
 
-        // Control points for smooth curve
-        const controlX1 = prevX + cellWidth / 3;
+        // Tighter control points for discrete peaks (reduced from cellWidth/3 to cellWidth/6)
+        const controlX1 = prevX + cellWidth / 6;
         const controlY1 = prevY;
-        const controlX2 = x - cellWidth / 3;
+        const controlX2 = x - cellWidth / 6;
         const controlY2 = y;
 
         path += ` C ${controlX1} ${controlY1}, ${controlX2} ${controlY2}, ${x} ${y}`;
       }
     });
 
-    return { path, viewHeight };
+    // Create filled area path by closing the path back to baseline
+    let area = path;
+    if (days.length > 0) {
+      const lastCol = (days.length - 1) % columns;
+      const lastRow = Math.floor((days.length - 1) / columns);
+      const lastX = (lastCol + 0.5) * cellWidth;
+      const lastBaseY = baseY + lastRow * cellHeight;
+
+      area += ` L ${lastX} ${lastBaseY}`; // Drop to baseline
+
+      // Return to start baseline
+      const firstX = (0 + 0.5) * cellWidth;
+      const firstBaseY = baseY + 0 * cellHeight;
+      area += ` L ${firstX} ${firstBaseY} Z`;
+    }
+
+    return { pathData: path, areaPath: area, rows };
   }, [days, columns]);
 
-  // Calculate stroke width range based on max calorie normalization
-  const strokeWidthData = useMemo(() => {
-    return days.map((day) => ({
-      x: day.date,
-      width: STROKE_WIDTH_MIN + day.caloriesNormalized * STROKE_WIDTH_RANGE,
-    }));
-  }, [days]);
-
-  // Use average stroke width for simplicity (could be enhanced with gradient stroke-width)
-  const avgStrokeWidth = strokeWidthData.length > 0
-    ? strokeWidthData.reduce((sum, d) => sum + d.width, 0) / strokeWidthData.length
-    : STROKE_WIDTH_DEFAULT;
-
-  // Calculate gradient color based on average load
-  const avgLoad = days.length > 0
-    ? days.reduce((sum, d) => sum + d.loadNormalized, 0) / days.length
-    : 0;
-  const ribbonColor = getHeatmapColor(avgLoad);
-
-  const rows = Math.ceil(days.length / columns);
   const viewHeight = rows * SVG_ROW_HEIGHT;
 
   return (
@@ -107,35 +103,77 @@ export function DataRibbon({ days, columns = 7, rowHeight = 140 }: DataRibbonPro
       className="absolute inset-0 w-full h-full pointer-events-none"
       viewBox={`0 0 ${SVG_WIDTH} ${viewHeight}`}
       preserveAspectRatio="none"
-      style={{ zIndex: 0 }}
+      style={{ zIndex: 0, filter: 'drop-shadow(0 2px 4px rgba(6, 182, 212, 0.3))' }}
     >
       <defs>
-        <filter id="ribbon-glow">
-          <feGaussianBlur in="SourceGraphic" stdDeviation="2" />
-          <feComposite in2="SourceGraphic" operator="over" />
-        </filter>
-        <linearGradient id="ribbon-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#3B82F6" stopOpacity="0.6" />
-          <stop offset="50%" stopColor={ribbonColor} stopOpacity="0.6" />
-          <stop offset="100%" stopColor="#DC2626" stopOpacity="0.6" />
+        {/* Vertical gradient for filled area (fade from top to bottom) */}
+        <linearGradient id="ribbon-fill-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#06B6D4" stopOpacity="0.4" />
+          <stop offset="100%" stopColor="#06B6D4" stopOpacity="0.05" />
+        </linearGradient>
+        {/* Horizontal gradient for stroke (color progression across month) */}
+        <linearGradient id="ribbon-stroke-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#06B6D4" />
+          <stop offset="100%" stopColor="#A855F7" />
         </linearGradient>
       </defs>
 
-      {pathData.path && (
+      {/* Filled area graph */}
+      {areaPath && (
         <motion.path
-          d={pathData.path}
-          fill="none"
-          stroke="url(#ribbon-gradient)"
-          strokeWidth={avgStrokeWidth}
-          strokeLinecap="round"
-          strokeLinejoin="round"
+          d={areaPath}
+          fill="url(#ribbon-fill-gradient)"
+          stroke="none"
           variants={ribbonPath}
           initial="hidden"
           animate="visible"
-          filter="url(#ribbon-glow)"
           opacity={0.6}
         />
       )}
+
+      {/* Stroke segments with variable width based on calories */}
+      {days.map((day, index) => {
+        if (index === 0) return null;
+
+        const prevDay = days[index - 1];
+        const col = index % columns;
+        const prevCol = (index - 1) % columns;
+        const row = Math.floor(index / columns);
+        const prevRow = Math.floor((index - 1) / columns);
+
+        const cellWidth = SVG_WIDTH / columns;
+        const cellHeight = SVG_ROW_HEIGHT;
+        const maxAmplitude = cellHeight * MAX_AMPLITUDE_PERCENT;
+        const baseY = cellHeight * BASELINE_PERCENT;
+
+        const x = (col + 0.5) * cellWidth;
+        const prevX = (prevCol + 0.5) * cellWidth;
+        const y = baseY + row * cellHeight - day.loadNormalized * maxAmplitude;
+        const prevY = baseY + prevRow * cellHeight - prevDay.loadNormalized * maxAmplitude;
+
+        // Variable stroke width: average calories of adjacent days
+        const avgCalories = (day.caloriesNormalized + prevDay.caloriesNormalized) / 2;
+        const strokeWidth = STROKE_WIDTH_MIN + avgCalories * STROKE_WIDTH_RANGE;
+
+        const controlX1 = prevX + cellWidth / 6;
+        const controlX2 = x - cellWidth / 6;
+        const segmentPath = `M ${prevX} ${prevY} C ${controlX1} ${prevY}, ${controlX2} ${y}, ${x} ${y}`;
+
+        return (
+          <motion.path
+            key={`segment-${index}`}
+            d={segmentPath}
+            fill="none"
+            stroke="url(#ribbon-stroke-gradient)"
+            strokeWidth={strokeWidth}
+            strokeLinecap="round"
+            variants={ribbonPath}
+            initial="hidden"
+            animate="visible"
+            opacity={0.85}
+          />
+        );
+      })}
     </svg>
   );
 }

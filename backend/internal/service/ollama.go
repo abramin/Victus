@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -109,20 +110,35 @@ Rules:
 }
 
 // IsAvailable checks if Ollama service is reachable.
+// Uses a short timeout (3s) to avoid blocking for too long.
 func (s *OllamaService) IsAvailable(ctx context.Context) bool {
-	req, err := http.NewRequestWithContext(ctx, "GET", s.baseURL+"/api/tags", nil)
+	// Create a short-lived context for health check (3 seconds max)
+	healthCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(healthCtx, "GET", s.baseURL+"/api/tags", nil)
 	if err != nil {
+		s.enabled = false
 		return false
 	}
 
 	resp, err := s.client.Do(req)
 	if err != nil {
+		log.Printf("[OLLAMA] Health check failed: %v", err)
 		s.enabled = false
 		return false
 	}
 	defer resp.Body.Close()
 
-	s.enabled = resp.StatusCode == http.StatusOK
+	isAvailable := resp.StatusCode == http.StatusOK
+	s.enabled = isAvailable
+
+	if isAvailable {
+		log.Printf("[OLLAMA] Health check passed - service is available")
+	} else {
+		log.Printf("[OLLAMA] Health check failed - received status %d", resp.StatusCode)
+	}
+
 	return s.enabled
 }
 
@@ -336,11 +352,20 @@ func (s *OllamaService) GenerateSemanticRefinement(
 	trainingCtx *domain.TrainingContextForSolver,
 	absurdity *domain.AbsurdityWarning,
 ) domain.SemanticRefinement {
-	fallback := buildFallbackRefinement(solution, absurdity)
+	fallback := BuildFallbackRefinement(solution, absurdity)
 
+	// Try to reconnect if previously disabled (don't give up permanently)
 	if !s.enabled {
-		return fallback
+		log.Printf("[OLLAMA] Ollama was previously disabled, attempting reconnection...")
+		// Quick health check to see if Ollama is back online
+		if !s.IsAvailable(ctx) {
+			log.Printf("[OLLAMA] Ollama still unavailable, using fallback")
+			return fallback
+		}
+		log.Printf("[OLLAMA] Ollama connection restored!")
 	}
+
+	log.Printf("[OLLAMA] Generating semantic refinement for %d ingredients", len(solution.Ingredients))
 
 	// Build the payload
 	payload := buildSemanticRefinerPayload(solution, trainingCtx, absurdity)
@@ -350,28 +375,64 @@ func (s *OllamaService) GenerateSemanticRefinement(
 		return fallback
 	}
 
-	prompt := fmt.Sprintf(`You are the Victus Neural OS Chef. Transform this meal solution into a tactical field ration briefing.
+	prompt := fmt.Sprintf(`You are the Victus Neural OS Logistics Chef. You receive raw ingredient data and transform it into a tactical field ration briefing.
 
-SOLUTION DATA:
+SOLUTION DATA (JSON):
 %s
 
-Generate a JSON response with EXACTLY these fields:
+YOUR MISSION:
+Generate a JSON response with EXACTLY these 5 fields. Return ONLY valid JSON with no preamble or explanation.
+
+REQUIRED JSON FORMAT:
 {
-  "missionTitle": "[MAIN INGREDIENT] [PREPARATION] // [CODE] in CAPS. Example: 'WHEY CHIA SLUDGE // MK-1'",
-  "operationalSteps": "Specific 1-sentence mechanical instruction. If ingredients are incompatible raw (dry whey + seeds), mandate a liquid binder. Example: 'Hydrate chia in 200ml water for 10 mins before folding in whey to create a bio-available pudding.'",
-  "logisticAlert": null or "Problem WITH the fix. Example: 'PROTEIN OVERLOAD DETECTED. Consume 50%% immediately; refrigerate remaining 50%% for +3hr post-op recovery.'",
-  "flavorPatch": null or "One zero-calorie additive. Example: 'Add cinnamon or sea salt to neutralize whey sweetness.'",
-  "contextualInsight": "1-2 sentences on why this works for today's training/day type"
+  "missionTitle": "string",
+  "operationalSteps": "string",
+  "logisticAlert": null or "string",
+  "flavorPatch": null or "string",
+  "contextualInsight": "string"
 }
 
-CRITICAL RULES:
-- Return ONLY valid JSON, no preamble
-- missionTitle: [INGREDIENT] [PREP] // [CODE] format in CAPS
-- operationalSteps: specific measurements/timing, mandate liquid binders for dry combos
-- logisticAlert: provide the SOLUTION, not just the problem
-- flavorPatch: only zero-calorie additions (spices, extracts, citrus zest)
+FIELD SPECIFICATIONS:
 
-TONE: Military briefing meets sports nutrition.`, string(payloadJSON))
+1. missionTitle (string, 15-60 chars):
+   - Format: [MAIN INGREDIENT] + [TEXTURE/PREP] // [ALPHA-NUMERIC CODE]
+   - MUST BE ALL CAPS
+   - Example: "WHEY CHIA SLUDGE // MK-4"
+   - Example: "CHICKEN RICE STACK // BR-12"
+   - Example: "BANANA OAT SLURRY // OP-7"
+
+2. operationalSteps (string, 20-250 chars):
+   - ONE sentence with specific mechanical instructions
+   - Include measurements (ml, tbsp, minutes)
+   - CRITICAL: If ingredients are dry/incompatible (whey powder + chia seeds), you MUST instruct adding liquid
+   - Liquids to suggest: Water, Almond Milk, Coconut Milk, Coffee
+   - Example: "Hydrate 12 tbsp chia in 300ml water for 10 mins, then fold in 6 scoops whey until pudding consistency."
+   - Example: "Mix 200g chicken with 150g cooked rice and microwave 90 seconds until steaming."
+
+3. logisticAlert (null or string, max 150 chars):
+   - Only if there's a genuine problem (very high protein >60g, weird combo, digestive concern)
+   - MUST include the SOLUTION/SPLITTING STRATEGY
+   - Example: "PROTEIN OVERLOAD (72g). Split into 2 servings: consume 50%% now, refrigerate 50%% for +3hr post-training."
+   - Example: null if no concerns
+
+4. flavorPatch (null or string, max 100 chars):
+   - ONLY zero-calorie additives
+   - Options: Salt, Cinnamon, Vanilla Extract, Cocoa Powder (unsweetened), Sweetener, Citrus Zest, Cayenne
+   - Example: "Add cinnamon and sweetener to neutralize whey bitterness."
+   - Example: null if not needed
+
+5. contextualInsight (string, 20-120 chars):
+   - 1-2 sentences on why this combination works for the training context
+   - Reference dayType or planned training if provided
+   - Example: "High-protein recovery stack optimized for post-HIIT glycogen replenishment."
+
+CRITICAL RULES:
+- Return ONLY valid JSON, no markdown, no preamble, no explanation
+- All strings must use double quotes
+- Use null (not "null" or empty string) for absent fields
+- operationalSteps must mandate liquid if ingredients are dry powders/seeds
+
+TONE: Military logistics meets sports nutrition. Direct, mechanical, tactical.`, string(payloadJSON))
 
 	req := ollamaRequest{
 		Model:  "llama3.2",
@@ -384,55 +445,87 @@ TONE: Military briefing meets sports nutrition.`, string(payloadJSON))
 		return fallback
 	}
 
-	// Use 15s timeout (between recipe name 10s and debrief 30s)
-	refinerCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	// Use 8s timeout to prevent frontend hangs (3 solutions × 8s = 24s total, still under typical 30s frontend timeout)
+	refinerCtx, cancel := context.WithTimeout(ctx, 8*time.Second)
 	defer cancel()
 
 	httpReq, err := http.NewRequestWithContext(refinerCtx, "POST", s.baseURL+"/api/generate", bytes.NewReader(body))
 	if err != nil {
+		log.Printf("[OLLAMA] Failed to create HTTP request: %v", err)
 		return fallback
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 
+	log.Printf("[OLLAMA] Sending semantic refinement request to %s (timeout: 8s)", s.baseURL)
+
 	resp, err := s.client.Do(httpReq)
 	if err != nil {
+		log.Printf("[OLLAMA] Semantic refinement request failed: %v", err)
 		s.enabled = false
 		return fallback
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		log.Printf("[OLLAMA] Semantic refinement returned status %d (expected 200)", resp.StatusCode)
 		return fallback
 	}
 
 	var ollamaResp ollamaResponse
 	if err := json.NewDecoder(resp.Body).Decode(&ollamaResp); err != nil {
+		log.Printf("[OLLAMA] Failed to decode Ollama response: %v", err)
 		return fallback
 	}
 
 	// Parse the JSON response from Ollama
 	responseText := strings.TrimSpace(ollamaResp.Response)
 
+	// Log first 200 chars to avoid truncation in logs
+	logPreview := responseText
+	if len(logPreview) > 200 {
+		logPreview = logPreview[:200] + "..."
+	}
+	log.Printf("[OLLAMA] Raw response preview: %s", logPreview)
+
 	// Try to extract JSON from the response (in case there's preamble)
 	jsonStart := strings.Index(responseText, "{")
 	jsonEnd := strings.LastIndex(responseText, "}")
-	if jsonStart == -1 || jsonEnd == -1 || jsonEnd <= jsonStart {
+
+	if jsonStart == -1 {
+		log.Printf("[OLLAMA] No opening brace found in response")
 		return fallback
 	}
-	responseText = responseText[jsonStart : jsonEnd+1]
+
+	// Handle incomplete JSON - if closing brace is missing, try to add it
+	if jsonEnd == -1 || jsonEnd < jsonStart {
+		log.Printf("[OLLAMA] JSON appears incomplete (response length: %d chars), attempting to fix by adding closing brace", len(responseText))
+		// Take everything from the opening brace and add a closing brace
+		responseText = responseText[jsonStart:] + "\n}"
+		log.Printf("[OLLAMA] Fixed JSON: %s", responseText)
+	} else {
+		responseText = responseText[jsonStart : jsonEnd+1]
+	}
+
+	log.Printf("[OLLAMA] Extracted JSON length: %d chars", len(responseText))
 
 	var refinerResp semanticRefinerResponse
 	if err := json.Unmarshal([]byte(responseText), &refinerResp); err != nil {
+		log.Printf("[OLLAMA] Failed to unmarshal semantic refinement JSON: %v", err)
+		log.Printf("[OLLAMA] JSON text: %s", responseText)
 		return fallback
 	}
 
 	// Validate the response
 	if len(refinerResp.MissionTitle) < 5 || len(refinerResp.MissionTitle) > 100 {
+		log.Printf("[OLLAMA] Invalid mission title length: %d chars", len(refinerResp.MissionTitle))
 		return fallback
 	}
 	if len(refinerResp.OperationalSteps) < 10 || len(refinerResp.OperationalSteps) > 300 {
+		log.Printf("[OLLAMA] Invalid operational steps length: %d chars", len(refinerResp.OperationalSteps))
 		return fallback
 	}
+
+	log.Printf("[OLLAMA] Successfully generated semantic refinement: %s", refinerResp.MissionTitle)
 
 	return domain.SemanticRefinement{
 		MissionTitle:      refinerResp.MissionTitle,
@@ -445,8 +538,10 @@ TONE: Military briefing meets sports nutrition.`, string(payloadJSON))
 	}
 }
 
-// buildFallbackRefinement creates a semantic refinement when Ollama is unavailable.
-func buildFallbackRefinement(solution domain.SolverSolution, absurdity *domain.AbsurdityWarning) domain.SemanticRefinement {
+// BuildFallbackRefinement creates a semantic refinement when Ollama is unavailable.
+// Includes basic liquid binder logic for dry ingredient combinations.
+// Exported for use by solver service for non-primary solutions.
+func BuildFallbackRefinement(solution domain.SolverSolution, absurdity *domain.AbsurdityWarning) domain.SemanticRefinement {
 	// Generate a simple tactical name from ingredients
 	var missionTitle string
 	if len(solution.Ingredients) == 1 {
@@ -464,8 +559,44 @@ func buildFallbackRefinement(solution domain.SolverSolution, absurdity *domain.A
 		missionTitle = missionTitle[:50]
 	}
 
-	// Simple tactical prep
-	tacticalPrep := "Combine ingredients and serve."
+	// Check if ingredients are primarily dry (powder/seeds) and need liquid
+	needsLiquid := false
+	for _, ing := range solution.Ingredients {
+		name := strings.ToLower(ing.Food.FoodItem)
+		if strings.Contains(name, "whey") ||
+		   strings.Contains(name, "protein") ||
+		   strings.Contains(name, "powder") ||
+		   strings.Contains(name, "chia") ||
+		   strings.Contains(name, "oat") {
+			needsLiquid = true
+			break
+		}
+	}
+
+	// Generate tactical prep with liquid binder if needed
+	var tacticalPrep string
+	if needsLiquid {
+		// Estimate liquid needed: roughly 15ml per 10g of dry ingredients
+		totalDryWeight := 0.0
+		for _, ing := range solution.Ingredients {
+			name := strings.ToLower(ing.Food.FoodItem)
+			if strings.Contains(name, "whey") || strings.Contains(name, "protein") ||
+			   strings.Contains(name, "powder") || strings.Contains(name, "chia") ||
+			   strings.Contains(name, "oat") {
+				totalDryWeight += ing.AmountG
+			}
+		}
+		liquidML := int(totalDryWeight * 1.5) // 1.5ml per gram of dry ingredients
+		if liquidML < 150 {
+			liquidML = 150
+		}
+		if liquidML > 500 {
+			liquidML = 500
+		}
+		tacticalPrep = fmt.Sprintf("Combine all ingredients with %dml water or almond milk. Mix until uniform consistency.", liquidML)
+	} else {
+		tacticalPrep = "Combine all ingredients and serve."
+	}
 
 	// Use absurdity warning if provided
 	var absurdityAlert *string
@@ -473,6 +604,8 @@ func buildFallbackRefinement(solution domain.SolverSolution, absurdity *domain.A
 		alert := absurdity.Description
 		absurdityAlert = &alert
 	}
+
+	log.Printf("[OLLAMA] Using fallback refinement (Ollama unavailable)")
 
 	return domain.SemanticRefinement{
 		MissionTitle:      missionTitle,

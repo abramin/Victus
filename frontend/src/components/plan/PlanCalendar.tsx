@@ -5,7 +5,6 @@ import { useCalendarSummary } from '../../hooks/useCalendarSummary';
 import { calculateMealTargets } from '../targets/mealTargets';
 import { CalendarDayCell, EmptyCalendarCell, type CalendarDayData } from './CalendarDayCell';
 import { CalendarLegend } from './CalendarLegend';
-import { DataRibbon } from './DataRibbon';
 import { TacticalBriefing } from './TacticalBriefing';
 import {
   CARB_KCAL_PER_G,
@@ -125,13 +124,15 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
 
   // Build lookup map from calendar summary for heatmap data
   const summaryByDate = useMemo(() => {
-    const map = new Map<string, { heatmapIntensity: number; loadScore: number; avgRpe?: number }>();
+    const map = new Map<string, { heatmapIntensity: number; loadScore: number; avgRpe?: number; caloriesNormalized: number; loadNormalized: number }>();
     if (calendarSummary?.days) {
       for (const day of calendarSummary.days) {
         map.set(day.date, {
           heatmapIntensity: day.heatmapIntensity,
           loadScore: day.loadRaw,
           avgRpe: day.avgRpe,
+          caloriesNormalized: day.caloriesNormalized,
+          loadNormalized: day.loadNormalized,
         });
       }
     }
@@ -489,11 +490,6 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
 
       {/* Calendar Grid */}
       <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden relative">
-        {/* DataRibbon visualization (behind cells) */}
-        {calendarSummary?.days && (
-          <DataRibbon days={calendarSummary.days} columns={7} rowHeight={140} />
-        )}
-
         {/* Day Headers */}
         <div className="grid grid-cols-7 bg-gray-800/50 relative z-10">
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
@@ -530,6 +526,11 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
             const summaryData = summaryByDate.get(cellDateKey);
             const cellZoomMode = hoveredCell === cellDateKey ? 'meso' : zoomMode;
 
+            // Extract primary training type for MacroCell watermark
+            const primarySession = cellData.plannedSessions?.length
+              ? cellData.plannedSessions.find(s => s.type !== 'rest') || cellData.plannedSessions[0]
+              : undefined;
+
             return (
               <CalendarDayCell
                 key={cellDateKey}
@@ -556,6 +557,10 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
                 avgRpe={summaryData?.avgRpe}
                 onHover={() => handleCellHover(cellDateKey)}
                 onHoverLeave={handleCellHoverLeave}
+                primaryTrainingType={primarySession?.type}
+                // Energy Stack props
+                caloriesNormalized={summaryData?.caloriesNormalized ?? 0}
+                loadNormalized={summaryData?.loadNormalized ?? 0}
               />
             );
           })}

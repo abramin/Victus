@@ -1100,3 +1100,9 @@ export interface DayInsightResponse {
   insight: string;
   generated: boolean;
 }
+
+export interface PhaseInsightResponse {
+  insight: string;
+  phase: string; // "initiation", "momentum", or "peak"
+  generated: boolean;
+}

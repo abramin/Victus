@@ -264,6 +264,10 @@ func generateDailyLogs(db *sql.DB, config SeedConfig) (map[string]string, []trai
 		// Log macro targets based on day type (mock calculated values)
 		carbTargetG, proteinTargetG, fatTargetG := getMacroTargets(estimatedTDEE)
 
+		// Generate realistic consumed macros (actual food logged)
+		// 85% of days have complete food logging, 15% have partial or no data
+		consumedMacros := generateConsumedMacros(carbTargetG, proteinTargetG, fatTargetG, day)
+
 		// Active calories from wearable (~50% of days have this data)
 		var activeCalories *int
 		if rand.Float64() < 0.5 {
@@ -288,27 +292,43 @@ func generateDailyLogs(db *sql.DB, config SeedConfig) (map[string]string, []trai
 
 		// Insert daily log
 		logID, err := insertDailyLog(db, dailyLogParams{
-			date:                dateStr,
-			weight:              currentWeight,
-			bodyFatPercent:      bodyFatPercent,
-			restingHeartRate:    restingHeartRate,
-			sleepQuality:        sleepQuality,
-			sleepHours:          sleepHours,
-			dayType:             dayType,
-			trainingType:        trainingType,
-			trainingDurationMin: durationMin,
-			carbTargetG:         carbTargetG,
-			proteinTargetG:      proteinTargetG,
-			fatTargetG:          fatTargetG,
-			estimatedTDEE:       estimatedTDEE,
-			activeCalories:      activeCalories,
-			waterL:              waterL,
-			fruitG:              fruitG,
-			veggiesG:            veggiesG,
-			tdeeConfidence:      tdeeConfidence,
-			dataPointsUsed:      dataPointsUsed,
-			formulaTdee:         formulaTdee,
-			hrvMs:               hrvMs,
+			date:                     dateStr,
+			weight:                   currentWeight,
+			bodyFatPercent:           bodyFatPercent,
+			restingHeartRate:         restingHeartRate,
+			sleepQuality:             sleepQuality,
+			sleepHours:               sleepHours,
+			dayType:                  dayType,
+			trainingType:             trainingType,
+			trainingDurationMin:      durationMin,
+			carbTargetG:              carbTargetG,
+			proteinTargetG:           proteinTargetG,
+			fatTargetG:               fatTargetG,
+			estimatedTDEE:            estimatedTDEE,
+			activeCalories:           activeCalories,
+			waterL:                   waterL,
+			fruitG:                   fruitG,
+			veggiesG:                 veggiesG,
+			tdeeConfidence:           tdeeConfidence,
+			dataPointsUsed:           dataPointsUsed,
+			formulaTdee:              formulaTdee,
+			hrvMs:                    hrvMs,
+			consumedCalories:         consumedMacros.totalCalories,
+			consumedProteinG:         consumedMacros.totalProteinG,
+			consumedCarbsG:           consumedMacros.totalCarbsG,
+			consumedFatG:             consumedMacros.totalFatG,
+			breakfastConsumedKcal:    consumedMacros.breakfastKcal,
+			breakfastConsumedProtein: consumedMacros.breakfastProteinG,
+			breakfastConsumedCarbs:   consumedMacros.breakfastCarbsG,
+			breakfastConsumedFat:     consumedMacros.breakfastFatG,
+			lunchConsumedKcal:        consumedMacros.lunchKcal,
+			lunchConsumedProtein:     consumedMacros.lunchProteinG,
+			lunchConsumedCarbs:       consumedMacros.lunchCarbsG,
+			lunchConsumedFat:         consumedMacros.lunchFatG,
+			dinnerConsumedKcal:       consumedMacros.dinnerKcal,
+			dinnerConsumedProtein:    consumedMacros.dinnerProteinG,
+			dinnerConsumedCarbs:      consumedMacros.dinnerCarbsG,
+			dinnerConsumedFat:        consumedMacros.dinnerFatG,
 		})
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to insert daily log for %s: %w", dateStr, err)
@@ -391,6 +411,23 @@ type dailyLogParams struct {
 	formulaTdee    int
 	// HRV data
 	hrvMs *int
+	// Consumed macros (actual food logged)
+	consumedCalories         int
+	consumedProteinG         int
+	consumedCarbsG           int
+	consumedFatG             int
+	breakfastConsumedKcal    int
+	breakfastConsumedProtein int
+	breakfastConsumedCarbs   int
+	breakfastConsumedFat     int
+	lunchConsumedKcal        int
+	lunchConsumedProtein     int
+	lunchConsumedCarbs       int
+	lunchConsumedFat         int
+	dinnerConsumedKcal       int
+	dinnerConsumedProtein    int
+	dinnerConsumedCarbs      int
+	dinnerConsumedFat        int
 }
 
 func insertDailyLog(db *sql.DB, params dailyLogParams) (int64, error) {
@@ -407,6 +444,10 @@ func insertDailyLog(db *sql.DB, params dailyLogParams) (int64, error) {
 		water_l, fruit_g, veggies_g,
 		tdee_source_used, tdee_confidence, data_points_used, formula_tdee,
 		hrv_ms,
+		consumed_calories, consumed_protein_g, consumed_carbs_g, consumed_fat_g,
+		breakfast_consumed_kcal, breakfast_consumed_protein_g, breakfast_consumed_carbs_g, breakfast_consumed_fat_g,
+		lunch_consumed_kcal, lunch_consumed_protein_g, lunch_consumed_carbs_g, lunch_consumed_fat_g,
+		dinner_consumed_kcal, dinner_consumed_protein_g, dinner_consumed_carbs_g, dinner_consumed_fat_g,
 		created_at, updated_at
 	) VALUES (
 		$1, $2, $3, $4,
@@ -420,7 +461,11 @@ func insertDailyLog(db *sql.DB, params dailyLogParams) (int64, error) {
 		$24, $25, $26,
 		'formula', $27, $28, $29,
 		$30,
-		$31, $32
+		$31, $32, $33, $34,
+		$35, $36, $37, $38,
+		$39, $40, $41, $42,
+		$43, $44, $45, $46,
+		$47, $48
 	) RETURNING id`
 
 	now := time.Now().UTC()
@@ -455,6 +500,10 @@ func insertDailyLog(db *sql.DB, params dailyLogParams) (int64, error) {
 		params.waterL, params.fruitG, params.veggiesG,
 		params.tdeeConfidence, params.dataPointsUsed, params.formulaTdee,
 		params.hrvMs,
+		params.consumedCalories, params.consumedProteinG, params.consumedCarbsG, params.consumedFatG,
+		params.breakfastConsumedKcal, params.breakfastConsumedProtein, params.breakfastConsumedCarbs, params.breakfastConsumedFat,
+		params.lunchConsumedKcal, params.lunchConsumedProtein, params.lunchConsumedCarbs, params.lunchConsumedFat,
+		params.dinnerConsumedKcal, params.dinnerConsumedProtein, params.dinnerConsumedCarbs, params.dinnerConsumedFat,
 		now, now,
 	).Scan(&id)
 
@@ -580,6 +629,141 @@ func getMacroTargets(tdee int) (carbs, protein, fat int) {
 	fat = int(float64(fat) * variation)
 
 	return
+}
+
+// consumedMacrosData holds consumed food data for a day
+type consumedMacrosData struct {
+	totalCalories     int
+	totalProteinG     int
+	totalCarbsG       int
+	totalFatG         int
+	breakfastKcal     int
+	breakfastProteinG int
+	breakfastCarbsG   int
+	breakfastFatG     int
+	lunchKcal         int
+	lunchProteinG     int
+	lunchCarbsG       int
+	lunchFatG         int
+	dinnerKcal        int
+	dinnerProteinG    int
+	dinnerCarbsG      int
+	dinnerFatG        int
+}
+
+// generateConsumedMacros generates realistic food logging data
+// Most days (85%) have complete data with slight variance from targets
+// Some days (10%) have partial data (1-2 meals missing)
+// Few days (5%) have no data (user didn't log)
+func generateConsumedMacros(targetCarbs, targetProtein, targetFat, dayNumber int) consumedMacrosData {
+	// 5% chance of no food logging
+	if rand.Float64() < 0.05 {
+		return consumedMacrosData{}
+	}
+
+	// 10% chance of partial logging (only 1-2 meals)
+	partialLogging := rand.Float64() < 0.10
+
+	// Adherence varies: 85-115% of target (realistic variance)
+	// Better adherence in first 2 weeks, slightly looser later
+	adherenceBase := 0.95
+	if dayNumber > 14 {
+		adherenceBase = 0.90 // Slightly less strict adherence over time
+	}
+	adherence := adherenceBase + rand.Float64()*0.20 // 90-110% or 85-105%
+
+	// Meal distributions (as percentages)
+	// Breakfast: 25-30% of daily macros
+	// Lunch: 30-35% of daily macros
+	// Dinner: 35-40% of daily macros
+	breakfastRatio := 0.25 + rand.Float64()*0.05
+	lunchRatio := 0.30 + rand.Float64()*0.05
+	dinnerRatio := 1.0 - breakfastRatio - lunchRatio
+
+	// Calculate consumed amounts with adherence factor
+	consumedCarbs := int(float64(targetCarbs) * adherence)
+	consumedProtein := int(float64(targetProtein) * adherence)
+	consumedFat := int(float64(targetFat) * adherence)
+
+	// Calculate calories from macros
+	totalCalories := (consumedCarbs * 4) + (consumedProtein * 4) + (consumedFat * 9)
+
+	result := consumedMacrosData{
+		totalCalories: totalCalories,
+		totalProteinG: consumedProtein,
+		totalCarbsG:   consumedCarbs,
+		totalFatG:     consumedFat,
+	}
+
+	if partialLogging {
+		// Only log 1 or 2 meals randomly
+		missedMeals := rand.Intn(2) + 1 // 1 or 2 meals missed
+		meals := []string{"breakfast", "lunch", "dinner"}
+		rand.Shuffle(len(meals), func(i, j int) { meals[i], meals[j] = meals[j], meals[i] })
+
+		// Log only the meals not in the missed list
+		loggedMeals := meals[:3-missedMeals]
+		totalLoggedRatio := 0.0
+		for _, meal := range loggedMeals {
+			switch meal {
+			case "breakfast":
+				totalLoggedRatio += breakfastRatio
+			case "lunch":
+				totalLoggedRatio += lunchRatio
+			case "dinner":
+				totalLoggedRatio += dinnerRatio
+			}
+		}
+
+		// Scale up the ratios to use full day's macros
+		for _, meal := range loggedMeals {
+			var mealRatio float64
+			switch meal {
+			case "breakfast":
+				mealRatio = breakfastRatio / totalLoggedRatio
+				result.breakfastCarbsG = int(float64(consumedCarbs) * mealRatio)
+				result.breakfastProteinG = int(float64(consumedProtein) * mealRatio)
+				result.breakfastFatG = int(float64(consumedFat) * mealRatio)
+				result.breakfastKcal = (result.breakfastCarbsG * 4) + (result.breakfastProteinG * 4) + (result.breakfastFatG * 9)
+			case "lunch":
+				mealRatio = lunchRatio / totalLoggedRatio
+				result.lunchCarbsG = int(float64(consumedCarbs) * mealRatio)
+				result.lunchProteinG = int(float64(consumedProtein) * mealRatio)
+				result.lunchFatG = int(float64(consumedFat) * mealRatio)
+				result.lunchKcal = (result.lunchCarbsG * 4) + (result.lunchProteinG * 4) + (result.lunchFatG * 9)
+			case "dinner":
+				mealRatio = dinnerRatio / totalLoggedRatio
+				result.dinnerCarbsG = int(float64(consumedCarbs) * mealRatio)
+				result.dinnerProteinG = int(float64(consumedProtein) * mealRatio)
+				result.dinnerFatG = int(float64(consumedFat) * mealRatio)
+				result.dinnerKcal = (result.dinnerCarbsG * 4) + (result.dinnerProteinG * 4) + (result.dinnerFatG * 9)
+			}
+		}
+
+		// Recalculate totals based on what was actually logged
+		result.totalCarbsG = result.breakfastCarbsG + result.lunchCarbsG + result.dinnerCarbsG
+		result.totalProteinG = result.breakfastProteinG + result.lunchProteinG + result.dinnerProteinG
+		result.totalFatG = result.breakfastFatG + result.lunchFatG + result.dinnerFatG
+		result.totalCalories = result.breakfastKcal + result.lunchKcal + result.dinnerKcal
+	} else {
+		// Complete logging - distribute across all meals
+		result.breakfastCarbsG = int(float64(consumedCarbs) * breakfastRatio)
+		result.breakfastProteinG = int(float64(consumedProtein) * breakfastRatio)
+		result.breakfastFatG = int(float64(consumedFat) * breakfastRatio)
+		result.breakfastKcal = (result.breakfastCarbsG * 4) + (result.breakfastProteinG * 4) + (result.breakfastFatG * 9)
+
+		result.lunchCarbsG = int(float64(consumedCarbs) * lunchRatio)
+		result.lunchProteinG = int(float64(consumedProtein) * lunchRatio)
+		result.lunchFatG = int(float64(consumedFat) * lunchRatio)
+		result.lunchKcal = (result.lunchCarbsG * 4) + (result.lunchProteinG * 4) + (result.lunchFatG * 9)
+
+		result.dinnerCarbsG = int(float64(consumedCarbs) * dinnerRatio)
+		result.dinnerProteinG = int(float64(consumedProtein) * dinnerRatio)
+		result.dinnerFatG = int(float64(consumedFat) * dinnerRatio)
+		result.dinnerKcal = (result.dinnerCarbsG * 4) + (result.dinnerProteinG * 4) + (result.dinnerFatG * 9)
+	}
+
+	return result
 }
 
 func clamp(value, min, max int) int {

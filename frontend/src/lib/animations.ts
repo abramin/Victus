@@ -542,16 +542,16 @@ export const cellHeatmapGlow: Variants = {
  * Cell hover expansion for meso-tier semantic zoom.
  */
 export const cellExpand: Variants = {
-  collapsed: { 
-    scale: 1, 
+  collapsed: {
+    scale: 1,
     zIndex: 1,
     boxShadow: 'none',
   },
-  expanded: { 
-    scale: 1.12, 
+  expanded: {
+    scale: 1.08,
     zIndex: 50,
     boxShadow: '0 20px 40px rgba(0, 0, 0, 0.4)',
-    transition: { type: 'spring', stiffness: 300, damping: 25 },
+    transition: { type: 'spring', stiffness: 180, damping: 20 },
   },
 };
 
@@ -575,13 +575,53 @@ export const drawerSlide: Variants = {
  */
 export const ribbonPath: Variants = {
   hidden: { pathLength: 0, opacity: 0 },
-  visible: { 
-    pathLength: 1, 
+  visible: {
+    pathLength: 1,
     opacity: 0.7,
     transition: { duration: 1.5, ease: 'easeInOut' },
   },
   pulse: {
     opacity: [0.5, 0.8, 0.5],
     transition: { duration: 2, repeat: Infinity, ease: 'easeInOut' },
+  },
+};
+
+/**
+ * Pulsing border animation for Today cell.
+ * Creates a breathing effect with white ↔ emerald color shift.
+ */
+export const todayPulse: Variants = {
+  idle: {
+    boxShadow: '0 0 0 1px rgba(255, 255, 255, 0.5)'
+  },
+  pulse: {
+    boxShadow: [
+      '0 0 0 1px rgba(255, 255, 255, 0.5)',
+      '0 0 0 1px rgba(16, 185, 129, 0.8)',
+      '0 0 0 1px rgba(255, 255, 255, 0.5)',
+    ],
+    transition: {
+      duration: 2,
+      repeat: Infinity,
+      ease: 'easeInOut',
+    },
+  },
+};
+
+/**
+ * Vertical scanline animation for Today cell.
+ * Creates a retro CRT monitor effect with continuous vertical movement.
+ */
+export const todayScanline: Variants = {
+  hidden: {
+    y: '-100%'
+  },
+  visible: {
+    y: '100%',
+    transition: {
+      duration: 3,
+      repeat: Infinity,
+      ease: 'linear',
+    },
   },
 };

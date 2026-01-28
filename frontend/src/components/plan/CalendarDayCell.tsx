@@ -1,8 +1,8 @@
-import type { DayType, TrainingSession, ActualTrainingSession } from '../../api/types';
+import type { DayType, TrainingSession, ActualTrainingSession, TrainingType } from '../../api/types';
 import { MacroDonutChart } from '../charts';
 import { TrainingBadge } from './TrainingBadge';
 import { DayTypeQuickSelector } from './DayTypeQuickSelector';
-import { AdherenceIndicator, calculateAdherenceStatus } from './AdherenceIndicator';
+import { calculateAdherenceStatus } from './AdherenceIndicator';
 import { MacroCell } from './MacroCell';
 import { MesoCell } from './MesoCell';
 import { DAY_TYPE_COLORS, DAY_TYPE_LABELS } from '../../constants';
@@ -64,6 +64,10 @@ interface CalendarDayCellProps {
   avgRpe?: number;
   onHover?: () => void;
   onHoverLeave?: () => void;
+  primaryTrainingType?: TrainingType;
+  // Energy Stack props
+  caloriesNormalized?: number;
+  loadNormalized?: number;
 }
 
 /**
@@ -101,6 +105,10 @@ export function CalendarDayCell({
   avgRpe,
   onHover,
   onHoverLeave,
+  primaryTrainingType,
+  // Energy Stack props
+  caloriesNormalized = 0,
+  loadNormalized = 0,
 }: CalendarDayCellProps) {
   const isDisabled = !dayData.hasData;
   const sessions = (dayData.actualSessions?.length ?? 0) > 0
@@ -119,7 +127,7 @@ export function CalendarDayCell({
   // Determine cell background and styling based on state
   const cellClasses = [
     'min-h-[140px] p-2 border-t border-r border-gray-800 last:border-r-0 text-left transition flex flex-col relative',
-    isToday && 'ring-2 ring-blue-500/50',
+    isToday && 'ring-1 ring-white',
     isSelected && 'ring-2 ring-white/30',
     isDisabled && 'cursor-not-allowed opacity-60',
     !isDisabled && 'hover:bg-gray-800/40 cursor-pointer',
@@ -200,6 +208,7 @@ export function CalendarDayCell({
           isToday={isToday}
           heatmapIntensity={heatmapIntensity}
           hasData={dayData.hasData}
+          primaryTrainingType={primaryTrainingType}
         />
       )}
 
@@ -227,9 +236,19 @@ export function CalendarDayCell({
           {isToday && (
             <span className="text-[10px] text-blue-400 font-medium">TODAY</span>
           )}
-          {/* Adherence indicator for past days - only when showStats is enabled */}
-          {showStats && isPast && dayData.hasData && (
-            <AdherenceIndicator status={adherenceStatus} compact />
+          {/* Adherence glowing dot for past days - only when showStats is enabled */}
+          {showStats && isPast && dayData.hasData && adherenceStatus !== 'future' && adherenceStatus !== 'rest' && (
+            <div
+              className="absolute top-2 right-2 w-2 h-2 rounded-full animate-pulse"
+              style={{
+                backgroundColor: adherenceStatus === 'complete' ? '#10B981'
+                  : adherenceStatus === 'partial' ? '#F59E0B'
+                  : '#EF4444',
+                boxShadow: `0 0 8px ${adherenceStatus === 'complete' ? '#10B981'
+                  : adherenceStatus === 'partial' ? '#F59E0B'
+                  : '#EF4444'}`,
+              }}
+            />
           )}
         </div>
 
@@ -293,6 +312,40 @@ export function CalendarDayCell({
             </div>
           )}
         </>
+      )}
+
+      {/* Scanline overlay for Today cell */}
+      {isToday && (
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          <div className="scanline" />
+        </div>
+      )}
+
+      {/* Energy Stack - anchored to bottom 30% of cell */}
+      {dayData.hasData && (
+        <div className="absolute bottom-0 left-0 right-0 h-[30%] pointer-events-none flex items-end">
+          {/* Layer 1: Fuel (Calories) - Background */}
+          <div
+            className="absolute bottom-0 left-0 right-0 rounded-t-sm"
+            style={{
+              height: `${caloriesNormalized * 100}%`,
+              background: 'linear-gradient(to top, rgba(59, 130, 246, 0.4), rgba(139, 92, 246, 0.4))',
+              boxShadow: '0 -2px 8px rgba(59, 130, 246, 0.3)',
+            }}
+          />
+
+          {/* Layer 2: Fire (Training Load) - Foreground */}
+          <div
+            className="absolute bottom-0 left-1/2 -translate-x-1/2"
+            style={{
+              height: `${loadNormalized * 100}%`,
+              width: '60%',
+              background: 'linear-gradient(to top, rgba(249, 115, 22, 0.8), rgba(239, 68, 68, 0.8))',
+              clipPath: 'polygon(0% 100%, 50% 0%, 100% 100%)',
+              filter: 'drop-shadow(0 0 6px rgba(249, 115, 22, 0.6))',
+            }}
+          />
+        </div>
       )}
     </div>
   );

@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { useMemo } from 'react';
 import type { TrainingSession, ActualTrainingSession } from '../../api/types';
 import { cellExpand } from '../../lib/animations';
 import { TrainingBadge } from './TrainingBadge';
@@ -35,6 +36,19 @@ export function MesoCell({
   const sessions = actualSessions?.length ? actualSessions : plannedSessions;
   const hasTraining = sessions && sessions.length > 0 && sessions.some(s => s.type !== 'rest');
 
+  // Memoize gradient and shadow calculations
+  const gradientStyle = useMemo(() => {
+    if (!hasData) return 'transparent';
+
+    const rgb = {
+      r: parseInt(heatmapColor.slice(1, 3), 16),
+      g: parseInt(heatmapColor.slice(3, 5), 16),
+      b: parseInt(heatmapColor.slice(5, 7), 16),
+    };
+
+    return `radial-gradient(circle at center, rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.25) 0%, rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.15) 50%, rgba(0, 0, 0, 0) 100%)`;
+  }, [heatmapColor, hasData]);
+
   return (
     <motion.div
       variants={cellExpand}
@@ -42,8 +56,8 @@ export function MesoCell({
       animate="expanded"
       className="w-full h-full flex flex-col p-3 rounded-lg"
       style={{
-        backgroundColor: `${heatmapColor}25`, // 15% opacity for expanded state
-        boxShadow: `0 20px 40px rgba(0, 0, 0, 0.4), 0 0 30px ${heatmapColor}60`,
+        background: gradientStyle,
+        boxShadow: '0 20px 40px rgba(0, 0, 0, 0.4)',
       }}
     >
       {/* Header: Day Number + Today Badge */}

@@ -39,3 +39,18 @@ export const clamp = (value: number, min: number, max: number): number =>
  */
 export const safePercent = (value: number, total: number): number =>
   total === 0 ? 0 : (value / total) * 100;
+
+/**
+ * Calculates the daily kcal correction needed to close a landing-point variance
+ * over the remaining plan weeks. Uses 7700 kcal per kg of fat as the conversion factor.
+ *
+ * Returns null when correction cannot be calculated (no landing data or no time remaining).
+ */
+export const calculateKcalCorrection = (
+  varianceFromGoalKg: number | undefined,
+  weeksRemaining: number
+): number | null => {
+  if (varianceFromGoalKg === undefined || weeksRemaining <= 0) return null;
+  const additionalWeeklyChange = Math.abs(varianceFromGoalKg) / weeksRemaining;
+  return Math.round((additionalWeeklyChange * 7700) / 7);
+};

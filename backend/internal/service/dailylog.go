@@ -833,8 +833,8 @@ func (s *DailyLogService) GetCalendarSummary(ctx context.Context, startDate, end
 
 // GetDayInsight returns AI-generated or templated insight for a specific day
 func (s *DailyLogService) GetDayInsight(ctx context.Context, date string) (*DayInsight, error) {
-	// Fetch daily log with full details
-	log, err := s.logStore.GetByDate(ctx, date)
+	// Fetch daily log with full details including training sessions
+	log, err := s.GetByDate(ctx, date)
 	if err != nil {
 		return nil, err
 	}

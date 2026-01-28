@@ -1,8 +1,14 @@
 import { useState, useEffect } from 'react';
 import type { DebriefNarrative } from '../../api/types';
+import {
+  getDebriefAnimationState,
+  markNarrativeSeen,
+  getWeekKey,
+} from '../../utils/debriefAnimations';
 
 interface NarrativePanelProps {
   narrative: DebriefNarrative;
+  weekStartDate: string;
   onDateClick?: (date: string) => void;
 }
 
@@ -10,17 +16,19 @@ interface NarrativePanelProps {
  * Displays the LLM-generated narrative with typewriter effect on first view.
  * Dates mentioned in the narrative are clickable for deep linking.
  */
-export function NarrativePanel({ narrative, onDateClick }: NarrativePanelProps) {
+export function NarrativePanel({
+  narrative,
+  weekStartDate,
+  onDateClick,
+}: NarrativePanelProps) {
   const [displayedText, setDisplayedText] = useState('');
-  const [isAnimating, setIsAnimating] = useState(true);
+  const [isAnimating, setIsAnimating] = useState(false);
 
   useEffect(() => {
-    // Check if we should animate (only on first view of new week)
-    const lastSeenKey = 'lastSeenDebriefWeek';
-    const currentWeek = new Date().toISOString().slice(0, 10);
-    const lastSeen = localStorage.getItem(lastSeenKey);
+    const weekKey = getWeekKey(weekStartDate);
+    const { shouldAnimateNarrative } = getDebriefAnimationState(weekKey);
 
-    if (lastSeen === currentWeek) {
+    if (!shouldAnimateNarrative) {
       // Already seen this week, show immediately
       setDisplayedText(narrative.text);
       setIsAnimating(false);
@@ -28,6 +36,7 @@ export function NarrativePanel({ narrative, onDateClick }: NarrativePanelProps) 
     }
 
     // Typewriter effect
+    setIsAnimating(true);
     let index = 0;
     const interval = setInterval(() => {
       if (index < narrative.text.length) {
@@ -36,12 +45,12 @@ export function NarrativePanel({ narrative, onDateClick }: NarrativePanelProps) 
       } else {
         clearInterval(interval);
         setIsAnimating(false);
-        localStorage.setItem(lastSeenKey, currentWeek);
+        markNarrativeSeen(weekKey);
       }
     }, 15); // ~65 chars per second
 
     return () => clearInterval(interval);
-  }, [narrative.text]);
+  }, [narrative.text, weekStartDate]);
 
   // Parse text to make dates clickable
   const renderTextWithLinks = (text: string) => {

@@ -5,7 +5,7 @@ interface RecalibrationPromptProps {
   varianceKg: number;
   variancePercent: number;
   options: RecalibrationOption[];
-  onSelectOption?: (option: RecalibrationOption) => void;
+  onSelectOption?: (option: RecalibrationOption) => Promise<void>;
 }
 
 const feasibilityColors: Record<FeasibilityTag, { bg: string; text: string; border: string }> = {
@@ -93,7 +93,10 @@ export function RecalibrationPrompt({
         {/* Dismiss option */}
         <div className="text-center pt-2">
           <button
-            onClick={() => onSelectOption?.(options.find(o => o.type === 'keep_current')!)}
+            onClick={() => {
+              const keepOption = options.find(o => o.type === 'keep_current');
+              if (keepOption) onSelectOption?.(keepOption);
+            }}
             className="text-sm text-gray-500 hover:text-gray-700 underline"
           >
             Dismiss and keep current settings

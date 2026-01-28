@@ -4,7 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
 	"os"
+	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
@@ -27,7 +29,8 @@ type DBTX interface {
 	BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error)
 }
 
-// Connect opens a PostgreSQL database connection.
+// Connect opens a PostgreSQL database connection with retry/backoff.
+// Polls until postgres is reachable or maxRetries is exhausted.
 // Requires DATABASE_URL environment variable or config.DatabaseURL to be set.
 func Connect(cfg Config) (*DB, error) {
 	dbURL := os.Getenv("DATABASE_URL")
@@ -39,21 +42,33 @@ func Connect(cfg Config) (*DB, error) {
 		return nil, fmt.Errorf("DATABASE_URL environment variable is required")
 	}
 
-	db, err := sql.Open("pgx", dbURL)
-	if err != nil {
-		return nil, fmt.Errorf("opening postgres database: %w", err)
+	const maxRetries = 30
+	var lastErr error
+
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		db, err := sql.Open("pgx", dbURL)
+		if err != nil {
+			return nil, fmt.Errorf("opening postgres database: %w", err)
+		}
+
+		if err := db.Ping(); err != nil {
+			db.Close()
+			lastErr = err
+			if attempt < maxRetries {
+				log.Printf("waiting for database (attempt %d/%d): %v", attempt, maxRetries, err)
+				time.Sleep(time.Second)
+			}
+			continue
+		}
+
+		// Configure connection pool for concurrent access
+		db.SetMaxOpenConns(25)
+		db.SetMaxIdleConns(5)
+
+		return &DB{DB: db}, nil
 	}
 
-	if err := db.Ping(); err != nil {
-		db.Close()
-		return nil, fmt.Errorf("pinging postgres database: %w", err)
-	}
-
-	// Configure connection pool for concurrent access
-	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(5)
-
-	return &DB{DB: db}, nil
+	return nil, fmt.Errorf("pinging postgres database after %d attempts: %w", maxRetries, lastErr)
 }
 
 // BeginTx starts a transaction.

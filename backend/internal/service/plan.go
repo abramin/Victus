@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"victus/internal/domain"
@@ -10,8 +11,9 @@ import (
 
 // NutritionPlanService handles business logic for nutrition plans.
 type NutritionPlanService struct {
-	planStore    *store.NutritionPlanStore
-	profileStore *store.ProfileStore
+	planStore     *store.NutritionPlanStore
+	profileStore  *store.ProfileStore
+	ollamaService *OllamaService
 }
 
 // NewNutritionPlanService creates a new NutritionPlanService.
@@ -155,4 +157,114 @@ func (s *NutritionPlanService) Recalibrate(ctx context.Context, id int64, option
 
 	// Return fresh copy
 	return s.planStore.GetByID(ctx, id)
+}
+
+// SetOllamaService injects the Ollama service for AI-generated insights.
+func (s *NutritionPlanService) SetOllamaService(os *OllamaService) {
+	s.ollamaService = os
+}
+
+// PhaseInsight represents an AI-generated or templated insight for a plan phase.
+type PhaseInsight struct {
+	Insight   string
+	Phase     string // "initiation", "momentum", or "peak"
+	Generated bool   // true if AI-generated, false if fallback
+}
+
+// GetPhaseInsight returns an AI-generated insight for the current phase of a plan.
+// If weekNumber is 0, uses the plan's current week.
+func (s *NutritionPlanService) GetPhaseInsight(ctx context.Context, planID int64, weekNumber int) (*PhaseInsight, error) {
+	// Fetch the plan
+	plan, err := s.planStore.GetByID(ctx, planID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Use provided week number or default to current week
+	if weekNumber == 0 {
+		weekNumber = plan.GetCurrentWeek(time.Now())
+	}
+
+	// Determine current phase
+	phase := determinePlanPhase(weekNumber, plan.DurationWeeks)
+
+	// Fallback insight based on phase
+	fallbackInsight := generatePhaseFallbackInsight(phase)
+
+	// Try AI-generated insight if Ollama service is available
+	if s.ollamaService != nil {
+		prompt := buildPhaseInsightPrompt(plan, weekNumber, phase)
+
+		// Use a timeout context for Ollama
+		insightCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+
+		insight, err := s.ollamaService.Generate(insightCtx, prompt)
+		if err == nil && len(insight) > 0 {
+			return &PhaseInsight{
+				Insight:   insight,
+				Phase:     phase,
+				Generated: true,
+			}, nil
+		}
+		// On error, fall through to fallback
+	}
+
+	// Return fallback insight
+	return &PhaseInsight{
+		Insight:   fallbackInsight,
+		Phase:     phase,
+		Generated: false,
+	}, nil
+}
+
+// determinePlanPhase calculates which phase (initiation/momentum/peak) a week falls into.
+func determinePlanPhase(weekNumber int, totalWeeks int) string {
+	phaseLength := totalWeeks / 3
+	if phaseLength == 0 {
+		phaseLength = 1
+	}
+
+	if weekNumber <= phaseLength {
+		return "initiation"
+	} else if weekNumber <= phaseLength*2 {
+		return "momentum"
+	}
+	return "peak"
+}
+
+// generatePhaseFallbackInsight returns a generic insight for each phase.
+func generatePhaseFallbackInsight(phase string) string {
+	switch phase {
+	case "initiation":
+		return "Focus: Metabolic calibration and baseline adherence. Keep protein high."
+	case "momentum":
+		return "Focus: Maintaining consistency and optimizing adherence patterns."
+	case "peak":
+		return "Focus: Final push with precision execution. Stay the course."
+	default:
+		return "Focus: Maintain adherence and track your progress."
+	}
+}
+
+// buildPhaseInsightPrompt constructs an Ollama prompt for phase insights.
+func buildPhaseInsightPrompt(plan *domain.NutritionPlan, weekNumber int, phase string) string {
+	weekProgress := float64(weekNumber) / float64(plan.DurationWeeks) * 100
+	weightChange := plan.GoalWeightKg - plan.StartWeightKg
+
+	return fmt.Sprintf(`You are a nutrition coach providing brief phase-specific insights.
+
+Context:
+- Plan Phase: %s
+- Week %d of %d (%.0f%% complete)
+- Goal: %.1f kg weight change
+- Daily deficit: %.0f kcal
+
+Generate a single-sentence tactical focus for this phase. Be specific, motivational, and actionable.
+Examples:
+- Initiation: "Build your metabolic baseline—precision protein tracking is your priority."
+- Momentum: "You're in the groove; trust the process and stay consistent with intake."
+- Peak: "Final sprint—every calorie counts, maintain intensity."
+
+Your insight (one sentence only):`, phase, weekNumber, plan.DurationWeeks, weekProgress, weightChange, plan.RequiredDailyDeficitKcal)
 }

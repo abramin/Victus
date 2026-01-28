@@ -488,9 +488,9 @@ func applyReviseGoal(plan *NutritionPlan, profile *UserProfile, actualWeight flo
 func regenerateWeeklyTargets(plan *NutritionPlan, profile *UserProfile, currentWeight float64, now time.Time) []WeeklyTarget {
 	currentWeek := plan.GetCurrentWeek(now)
 
-	// Keep existing targets up to current week (preserve actuals)
+	// Keep existing targets before current week (preserve actuals)
 	var targets []WeeklyTarget
-	for i := 0; i < len(plan.WeeklyTargets) && i < currentWeek; i++ {
+	for i := 0; i < len(plan.WeeklyTargets) && i < currentWeek-1; i++ {
 		targets = append(targets, plan.WeeklyTargets[i])
 	}
 

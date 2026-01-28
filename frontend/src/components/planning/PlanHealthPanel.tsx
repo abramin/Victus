@@ -1,17 +1,37 @@
 import { motion } from 'framer-motion';
 import type { NutritionPlan, DualTrackAnalysis } from '../../api/types';
 import { Card } from '../common/Card';
+import { calculateKcalCorrection } from '../../utils/math';
 
 interface PlanHealthPanelProps {
   plan: NutritionPlan;
   analysis: DualTrackAnalysis | null;
 }
 
-type SignalStatus = 'on_track' | 'drifting';
+type SignalStatus = 'on_track' | 'slight_delay' | 'off_track';
 
-function getSignalStatus(varianceKg: number, tolerancePercent: number, plannedWeight: number): SignalStatus {
-  const toleranceKg = (tolerancePercent / 100) * plannedWeight;
-  return Math.abs(varianceKg) <= toleranceKg ? 'on_track' : 'drifting';
+/**
+ * Calculate plan health status based on projected landing weight vs goal.
+ *
+ * Thresholds:
+ * - ON TRACK: Projected to land within 1.0kg of goal
+ * - SLIGHT DELAY: Projected to land within 3.0kg of goal
+ * - OFF TRACK: Projected to land more than 3.0kg from goal
+ */
+function getSignalStatus(landingPoint: { varianceFromGoalKg: number } | undefined): SignalStatus {
+  if (!landingPoint) {
+    return 'on_track'; // No projection available, assume on track
+  }
+
+  const delta = Math.abs(landingPoint.varianceFromGoalKg);
+
+  if (delta <= 1.0) {
+    return 'on_track';
+  } else if (delta <= 3.0) {
+    return 'slight_delay';
+  } else {
+    return 'off_track';
+  }
 }
 
 const SIGNAL_CONFIG = {
@@ -22,12 +42,19 @@ const SIGNAL_CONFIG = {
     textColor: 'text-green-400',
     dotColor: 'bg-green-500',
   },
-  drifting: {
-    label: 'DRIFTING',
-    bgColor: 'bg-orange-500/20',
-    borderColor: 'border-orange-500/50',
-    textColor: 'text-orange-400',
-    dotColor: 'bg-orange-500',
+  slight_delay: {
+    label: 'SLIGHT DELAY',
+    bgColor: 'bg-amber-500/20',
+    borderColor: 'border-amber-500/50',
+    textColor: 'text-amber-400',
+    dotColor: 'bg-amber-500',
+  },
+  off_track: {
+    label: 'OFF TRACK',
+    bgColor: 'bg-red-500/20',
+    borderColor: 'border-red-500/50',
+    textColor: 'text-red-400',
+    dotColor: 'bg-red-500',
   },
 } as const;
 
@@ -42,7 +69,7 @@ export function PlanHealthPanel({ plan, analysis }: PlanHealthPanelProps) {
     );
   }
 
-  const signal = getSignalStatus(analysis.varianceKg, analysis.tolerancePercent, analysis.plannedWeightKg);
+  const signal = getSignalStatus(analysis.landingPoint);
   const config = SIGNAL_CONFIG[signal];
 
   // Calculate current vs required pace
@@ -54,9 +81,17 @@ export function PlanHealthPanel({ plan, analysis }: PlanHealthPanelProps) {
   // Determine if the plan is for weight loss or gain
   const isWeightLoss = plan.goalWeightKg < plan.startWeightKg;
 
-  // Landing point projection text
+  const kcalCorrection = signal !== 'on_track'
+    ? calculateKcalCorrection(analysis.landingPoint?.varianceFromGoalKg, weeksRemaining)
+    : null;
+
+  // Landing point projection text with correction guidance
   const landingText = analysis.landingPoint
-    ? `At this pace, you reach ${analysis.landingPoint.weightKg.toFixed(1)}kg (Goal: ${plan.goalWeightKg.toFixed(1)}kg)`
+    ? signal === 'on_track'
+      ? `At this pace, you reach ${analysis.landingPoint.weightKg.toFixed(1)}kg (Goal: ${plan.goalWeightKg.toFixed(1)}kg)`
+      : kcalCorrection
+      ? `Current velocity puts you at ${analysis.landingPoint.weightKg.toFixed(1)}kg. ${isWeightLoss ? 'Increase' : 'Decrease'} deficit by ${kcalCorrection} kcal to correct.`
+      : `Current velocity puts you at ${analysis.landingPoint.weightKg.toFixed(1)}kg (Goal: ${plan.goalWeightKg.toFixed(1)}kg)`
     : null;
 
   return (

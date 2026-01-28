@@ -10,6 +10,12 @@ import {
   DayDetailModal,
 } from '../components/debrief';
 import { staggerContainer, fadeInUp } from '../lib/animations';
+import {
+  getDebriefAnimationState,
+  markIntroSeen,
+  clearDebriefAnimationState,
+  getWeekKey,
+} from '../utils/debriefAnimations';
 
 interface WeeklyDebriefProps {
   current?: boolean;
@@ -27,15 +33,16 @@ export function WeeklyDebrief({ current = false }: WeeklyDebriefProps) {
 
   // Check if we should show the "Incoming Transmission" intro
   useEffect(() => {
-    const storageKey = 'lastDebriefIntroWeek';
-    const currentWeek = new Date().toISOString().slice(0, 10);
-    const lastShown = localStorage.getItem(storageKey);
+    if (!debrief) return;
 
-    if (lastShown !== currentWeek && debrief) {
+    const weekKey = getWeekKey(debrief.weekStartDate);
+    const { shouldAnimateIntro } = getDebriefAnimationState(weekKey);
+
+    if (shouldAnimateIntro) {
       setShowIntro(true);
       // Mark as shown after animation completes
       const timer = setTimeout(() => {
-        localStorage.setItem(storageKey, currentWeek);
+        markIntroSeen(weekKey);
         setShowIntro(false);
       }, 3000);
       return () => clearTimeout(timer);
@@ -137,6 +144,7 @@ export function WeeklyDebrief({ current = false }: WeeklyDebriefProps) {
         <motion.section variants={fadeInUp}>
           <NarrativePanel
             narrative={debrief.narrative}
+            weekStartDate={debrief.weekStartDate}
             onDateClick={handleDateClick}
           />
         </motion.section>
@@ -161,7 +169,10 @@ export function WeeklyDebrief({ current = false }: WeeklyDebriefProps) {
           </p>
           <button
             type="button"
-            onClick={refresh}
+            onClick={() => {
+              clearDebriefAnimationState();
+              refresh();
+            }}
             className="mt-2 text-xs text-slate-500 hover:text-slate-400 transition-colors"
           >
             Regenerate Report

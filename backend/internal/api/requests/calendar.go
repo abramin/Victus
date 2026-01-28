@@ -32,3 +32,10 @@ type DayInsightResponse struct {
 	Insight   string `json:"insight"`
 	Generated bool   `json:"generated"` // true if AI-generated, false if templated fallback
 }
+
+// PhaseInsightResponse is the response for GET /api/plans/{id}/phase-insight
+type PhaseInsightResponse struct {
+	Insight   string `json:"insight"`
+	Phase     string `json:"phase"`     // initiation, momentum, or peak
+	Generated bool   `json:"generated"` // true if AI-generated, false if fallback
+}

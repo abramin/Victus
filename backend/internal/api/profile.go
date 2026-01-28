@@ -19,12 +19,16 @@ func isDebugMode() bool {
 	return val == "true" || val == "1"
 }
 
-// writeError writes a JSON error response and logs it.
+// writeError writes a JSON error response. 404 not_found errors are not
+// logged because they represent expected application states (e.g. no log
+// for today before check-in); the access-log middleware already records them.
 func writeError(w http.ResponseWriter, status int, code, msg string) {
-	if msg != "" {
-		log.Printf("ERROR %d %s: %s", status, code, msg)
-	} else {
-		log.Printf("ERROR %d %s", status, code)
+	if !(status == http.StatusNotFound && code == "not_found") {
+		if msg != "" {
+			log.Printf("ERROR %d %s: %s", status, code, msg)
+		} else {
+			log.Printf("ERROR %d %s", status, code)
+		}
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)

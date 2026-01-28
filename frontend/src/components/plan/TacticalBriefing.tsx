@@ -55,13 +55,13 @@ export function TacticalBriefing({ isOpen, date, onClose }: TacticalBriefingProp
         if (controller.signal.aborted) return;
         setLog(logData);
 
-        // Check abort signal before next fetch to prevent race condition
-        if (controller.signal.aborted) return;
-
-        // Fetch insight (Ollama)
-        const insightData = await getDayInsight(date, controller.signal);
-        if (controller.signal.aborted) return;
-        setInsight(insightData);
+        // Only fetch insight if a log exists for this date
+        if (logData) {
+          if (controller.signal.aborted) return;
+          const insightData = await getDayInsight(date, controller.signal);
+          if (controller.signal.aborted) return;
+          setInsight(insightData);
+        }
       } catch (err) {
         if (!controller.signal.aborted) {
           setError(err instanceof Error ? err.message : 'Failed to load day data');
@@ -156,6 +156,12 @@ export function TacticalBriefing({ isOpen, date, onClose }: TacticalBriefingProp
               {error && (
                 <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
                   <p className="text-sm text-red-400">{error}</p>
+                </div>
+              )}
+
+              {!loading && !log && !error && (
+                <div className="text-center py-12">
+                  <p className="text-gray-500 text-sm">No check-in data for this date</p>
                 </div>
               )}
 

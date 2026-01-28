@@ -23,8 +23,11 @@ services:
     environment:
       - DATABASE_URL=postgres://victus:victus@postgres:5432/victus?sslmode=disable
       - DEBUG_MODE=${DEBUG_MODE:-false}
+      - OLLAMA_URL=http://host.docker.internal:11434
     ports:
       - "${BACKEND_PORT:-8080}:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
         condition: service_healthy

@@ -108,6 +108,8 @@ func CalculateDualTrackAnalysis(input AnalysisInput) (*DualTrackAnalysis, error)
 	if tolerancePercent == 0 {
 		tolerancePercent = 3 // Default 3%
 	}
+
+	// Check current variance (old logic)
 	recalibrationNeeded := math.Abs(variancePercent) >= tolerancePercent
 
 	analysis := &DualTrackAnalysis{
@@ -131,6 +133,13 @@ func CalculateDualTrackAnalysis(input AnalysisInput) (*DualTrackAnalysis, error)
 
 		// Calculate landing point from trend projection
 		analysis.LandingPoint = calculateLandingPoint(plan, analysis.TrendProjection, tolerancePercent)
+
+		// ALSO check if projected landing point is off track (new logic)
+		// Use stricter threshold: 1.0kg instead of percentage-based tolerance
+		if analysis.LandingPoint != nil && math.Abs(analysis.LandingPoint.VarianceFromGoalKg) > 1.0 {
+			recalibrationNeeded = true
+			analysis.RecalibrationNeeded = true
+		}
 	}
 
 	// Generate recalibration options if needed
