@@ -344,9 +344,26 @@ export interface HistoryResponse {
 }
 
 // Planned Day Types (Cockpit Dashboard)
+export interface PlannedSessionInput {
+  trainingType: TrainingType;
+  durationMin: number;
+  loadScore: number;
+  rpe?: number;
+  notes?: string;
+}
+
+export interface PlannedSession {
+  trainingType: TrainingType;
+  durationMin: number;
+  loadScore: number;
+  rpe?: number;
+  notes?: string;
+}
+
 export interface PlannedDay {
   date: string;
   dayType: DayType;
+  sessions?: PlannedSession[];
 }
 
 export interface PlannedDaysResponse {
@@ -354,7 +371,7 @@ export interface PlannedDaysResponse {
 }
 
 // Food Reference Types (Cockpit Dashboard)
-export type FoodCategory = 'high_carb' | 'high_protein' | 'high_fat';
+export type FoodCategory = 'high_carb' | 'high_protein' | 'high_fat' | 'veg' | 'fruit';
 
 export interface FoodReference {
   id: number;
@@ -397,6 +414,7 @@ export interface NutritionPlan {
   status: PlanStatus;
   currentWeek: number;
   weeklyTargets: WeeklyTarget[];
+  lastRecalibratedAt?: string; // Timestamp of last recalibration (ISO 8601)
   createdAt: string;
   updatedAt: string;
 }
@@ -458,6 +476,8 @@ export interface DualTrackAnalysis {
   variancePercent: number;
   tolerancePercent: number;
   recalibrationNeeded: boolean;
+  trendDiverging: boolean;
+  trendDivergingMsg?: string;
   options?: RecalibrationOption[];
   planProjection: ProjectionPoint[];
   trendProjection?: ProjectionPoint[];
@@ -571,6 +591,44 @@ export type EquipmentType = 'barbell' | 'dumbbell' | 'bodyweight' | 'machine' | 
 export type ProgramStatus = 'template' | 'draft' | 'published';
 export type InstallationStatus = 'active' | 'completed' | 'abandoned';
 
+/** Discriminated union of progression pattern types */
+export type ProgressionType = 'strength' | 'skill';
+
+/** Configuration for strength-based (e.g., 5x5) linear progression */
+export interface StrengthProgressionConfig {
+  baseWeight: number;       // Starting weight in kg
+  incrementUnit: number;    // Weight delta on success (0.5–20.0 kg)
+  successThreshold: number; // Fraction of planned sets required (0.5–1.0)
+  deloadFrequency: number;  // Deload every N sessions (1–12)
+}
+
+/** Configuration for skill-based (e.g., GMB) time-on-tension progression */
+export interface SkillProgressionConfig {
+  minSeconds: number;  // Minimum time-on-tension target
+  maxSeconds: number;  // Maximum time-on-tension target (must be > minSeconds)
+  rpeTarget: number;   // Target RPE (1.0–10.0)
+}
+
+/** Progression pattern attached to a ProgramDay. Absence means no auto-progression. */
+export interface ProgressionPattern {
+  type: ProgressionType;
+  strength?: StrengthProgressionConfig;
+  skill?: SkillProgressionConfig;
+}
+
+/** Phase segment in a day's session flow (Block Constructor) */
+export type SessionPhase = 'prepare' | 'practice' | 'push';
+
+/** A single exercise node placed in a day's session flow */
+export interface SessionExercise {
+  exerciseId: string;
+  phase: SessionPhase;
+  order: number;
+  durationSec?: number;
+  reps?: number;
+  notes?: string;
+}
+
 /**
  * ProgramDay represents a single training day template within a week.
  */
@@ -583,6 +641,8 @@ export interface ProgramDay {
   loadScore: number;
   nutritionDay: DayType;
   notes?: string;
+  progressionPattern?: ProgressionPattern;
+  sessionExercises?: SessionExercise[];
 }
 
 /**
@@ -676,6 +736,7 @@ export interface ScheduledSession {
   durationMin: number;
   loadScore: number;
   nutritionDay: DayType;
+  progressionPattern?: ProgressionPattern;
 }
 
 /**
@@ -690,6 +751,8 @@ export interface ProgramDayInput {
   loadScore: number;
   nutritionDay: DayType;
   notes?: string;
+  progressionPattern?: ProgressionPattern;
+  sessionExercises?: SessionExercise[];
 }
 
 /** Input type for program weeks when creating a program */
@@ -1105,4 +1168,82 @@ export interface PhaseInsightResponse {
   insight: string;
   phase: string; // "initiation", "momentum", or "peak"
   generated: boolean;
+}
+
+// =============================================================================
+// Echo Logging Types (Neural Echo feature)
+// =============================================================================
+
+/**
+ * Request to create a draft session via quick submit.
+ */
+export interface QuickSessionRequest {
+  type: TrainingType;
+  durationMin: number;
+  perceivedIntensity?: number; // RPE 1-10
+  notes?: string;
+}
+
+/**
+ * Request to submit an echo log for a draft session.
+ */
+export interface EchoRequest {
+  rawEchoLog: string;
+}
+
+/**
+ * Metadata extracted from an echo log.
+ */
+export interface SessionExtraMetadata {
+  achievements?: string[];
+  rpeOffset?: number; // Adjustment to initial RPE (-3 to +3)
+  echoProcessed: boolean;
+  echoModel?: string;
+}
+
+/**
+ * Response for a training session with echo fields.
+ */
+export interface SessionResponse {
+  id: number;
+  sessionOrder: number;
+  isPlanned: boolean;
+  isDraft: boolean;
+  type: TrainingType;
+  durationMin: number;
+  perceivedIntensity?: number;
+  notes?: string;
+  rawEchoLog?: string;
+  extraMetadata?: SessionExtraMetadata;
+}
+
+/**
+ * Parsed echo result from Ollama.
+ */
+export interface EchoResult {
+  achievements: string[];
+  jointIntegrityDelta: Record<string, number>;
+  perceivedExertionOffset: number;
+}
+
+/**
+ * Body issue created from echo processing.
+ */
+export interface EchoBodyIssue {
+  id: number;
+  date: string;
+  bodyPart: MuscleGroup;
+  symptom: string;
+  severity: number; // -1 (healing), 1 (minor), 2 (moderate), 3 (severe)
+  rawText: string;
+  sessionId?: number;
+}
+
+/**
+ * Response from submitting an echo log.
+ */
+export interface EchoResponse {
+  session: SessionResponse;
+  echoResult?: EchoResult;
+  bodyIssuesCreated?: EchoBodyIssue[];
 }

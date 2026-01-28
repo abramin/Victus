@@ -33,6 +33,7 @@ func RunPostgresMigrations(db *sql.DB) error {
 		pgCreateMetabolicHistoryTable,
 		pgCreateMonthlySummariesTable,
 		pgCreateBodyPartIssuesTable,       // After training_sessions (references it)
+		pgCreatePlannedSessionsTable,      // Ad-hoc workout planner sessions
 	}
 
 	for i, migration := range migrations {
@@ -427,9 +428,38 @@ CREATE INDEX IF NOT EXISTS idx_body_part_issues_date ON body_part_issues(date);
 CREATE INDEX IF NOT EXISTS idx_body_part_issues_body_part ON body_part_issues(body_part);
 CREATE INDEX IF NOT EXISTS idx_body_part_issues_session ON body_part_issues(session_id)`
 
+const pgCreatePlannedSessionsTable = `
+CREATE TABLE IF NOT EXISTS planned_sessions (
+    id SERIAL PRIMARY KEY,
+    plan_date TEXT NOT NULL,
+    session_order INTEGER NOT NULL DEFAULT 1,
+    training_type TEXT NOT NULL CHECK(training_type IN (
+        'rest', 'qigong', 'walking', 'gmb', 'run', 'row', 'cycle', 'hiit',
+        'strength', 'calisthenics', 'mobility', 'mixed'
+    )),
+    duration_min INTEGER NOT NULL CHECK (duration_min BETWEEN 0 AND 480),
+    load_score REAL NOT NULL DEFAULT 3.0,
+    rpe INTEGER CHECK (rpe IS NULL OR rpe BETWEEN 1 AND 10),
+    notes TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    UNIQUE(plan_date, session_order)
+);
+CREATE INDEX IF NOT EXISTS idx_planned_sessions_date ON planned_sessions(plan_date)`
+
 var pgAlterMigrations = []string{
-	// These are no-ops for PostgreSQL since we created with all columns
-	// But kept for compatibility with migration tracking
+	// Add progression_config column to program_days for optional pattern-based progression
+	`ALTER TABLE program_days ADD COLUMN IF NOT EXISTS progression_config TEXT`,
+	// Add session_exercises column to program_days for block constructor phase assignments
+	`ALTER TABLE program_days ADD COLUMN IF NOT EXISTS session_exercises TEXT`,
+	// Add last_recalibrated_at column to nutrition_plans for tracking recalibration cooldown
+	`ALTER TABLE nutrition_plans ADD COLUMN IF NOT EXISTS last_recalibrated_at TIMESTAMP`,
+	// Echo logging: draft flag for quick-submit sessions pending enrichment
+	`ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS is_draft BOOLEAN NOT NULL DEFAULT false`,
+	// Echo logging: raw natural language echo text from user
+	`ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS raw_echo_log TEXT`,
+	// Echo logging: parsed metadata (achievements, rpe_offset, etc.)
+	`ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS extra_metadata JSONB`,
 }
 
 func pgSeedTrainingConfigs(db *sql.DB) error {

@@ -28,7 +28,9 @@ type Server struct {
 	importService        *service.ImportService
 	bodyIssueService     *service.BodyIssueService
 	auditService         *service.AuditService
+	echoService          *service.EchoService
 	plannedDayTypeStore  *store.PlannedDayTypeStore
+	plannedSessionStore  *store.PlannedSessionStore
 	foodReferenceStore   *store.FoodReferenceStore
 	monthlySummaryStore  *store.MonthlySummaryStore
 }
@@ -41,6 +43,7 @@ func NewServer(db store.DBTX) *Server {
 	trainingConfigStore := store.NewTrainingConfigStore(db)
 	planStore := store.NewNutritionPlanStore(db)
 	plannedDayTypeStore := store.NewPlannedDayTypeStore(db)
+	plannedSessionStore := store.NewPlannedSessionStore(db)
 	foodReferenceStore := store.NewFoodReferenceStore(db)
 	fatigueStore := store.NewFatigueStore(db)
 	programStore := store.NewTrainingProgramStore(db)
@@ -89,12 +92,17 @@ func NewServer(db store.DBTX) *Server {
 		bodyIssueService:     service.NewBodyIssueService(bodyIssueStore),
 		auditService:         auditService,
 		plannedDayTypeStore:  plannedDayTypeStore,
+		plannedSessionStore:  plannedSessionStore,
 		foodReferenceStore:   foodReferenceStore,
 		monthlySummaryStore:  monthlySummaryStore,
 	}
 
 	// Enable AI phase insights for plans
 	srv.planService.SetOllamaService(ollamaService)
+
+	// Create echo service for Neural Echo feature
+	echoService := service.NewEchoService(trainingSessionStore, bodyIssueStore, dailyLogStore, ollamaService)
+	srv.echoService = echoService
 
 	// Health
 	mux.HandleFunc("/api/health", srv.healthHandler)
@@ -137,6 +145,9 @@ func NewServer(db store.DBTX) *Server {
 	mux.HandleFunc("GET /api/planned-days", srv.getPlannedDays)
 	mux.HandleFunc("PUT /api/planned-days/{date}", srv.upsertPlannedDay)
 	mux.HandleFunc("DELETE /api/planned-days/{date}", srv.deletePlannedDay)
+
+	// Planned sessions routes (Workout Planner → Command Center)
+	mux.HandleFunc("GET /api/planned-sessions/{date}", srv.getPlannedSessions)
 
 	// Food reference routes (Cockpit Dashboard)
 	mux.HandleFunc("GET /api/food-reference", srv.getFoodReference)
@@ -198,6 +209,9 @@ func NewServer(db store.DBTX) *Server {
 
 	// Strategy Auditor routes (Check Engine light - Phase 4.2)
 	mux.HandleFunc("GET /api/audit/status", srv.getAuditStatus)
+
+	// Echo logging routes (Neural Echo feature)
+	srv.registerEchoRoutes()
 
 	return srv
 }

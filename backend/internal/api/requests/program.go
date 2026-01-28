@@ -36,13 +36,15 @@ type ProgramWeekRequest struct {
 
 // ProgramDayRequest is a day in a create/update program request.
 type ProgramDayRequest struct {
-	DayNumber    int     `json:"dayNumber"`
-	Label        string  `json:"label"`
-	TrainingType string  `json:"trainingType"`
-	DurationMin  int     `json:"durationMin"`
-	LoadScore    float64 `json:"loadScore"`
-	NutritionDay string  `json:"nutritionDay"`
-	Notes        string  `json:"notes"`
+	DayNumber          int                        `json:"dayNumber"`
+	Label              string                     `json:"label"`
+	TrainingType       string                     `json:"trainingType"`
+	DurationMin        int                        `json:"durationMin"`
+	LoadScore          float64                    `json:"loadScore"`
+	NutritionDay       string                     `json:"nutritionDay"`
+	Notes              string                     `json:"notes"`
+	ProgressionPattern *domain.ProgressionPattern `json:"progressionPattern,omitempty"`
+	SessionExercises   []domain.SessionExercise   `json:"sessionExercises,omitempty"`
 }
 
 // InstallProgramRequest is the request body for POST /api/training-programs/{id}/install.
@@ -103,14 +105,16 @@ type ProgramWeekResponse struct {
 
 // ProgramDayResponse is a day in a program response.
 type ProgramDayResponse struct {
-	ID           int64   `json:"id"`
-	DayNumber    int     `json:"dayNumber"`
-	Label        string  `json:"label"`
-	TrainingType string  `json:"trainingType"`
-	DurationMin  int     `json:"durationMin"`
-	LoadScore    float64 `json:"loadScore"`
-	NutritionDay string  `json:"nutritionDay"`
-	Notes        string  `json:"notes,omitempty"`
+	ID                 int64                      `json:"id"`
+	DayNumber          int                        `json:"dayNumber"`
+	Label              string                     `json:"label"`
+	TrainingType       string                     `json:"trainingType"`
+	DurationMin        int                        `json:"durationMin"`
+	LoadScore          float64                    `json:"loadScore"`
+	NutritionDay       string                     `json:"nutritionDay"`
+	Notes              string                     `json:"notes,omitempty"`
+	ProgressionPattern *domain.ProgressionPattern `json:"progressionPattern,omitempty"`
+	SessionExercises   []domain.SessionExercise   `json:"sessionExercises,omitempty"`
 }
 
 // WaveformPointResponse is a single point for the periodization waveform chart.
@@ -138,14 +142,15 @@ type InstallationResponse struct {
 
 // ScheduledSessionResponse is a single scheduled training session.
 type ScheduledSessionResponse struct {
-	Date         string  `json:"date"`
-	WeekNumber   int     `json:"weekNumber"`
-	DayNumber    int     `json:"dayNumber"`
-	Label        string  `json:"label"`
-	TrainingType string  `json:"trainingType"`
-	DurationMin  int     `json:"durationMin"`
-	LoadScore    float64 `json:"loadScore"`
-	NutritionDay string  `json:"nutritionDay"`
+	Date               string                     `json:"date"`
+	WeekNumber         int                        `json:"weekNumber"`
+	DayNumber          int                        `json:"dayNumber"`
+	Label              string                     `json:"label"`
+	TrainingType       string                     `json:"trainingType"`
+	DurationMin        int                        `json:"durationMin"`
+	LoadScore          float64                    `json:"loadScore"`
+	NutritionDay       string                     `json:"nutritionDay"`
+	ProgressionPattern *domain.ProgressionPattern `json:"progressionPattern,omitempty"`
 }
 
 // =============================================================================
@@ -159,13 +164,15 @@ func ProgramInputFromRequest(req CreateProgramRequest) domain.TrainingProgramInp
 		days := make([]domain.ProgramDayInput, len(w.Days))
 		for j, d := range w.Days {
 			days[j] = domain.ProgramDayInput{
-				DayNumber:    d.DayNumber,
-				Label:        d.Label,
-				TrainingType: d.TrainingType,
-				DurationMin:  d.DurationMin,
-				LoadScore:    d.LoadScore,
-				NutritionDay: d.NutritionDay,
-				Notes:        d.Notes,
+				DayNumber:          d.DayNumber,
+				Label:              d.Label,
+				TrainingType:       d.TrainingType,
+				DurationMin:        d.DurationMin,
+				LoadScore:          d.LoadScore,
+				NutritionDay:       d.NutritionDay,
+				Notes:              d.Notes,
+				ProgressionPattern: d.ProgressionPattern,
+				SessionExercises:   d.SessionExercises,
 			}
 		}
 		weeks[i] = domain.ProgramWeekInput{
@@ -213,14 +220,16 @@ func ProgramToResponse(p *domain.TrainingProgram) ProgramResponse {
 		days := make([]ProgramDayResponse, len(w.Days))
 		for j, d := range w.Days {
 			days[j] = ProgramDayResponse{
-				ID:           d.ID,
-				DayNumber:    d.DayNumber,
-				Label:        d.Label,
-				TrainingType: string(d.TrainingType),
-				DurationMin:  d.DurationMin,
-				LoadScore:    d.LoadScore,
-				NutritionDay: string(d.NutritionDay),
-				Notes:        d.Notes,
+				ID:                 d.ID,
+				DayNumber:          d.DayNumber,
+				Label:              d.Label,
+				TrainingType:       string(d.TrainingType),
+				DurationMin:        d.DurationMin,
+				LoadScore:          d.LoadScore,
+				NutritionDay:       string(d.NutritionDay),
+				Notes:              d.Notes,
+				ProgressionPattern: d.ProgressionPattern,
+			SessionExercises:   d.SessionExercises,
 			}
 		}
 		weeks[i] = ProgramWeekResponse{
@@ -330,14 +339,15 @@ func ScheduledSessionsToResponse(sessions []domain.ScheduledSession) []Scheduled
 	resp := make([]ScheduledSessionResponse, len(sessions))
 	for i, s := range sessions {
 		resp[i] = ScheduledSessionResponse{
-			Date:         s.Date.Format("2006-01-02"),
-			WeekNumber:   s.WeekNumber,
-			DayNumber:    s.DayNumber,
-			Label:        s.Label,
-			TrainingType: string(s.TrainingType),
-			DurationMin:  s.DurationMin,
-			LoadScore:    s.LoadScore,
-			NutritionDay: string(s.NutritionDay),
+			Date:               s.Date.Format("2006-01-02"),
+			WeekNumber:         s.WeekNumber,
+			DayNumber:          s.DayNumber,
+			Label:              s.Label,
+			TrainingType:       string(s.TrainingType),
+			DurationMin:        s.DurationMin,
+			LoadScore:          s.LoadScore,
+			NutritionDay:       string(s.NutritionDay),
+			ProgressionPattern: s.ProgressionPattern,
 		}
 	}
 	return resp

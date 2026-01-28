@@ -18,7 +18,7 @@ function parseLocaleNumber(str: string): number {
   // Replace comma with period for parsing
   const normalized = str.replace(',', '.');
   const parsed = parseFloat(normalized);
-  return isNaN(parsed) ? 0 : parsed;
+  return isNaN(parsed) ? 0 : parsed || 0;
 }
 
 export function NumberInput({

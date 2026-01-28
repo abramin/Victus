@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import type {
   CreateProgramRequest,
   ProgramDifficulty,
@@ -8,10 +8,16 @@ import type {
   ProgramDayInput,
   TrainingType,
   DayType,
+  ProgressionPattern,
+  SessionExercise,
+  ArchetypeConfig,
 } from '../../api/types';
-import { createTrainingProgram } from '../../api/client';
+import { createTrainingProgram, getArchetypes } from '../../api/client';
 import { TRAINING_LABELS, TRAINING_ICONS } from '../../constants';
 import { DIFFICULTY_COLORS, FOCUS_COLORS, EQUIPMENT_CONFIG } from './constants';
+import { SessionFlowCanvas } from './SessionFlowCanvas';
+import { GhostLoadPanel } from './GhostLoadPanel';
+import { ExerciseSearchPanel } from './ExerciseSearchPanel';
 
 interface ProgramBuilderProps {
   onClose: () => void;
@@ -83,6 +89,15 @@ export function ProgramBuilder({ onClose, onCreated }: ProgramBuilderProps) {
       label: `Day ${i + 1}`,
     }))
   );
+
+  // Archetype configs for Ghost Load simulation
+  const [archetypes, setArchetypes] = useState<ArchetypeConfig[]>([]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    getArchetypes(controller.signal).then(setArchetypes).catch(() => {});
+    return () => controller.abort();
+  }, []);
 
   // Update weeks when duration changes
   const updateDuration = (newDuration: number) => {
@@ -205,8 +220,10 @@ export function ProgramBuilder({ onClose, onCreated }: ProgramBuilderProps) {
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
-      {/* Modal */}
-      <div className="relative bg-slate-900 rounded-xl border border-slate-800 shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+      {/* Modal - wider for days step */}
+      <div className={`relative bg-slate-900 rounded-xl border border-slate-800 shadow-xl w-full mx-4 max-h-[90vh] overflow-y-auto ${
+        step === 'days' ? 'max-w-7xl' : 'max-w-2xl'
+      }`}>
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-slate-800">
           <div>
@@ -270,11 +287,11 @@ export function ProgramBuilder({ onClose, onCreated }: ProgramBuilderProps) {
           )}
 
           {step === 'days' && (
-            <DaysStep dayTemplates={dayTemplates} setDayTemplates={setDayTemplates} />
+            <DaysStep dayTemplates={dayTemplates} setDayTemplates={setDayTemplates} archetypes={archetypes} />
           )}
 
           {step === 'review' && (
-            <ReviewStep request={buildRequest} />
+            <ReviewStep request={buildRequest} archetypes={archetypes} />
           )}
 
           {error && (
@@ -583,6 +600,7 @@ function WeeksStep({ weeks, setWeeks }: WeeksStepProps) {
 interface DaysStepProps {
   dayTemplates: ProgramDayInput[];
   setDayTemplates: React.Dispatch<React.SetStateAction<ProgramDayInput[]>>;
+  archetypes: ArchetypeConfig[];
 }
 
 const TRAINING_TYPES: TrainingType[] = [
@@ -591,20 +609,71 @@ const TRAINING_TYPES: TrainingType[] = [
 
 const DAY_TYPES: DayType[] = ['performance', 'fatburner', 'metabolize'];
 
-function DaysStep({ dayTemplates, setDayTemplates }: DaysStepProps) {
+function DaysStep({ dayTemplates, setDayTemplates, archetypes }: DaysStepProps) {
+  const [expandedDayIndex, setExpandedDayIndex] = useState<number | null>(null);
+
   const updateDay = (index: number, updates: Partial<ProgramDayInput>) => {
     setDayTemplates((prev) =>
       prev.map((d, i) => (i === index ? { ...d, ...updates } : d))
     );
   };
 
+  const handleSessionExercisesChange = useCallback((index: number, exercises: SessionExercise[]) => {
+    setDayTemplates((prev) =>
+      prev.map((d, i) => (i === index ? { ...d, sessionExercises: exercises.length > 0 ? exercises : undefined } : d))
+    );
+  }, [setDayTemplates]);
+
+  const setPattern = (index: number, type: 'none' | 'strength' | 'skill') => {
+    if (type === 'none') {
+      updateDay(index, { progressionPattern: undefined });
+    } else if (type === 'strength') {
+      updateDay(index, {
+        progressionPattern: {
+          type: 'strength',
+          strength: { baseWeight: 40, incrementUnit: 2.5, successThreshold: 0.8, deloadFrequency: 4 },
+        },
+      });
+    } else {
+      updateDay(index, {
+        progressionPattern: {
+          type: 'skill',
+          skill: { minSeconds: 30, maxSeconds: 60, rpeTarget: 7 },
+        },
+      });
+    }
+  };
+
+  const updateStrength = (index: number, field: keyof NonNullable<ProgressionPattern['strength']>, value: number) => {
+    const day = dayTemplates[index];
+    if (!day.progressionPattern?.strength) return;
+    updateDay(index, {
+      progressionPattern: {
+        ...day.progressionPattern,
+        strength: { ...day.progressionPattern.strength, [field]: value },
+      },
+    });
+  };
+
+  const updateSkill = (index: number, field: keyof NonNullable<ProgressionPattern['skill']>, value: number) => {
+    const day = dayTemplates[index];
+    if (!day.progressionPattern?.skill) return;
+    updateDay(index, {
+      progressionPattern: {
+        ...day.progressionPattern,
+        skill: { ...day.progressionPattern.skill, [field]: value },
+      },
+    });
+  };
+
   return (
     <div className="space-y-4">
       <p className="text-sm text-slate-400 mb-4">
         Define the training days that repeat each week. These will be scaled by the week's volume/intensity.
+        Optionally enable auto-progression patterns per day.
       </p>
 
-      <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
+      <div className={`space-y-4 overflow-y-auto pr-2 ${expandedDayIndex !== null ? 'max-h-[calc(90vh-300px)]' : 'max-h-96'}`}>
         {dayTemplates.map((day, index) => (
           <div key={index} className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
             <div className="flex items-center gap-3 mb-3">
@@ -617,6 +686,33 @@ function DaysStep({ dayTemplates, setDayTemplates }: DaysStepProps) {
                            border-transparent focus:border-slate-500 transition-colors"
                 placeholder="Day name"
               />
+              <button
+                type="button"
+                onClick={() => {
+                  const copy = {
+                    ...day,
+                    dayNumber: dayTemplates.length + 1,
+                    label: `${day.label} (Copy)`,
+                  };
+                  setDayTemplates((prev) => [...prev, copy]);
+                }}
+                className="p-1 text-slate-400 hover:text-green-400 transition-colors rounded"
+                title="Duplicate day"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={() => setExpandedDayIndex(expandedDayIndex === index ? null : index)}
+                className="p-1 text-slate-400 hover:text-blue-400 transition-colors rounded"
+                title="Session Flow"
+              >
+                <svg className={`w-4 h-4 transition-transform ${expandedDayIndex === index ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -682,8 +778,180 @@ function DaysStep({ dayTemplates, setDayTemplates }: DaysStepProps) {
                 </select>
               </div>
             </div>
+
+            {/* Progression Pattern Toggle */}
+            <div className="mt-4">
+              <label className="block text-xs text-slate-400 mb-2">Progression Pattern</label>
+              <div className="flex gap-2">
+                {(['none', 'strength', 'skill'] as const).map((type) => {
+                  const active = type === 'none'
+                    ? !day.progressionPattern
+                    : day.progressionPattern?.type === type;
+                  return (
+                    <button
+                      key={type}
+                      onClick={() => setPattern(index, type)}
+                      className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                        active
+                          ? type === 'strength'
+                            ? 'bg-purple-600 text-white'
+                            : type === 'skill'
+                              ? 'bg-teal-600 text-white'
+                              : 'bg-slate-600 text-white'
+                          : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
+                      }`}
+                    >
+                      {type === 'none' ? 'None' : type === 'strength' ? 'Strength' : 'Skill (TM)'}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Strength Config Sub-form */}
+              {day.progressionPattern?.type === 'strength' && day.progressionPattern.strength && (
+                <div className="mt-3 p-3 bg-purple-900/20 border border-purple-800/30 rounded-lg">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-purple-300 mb-1">Base Weight (kg)</label>
+                      <input
+                        type="number"
+                        min="0.5"
+                        step="0.5"
+                        value={day.progressionPattern.strength.baseWeight}
+                        onChange={(e) => updateStrength(index, 'baseWeight', Number(e.target.value))}
+                        className="w-full px-2 py-1.5 bg-slate-700 border border-slate-600 rounded text-sm text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-purple-300 mb-1">Increment (kg)</label>
+                      <input
+                        type="number"
+                        min="0.5"
+                        max="20"
+                        step="0.5"
+                        value={day.progressionPattern.strength.incrementUnit}
+                        onChange={(e) => updateStrength(index, 'incrementUnit', Number(e.target.value))}
+                        className="w-full px-2 py-1.5 bg-slate-700 border border-slate-600 rounded text-sm text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-purple-300 mb-1">Success Threshold</label>
+                      <select
+                        value={day.progressionPattern.strength.successThreshold}
+                        onChange={(e) => updateStrength(index, 'successThreshold', Number(e.target.value))}
+                        className="w-full px-2 py-1.5 bg-slate-700 border border-slate-600 rounded text-sm text-white"
+                      >
+                        <option value={0.6}>60% of sets</option>
+                        <option value={0.7}>70% of sets</option>
+                        <option value={0.8}>80% of sets</option>
+                        <option value={1.0}>All sets</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-purple-300 mb-1">Deload Every</label>
+                      <select
+                        value={day.progressionPattern.strength.deloadFrequency}
+                        onChange={(e) => updateStrength(index, 'deloadFrequency', Number(e.target.value))}
+                        className="w-full px-2 py-1.5 bg-slate-700 border border-slate-600 rounded text-sm text-white"
+                      >
+                        <option value={2}>2 sessions</option>
+                        <option value={3}>3 sessions</option>
+                        <option value={4}>4 sessions</option>
+                        <option value={6}>6 sessions</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Skill Config Sub-form */}
+              {day.progressionPattern?.type === 'skill' && day.progressionPattern.skill && (
+                <div className="mt-3 p-3 bg-teal-900/20 border border-teal-800/30 rounded-lg">
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs text-teal-300 mb-1">Min Seconds</label>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={day.progressionPattern.skill.minSeconds}
+                        onChange={(e) => updateSkill(index, 'minSeconds', Number(e.target.value))}
+                        className="w-full px-2 py-1.5 bg-slate-700 border border-slate-600 rounded text-sm text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-teal-300 mb-1">Max Seconds</label>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={day.progressionPattern.skill.maxSeconds}
+                        onChange={(e) => updateSkill(index, 'maxSeconds', Number(e.target.value))}
+                        className="w-full px-2 py-1.5 bg-slate-700 border border-slate-600 rounded text-sm text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-teal-300 mb-1">RPE Target</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="10"
+                        step="0.5"
+                        value={day.progressionPattern.skill.rpeTarget}
+                        onChange={(e) => updateSkill(index, 'rpeTarget', Number(e.target.value))}
+                        className="w-full px-2 py-1.5 bg-slate-700 border border-slate-600 rounded text-sm text-white"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Session Flow Canvas (Block Constructor) - 3 Column Wide Layout */}
+            {expandedDayIndex === index && (
+              <div className="mt-4 pt-4 border-t border-slate-700">
+                <div className="flex gap-4 min-h-[400px]">
+                  {/* Left Column: Exercise Search */}
+                  <div className="w-60 flex-shrink-0 rounded-lg overflow-hidden border border-slate-700">
+                    <ExerciseSearchPanel />
+                  </div>
+
+                  {/* Center: Session Flow Canvas */}
+                  <div className="flex-1">
+                    <SessionFlowCanvas
+                      initialExercises={day.sessionExercises}
+                      onChange={(exercises) => handleSessionExercisesChange(index, exercises)}
+                      layout="horizontal"
+                      hideLibrary
+                    />
+                  </div>
+
+                  {/* Right Column: Ghost Load Monitor */}
+                  <div className="w-72 flex-shrink-0 p-4 bg-slate-800/30 rounded-lg border border-slate-700">
+                    <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
+                      Load Monitor
+                    </h4>
+                    <GhostLoadPanel
+                      dayTemplates={[day]}
+                      intensityScale={1.0}
+                      archetypes={archetypes}
+                      compact
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         ))}
+      </div>
+
+      {/* Ghost Load Preview — real-time fatigue simulation */}
+      <div className="mt-6 pt-4 border-t border-slate-700">
+        <div className="flex items-center gap-2 mb-3">
+          <h4 className="text-sm font-medium text-white">Ghost Load Preview</h4>
+          <span className="text-xs text-slate-500">predicted weekly fatigue</span>
+        </div>
+        <GhostLoadPanel dayTemplates={dayTemplates} intensityScale={1.0} archetypes={archetypes} />
       </div>
     </div>
   );
@@ -692,10 +960,14 @@ function DaysStep({ dayTemplates, setDayTemplates }: DaysStepProps) {
 // Step 4: Review
 interface ReviewStepProps {
   request: CreateProgramRequest;
+  archetypes: ArchetypeConfig[];
 }
 
-function ReviewStep({ request }: ReviewStepProps) {
+function ReviewStep({ request, archetypes }: ReviewStepProps) {
   const totalSessions = request.weeks.reduce((acc, w) => acc + w.days.length, 0);
+
+  // Find the first non-deload week for Ghost Load simulation
+  const representativeWeek = request.weeks.find((w) => !w.isDeload) ?? request.weeks[0];
 
   return (
     <div className="space-y-6">
@@ -756,19 +1028,45 @@ function ReviewStep({ request }: ReviewStepProps) {
 
       <div>
         <h4 className="text-sm font-medium text-white mb-2">Training Days</h4>
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           {request.weeks[0]?.days.map((day, i) => (
-            <div key={i} className="flex items-center gap-2 text-sm">
+            <div key={i} className="flex items-center gap-2 text-sm flex-wrap">
               <span>{TRAINING_ICONS[day.trainingType] || '🏋️'}</span>
               <span className="text-white">{day.label}</span>
               <span className="text-slate-500">•</span>
               <span className="text-slate-400">{TRAINING_LABELS[day.trainingType]}</span>
               <span className="text-slate-500">•</span>
               <span className="text-slate-400">{day.durationMin}min</span>
+              {day.progressionPattern && (
+                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                  day.progressionPattern.type === 'strength'
+                    ? 'bg-purple-900/40 text-purple-300'
+                    : 'bg-teal-900/40 text-teal-300'
+                }`}>
+                  {day.progressionPattern.type === 'strength' ? 'Strength Pattern' : 'Skill TM'}
+                </span>
+              )}
             </div>
           ))}
         </div>
       </div>
+
+      {/* Ghost Load Projection */}
+      {representativeWeek && (
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <h4 className="text-sm font-medium text-white">Ghost Load Projection</h4>
+            <span className="text-xs text-slate-500">
+              Week 1 intensity: {(representativeWeek.intensityScale * 100).toFixed(0)}%
+            </span>
+          </div>
+          <GhostLoadPanel
+            dayTemplates={representativeWeek.days}
+            intensityScale={representativeWeek.intensityScale}
+            archetypes={archetypes}
+          />
+        </div>
+      )}
     </div>
   );
 }

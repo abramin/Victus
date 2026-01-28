@@ -149,7 +149,8 @@ func (s *DailyLogService) Create(ctx context.Context, input domain.DailyLogInput
 		s.recordFluxCalculation(ctx, createdLogID, bmrResult.BMR, formulaTDEE, adaptiveResult)
 	}
 
-	return s.GetByDate(ctx, log.Date)
+	log.ID = createdLogID
+	return log, nil
 }
 
 // recordFluxCalculation calculates and persists Flux Engine data.
@@ -567,7 +568,7 @@ func aggregateTrainingSummary(sessions []domain.TrainingSession) domain.Training
 	return domain.TrainingSummaryAggregate{
 		SessionCount:     len(sessions),
 		TotalDurationMin: domain.TotalDurationMin(sessions),
-		TotalLoadScore:   domain.TotalLoadScore(sessions),
+		TotalLoadScore:   domain.TotalSessionLoad(sessions),
 	}
 }
 
@@ -589,7 +590,7 @@ func joinNotes(notes []string) string {
 
 // recoveryDataset holds fetched data needed for recovery calculations.
 type recoveryDataset struct {
-	sleepData       []store.RecoveryDataPoint
+	sleepScores     []int
 	sessionsData    []store.SessionsByDate
 	avgRHR          *float64
 	yesterdayDate   string
@@ -610,7 +611,7 @@ func (s *DailyLogService) fetchRecoveryDataset(ctx context.Context, date string,
 	yesterdayDate := targetDate.AddDate(0, 0, -1).Format("2006-01-02")
 	startDate := targetDate.AddDate(0, 0, -recoveryLookbackDays).Format("2006-01-02")
 
-	sleepData, err := s.logStore.GetRecoveryData(ctx, yesterdayDate, recoveryLookbackDays)
+	sleepScores, err := s.logStore.GetRecoverySleepScores(ctx, yesterdayDate, recoveryLookbackDays)
 	if err != nil {
 		return nil
 	}
@@ -620,7 +621,7 @@ func (s *DailyLogService) fetchRecoveryDataset(ctx context.Context, date string,
 		return nil
 	}
 
-	if len(sleepData) == 0 && len(sessionsData) == 0 {
+	if len(sleepScores) == 0 && len(sessionsData) == 0 {
 		return nil
 	}
 
@@ -636,7 +637,7 @@ func (s *DailyLogService) fetchRecoveryDataset(ctx context.Context, date string,
 	}
 
 	return &recoveryDataset{
-		sleepData:       sleepData,
+		sleepScores:     sleepScores,
 		sessionsData:    sessionsData,
 		avgRHR:          avgRHR,
 		yesterdayDate:   yesterdayDate,
@@ -644,17 +645,17 @@ func (s *DailyLogService) fetchRecoveryDataset(ctx context.Context, date string,
 	}
 }
 
-// averageSleepQuality calculates the average sleep quality from recovery data points.
+// averageSleepQuality calculates the average sleep quality from scores.
 // Returns 50.0 (default) if the slice is empty.
-func averageSleepQuality(data []store.RecoveryDataPoint) float64 {
-	if len(data) == 0 {
+func averageSleepQuality(scores []int) float64 {
+	if len(scores) == 0 {
 		return 50.0
 	}
 	var total float64
-	for _, dp := range data {
-		total += float64(dp.SleepQuality)
+	for _, score := range scores {
+		total += float64(score)
 	}
-	return total / float64(len(data))
+	return total / float64(len(scores))
 }
 
 // calculateRecoveryAndAdjustments computes recovery score and adjustment multipliers
@@ -665,7 +666,7 @@ func (s *DailyLogService) calculateRecoveryAndAdjustments(ctx context.Context, d
 		return nil, nil
 	}
 
-	avgSleep := averageSleepQuality(dataset.sleepData)
+	avgSleep := averageSleepQuality(dataset.sleepScores)
 
 	// Analyze session patterns for rest days and yesterday's max load
 	patternData := make([]domain.SessionPatternData, len(dataset.sessionsData))
@@ -865,10 +866,14 @@ func (s *DailyLogService) GetDayInsight(ctx context.Context, date string) (*DayI
 		avgRPE = totalRPE / rpeCount
 	}
 
-	// Calculate protein percentage
+	// Calculate protein percentage; fall back to consumed calories when targets are missing
 	proteinPercent := 0
-	if log.CalculatedTargets.TotalCalories > 0 {
-		proteinPercent = (log.ConsumedProteinG * 4 * 100) / log.CalculatedTargets.TotalCalories
+	denominator := log.CalculatedTargets.TotalCalories
+	if denominator == 0 {
+		denominator = log.ConsumedCalories
+	}
+	if denominator > 0 {
+		proteinPercent = (log.ConsumedProteinG * 4 * 100) / denominator
 	}
 
 	// Fallback insight
@@ -959,6 +964,6 @@ func generateTemplatedInsight(log *domain.DailyLog, avgRPE, proteinPercent int) 
 
 	session := sessions[0]
 
-	return fmt.Sprintf("[RESULT]: %s session completed with %d%% protein intake.",
+	return fmt.Sprintf("[RESULT]: %s session completed with %d%% actual protein intake.",
 		session.Type, proteinPercent)
 }

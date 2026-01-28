@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { DayType, TrainingType, TrainingConfig, MuscleGroup } from '../../api/types';
+import type { DayType, TrainingType, TrainingConfig, MuscleGroup, ScheduledSession } from '../../api/types';
 import { DAY_TYPE_COLORS, TRAINING_ICONS, TRAINING_LABELS } from '../../constants';
 import { getSessionCategory } from './sessionCategories';
 import { formatLoad } from './loadCalculations';
@@ -31,6 +31,7 @@ interface DayDropZoneProps {
   dayName: string; // "Mon", "Tue", etc.
   dayNumber: number; // 12, 13, etc.
   sessions: PlannedSessionDraft[];
+  programSessions?: ScheduledSession[];
   dayType: DayType | null;
   totalLoad: number;
   isToday: boolean;
@@ -41,6 +42,7 @@ interface DayDropZoneProps {
   recoveryWarning?: DayRecoveryWarning | null;
   onDrop: (date: string, data: SessionDragData) => void;
   onRemoveSession: (date: string, sessionId: string) => void;
+  onRemoveProgramSession?: (session: ScheduledSession) => void;
   onDragEnterZone?: (date: string) => void;
   onDragLeaveZone?: () => void;
   onClickToPlace?: (date: string) => void;
@@ -55,6 +57,7 @@ export function DayDropZone({
   dayName,
   dayNumber,
   sessions,
+  programSessions,
   dayType,
   totalLoad,
   isToday,
@@ -65,11 +68,13 @@ export function DayDropZone({
   recoveryWarning,
   onDrop,
   onRemoveSession,
+  onRemoveProgramSession,
   onDragEnterZone,
   onDragLeaveZone,
   onClickToPlace,
 }: DayDropZoneProps) {
   const [isOver, setIsOver] = useState(false);
+  const [confirmingRemove, setConfirmingRemove] = useState<ScheduledSession | null>(null);
   const canClickToPlace = selectedSession && !isPast;
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -181,23 +186,63 @@ export function DayDropZone({
 
       {/* Sessions list */}
       <div className="flex-1 p-2 space-y-1 overflow-auto">
-        {sessions.length === 0 ? (
+        {sessions.length === 0 && (!programSessions || programSessions.length === 0) ? (
           <div className="h-full flex items-center justify-center">
             <span className="text-gray-600 text-xs">
               {isDragging ? 'Drop here' : canClickToPlace ? 'Click to place' : 'No sessions'}
             </span>
           </div>
         ) : (
-          sessions.map((session) => (
-            <SessionChip
-              key={session.id}
-              session={session}
-              onRemove={() => onRemoveSession(date, session.id)}
-              isPast={isPast}
-            />
-          ))
+          <>
+            {/* Program sessions (locked) */}
+            {programSessions?.map((session, idx) => (
+              <ProgramSessionChip
+                key={`program-${session.date}-${idx}`}
+                session={session}
+                onRemove={() => setConfirmingRemove(session)}
+                isPast={isPast}
+              />
+            ))}
+            {/* Manual sessions */}
+            {sessions.map((session) => (
+              <SessionChip
+                key={session.id}
+                session={session}
+                onRemove={() => onRemoveSession(date, session.id)}
+                isPast={isPast}
+              />
+            ))}
+          </>
         )}
       </div>
+
+      {/* Confirmation dialog for removing program session */}
+      {confirmingRemove && (
+        <div className="absolute inset-0 z-20 bg-black/70 rounded-xl flex items-center justify-center p-2">
+          <div className="bg-gray-800 rounded-lg p-3 text-center max-w-[180px]">
+            <p className="text-xs text-gray-300 mb-3">
+              This session is part of your active program. Override it?
+            </p>
+            <div className="flex gap-2 justify-center">
+              <button
+                onClick={() => setConfirmingRemove(null)}
+                className="px-2 py-1 text-xs text-gray-400 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  onRemoveProgramSession?.(confirmingRemove);
+                  setConfirmingRemove(null);
+                }}
+                className="px-2 py-1 text-xs bg-red-600 hover:bg-red-700 text-white rounded"
+              >
+                Override
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Load indicator */}
       {totalLoad > 0 && (
@@ -276,6 +321,50 @@ function SessionChip({ session, onRemove, isPast }: SessionChipProps) {
           onClick={onRemove}
           className="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-400 transition-opacity p-0.5"
           title="Remove session"
+        >
+          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      )}
+    </div>
+  );
+}
+
+interface ProgramSessionChipProps {
+  session: ScheduledSession;
+  onRemove: () => void;
+  isPast: boolean;
+}
+
+function ProgramSessionChip({ session, onRemove, isPast }: ProgramSessionChipProps) {
+  const emoji = TRAINING_ICONS[session.trainingType];
+  const label = TRAINING_LABELS[session.trainingType];
+
+  return (
+    <div
+      className={`
+        flex items-center justify-between gap-1
+        px-2 py-1 rounded-md
+        bg-blue-900/30 border-l-2 border-blue-500
+        group
+      `}
+      title="Part of active program"
+    >
+      <div className="flex items-center gap-1.5 min-w-0">
+        {/* Lock icon */}
+        <svg className="w-3 h-3 text-blue-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+        </svg>
+        <span className="text-sm flex-shrink-0">{emoji}</span>
+        <span className="text-xs text-white font-medium truncate">{label}</span>
+        <span className="text-[10px] text-gray-500">{session.durationMin}m</span>
+      </div>
+      {!isPast && (
+        <button
+          onClick={onRemove}
+          className="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-400 transition-opacity p-0.5"
+          title="Override this session"
         >
           <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

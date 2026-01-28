@@ -44,11 +44,12 @@ type NutritionPlan struct {
 	StartWeightKg            float64
 	GoalWeightKg             float64
 	DurationWeeks            int
-	RequiredWeeklyChangeKg   float64  // Calculated: (goalWeight - startWeight) / durationWeeks
-	RequiredDailyDeficitKcal float64  // Calculated: requiredWeeklyChange * 7700 / 7
-	KcalFactorOverride       *float64 // Optional: if set, TDEE = Weight × KcalFactor instead of BMR-based
+	RequiredWeeklyChangeKg   float64    // Calculated: (goalWeight - startWeight) / durationWeeks
+	RequiredDailyDeficitKcal float64    // Calculated: requiredWeeklyChange * 7700 / 7
+	KcalFactorOverride       *float64   // Optional: if set, TDEE = Weight × KcalFactor instead of BMR-based
 	Status                   PlanStatus
 	WeeklyTargets            []WeeklyTarget
+	LastRecalibratedAt       *time.Time // When the plan was last recalibrated (nil if never)
 	CreatedAt                time.Time
 	UpdatedAt                time.Time
 }
@@ -400,6 +401,7 @@ func applyIncreaseDeficit(plan *NutritionPlan, profile *UserProfile, actualWeigh
 
 	plan.RequiredWeeklyChangeKg = newWeeklyChange
 	plan.RequiredDailyDeficitKcal = newDailyDeficit
+	plan.LastRecalibratedAt = &now
 	plan.UpdatedAt = now
 
 	// Regenerate remaining weekly targets
@@ -435,6 +437,7 @@ func applyExtendTimeline(plan *NutritionPlan, profile *UserProfile, actualWeight
 	weightChange := plan.GoalWeightKg - actualWeight
 	plan.RequiredWeeklyChangeKg = weightChange / float64(weeksRemaining)
 	plan.RequiredDailyDeficitKcal = plan.RequiredWeeklyChangeKg * 7700 / 7
+	plan.LastRecalibratedAt = &now
 	plan.UpdatedAt = now
 
 	// Regenerate weekly targets
@@ -476,6 +479,7 @@ func applyReviseGoal(plan *NutritionPlan, profile *UserProfile, actualWeight flo
 	weightChange := plan.GoalWeightKg - actualWeight
 	plan.RequiredWeeklyChangeKg = weightChange / float64(weeksRemaining)
 	plan.RequiredDailyDeficitKcal = plan.RequiredWeeklyChangeKg * 7700 / 7
+	plan.LastRecalibratedAt = &now
 	plan.UpdatedAt = now
 
 	// Regenerate weekly targets

@@ -114,13 +114,14 @@ func (s *NutritionPlanStore) GetByID(ctx context.Context, id int64) (*domain.Nut
 		SELECT
 			id, COALESCE(name, ''), start_date, start_weight_kg, goal_weight_kg, duration_weeks,
 			required_weekly_change_kg, required_daily_deficit_kcal, status,
-			created_at, updated_at
+			last_recalibrated_at, created_at, updated_at
 		FROM nutrition_plans
 		WHERE id = $1
 	`
 
 	var plan domain.NutritionPlan
 	var startDate, createdAt, updatedAt string
+	var lastRecalibratedAt sql.NullString
 
 	err := s.db.QueryRowContext(ctx, query, id).Scan(
 		&plan.ID,
@@ -132,6 +133,7 @@ func (s *NutritionPlanStore) GetByID(ctx context.Context, id int64) (*domain.Nut
 		&plan.RequiredWeeklyChangeKg,
 		&plan.RequiredDailyDeficitKcal,
 		&plan.Status,
+		&lastRecalibratedAt,
 		&createdAt,
 		&updatedAt,
 	)
@@ -145,6 +147,10 @@ func (s *NutritionPlanStore) GetByID(ctx context.Context, id int64) (*domain.Nut
 	plan.StartDate, _ = time.Parse("2006-01-02", startDate)
 	plan.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", createdAt)
 	plan.UpdatedAt, _ = time.Parse("2006-01-02 15:04:05", updatedAt)
+	if lastRecalibratedAt.Valid {
+		t, _ := time.Parse("2006-01-02 15:04:05", lastRecalibratedAt.String)
+		plan.LastRecalibratedAt = &t
+	}
 
 	// Load weekly targets
 	targets, err := s.getWeeklyTargets(ctx, plan.ID)
@@ -236,8 +242,8 @@ func (s *NutritionPlanStore) UpdatePlan(ctx context.Context, plan *domain.Nutrit
 		UPDATE nutrition_plans
 		SET goal_weight_kg = $1, duration_weeks = $2,
 			required_weekly_change_kg = $3, required_daily_deficit_kcal = $4,
-			updated_at = $5
-		WHERE id = $6
+			last_recalibrated_at = $5, updated_at = $6
+		WHERE id = $7
 	`
 
 	result, err := tx.ExecContext(ctx, updatePlanQuery,
@@ -245,6 +251,7 @@ func (s *NutritionPlanStore) UpdatePlan(ctx context.Context, plan *domain.Nutrit
 		plan.DurationWeeks,
 		plan.RequiredWeeklyChangeKg,
 		plan.RequiredDailyDeficitKcal,
+		plan.LastRecalibratedAt,
 		time.Now(),
 		plan.ID,
 	)

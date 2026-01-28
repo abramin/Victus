@@ -276,6 +276,21 @@ func (d *DailyLog) Validate() error {
 	return nil
 }
 
+// LoadScore returns the RPE-weighted training load for this day.
+// Uses actual sessions if present, otherwise planned sessions.
+// Formula per session: loadScore × (durationMin/60) × (RPE/3)
+func (d *DailyLog) LoadScore() float64 {
+	return DailyLoad(d.ActualSessions, d.PlannedSessions)
+}
+
+// EffectiveSessions returns actual sessions if any are logged, otherwise planned.
+func (d *DailyLog) EffectiveSessions() []TrainingSession {
+	if len(d.ActualSessions) > 0 {
+		return d.ActualSessions
+	}
+	return d.PlannedSessions
+}
+
 // SetDefaultsAt applies default values to unset fields at a given point in time.
 func (d *DailyLog) SetDefaultsAt(now time.Time) {
 	// Default date to today if empty

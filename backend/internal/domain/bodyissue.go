@@ -6,13 +6,16 @@ import "time"
 type IssueSeverity int
 
 const (
-	IssueSeverityMinor    IssueSeverity = 1 // tight, stiff, restricted, weak (+5% fatigue)
-	IssueSeverityModerate IssueSeverity = 2 // sore, ache, tender, fatigued, cramping (+10% fatigue)
-	IssueSeveritySevere   IssueSeverity = 3 // pain, sharp, burning, tingling, numb, swollen, clicky (+15% fatigue)
+	IssueSeverityHealing  IssueSeverity = -1 // improved, recovered, loosened, better, mobile (-5% fatigue)
+	IssueSeverityMinor    IssueSeverity = 1  // tight, stiff, restricted, weak (+5% fatigue)
+	IssueSeverityModerate IssueSeverity = 2  // sore, ache, tender, fatigued, cramping (+10% fatigue)
+	IssueSeveritySevere   IssueSeverity = 3  // pain, sharp, burning, tingling, numb, swollen, clicky (+15% fatigue)
 )
 
-// IssueSeverityFatigueModifier maps severity to additional fatigue percentage.
+// IssueSeverityFatigueModifier maps severity to fatigue percentage modifier.
+// Positive values add fatigue, negative values (healing) reduce fatigue.
 var IssueSeverityFatigueModifier = map[IssueSeverity]float64{
+	IssueSeverityHealing:  -5.0,
 	IssueSeverityMinor:    5.0,
 	IssueSeverityModerate: 10.0,
 	IssueSeveritySevere:   15.0,
@@ -20,6 +23,13 @@ var IssueSeverityFatigueModifier = map[IssueSeverity]float64{
 
 // SymptomSeverityMap maps symptom keywords to their severity level.
 var SymptomSeverityMap = map[string]IssueSeverity{
+	// Healing symptoms (-5% fatigue, from echo logs indicating improvement)
+	"improved":  IssueSeverityHealing,
+	"recovered": IssueSeverityHealing,
+	"loosened":  IssueSeverityHealing,
+	"better":    IssueSeverityHealing,
+	"mobile":    IssueSeverityHealing,
+	"flexible":  IssueSeverityHealing,
 	// Minor symptoms (+5% fatigue)
 	"tight":      IssueSeverityMinor,
 	"stiff":      IssueSeverityMinor,

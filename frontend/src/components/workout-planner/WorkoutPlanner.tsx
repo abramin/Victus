@@ -37,6 +37,7 @@ export function WorkoutPlanner() {
     goToCurrentWeek,
     draftDays,
     hasUnsavedChanges,
+    programSessionsByDate,
     addSession,
     removeSession,
     weekLoads,
@@ -271,6 +272,7 @@ export function WorkoutPlanner() {
         <CalendarBoard
           weekDates={weekDates}
           plannedDays={draftDays}
+          programSessionsByDate={programSessionsByDate}
           isDragging={isDragging}
           activeDragType={activeDragType}
           selectedSession={selectedSession}

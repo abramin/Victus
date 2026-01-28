@@ -185,15 +185,17 @@ type ProgramWeek struct {
 // ProgramDay defines a single training day template within a week.
 // Maps to actual calendar days when the program is installed.
 type ProgramDay struct {
-	ID           int64
-	WeekID       int64
-	DayNumber    int          // 1-based within week (Day 1, Day 2, etc.)
-	Label        string       // "Upper A", "Push", "Cardio", etc.
-	TrainingType TrainingType // strength, cardio, etc.
-	DurationMin  int
-	LoadScore    float64 // Base load score (1-5)
-	NutritionDay DayType // Auto-set nutrition strategy when installed
-	Notes        string
+	ID                 int64
+	WeekID             int64
+	DayNumber          int          // 1-based within week (Day 1, Day 2, etc.)
+	Label              string       // "Upper A", "Push", "Cardio", etc.
+	TrainingType       TrainingType // strength, cardio, etc.
+	DurationMin        int
+	LoadScore          float64 // Base load score (1-5)
+	NutritionDay       DayType // Auto-set nutrition strategy when installed
+	Notes              string
+	ProgressionPattern *ProgressionPattern // Optional; nil = no auto-progression
+	SessionExercises   []SessionExercise   // Optional; nil = no block constructor exercises
 }
 
 // ProgramInstallation represents a user's active program assignment.
@@ -259,13 +261,72 @@ type ProgramWeekInput struct {
 
 // ProgramDayInput contains the fields to create/update a program day.
 type ProgramDayInput struct {
-	DayNumber    int     `json:"dayNumber"`
-	Label        string  `json:"label"`
-	TrainingType string  `json:"trainingType"`
-	DurationMin  int     `json:"durationMin"`
-	LoadScore    float64 `json:"loadScore"`
-	NutritionDay string  `json:"nutritionDay"`
-	Notes        string  `json:"notes"`
+	DayNumber          int                 `json:"dayNumber"`
+	Label              string              `json:"label"`
+	TrainingType       string              `json:"trainingType"`
+	DurationMin        int                 `json:"durationMin"`
+	LoadScore          float64             `json:"loadScore"`
+	NutritionDay       string              `json:"nutritionDay"`
+	Notes              string              `json:"notes"`
+	ProgressionPattern *ProgressionPattern `json:"progressionPattern,omitempty"`
+	SessionExercises   []SessionExercise   `json:"sessionExercises,omitempty"`
+}
+
+// SessionPhase represents a segment of a training day's session flow.
+type SessionPhase string
+
+const (
+	SessionPhasePrepare  SessionPhase = "prepare"
+	SessionPhasePractice SessionPhase = "practice"
+	SessionPhasePush     SessionPhase = "push"
+)
+
+const MaxSessionExercises = 12
+
+func ParseSessionPhase(s string) (SessionPhase, error) {
+	switch SessionPhase(s) {
+	case SessionPhasePrepare, SessionPhasePractice, SessionPhasePush:
+		return SessionPhase(s), nil
+	}
+	return "", ErrInvalidSessionPhase
+}
+
+// SessionExercise is a single exercise node placed in a day's session flow.
+// Stored as JSON array in session_exercises column on program_days.
+type SessionExercise struct {
+	ExerciseID  string       `json:"exerciseId"`
+	Phase       SessionPhase `json:"phase"`
+	Order       int          `json:"order"`       // 1-based within phase
+	DurationSec int          `json:"durationSec"` // 0 = use catalog default
+	Reps        int          `json:"reps"`        // 0 = use catalog default
+	Notes       string       `json:"notes"`
+}
+
+// ValidateSessionExercises checks a slice of SessionExercise for consistency.
+func ValidateSessionExercises(exercises []SessionExercise) error {
+	if len(exercises) > MaxSessionExercises {
+		return ErrTooManySessionExercises
+	}
+	orderSeen := map[SessionPhase]map[int]bool{}
+	for _, ex := range exercises {
+		if _, err := ParseSessionPhase(string(ex.Phase)); err != nil {
+			return err
+		}
+		if ex.ExerciseID == "" {
+			return ErrInvalidSessionExerciseID
+		}
+		if ex.Order < 1 {
+			return ErrInvalidSessionExerciseOrder
+		}
+		if orderSeen[ex.Phase] == nil {
+			orderSeen[ex.Phase] = map[int]bool{}
+		}
+		if orderSeen[ex.Phase][ex.Order] {
+			return ErrDuplicateSessionExerciseOrder
+		}
+		orderSeen[ex.Phase][ex.Order] = true
+	}
+	return nil
 }
 
 // InstallProgramInput contains the fields to install a program.
@@ -399,14 +460,30 @@ func newProgramDay(input ProgramDayInput) (*ProgramDay, error) {
 		input.LoadScore = 3.0 // Default moderate load
 	}
 
+	// Validate progression pattern if provided
+	if input.ProgressionPattern != nil {
+		if err := ValidateProgressionPattern(input.ProgressionPattern); err != nil {
+			return nil, err
+		}
+	}
+
+	// Validate session exercises if provided
+	if len(input.SessionExercises) > 0 {
+		if err := ValidateSessionExercises(input.SessionExercises); err != nil {
+			return nil, err
+		}
+	}
+
 	day := &ProgramDay{
-		DayNumber:    input.DayNumber,
-		Label:        input.Label,
-		TrainingType: trainingType,
-		DurationMin:  input.DurationMin,
-		LoadScore:    input.LoadScore,
-		NutritionDay: nutritionDay,
-		Notes:        input.Notes,
+		DayNumber:          input.DayNumber,
+		Label:              input.Label,
+		TrainingType:       trainingType,
+		DurationMin:        input.DurationMin,
+		LoadScore:          input.LoadScore,
+		NutritionDay:       nutritionDay,
+		Notes:              input.Notes,
+		ProgressionPattern: input.ProgressionPattern,
+		SessionExercises:   input.SessionExercises,
 	}
 
 	if err := day.Validate(); err != nil {
@@ -601,14 +678,15 @@ func (i *ProgramInstallation) GetScheduledSessions() []ScheduledSession {
 			sessionDate := weekStart.AddDate(0, 0, weekdayOffset)
 
 			sessions = append(sessions, ScheduledSession{
-				Date:         sessionDate,
-				WeekNumber:   week.WeekNumber,
-				DayNumber:    day.DayNumber,
-				Label:        day.Label,
-				TrainingType: day.TrainingType,
-				DurationMin:  day.DurationMin,
-				LoadScore:    day.LoadScore * week.VolumeScale, // Scale by week volume
-				NutritionDay: day.NutritionDay,
+				Date:               sessionDate,
+				WeekNumber:         week.WeekNumber,
+				DayNumber:          day.DayNumber,
+				Label:              day.Label,
+				TrainingType:       day.TrainingType,
+				DurationMin:        day.DurationMin,
+				LoadScore:          day.LoadScore * week.VolumeScale, // Scale by week volume
+				NutritionDay:       day.NutritionDay,
+				ProgressionPattern: day.ProgressionPattern,
 			})
 		}
 	}
@@ -618,14 +696,15 @@ func (i *ProgramInstallation) GetScheduledSessions() []ScheduledSession {
 
 // ScheduledSession represents a training session scheduled for a specific date.
 type ScheduledSession struct {
-	Date         time.Time
-	WeekNumber   int
-	DayNumber    int
-	Label        string
-	TrainingType TrainingType
-	DurationMin  int
-	LoadScore    float64
-	NutritionDay DayType
+	Date               time.Time
+	WeekNumber         int
+	DayNumber          int
+	Label              string
+	TrainingType       TrainingType
+	DurationMin        int
+	LoadScore          float64
+	NutritionDay       DayType
+	ProgressionPattern *ProgressionPattern
 }
 
 // TotalSessionCount returns the total number of sessions in the installation.

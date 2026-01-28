@@ -126,9 +126,27 @@ func (s *TrainingProgramStore) insertDay(ctx context.Context, tx *sql.Tx, weekID
 	const query = `
 		INSERT INTO program_days (
 			week_id, day_number, label, training_type, duration_min,
-			load_score, nutrition_day, notes
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			load_score, nutrition_day, notes, progression_config, session_exercises
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 	`
+
+	var progressionJSON interface{}
+	if day.ProgressionPattern != nil {
+		b, err := json.Marshal(day.ProgressionPattern)
+		if err != nil {
+			return err
+		}
+		progressionJSON = string(b)
+	}
+
+	var sessionExercisesJSON interface{}
+	if len(day.SessionExercises) > 0 {
+		b, err := json.Marshal(day.SessionExercises)
+		if err != nil {
+			return err
+		}
+		sessionExercisesJSON = string(b)
+	}
 
 	_, err := tx.ExecContext(ctx, query,
 		weekID,
@@ -139,6 +157,8 @@ func (s *TrainingProgramStore) insertDay(ctx context.Context, tx *sql.Tx, weekID
 		day.LoadScore,
 		day.NutritionDay,
 		day.Notes,
+		progressionJSON,
+		sessionExercisesJSON,
 	)
 	return err
 }
@@ -437,7 +457,8 @@ func (s *TrainingProgramStore) getWeeks(ctx context.Context, programID int64) ([
 func (s *TrainingProgramStore) getDays(ctx context.Context, weekID int64) ([]domain.ProgramDay, error) {
 	const query = `
 		SELECT id, week_id, day_number, label, training_type, duration_min,
-			   load_score, nutrition_day, COALESCE(notes, '')
+			   load_score, nutrition_day, COALESCE(notes, ''), COALESCE(progression_config, ''),
+			   COALESCE(session_exercises, '')
 		FROM program_days
 		WHERE week_id = $1
 		ORDER BY day_number ASC
@@ -452,6 +473,8 @@ func (s *TrainingProgramStore) getDays(ctx context.Context, weekID int64) ([]dom
 	var days []domain.ProgramDay
 	for rows.Next() {
 		var day domain.ProgramDay
+		var progressionJSON string
+		var sessionExercisesJSON string
 		err := rows.Scan(
 			&day.ID,
 			&day.WeekID,
@@ -462,9 +485,25 @@ func (s *TrainingProgramStore) getDays(ctx context.Context, weekID int64) ([]dom
 			&day.LoadScore,
 			&day.NutritionDay,
 			&day.Notes,
+			&progressionJSON,
+			&sessionExercisesJSON,
 		)
 		if err != nil {
 			return nil, err
+		}
+
+		if progressionJSON != "" {
+			var pp domain.ProgressionPattern
+			if err := json.Unmarshal([]byte(progressionJSON), &pp); err == nil {
+				day.ProgressionPattern = &pp
+			}
+		}
+
+		if sessionExercisesJSON != "" {
+			var ses []domain.SessionExercise
+			if err := json.Unmarshal([]byte(sessionExercisesJSON), &ses); err == nil {
+				day.SessionExercises = ses
+			}
 		}
 
 		days = append(days, day)
@@ -537,13 +576,13 @@ func (s *TrainingProgramStore) GetActiveInstallation(ctx context.Context) (*doma
 	`
 
 	var installation domain.ProgramInstallation
-	var startDate time.Time
+	var startDateStr string
 	var mappingJSON string
 
 	err := s.db.QueryRowContext(ctx, query).Scan(
 		&installation.ID,
 		&installation.ProgramID,
-		&startDate,
+		&startDateStr,
 		&mappingJSON,
 		&installation.CurrentWeek,
 		&installation.Status,
@@ -557,7 +596,7 @@ func (s *TrainingProgramStore) GetActiveInstallation(ctx context.Context) (*doma
 		return nil, err
 	}
 
-	installation.StartDate = startDate
+	installation.StartDate, _ = time.Parse("2006-01-02", startDateStr)
 
 	if err := json.Unmarshal([]byte(mappingJSON), &installation.WeekDayMapping); err != nil {
 		installation.WeekDayMapping = []int{}
@@ -583,13 +622,13 @@ func (s *TrainingProgramStore) GetInstallationByID(ctx context.Context, id int64
 	`
 
 	var installation domain.ProgramInstallation
-	var startDate time.Time
+	var startDateStr string
 	var mappingJSON string
 
 	err := s.db.QueryRowContext(ctx, query, id).Scan(
 		&installation.ID,
 		&installation.ProgramID,
-		&startDate,
+		&startDateStr,
 		&mappingJSON,
 		&installation.CurrentWeek,
 		&installation.Status,
@@ -603,7 +642,7 @@ func (s *TrainingProgramStore) GetInstallationByID(ctx context.Context, id int64
 		return nil, err
 	}
 
-	installation.StartDate = startDate
+	installation.StartDate, _ = time.Parse("2006-01-02", startDateStr)
 
 	if err := json.Unmarshal([]byte(mappingJSON), &installation.WeekDayMapping); err != nil {
 		installation.WeekDayMapping = []int{}
@@ -683,4 +722,51 @@ func (s *TrainingProgramStore) DeleteInstallation(ctx context.Context, id int64)
 	}
 
 	return nil
+}
+
+// GetActiveInstallationForProgram retrieves the active installation for a specific program.
+// Returns ErrInstallationNotFound if no active installation exists for this program.
+func (s *TrainingProgramStore) GetActiveInstallationForProgram(ctx context.Context, programID int64) (*domain.ProgramInstallation, error) {
+	const query = `
+		SELECT id, program_id, start_date, week_day_mapping, current_week, status,
+			   created_at, updated_at
+		FROM program_installations
+		WHERE program_id = $1 AND status = 'active'
+		LIMIT 1
+	`
+
+	var installation domain.ProgramInstallation
+	var startDateStr string
+	var mappingJSON string
+
+	err := s.db.QueryRowContext(ctx, query, programID).Scan(
+		&installation.ID,
+		&installation.ProgramID,
+		&startDateStr,
+		&mappingJSON,
+		&installation.CurrentWeek,
+		&installation.Status,
+		&installation.CreatedAt,
+		&installation.UpdatedAt,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrInstallationNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	installation.StartDate, _ = time.Parse("2006-01-02", startDateStr)
+
+	if err := json.Unmarshal([]byte(mappingJSON), &installation.WeekDayMapping); err != nil {
+		installation.WeekDayMapping = []int{}
+	}
+
+	return &installation, nil
+}
+
+// DeleteInstallationsForProgram removes all installations for a specific program.
+func (s *TrainingProgramStore) DeleteInstallationsForProgram(ctx context.Context, programID int64) error {
+	_, err := s.db.ExecContext(ctx, "DELETE FROM program_installations WHERE program_id = $1", programID)
+	return err
 }

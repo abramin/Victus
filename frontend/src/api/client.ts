@@ -14,6 +14,8 @@ import type {
   DailyTargetsRangeResponse,
   PlannedDaysResponse,
   PlannedDay,
+  PlannedSession,
+  PlannedSessionInput,
   FoodReferenceResponse,
   DayType,
   NutritionPlan,
@@ -273,13 +275,18 @@ export async function getPlannedDays(startDate: string, endDate: string, signal?
   return handleResponse<PlannedDaysResponse>(response);
 }
 
-export async function upsertPlannedDay(date: string, dayType: DayType, signal?: AbortSignal): Promise<PlannedDay> {
+export async function upsertPlannedDay(
+  date: string,
+  dayType: DayType,
+  sessions?: PlannedSessionInput[],
+  signal?: AbortSignal
+): Promise<PlannedDay> {
   const response = await fetch(`${API_BASE}/planned-days/${encodeURIComponent(date)}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ dayType }),
+    body: JSON.stringify({ dayType, sessions: sessions ?? [] }),
     signal,
   });
   return handleResponse<PlannedDay>(response);
@@ -291,6 +298,11 @@ export async function deletePlannedDay(date: string, signal?: AbortSignal): Prom
     signal,
   });
   await handleEmptyResponse(response);
+}
+
+export async function getPlannedSessions(date: string, signal?: AbortSignal): Promise<PlannedSession[]> {
+  const response = await fetch(`${API_BASE}/planned-sessions/${encodeURIComponent(date)}`, { signal });
+  return handleResponse<PlannedSession[]>(response);
 }
 
 // Food Reference API (Cockpit Dashboard)
@@ -535,8 +547,13 @@ export async function createTrainingProgram(
   return handleResponse<TrainingProgram>(response);
 }
 
-export async function deleteTrainingProgram(id: number, signal?: AbortSignal): Promise<void> {
-  const response = await fetch(`${API_BASE}/training-programs/${id}`, {
+export async function deleteTrainingProgram(
+  id: number,
+  options?: { force?: boolean },
+  signal?: AbortSignal
+): Promise<void> {
+  const params = options?.force ? '?force=true' : '';
+  const response = await fetch(`${API_BASE}/training-programs/${id}${params}`, {
     method: 'DELETE',
     signal,
   });
@@ -851,4 +868,76 @@ export async function getDayInsight(
   }
 
   return handleResponse<DayInsightResponse>(response);
+}
+
+// =============================================================================
+// Echo Logging API (Neural Echo feature)
+// =============================================================================
+
+import type {
+  QuickSessionRequest,
+  SessionResponse,
+  EchoRequest,
+  EchoResponse,
+} from './types';
+
+/**
+ * Create a draft session via quick submit.
+ * The session will have isDraft=true and can be enriched later via submitSessionEcho.
+ */
+export async function quickSubmitSession(
+  date: string,
+  request: QuickSessionRequest,
+  signal?: AbortSignal
+): Promise<SessionResponse> {
+  const response = await fetch(`${API_BASE}/logs/${encodeURIComponent(date)}/sessions/quick`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(request),
+    signal,
+  });
+  return handleResponse<SessionResponse>(response);
+}
+
+/**
+ * Submit a natural language echo log for a draft session.
+ * Parses the text via Ollama and updates the session with achievements,
+ * joint integrity changes, and RPE adjustments.
+ */
+export async function submitSessionEcho(
+  sessionId: number,
+  request: EchoRequest,
+  signal?: AbortSignal
+): Promise<EchoResponse> {
+  const response = await fetch(`${API_BASE}/sessions/${sessionId}/echo`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(request),
+    signal,
+  });
+  return handleResponse<EchoResponse>(response);
+}
+
+/**
+ * Finalize a draft session without echo processing.
+ * Marks the session as complete with isDraft=false.
+ */
+export async function finalizeSession(sessionId: number, signal?: AbortSignal): Promise<void> {
+  const response = await fetch(`${API_BASE}/sessions/${sessionId}/finalize`, {
+    method: 'POST',
+    signal,
+  });
+  await handleEmptyResponse(response);
+}
+
+/**
+ * Get a training session by ID.
+ */
+export async function getSession(sessionId: number, signal?: AbortSignal): Promise<SessionResponse> {
+  const response = await fetch(`${API_BASE}/sessions/${sessionId}`, { signal });
+  return handleResponse<SessionResponse>(response);
 }

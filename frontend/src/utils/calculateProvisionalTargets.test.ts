@@ -36,6 +36,26 @@ const baseFormData: CreateDailyLogRequest = {
   plannedTrainingSessions: [],
 };
 
+// Helper: compute expected age the same way the source does (dynamic based on current date)
+function computeAge(birthDateStr: string): number {
+  const birthDate = new Date(birthDateStr);
+  const now = new Date();
+  let age = now.getFullYear() - birthDate.getFullYear();
+  const monthDiff = now.getMonth() - birthDate.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return age;
+}
+
+// Helper: compute expected TDEE for the base profile (Mifflin-St Jeor, no exercise)
+function computeExpectedTdee(sex: 'male' | 'female', weightKg: number, heightCm: number, birthDate: string): number {
+  const age = computeAge(birthDate);
+  const base = 10 * weightKg + 6.25 * heightCm - 5 * age;
+  const bmr = sex === 'male' ? base + 5 : base - 161;
+  return bmr * 1.2; // NEAT multiplier
+}
+
 describe('calculateProvisionalTargets', () => {
   describe('input validation', () => {
     it('returns null when weight is zero', () => {
@@ -68,30 +88,35 @@ describe('calculateProvisionalTargets', () => {
 
   describe('BMR calculation (Mifflin-St Jeor)', () => {
     it('calculates BMR correctly for male', () => {
-      // Invariant: BMR = 10*weight + 6.25*height - 5*age + 5 (male)
-      // For 80kg, 175cm, ~36 years old: 10*80 + 6.25*175 - 5*36 + 5 = 800 + 1093.75 - 180 + 5 = 1718.75
+      // Invariant: BMR = 10*weight + 6.25*height - 5*age + 5 (male, Mifflin-St Jeor)
+      // totalCalories exceeds base TDEE because performance day applies 1.30x carb multiplier.
+      const expectedTdee = computeExpectedTdee('male', 80, 175, '1990-01-01');
       const result = calculateProvisionalTargets(baseProfile, baseFormData);
 
       expect(result).not.toBe(null);
-      // TDEE = BMR * 1.2 (NEAT multiplier) for rest day
-      // ~1718.75 * 1.2 = ~2062.5 base TDEE
-      expect(result!.totalCalories).toBeGreaterThan(1800);
-      expect(result!.totalCalories).toBeLessThan(2500);
+      // Performance day inflates carbs by 1.30x, adding ~300 kcal above TDEE.
+      // Assert totalCalories is above TDEE (inflation) but below TDEE * 1.40 (ceiling).
+      expect(result!.totalCalories).toBeGreaterThan(expectedTdee);
+      expect(result!.totalCalories).toBeLessThan(expectedTdee * 1.40);
     });
 
     it('calculates BMR correctly for female', () => {
       // Invariant: BMR = 10*weight + 6.25*height - 5*age - 161 (female)
+      // Female BMR is lower by 166 kcal vs male (5 − (−161) = 166).
       const femaleProfile: UserProfile = {
         ...baseProfile,
         sex: 'female',
       };
+      const expectedMaleTdee = computeExpectedTdee('male', 80, 175, '1990-01-01');
+      const expectedFemaleTdee = computeExpectedTdee('female', 80, 175, '1990-01-01');
       const result = calculateProvisionalTargets(femaleProfile, baseFormData);
 
       expect(result).not.toBe(null);
-      // Female BMR is lower by 166 kcal (5 - (-161) = 166)
-      // So TDEE should be lower
-      expect(result!.totalCalories).toBeGreaterThan(1600);
-      expect(result!.totalCalories).toBeLessThan(2300);
+      // Female TDEE is ~199 kcal lower than male TDEE (166 BMR diff * 1.2 NEAT)
+      expect(expectedFemaleTdee).toBeCloseTo(expectedMaleTdee - 199.2, 0);
+      // totalCalories includes performance day inflation but stays below male equivalent
+      expect(result!.totalCalories).toBeGreaterThan(expectedFemaleTdee);
+      expect(result!.totalCalories).toBeLessThan(expectedFemaleTdee * 1.40);
     });
   });
 
@@ -151,51 +176,64 @@ describe('calculateProvisionalTargets', () => {
   });
 
   describe('day type multipliers', () => {
-    it('applies performance day multipliers (higher carbs)', () => {
-      // Invariant: Performance = carbs * 1.30, protein * 1.00, fats * 1.00
+    it('performance/fatburner carb ratio matches 1.30/0.60 multiplier ratio', () => {
+      // Invariant: Performance = carbs * 1.30, Fatburner = carbs * 0.60.
+      // Cross-day ratio verifies the stated multipliers are applied correctly.
       const performanceResult = calculateProvisionalTargets(baseProfile, {
         ...baseFormData,
         dayType: 'performance',
       });
 
-      const metabolizeResult = calculateProvisionalTargets(baseProfile, {
-        ...baseFormData,
-        dayType: 'metabolize',
-      });
-
-      expect(performanceResult).not.toBe(null);
-      expect(metabolizeResult).not.toBe(null);
-      // Performance has lower carb multiplier than metabolize (1.30 vs 1.50)
-      expect(performanceResult!.totalCarbsG).toBeLessThan(metabolizeResult!.totalCarbsG);
-    });
-
-    it('applies fatburner day multipliers (lower carbs)', () => {
-      // Invariant: Fatburner = carbs * 0.60, protein * 1.00, fats * 0.85
       const fatburnerResult = calculateProvisionalTargets(baseProfile, {
         ...baseFormData,
         dayType: 'fatburner',
       });
 
+      expect(performanceResult).not.toBe(null);
+      expect(fatburnerResult).not.toBe(null);
+      // Expected ratio: 1.30 / 0.60 = 2.167
+      const ratio = performanceResult!.totalCarbsG / fatburnerResult!.totalCarbsG;
+      expect(ratio).toBeCloseTo(1.30 / 0.60, 1);
+    });
+
+    it('metabolize/performance carb ratio matches 1.50/1.30 multiplier ratio', () => {
+      // Invariant: Metabolize = carbs * 1.50, Performance = carbs * 1.30.
+      // Ratio verification catches multiplier drift without duplicating full calculation.
+      const metabolizeResult = calculateProvisionalTargets(baseProfile, {
+        ...baseFormData,
+        dayType: 'metabolize',
+      });
+
+      const performanceResult = calculateProvisionalTargets(baseProfile, {
+        ...baseFormData,
+        dayType: 'performance',
+      });
+
+      expect(metabolizeResult).not.toBe(null);
+      expect(performanceResult).not.toBe(null);
+      // Expected ratio: 1.50 / 1.30 = 1.154
+      const ratio = metabolizeResult!.totalCarbsG / performanceResult!.totalCarbsG;
+      expect(ratio).toBeCloseTo(1.50 / 1.30, 1);
+    });
+
+    it('fatburner applies 0.85x fat multiplier while enforcing fat floor', () => {
+      // Invariant: Fatburner fats = max(baseFats * 0.85, weightKg * 0.7).
+      // Fat floor may override the multiplier for lighter users.
+      const fatburnerResult = calculateProvisionalTargets(baseProfile, {
+        ...baseFormData,
+        dayType: 'fatburner',
+      });
       const performanceResult = calculateProvisionalTargets(baseProfile, {
         ...baseFormData,
         dayType: 'performance',
       });
 
       expect(fatburnerResult).not.toBe(null);
-      // Fatburner has much lower carbs than performance
-      expect(fatburnerResult!.totalCarbsG).toBeLessThan(performanceResult!.totalCarbsG * 0.6);
-    });
-
-    it('applies metabolize day multipliers (highest carbs)', () => {
-      // Invariant: Metabolize = carbs * 1.50, protein * 1.00, fats * 1.10
-      const metabolizeResult = calculateProvisionalTargets(baseProfile, {
-        ...baseFormData,
-        dayType: 'metabolize',
-      });
-
-      expect(metabolizeResult).not.toBe(null);
-      // Metabolize should have highest carbs and slightly higher fats
-      expect(metabolizeResult!.dayType).toBe('metabolize');
+      expect(performanceResult).not.toBe(null);
+      // Fatburner fats ≤ performance fats (0.85x multiplier or fat floor, whichever is higher)
+      expect(fatburnerResult!.totalFatsG).toBeLessThanOrEqual(performanceResult!.totalFatsG);
+      // Fat floor is 80kg * 0.7 = 56g — must be maintained regardless
+      expect(fatburnerResult!.totalFatsG).toBeGreaterThanOrEqual(56);
     });
   });
 

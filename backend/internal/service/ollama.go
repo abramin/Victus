@@ -701,3 +701,128 @@ func buildDebriefPayload(input domain.DebriefInput, debrief *domain.WeeklyDebrie
 		UserNotes:         userNotes,
 	}
 }
+
+// ParseEchoLog processes a natural language echo log and extracts structured data.
+// Returns nil if Ollama is unavailable or parsing fails (caller should handle gracefully).
+func (s *OllamaService) ParseEchoLog(ctx context.Context, sessionCtx domain.EchoSessionContext, rawEcho string) (*domain.EchoLogResult, error) {
+	if !s.enabled {
+		log.Printf("[OLLAMA] Service disabled, skipping echo parsing")
+		return nil, nil
+	}
+
+	// Build list of valid body aliases for the prompt
+	validAliases := domain.ValidBodyAliases()
+
+	prompt := fmt.Sprintf(`You are the Victus Neural Echo Processor. Analyze this post-workout reflection and extract structured feedback.
+
+SESSION CONTEXT:
+- Training Type: %s
+- Duration: %d minutes
+- Initial RPE: %d
+- Notes: %s
+
+USER'S ECHO LOG:
+%s
+
+Extract ONLY what the user explicitly mentions. Return valid JSON with these exact fields:
+
+{
+  "achievements": ["string array of specific accomplishments mentioned"],
+  "joint_integrity_delta": {"body_part": 0.0},
+  "perceived_exertion_offset": 0
+}
+
+RULES:
+1. achievements: List specific PRs, milestones, or notable accomplishments. Empty array if none mentioned.
+2. joint_integrity_delta: Map body parts to change (-1.0 to +1.0):
+   - Positive = improvement (feeling better, more mobile, loosened up)
+   - Negative = degradation (sore, tight, painful, clicking)
+   - Valid body parts: %s
+   - Only include parts explicitly mentioned
+3. perceived_exertion_offset: Integer adjustment (-3 to +3):
+   - Positive = felt harder than initial RPE suggests
+   - Negative = felt easier than initial RPE suggests
+   - 0 = initial RPE was accurate
+
+Return ONLY valid JSON, no explanation or preamble.`,
+		sessionCtx.TrainingType,
+		sessionCtx.DurationMin,
+		sessionCtx.InitialRPE,
+		sessionCtx.Notes,
+		rawEcho,
+		strings.Join(validAliases, ", "),
+	)
+
+	req := ollamaRequest{
+		Model:  "llama3.2",
+		Prompt: prompt,
+		Stream: false,
+	}
+
+	body, err := json.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
+
+	// Use shorter timeout for echo parsing
+	echoCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	httpReq, err := http.NewRequestWithContext(echoCtx, "POST", s.baseURL+"/api/generate", bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := s.client.Do(httpReq)
+	if err != nil {
+		log.Printf("[OLLAMA] Echo parse request failed: %v", err)
+		s.enabled = false
+		return nil, nil
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("[OLLAMA] Echo parse returned status %d", resp.StatusCode)
+		return nil, nil
+	}
+
+	var result ollamaResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		log.Printf("[OLLAMA] Failed to decode echo response: %v", err)
+		return nil, nil
+	}
+
+	// Extract JSON from response
+	responseText := strings.TrimSpace(result.Response)
+	log.Printf("[OLLAMA] Echo raw response: %s", responseText[:min(200, len(responseText))])
+
+	// Find JSON object in response
+	startIdx := strings.Index(responseText, "{")
+	endIdx := strings.LastIndex(responseText, "}")
+	if startIdx == -1 || endIdx == -1 || endIdx <= startIdx {
+		log.Printf("[OLLAMA] No valid JSON found in echo response")
+		return nil, nil
+	}
+
+	jsonStr := responseText[startIdx : endIdx+1]
+
+	var echoResult domain.EchoLogResult
+	if err := json.Unmarshal([]byte(jsonStr), &echoResult); err != nil {
+		log.Printf("[OLLAMA] Failed to parse echo JSON: %v", err)
+		return nil, nil
+	}
+
+	// Validate the result
+	if err := domain.ValidateEchoResult(echoResult); err != nil {
+		log.Printf("[OLLAMA] Echo result validation failed: %v", err)
+		return nil, nil
+	}
+
+	log.Printf("[OLLAMA] Successfully parsed echo: %d achievements, %d joint deltas, RPE offset %d",
+		len(echoResult.Achievements),
+		len(echoResult.JointIntegrityDelta),
+		echoResult.PerceivedExertionOffset)
+
+	return &echoResult, nil
+}

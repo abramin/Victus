@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './pages/App'
 import { DisplayModeProvider } from './contexts/DisplayModeContext'
 import { PlanProvider } from './contexts/PlanContext'
+import { ActiveInstallationProvider } from './contexts/ActiveInstallationContext'
 import { waitForBackend } from './api/client'
 import './index.css'
 
@@ -34,7 +35,9 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
       <DisplayModeProvider>
         <BackendGate>
           <PlanProvider>
-            <App />
+            <ActiveInstallationProvider>
+              <App />
+            </ActiveInstallationProvider>
           </PlanProvider>
         </BackendGate>
       </DisplayModeProvider>

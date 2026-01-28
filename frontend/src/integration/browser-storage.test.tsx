@@ -1,259 +1,291 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { render, waitFor } from '@testing-library/react';
+import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
+import { renderHook, waitFor, act } from '@testing-library/react';
+import { setupServer } from 'msw/node';
+import { http, HttpResponse } from 'msw';
 import { createElement, type ReactNode } from 'react';
-import { PlanProvider } from '../contexts/PlanContext';
 
-// Invariant: These are integration tests with real browser boundaries.
-// They test actual localStorage, sessionStorage, and IndexedDB behavior.
-// No mocking of storage APIs.
+import { PlanProvider, usePlanContext } from '../contexts/PlanContext';
 
-describe('Browser storage integration', () => {
-  beforeEach(() => {
-    // Clear real storage before each test
-    localStorage.clear();
-    sessionStorage.clear();
-  });
+// Invariant: These are integration tests exercising PlanContext against the real HTTP boundary.
+// MSW intercepts fetch at the network layer — no application code is mocked.
+// Each test verifies what the context exposes to consumers under various API conditions.
 
-  afterEach(() => {
-    localStorage.clear();
-    sessionStorage.clear();
-  });
+const server = setupServer();
 
-  describe('localStorage persistence contract', () => {
-    it('PlanContext state survives page reload via localStorage', async () => {
-      // Invariant: User plan state must persist across page refreshes.
-      // If this breaks, users lose their work when navigating away.
+beforeAll(() => server.listen({ onUnhandledRequest: 'warn' }));
+afterEach(() => server.resetHandlers());
+afterAll(() => server.close());
 
-      const wrapper = ({ children }: { children: ReactNode }) =>
-        createElement(PlanProvider, null, children);
+const wrapper = ({ children }: { children: ReactNode }) =>
+  createElement(PlanProvider, null, children);
 
-      const TestComponent = () => {
-        // Component that uses PlanContext
-        return createElement('div', { 'data-testid': 'plan-consumer' }, 'Plan');
-      };
+describe('PlanContext API boundary integration', () => {
+  describe('Initial load contracts', () => {
+    it('exposes active plan when API returns one', async () => {
+      // Invariant: Context must expose the active plan once the API responds.
+      // If this breaks, plan-dependent UI renders in a broken loading state.
 
-      // First render - simulate setting plan state
-      const { unmount } = render(createElement(TestComponent), { wrapper });
+      server.use(
+        http.get('/api/plans/active', () => {
+          return HttpResponse.json({
+            id: 42,
+            startWeightKg: 80,
+            goalWeightKg: 75,
+            durationWeeks: 8,
+            status: 'active',
+            startDate: '2026-01-01',
+            endDate: '2026-02-26',
+            requiredWeeklyChangeKg: -0.625,
+            createdAt: '2026-01-01T00:00:00Z',
+            updatedAt: '2026-01-01T00:00:00Z',
+          });
+        })
+      );
 
-      // Verify localStorage was written
+      const { result } = renderHook(() => usePlanContext(), { wrapper });
+
       await waitFor(() => {
-        const stored = localStorage.getItem('victus_plan_cache');
-        expect(stored).toBeDefined();
+        expect(result.current.loading).toBe(false);
+        expect(result.current.plan?.id).toBe(42);
+        expect(result.current.plan?.status).toBe('active');
       });
+    });
 
-      // Unmount (simulate page close)
-      unmount();
+    it('resolves to null plan without error when none exists', async () => {
+      // Invariant: No active plan is a valid state (user hasn't started one), not an error.
+      // The UI should show "create a plan" prompt, not an error banner.
 
-      // Second render - simulate page reload
-      const { getByTestId } = render(createElement(TestComponent), { wrapper });
+      server.use(
+        http.get('/api/plans/active', () => {
+          return HttpResponse.json(
+            { error: 'not_found', message: 'No active plan' },
+            { status: 404 }
+          );
+        })
+      );
 
-      // Verify state was restored from localStorage
+      const { result } = renderHook(() => usePlanContext(), { wrapper });
+
       await waitFor(() => {
-        expect(getByTestId('plan-consumer')).toBeInTheDocument();
-        // State should be restored from localStorage
-        const restored = localStorage.getItem('victus_plan_cache');
-        expect(restored).toBeDefined();
+        expect(result.current.loading).toBe(false);
+        expect(result.current.plan).toBeNull();
+        expect(result.current.error).toBeNull();
       });
     });
 
-    it('corrupted localStorage data does not crash app', () => {
-      // Invariant: App must handle corrupted storage gracefully.
-      // Invalid JSON should not prevent app from loading.
+    it('surfaces server error via context error state', async () => {
+      // Invariant: API failures must be surfaced so the UI can show a recoverable error state.
+      // Silently swallowing a 500 leaves the user on an indefinite loading screen.
 
-      localStorage.setItem('victus_plan_cache', '{invalid json');
-      localStorage.setItem('victus_profile', 'not even json');
+      server.use(
+        http.get('/api/plans/active', () => {
+          return HttpResponse.json(
+            { error: 'internal_error', message: 'Plan service unavailable' },
+            { status: 500 }
+          );
+        })
+      );
 
-      const wrapper = ({ children }: { children: ReactNode }) =>
-        createElement(PlanProvider, null, children);
+      const { result } = renderHook(() => usePlanContext(), { wrapper });
 
-      const TestComponent = () => createElement('div', null, 'App');
-
-      // Should not throw
-      expect(() => {
-        render(createElement(TestComponent), { wrapper });
-      }).not.toThrow();
-    });
-
-    it('localStorage quota exceeded falls back gracefully', () => {
-      // Invariant: App must handle storage quota errors without data loss.
-      // User should be notified, not silently fail.
-
-      // Fill localStorage to near capacity
-      const largeData = 'x'.repeat(4.5 * 1024 * 1024); // ~4.5MB
-      try {
-        for (let i = 0; i < 10; i++) {
-          localStorage.setItem(`filler_${i}`, largeData);
-        }
-      } catch {
-        // Expected to hit quota
-      }
-
-      // Now try to save critical data
-      const criticalData = { plan: { id: 1, status: 'active' } };
-
-      let quotaExceeded = false;
-      try {
-        localStorage.setItem('victus_critical', JSON.stringify(criticalData));
-      } catch (e) {
-        if (e instanceof DOMException && e.name === 'QuotaExceededError') {
-          quotaExceeded = true;
-        }
-      }
-
-      // Either it saved successfully or we detected quota error
-      expect(
-        localStorage.getItem('victus_critical') !== null || quotaExceeded
-      ).toBe(true);
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false);
+        expect(result.current.error).toBe('Plan service unavailable');
+        expect(result.current.plan).toBeNull();
+      });
     });
   });
 
-  describe('sessionStorage for transient state', () => {
-    it('form draft saved to sessionStorage survives navigation', () => {
-      // Invariant: In-progress form data should survive navigation
-      // within the same session, but clear on browser close.
+  describe('Create plan contracts', () => {
+    it('exposes newly created plan after successful creation', async () => {
+      // Invariant: After create succeeds, context must reflect the new plan immediately.
+      // The UI relies on context state to switch from "empty" to "plan active" view.
 
-      const formDraft = {
-        weightKg: 79.5,
-        dayType: 'performance',
-        sleepQuality: 75,
-      };
+      server.use(
+        http.get('/api/plans/active', () => {
+          return HttpResponse.json(
+            { error: 'not_found', message: 'No active plan' },
+            { status: 404 }
+          );
+        }),
+        http.post('/api/plans', () => {
+          return HttpResponse.json({
+            id: 99,
+            startWeightKg: 85,
+            goalWeightKg: 78,
+            durationWeeks: 10,
+            status: 'active',
+            startDate: '2026-01-28',
+            endDate: '2026-04-08',
+            requiredWeeklyChangeKg: -0.7,
+            createdAt: '2026-01-28T00:00:00Z',
+            updatedAt: '2026-01-28T00:00:00Z',
+          });
+        })
+      );
 
-      sessionStorage.setItem('daily_log_draft', JSON.stringify(formDraft));
+      const { result } = renderHook(() => usePlanContext(), { wrapper });
 
-      // Simulate navigation
-      const retrieved = sessionStorage.getItem('daily_log_draft');
-      expect(retrieved).toBeDefined();
-      expect(JSON.parse(retrieved!)).toEqual(formDraft);
-    });
-
-    it('sessionStorage cleared on logout', () => {
-      // Invariant: Logout must clear session data for security.
-
-      sessionStorage.setItem('auth_token', 'fake_token');
-      sessionStorage.setItem('user_session', 'session_data');
-
-      // Simulate logout
-      sessionStorage.clear();
-
-      expect(sessionStorage.getItem('auth_token')).toBeNull();
-      expect(sessionStorage.getItem('user_session')).toBeNull();
-    });
-  });
-
-  describe('Storage event synchronization', () => {
-    it('localStorage changes in one tab trigger updates in other tabs', async () => {
-      // Invariant: Multi-tab sync ensures consistency across open tabs.
-      // Changes in one tab must reflect in others.
-
-      const storageKey = 'victus_profile';
-      const newValue = JSON.stringify({ currentWeightKg: 78 });
-
-      // Simulate another tab updating localStorage
-      localStorage.setItem(storageKey, newValue);
-
-      // Dispatch storage event (simulates cross-tab communication)
-      const storageEvent = new StorageEvent('storage', {
-        key: storageKey,
-        newValue,
-        oldValue: null,
-        storageArea: localStorage,
-        url: window.location.href,
+      // Wait for initial load (no active plan)
+      await waitFor(() => {
+        expect(result.current.plan).toBeNull();
       });
 
-      window.dispatchEvent(storageEvent);
+      // Create a plan
+      let newPlan: any;
+      await act(async () => {
+        newPlan = await result.current.create({
+          startWeightKg: 85,
+          goalWeightKg: 78,
+          durationWeeks: 10,
+        });
+      });
 
-      // Verify event was dispatched
-      expect(localStorage.getItem(storageKey)).toBe(newValue);
+      expect(newPlan?.id).toBe(99);
+      expect(result.current.plan?.id).toBe(99);
+    });
+
+    it('sets createError on conflict without clearing existing plan', async () => {
+      // Invariant: Failed creation must not destroy an existing plan state.
+      // The error message must explain the conflict so the UI can guide the user.
+
+      server.use(
+        http.get('/api/plans/active', () => {
+          return HttpResponse.json({
+            id: 10,
+            startWeightKg: 80,
+            goalWeightKg: 75,
+            durationWeeks: 8,
+            status: 'active',
+            startDate: '2026-01-01',
+            endDate: '2026-02-26',
+            requiredWeeklyChangeKg: -0.625,
+            createdAt: '2026-01-01T00:00:00Z',
+            updatedAt: '2026-01-01T00:00:00Z',
+          });
+        }),
+        http.post('/api/plans', () => {
+          return HttpResponse.json(
+            { error: 'active_plan_exists', message: 'Complete or abandon the current plan first' },
+            { status: 409 }
+          );
+        })
+      );
+
+      const { result } = renderHook(() => usePlanContext(), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.plan?.id).toBe(10);
+      });
+
+      let created: any;
+      await act(async () => {
+        created = await result.current.create({
+          startWeightKg: 90,
+          goalWeightKg: 85,
+          durationWeeks: 6,
+        });
+      });
+
+      expect(created).toBeNull();
+      expect(result.current.createError).toContain('Complete or abandon');
+      // Existing plan still present
+      expect(result.current.plan?.id).toBe(10);
     });
   });
 
-  describe('Storage cleanup and migration', () => {
-    it('old storage format is migrated to new format', () => {
-      // Invariant: App must handle legacy data structures gracefully.
-      // Old versions should not break new versions.
+  describe('Lifecycle action contracts', () => {
+    it('complete action refreshes context and clears plan', async () => {
+      // Invariant: After completing a plan, context must reflect the new state (no active plan).
+      // The UI relies on this to transition back to the "create plan" view.
 
-      // Old format (hypothetical v1)
-      localStorage.setItem('profile', JSON.stringify({ weight: 80 }));
-
-      // New format check (v2)
-      const oldData = localStorage.getItem('profile');
-      if (oldData) {
-        const parsed = JSON.parse(oldData);
-        if ('weight' in parsed && !('currentWeightKg' in parsed)) {
-          // Migrate
-          const migrated = { currentWeightKg: parsed.weight };
-          localStorage.setItem('victus_profile', JSON.stringify(migrated));
-          localStorage.removeItem('profile');
-        }
-      }
-
-      expect(localStorage.getItem('victus_profile')).toBeDefined();
-      expect(localStorage.getItem('profile')).toBeNull();
-    });
-
-    it('expired cache entries are cleaned up on app start', () => {
-      // Invariant: Stale cached data must be removed to prevent bloat.
-
-      const now = Date.now();
-      const expiredEntry = {
-        data: { some: 'data' },
-        timestamp: now - 8 * 24 * 60 * 60 * 1000, // 8 days old
-      };
-      const validEntry = {
-        data: { other: 'data' },
-        timestamp: now - 1 * 60 * 60 * 1000, // 1 hour old
-      };
-
-      localStorage.setItem('cache_expired', JSON.stringify(expiredEntry));
-      localStorage.setItem('cache_valid', JSON.stringify(validEntry));
-
-      // Simulate cache cleanup logic
-      const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days
-      Object.keys(localStorage).forEach((key) => {
-        if (key.startsWith('cache_')) {
-          const item = JSON.parse(localStorage.getItem(key) || '{}');
-          if (item.timestamp && now - item.timestamp > maxAge) {
-            localStorage.removeItem(key);
+      let completeCalled = false;
+      server.use(
+        http.get('/api/plans/active', () => {
+          if (completeCalled) {
+            return HttpResponse.json(
+              { error: 'not_found', message: 'No active plan' },
+              { status: 404 }
+            );
           }
-        }
+          return HttpResponse.json({
+            id: 5,
+            startWeightKg: 80,
+            goalWeightKg: 75,
+            durationWeeks: 8,
+            status: 'active',
+            startDate: '2026-01-01',
+            endDate: '2026-02-26',
+            requiredWeeklyChangeKg: -0.625,
+            createdAt: '2026-01-01T00:00:00Z',
+            updatedAt: '2026-01-01T00:00:00Z',
+          });
+        }),
+        http.post('/api/plans/:id/complete', () => {
+          completeCalled = true;
+          return new HttpResponse(null, { status: 204 });
+        })
+      );
+
+      const { result } = renderHook(() => usePlanContext(), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.plan?.id).toBe(5);
       });
 
-      expect(localStorage.getItem('cache_expired')).toBeNull();
-      expect(localStorage.getItem('cache_valid')).toBeDefined();
+      let success: boolean;
+      await act(async () => {
+        success = await result.current.complete();
+      });
+
+      expect(success!).toBe(true);
+      await waitFor(() => {
+        expect(result.current.plan).toBeNull();
+      });
     });
-  });
 
-  describe('Privacy mode and incognito handling', () => {
-    it('app functions without localStorage in privacy mode', () => {
-      // Invariant: App must work in incognito/private browsing mode.
-      // localStorage may be disabled or throw errors.
+    it('abandon action failure surfaces error without clearing plan', async () => {
+      // Invariant: Failed lifecycle transitions must not corrupt context state.
+      // The user should see the error and still have their plan data available.
 
-      // Simulate localStorage being disabled
-      const mockLocalStorage = {
-        getItem: () => null,
-        setItem: () => {
-          throw new Error('localStorage disabled in private mode');
-        },
-        removeItem: () => {},
-        clear: () => {},
-        length: 0,
-        key: () => null,
-      };
+      server.use(
+        http.get('/api/plans/active', () => {
+          return HttpResponse.json({
+            id: 7,
+            startWeightKg: 80,
+            goalWeightKg: 75,
+            durationWeeks: 8,
+            status: 'active',
+            startDate: '2026-01-01',
+            endDate: '2026-02-26',
+            requiredWeeklyChangeKg: -0.625,
+            createdAt: '2026-01-01T00:00:00Z',
+            updatedAt: '2026-01-01T00:00:00Z',
+          });
+        }),
+        http.post('/api/plans/:id/abandon', () => {
+          return HttpResponse.json(
+            { error: 'internal_error', message: 'Abandon failed' },
+            { status: 500 }
+          );
+        })
+      );
 
-      // App should fall back to in-memory storage
-      let inMemoryCache: Record<string, string> = {};
+      const { result } = renderHook(() => usePlanContext(), { wrapper });
 
-      const safeSetItem = (key: string, value: string) => {
-        try {
-          mockLocalStorage.setItem(key, value);
-        } catch {
-          // Fall back to in-memory
-          inMemoryCache[key] = value;
-        }
-      };
+      await waitFor(() => {
+        expect(result.current.plan?.id).toBe(7);
+      });
 
-      safeSetItem('test_key', 'test_value');
-      expect(inMemoryCache['test_key']).toBe('test_value');
+      let success: boolean;
+      await act(async () => {
+        success = await result.current.abandon();
+      });
+
+      expect(success!).toBe(false);
+      expect(result.current.error).toBe('Abandon failed');
+      // Plan still present
+      expect(result.current.plan?.id).toBe(7);
     });
   });
 });

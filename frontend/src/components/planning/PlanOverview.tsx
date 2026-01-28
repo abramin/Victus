@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { usePlan } from '../../hooks/usePlan';
 import { usePlanAnalysis } from '../../hooks/usePlanAnalysis';
 import { useProfile } from '../../hooks/useProfile';
@@ -14,6 +14,17 @@ import { AdjustStrategyModal } from './AdjustStrategyModal';
 import { CheckEngineLight, DiagnosticPanel } from '../strategy-auditor';
 import type { CreatePlanRequest, RecalibrationOption } from '../../api/types';
 
+interface RecalibrationResult {
+  type: 'increase_deficit' | 'extend_timeline';
+  oldCalories: number;
+  newCalories: number;
+  oldDuration?: number;
+  newDuration?: number;
+}
+
+/** Cooldown period in milliseconds (24 hours) */
+const RECALIBRATION_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+
 export function PlanOverview() {
   const { profile, loading: profileLoading, save: saveProfile } = useProfile();
   const { plan, loading: planLoading, creating, createError, create, complete, abandon, pause, resume, recalibrate } = usePlan();
@@ -23,7 +34,23 @@ export function PlanOverview() {
 
   const [showAdjustModal, setShowAdjustModal] = useState(false);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
-  const [recentlyRecalibrated, setRecentlyRecalibrated] = useState(false);
+  const [recalibrationResult, setRecalibrationResult] = useState<RecalibrationResult | null>(null);
+
+  // Auto-dismiss recalibration result after 8 seconds
+  useEffect(() => {
+    if (recalibrationResult) {
+      const timer = setTimeout(() => setRecalibrationResult(null), 8000);
+      return () => clearTimeout(timer);
+    }
+  }, [recalibrationResult]);
+
+  // Check if the plan was recalibrated within the cooldown period (24 hours)
+  const recentlyRecalibrated = useMemo(() => {
+    if (!plan?.lastRecalibratedAt) return false;
+    const recalTime = new Date(plan.lastRecalibratedAt).getTime();
+    const now = Date.now();
+    return now - recalTime < RECALIBRATION_COOLDOWN_MS;
+  }, [plan?.lastRecalibratedAt]);
 
   const loading = profileLoading || planLoading;
 
@@ -69,10 +96,36 @@ export function PlanOverview() {
   };
 
   const handleRecalibrationSelect = async (option: RecalibrationOption): Promise<void> => {
+    // Capture current values before recalibration
+    const currentWeekTarget = plan?.weeklyTargets.find(t => t.weekNumber === plan.currentWeek);
+    const oldCalories = currentWeekTarget?.targetIntakeKcal ?? 0;
+    const oldDuration = plan?.durationWeeks ?? 0;
+
     const success = await recalibrate(option.type);
     if (success) {
-      setRecentlyRecalibrated(true);
       await refreshAnalysis();
+      // Parse new values from option.newParameter (e.g., "1950 kcal/day" or "85 weeks")
+      if (option.type === 'increase_deficit') {
+        // Parse new calorie target from newParameter like "1950 kcal/day"
+        const calorieMatch = option.newParameter?.match(/(\d+)\s*kcal/i);
+        const newCalories = calorieMatch ? parseInt(calorieMatch[1], 10) : oldCalories;
+        setRecalibrationResult({
+          type: 'increase_deficit',
+          oldCalories,
+          newCalories,
+        });
+      } else if (option.type === 'extend_timeline') {
+        // Parse new duration from newParameter like "85 weeks"
+        const durationMatch = option.newParameter?.match(/(\d+)\s*weeks?/i);
+        const newDuration = durationMatch ? parseInt(durationMatch[1], 10) : oldDuration;
+        setRecalibrationResult({
+          type: 'extend_timeline',
+          oldCalories,
+          newCalories: oldCalories,
+          oldDuration,
+          newDuration,
+        });
+      }
     } else {
       throw new Error('Failed to apply strategy adjustment');
     }
@@ -208,9 +261,52 @@ export function PlanOverview() {
         </div>
       )}
 
+      {/* Recalibration Success Banner */}
+      {recalibrationResult && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3 relative">
+          <span className="text-blue-600 text-lg">✓</span>
+          <div className="flex-1">
+            <div className="font-medium text-blue-800">Strategy Updated</div>
+            <div className="text-sm text-blue-700 mt-1">
+              {recalibrationResult.type === 'increase_deficit' ? (
+                <>
+                  Daily target adjusted: {recalibrationResult.oldCalories} → <strong>{recalibrationResult.newCalories} kcal</strong>
+                  {recalibrationResult.oldCalories !== recalibrationResult.newCalories && (
+                    <span className="ml-1 text-blue-600">
+                      ({recalibrationResult.newCalories - recalibrationResult.oldCalories} kcal)
+                    </span>
+                  )}
+                </>
+              ) : (
+                <>
+                  Plan extended: {recalibrationResult.oldDuration} → <strong>{recalibrationResult.newDuration} weeks</strong>
+                  {recalibrationResult.oldDuration !== recalibrationResult.newDuration && (
+                    <span className="ml-1 text-blue-600">
+                      (+{(recalibrationResult.newDuration ?? 0) - (recalibrationResult.oldDuration ?? 0)} weeks)
+                    </span>
+                  )}
+                </>
+              )}
+            </div>
+            <div className="text-xs text-blue-600 mt-2">
+              Follow your new targets for a few days to see updated projections.
+            </div>
+          </div>
+          <button
+            onClick={() => setRecalibrationResult(null)}
+            className="text-blue-400 hover:text-blue-600 transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
+
       {/* Recalibration prompt (suppressed after user just applied a recalibration) */}
+      {/* Show when recalibrationNeeded OR trendDiverging (trend going wrong direction) */}
       {!recentlyRecalibrated &&
-        analysis?.recalibrationNeeded &&
+        (analysis?.recalibrationNeeded || analysis?.trendDiverging) &&
         analysis?.options?.length &&
         plan.status === 'active' && (
           <RecalibrationPrompt
@@ -258,16 +354,14 @@ export function PlanOverview() {
       />
 
       {/* Adjust Strategy Modal */}
-      {analysis && (
-        <AdjustStrategyModal
-          isOpen={showAdjustModal}
-          onClose={() => setShowAdjustModal(false)}
-          plan={plan}
-          analysis={analysis}
-          onApply={handleRecalibrationSelect}
-          recentlyRecalibrated={recentlyRecalibrated}
-        />
-      )}
+      <AdjustStrategyModal
+        isOpen={showAdjustModal}
+        onClose={() => setShowAdjustModal(false)}
+        plan={plan}
+        analysis={analysis}
+        onApply={handleRecalibrationSelect}
+        recentlyRecalibrated={recentlyRecalibrated}
+      />
     </div>
   );
 }

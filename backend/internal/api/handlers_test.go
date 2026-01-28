@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -397,5 +398,199 @@ func (s *HandlerSuite) TestActualTrainingUpdate() {
 		var resp APIError
 		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
 		s.Equal("not_found", resp.Error)
+	})
+}
+
+// --- Plan endpoint error-mapping tests ---
+// Justification: Feature scenarios cover plan happy paths. These protect the HTTP-layer
+// error-code mapping (400, 409, 404) which is a seam between service errors and status codes.
+
+func (s *HandlerSuite) TestPlanCreationErrorMapping() {
+	s.Run("creating plan without profile returns 400 with profile_required", func() {
+		req := map[string]interface{}{
+			"startDate":     time.Now().Format("2006-01-02"),
+			"startWeightKg": 90,
+			"goalWeightKg":  85,
+			"durationWeeks": 10,
+		}
+		rec := s.doRequest("POST", "/api/plans", req)
+		s.Equal(http.StatusBadRequest, rec.Code)
+
+		var resp APIError
+		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
+		s.Equal("profile_required", resp.Error)
+	})
+
+	s.Run("creating second active plan returns 409", func() {
+		s.createProfile()
+
+		// Create first plan
+		req := map[string]interface{}{
+			"startDate":     time.Now().Format("2006-01-02"),
+			"startWeightKg": 90,
+			"goalWeightKg":  85,
+			"durationWeeks": 10,
+		}
+		rec := s.doRequest("POST", "/api/plans", req)
+		s.Equal(http.StatusCreated, rec.Code, "first plan creation should succeed")
+
+		// Try second active plan
+		rec = s.doRequest("POST", "/api/plans", req)
+		s.Equal(http.StatusConflict, rec.Code, "duplicate active plan should return 409")
+	})
+}
+
+func (s *HandlerSuite) TestPlanNotFoundErrorMapping() {
+	s.Run("GET non-existent plan returns 404", func() {
+		rec := s.doRequest("GET", "/api/plans/99999", nil)
+		s.Equal(http.StatusNotFound, rec.Code)
+
+		var resp APIError
+		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
+		s.Equal("not_found", resp.Error)
+	})
+
+	s.Run("complete non-existent plan returns 404", func() {
+		rec := s.doRequest("POST", "/api/plans/99999/complete", nil)
+		s.Equal(http.StatusNotFound, rec.Code)
+	})
+
+	s.Run("abandon non-existent plan returns 404", func() {
+		rec := s.doRequest("POST", "/api/plans/99999/abandon", nil)
+		s.Equal(http.StatusNotFound, rec.Code)
+	})
+
+	s.Run("active plan returns 404 when none exists", func() {
+		rec := s.doRequest("GET", "/api/plans/active", nil)
+		s.Equal(http.StatusNotFound, rec.Code)
+	})
+}
+
+func (s *HandlerSuite) TestDailyLogConflictMapping() {
+	s.Run("duplicate log for same date returns 409", func() {
+		s.createProfile()
+		date := time.Now().Format("2006-01-02")
+
+		logReq := map[string]interface{}{
+			"date":         date,
+			"weightKg":     85,
+			"sleepQuality": 80,
+			"dayType":      "fatburner",
+		}
+
+		// First creation succeeds
+		rec := s.doRequest("POST", "/api/logs", logReq)
+		s.Equal(http.StatusCreated, rec.Code, "first log creation should succeed")
+
+		// Second creation for same date fails with 409
+		rec = s.doRequest("POST", "/api/logs", logReq)
+		s.Equal(http.StatusConflict, rec.Code, "duplicate date should return 409")
+	})
+}
+
+func (s *HandlerSuite) TestRecalibrateEndpoint() {
+	s.Run("increase_deficit updates plan parameters and returns 200", func() {
+		s.createProfile()
+
+		// Create a plan starting 3 days ago (within the 7-day validation window)
+		startDate := time.Now().AddDate(0, 0, -3).Format("2006-01-02")
+		createReq := map[string]interface{}{
+			"startDate":     startDate,
+			"startWeightKg": 90,
+			"goalWeightKg":  85,
+			"durationWeeks": 10,
+		}
+		rec := s.doRequest("POST", "/api/plans", createReq)
+		s.Equal(http.StatusCreated, rec.Code, "plan creation should succeed")
+
+		var planResp map[string]interface{}
+		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &planResp))
+		planID := int64(planResp["id"].(float64))
+
+		// Recalibrate with increase_deficit
+		recalReq := map[string]interface{}{
+			"type": "increase_deficit",
+		}
+		rec = s.doRequest("POST", fmt.Sprintf("/api/plans/%d/recalibrate", planID), recalReq)
+		s.Equal(http.StatusOK, rec.Code, "recalibrate should return 200")
+
+		var updatedPlan map[string]interface{}
+		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &updatedPlan))
+
+		// Verify response contains updated plan
+		s.NotNil(updatedPlan["id"], "response should have plan ID")
+		s.NotNil(updatedPlan["requiredDailyDeficitKcal"], "response should have deficit")
+		s.NotNil(updatedPlan["weeklyTargets"], "response should have weekly targets")
+	})
+
+	s.Run("recalibrate non-existent plan returns 404", func() {
+		recalReq := map[string]interface{}{
+			"type": "increase_deficit",
+		}
+		rec := s.doRequest("POST", "/api/plans/99999/recalibrate", recalReq)
+		s.Equal(http.StatusNotFound, rec.Code)
+	})
+}
+
+func (s *HandlerSuite) TestRecalibrateFullCycle() {
+	s.Run("recalibrate updates targets and subsequent analysis reflects change", func() {
+		s.createProfile()
+
+		// Create plan: 90kg → 85kg over 10 weeks, starting 3 days ago
+		startDate := time.Now().AddDate(0, 0, -3).Format("2006-01-02")
+		createReq := map[string]interface{}{
+			"startDate":     startDate,
+			"startWeightKg": 90,
+			"goalWeightKg":  85,
+			"durationWeeks": 10,
+		}
+		rec := s.doRequest("POST", "/api/plans", createReq)
+		s.Equal(http.StatusCreated, rec.Code, "plan creation should succeed")
+
+		var planResp map[string]interface{}
+		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &planResp))
+		planID := int64(planResp["id"].(float64))
+		origDeficit := planResp["requiredDailyDeficitKcal"].(float64)
+
+		// Log weights for the past 3 days — higher than projected (off track)
+		for i := 3; i >= 1; i-- {
+			logDate := time.Now().AddDate(0, 0, -i).Format("2006-01-02")
+			logReq := map[string]interface{}{
+				"date":     logDate,
+				"weightKg": 89, // Barely lost weight — plan expected more loss
+				"sleepQuality": 75,
+				"dayType":  "fatburner",
+			}
+			rec = s.doRequest("POST", "/api/logs", logReq)
+			s.Equal(http.StatusCreated, rec.Code, "log creation for %s should succeed", logDate)
+		}
+
+		// Recalibrate with increase_deficit
+		recalReq := map[string]interface{}{
+			"type": "increase_deficit",
+		}
+		rec = s.doRequest("POST", fmt.Sprintf("/api/plans/%d/recalibrate", planID), recalReq)
+		s.Equal(http.StatusOK, rec.Code, "recalibrate should succeed")
+
+		var updatedPlan map[string]interface{}
+		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &updatedPlan))
+
+		newDeficit := updatedPlan["requiredDailyDeficitKcal"].(float64)
+		// Deficit should be more negative (larger magnitude) after recalibration
+		s.Less(newDeficit, origDeficit,
+			"deficit should increase in magnitude after recalibration (orig: %f, new: %f)",
+			origDeficit, newDeficit)
+
+		// Now fetch analysis — should reflect the updated plan targets
+		rec = s.doRequest("GET", fmt.Sprintf("/api/plans/%d/analysis", planID), nil)
+		s.Equal(http.StatusOK, rec.Code, "analysis after recalibrate should succeed")
+
+		var analysis map[string]interface{}
+		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &analysis))
+
+		// plannedWeightKg should now be closer to actual (89kg)
+		plannedWeight := analysis["plannedWeightKg"].(float64)
+		s.InDelta(89, plannedWeight, 2.0,
+			"planned weight should be near actual weight after recalibration")
 	})
 }

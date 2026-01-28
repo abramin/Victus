@@ -6,7 +6,7 @@ import { drawerSlide } from '../../lib/animations';
 import { MacroStackedBar } from './MacroStackedBar';
 import { TrainingBadge } from './TrainingBadge';
 import { TRAINING_LABELS } from '../../constants';
-import { formatNumber, WEIGHT_DECIMALS } from '../../utils/format';
+import { formatSleepHours } from '../../utils/format';
 
 interface TacticalBriefingProps {
   /**
@@ -193,7 +193,7 @@ export function TacticalBriefing({ isOpen, date, onClose }: TacticalBriefingProp
                           <span className="text-[10px] text-gray-500">Sleep</span>
                         </div>
                         <p className="text-lg font-semibold text-white">
-                          {log.sleepHours ? `${formatNumber(log.sleepHours, WEIGHT_DECIMALS)}h` : log.sleepQuality}
+                          {formatSleepHours(log.sleepHours)}
                         </p>
                       </div>
 
@@ -255,9 +255,9 @@ export function TacticalBriefing({ isOpen, date, onClose }: TacticalBriefingProp
                     </h3>
                     <div className="bg-gray-950 rounded-lg p-4 border border-gray-800 font-mono text-xs leading-relaxed">
                       {insight && insight.generated ? (
-                        <p className="text-gray-300 whitespace-pre-wrap">{insight.insight}</p>
+                        <p className="text-slate-200 whitespace-pre-wrap">{insight.insight}</p>
                       ) : (
-                        <p className="text-gray-600 italic">
+                        <p className="text-slate-200">
                           {insight ? insight.insight : 'Generating insight...'}
                         </p>
                       )}

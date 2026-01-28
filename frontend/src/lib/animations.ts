@@ -625,3 +625,75 @@ export const todayScanline: Variants = {
     },
   },
 };
+
+// === TACTICAL KITCHEN ANIMATIONS ===
+
+/**
+ * Ring fill glow animation for the holographic plate.
+ * Adds a neon glow effect when macros are consumed.
+ */
+export const ringFillGlow: Variants = {
+  idle: { filter: 'drop-shadow(0 0 0 transparent)' },
+  glow: {
+    filter: 'drop-shadow(0 0 8px currentColor)',
+    transition: { duration: 0.3 },
+  },
+};
+
+/**
+ * Ring overflow pulse animation.
+ * Pulses red when a macro target is exceeded.
+ */
+export const ringOverflowPulse: Variants = {
+  idle: { opacity: 1 },
+  pulse: {
+    opacity: [1, 0.6, 1],
+    transition: {
+      duration: 0.6,
+      repeat: Infinity,
+      ease: 'easeInOut',
+    },
+  },
+};
+
+/**
+ * Food chip tap feedback animation.
+ * Provides visual feedback for tap and double-tap interactions.
+ */
+export const chipTapFeedback: Variants = {
+  idle: { scale: 1 },
+  tap: {
+    scale: [1, 1.1, 0.95, 1],
+    transition: { duration: 0.3 },
+  },
+  doubleTap: {
+    scale: [1, 1.15, 0.9, 1.05, 1],
+    boxShadow: [
+      '0 0 0 rgba(16, 185, 129, 0)',
+      '0 0 20px rgba(16, 185, 129, 0.6)',
+      '0 0 0 rgba(16, 185, 129, 0)',
+    ],
+    transition: { duration: 0.4 },
+  },
+};
+
+/**
+ * Food pill pop-in animation for the plate visualization.
+ */
+export const foodPillPopIn: Variants = {
+  hidden: { scale: 0, opacity: 0 },
+  visible: {
+    scale: 1,
+    opacity: 1,
+    transition: {
+      type: 'spring',
+      stiffness: 300,
+      damping: 20,
+    },
+  },
+  exit: {
+    scale: 0,
+    opacity: 0,
+    transition: { duration: 0.2 },
+  },
+};

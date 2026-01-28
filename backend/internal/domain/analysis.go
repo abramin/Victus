@@ -35,6 +35,8 @@ type DualTrackAnalysis struct {
 	VariancePercent     float64 // (Variance / Planned) * 100
 	TolerancePercent    float64
 	RecalibrationNeeded bool
+	TrendDiverging      bool   // True if trend direction opposes goal direction
+	TrendDivergingMsg   string // e.g., "Weight trending +0.3 kg/wk, plan requires -0.5 kg/wk"
 	Options             []RecalibrationOption
 	PlanProjection      []ProjectionPoint // Linear interpolation from start to goal
 	TrendProjection     []ProjectionPoint // Projection based on current trend
@@ -134,16 +136,31 @@ func CalculateDualTrackAnalysis(input AnalysisInput) (*DualTrackAnalysis, error)
 		// Calculate landing point from trend projection
 		analysis.LandingPoint = calculateLandingPoint(plan, analysis.TrendProjection, tolerancePercent)
 
-		// ALSO check if projected landing point is off track (new logic)
-		// Use stricter threshold: 1.0kg instead of percentage-based tolerance
-		if analysis.LandingPoint != nil && math.Abs(analysis.LandingPoint.VarianceFromGoalKg) > 1.0 {
-			recalibrationNeeded = true
-			analysis.RecalibrationNeeded = true
+		// Landing point is displayed for informational purposes but does NOT
+		// trigger recalibration. The trend data is based on 30 days of history
+		// and doesn't update immediately after recalibration, so using it as a
+		// trigger would cause the plan to show "off track" even right after
+		// applying a strategy adjustment. The current variance check (tolerance %)
+		// is sufficient for determining when recalibration is needed.
+
+		// Check if trend direction opposes goal direction
+		isWeightLossPlan := plan.GoalWeightKg < plan.StartWeightKg
+		weeklyChange := input.WeightTrend.WeeklyChangeKg
+
+		if isWeightLossPlan && weeklyChange > 0 {
+			// Weight loss plan but gaining weight
+			analysis.TrendDiverging = true
+			analysis.TrendDivergingMsg = formatTrendDivergingMsg(weeklyChange, plan.RequiredWeeklyChangeKg)
+		} else if !isWeightLossPlan && weeklyChange < 0 {
+			// Weight gain plan but losing weight
+			analysis.TrendDiverging = true
+			analysis.TrendDivergingMsg = formatTrendDivergingMsg(weeklyChange, plan.RequiredWeeklyChangeKg)
 		}
 	}
 
-	// Generate recalibration options if needed
-	if recalibrationNeeded {
+	// Generate recalibration options if needed or if trend is diverging
+	// (user should be able to adjust even if variance is within tolerance but trending wrong way)
+	if recalibrationNeeded || analysis.TrendDiverging {
 		analysis.Options = generateRecalibrationOptions(plan, input.ActualWeightKg, varianceKg, currentWeek)
 	}
 
@@ -460,4 +477,24 @@ func formatFloat(f float64) string {
 		decPart = 0
 	}
 	return intToString(intPart) + "." + intToString(decPart)
+}
+
+// formatTrendDivergingMsg creates a message explaining the trend divergence.
+func formatTrendDivergingMsg(actualWeeklyChange, requiredWeeklyChange float64) string {
+	actualStr := formatFloat(math.Abs(actualWeeklyChange))
+	requiredStr := formatFloat(math.Abs(requiredWeeklyChange))
+
+	var actualDir, requiredDir string
+	if actualWeeklyChange > 0 {
+		actualDir = "+"
+	} else {
+		actualDir = "-"
+	}
+	if requiredWeeklyChange > 0 {
+		requiredDir = "+"
+	} else {
+		requiredDir = "-"
+	}
+
+	return "Weight trending " + actualDir + actualStr + " kg/wk, plan requires " + requiredDir + requiredStr + " kg/wk"
 }

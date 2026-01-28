@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 
 	"victus/internal/domain"
 )
@@ -287,4 +288,182 @@ func (s *TrainingSessionStore) GetSessionsForDateRange(ctx context.Context, star
 	}
 
 	return result, nil
+}
+
+// GetByID retrieves a single training session by its ID.
+func (s *TrainingSessionStore) GetByID(ctx context.Context, id int64) (*domain.TrainingSession, error) {
+	const query = `
+		SELECT id, session_order, is_planned, is_draft, training_type,
+		       duration_min, perceived_intensity, notes, raw_echo_log, extra_metadata
+		FROM training_sessions
+		WHERE id = $1
+	`
+
+	var session domain.TrainingSession
+	var intensity sql.NullInt64
+	var notes sql.NullString
+	var isDraft sql.NullBool
+	var rawEchoLog sql.NullString
+	var extraMetadata sql.NullString
+
+	err := s.db.QueryRowContext(ctx, query, id).Scan(
+		&session.ID,
+		&session.SessionOrder,
+		&session.IsPlanned,
+		&isDraft,
+		&session.Type,
+		&session.DurationMin,
+		&intensity,
+		&notes,
+		&rawEchoLog,
+		&extraMetadata,
+	)
+	if err == sql.ErrNoRows {
+		return nil, domain.ErrSessionNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	if intensity.Valid {
+		i := int(intensity.Int64)
+		session.PerceivedIntensity = &i
+	}
+	if notes.Valid {
+		session.Notes = notes.String
+	}
+	if isDraft.Valid {
+		session.IsDraft = isDraft.Bool
+	}
+	if rawEchoLog.Valid {
+		session.RawEchoLog = &rawEchoLog.String
+	}
+	if extraMetadata.Valid {
+		var meta domain.SessionExtraMetadata
+		if err := json.Unmarshal([]byte(extraMetadata.String), &meta); err == nil {
+			session.ExtraMetadata = &meta
+		}
+	}
+
+	return &session, nil
+}
+
+// CreateDraft creates a new draft session for a daily log.
+// Draft sessions have is_draft=true and are pending echo enrichment.
+func (s *TrainingSessionStore) CreateDraft(ctx context.Context, logID int64, session domain.TrainingSession) (*domain.TrainingSession, error) {
+	const query = `
+		INSERT INTO training_sessions (
+			daily_log_id, session_order, is_planned, is_draft, training_type,
+			duration_min, perceived_intensity, notes
+		) VALUES ($1, $2, $3, true, $4, $5, $6, $7)
+		RETURNING id
+	`
+
+	var intensity interface{}
+	if session.PerceivedIntensity != nil {
+		intensity = *session.PerceivedIntensity
+	}
+
+	var notes interface{}
+	if session.Notes != "" {
+		notes = session.Notes
+	}
+
+	var id int64
+	err := s.db.QueryRowContext(ctx, query,
+		logID,
+		session.SessionOrder,
+		session.IsPlanned,
+		session.Type,
+		session.DurationMin,
+		intensity,
+		notes,
+	).Scan(&id)
+	if err != nil {
+		return nil, err
+	}
+
+	session.ID = id
+	session.IsDraft = true
+	return &session, nil
+}
+
+// FinalizeWithEcho updates a draft session with echo data and marks it as finalized.
+func (s *TrainingSessionStore) FinalizeWithEcho(ctx context.Context, id int64, rawEcho string, metadata domain.SessionExtraMetadata) (*domain.TrainingSession, error) {
+	metadataJSON, err := json.Marshal(metadata)
+	if err != nil {
+		return nil, err
+	}
+
+	const query = `
+		UPDATE training_sessions
+		SET is_draft = false, raw_echo_log = $2, extra_metadata = $3
+		WHERE id = $1 AND is_draft = true
+		RETURNING id, session_order, is_planned, is_draft, training_type,
+		          duration_min, perceived_intensity, notes, raw_echo_log, extra_metadata
+	`
+
+	var session domain.TrainingSession
+	var intensity sql.NullInt64
+	var notes sql.NullString
+	var isDraft sql.NullBool
+	var rawEchoLog sql.NullString
+	var extraMetadataStr sql.NullString
+
+	err = s.db.QueryRowContext(ctx, query, id, rawEcho, string(metadataJSON)).Scan(
+		&session.ID,
+		&session.SessionOrder,
+		&session.IsPlanned,
+		&isDraft,
+		&session.Type,
+		&session.DurationMin,
+		&intensity,
+		&notes,
+		&rawEchoLog,
+		&extraMetadataStr,
+	)
+	if err == sql.ErrNoRows {
+		return nil, domain.ErrSessionNotDraft
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	if intensity.Valid {
+		i := int(intensity.Int64)
+		session.PerceivedIntensity = &i
+	}
+	if notes.Valid {
+		session.Notes = notes.String
+	}
+	if isDraft.Valid {
+		session.IsDraft = isDraft.Bool
+	}
+	if rawEchoLog.Valid {
+		session.RawEchoLog = &rawEchoLog.String
+	}
+	session.ExtraMetadata = &metadata
+
+	return &session, nil
+}
+
+// FinalizeDraft marks a draft session as complete without echo processing.
+func (s *TrainingSessionStore) FinalizeDraft(ctx context.Context, id int64) error {
+	result, err := s.db.ExecContext(ctx,
+		"UPDATE training_sessions SET is_draft = false WHERE id = $1 AND is_draft = true",
+		id,
+	)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return domain.ErrSessionNotDraft
+	}
+
+	return nil
 }

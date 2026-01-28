@@ -446,14 +446,9 @@ func countNonRestSessions(sessions []TrainingSession) int {
 	return count
 }
 
-// CalculateDailyLoad sums load scores for all sessions.
+// CalculateDailyLoad sums RPE-weighted load scores for all sessions, rounded to 1 decimal.
 func CalculateDailyLoad(sessions []TrainingSession) float64 {
-	var total float64
-	for _, s := range sessions {
-		config := GetTrainingConfig(s.Type)
-		total += config.LoadScore * float64(s.DurationMin) / 60.0
-	}
-	return math.Round(total*10) / 10
+	return math.Round(TotalSessionLoad(sessions)*10) / 10
 }
 
 // calculateAverageRPE returns the average RPE across sessions, or 0 if none.

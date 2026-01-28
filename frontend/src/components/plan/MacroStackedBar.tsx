@@ -94,7 +94,7 @@ export function MacroStackedBar({
       </div>
 
       {/* Legend below */}
-      <div className="flex gap-3 mt-2 text-[10px]">
+      <div className="flex flex-wrap gap-3 mt-2 text-[10px]">
         <div className="flex items-center gap-1">
           <div className="w-2 h-2 rounded-full bg-blue-500" />
           <span className="text-gray-400">Protein</span>

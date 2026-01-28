@@ -1,5 +1,6 @@
 import type { DebriefDay } from '../../api/types';
 import { Modal } from '../common/Modal';
+import { formatSleepHours } from '../../utils/format';
 
 interface DayDetailModalProps {
   isOpen: boolean;
@@ -68,7 +69,7 @@ export function DayDetailModal({ isOpen, onClose, day }: DayDetailModalProps) {
             />
             <StatCard
               label="Sleep Duration"
-              value={day.sleepHours ? `${day.sleepHours.toFixed(1)} hrs` : '—'}
+              value={formatSleepHours(day.sleepHours)}
             />
             <StatCard
               label="HRV"

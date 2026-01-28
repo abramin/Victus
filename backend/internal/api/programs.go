@@ -89,6 +89,8 @@ func (s *Server) createProgram(w http.ResponseWriter, r *http.Request) {
 }
 
 // deleteProgram handles DELETE /api/training-programs/{id}
+// Query params:
+//   - force=true: Delete even if program has an active installation
 func (s *Server) deleteProgram(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
@@ -97,9 +99,15 @@ func (s *Server) deleteProgram(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.programService.Delete(r.Context(), id); err != nil {
+	force := r.URL.Query().Get("force") == "true"
+
+	if err := s.programService.DeleteWithCascade(r.Context(), id, force); err != nil {
 		if errors.Is(err, store.ErrProgramNotFound) {
 			writeError(w, http.StatusNotFound, "not_found", "Training program not found")
+			return
+		}
+		if errors.Is(err, store.ErrActiveInstallationExists) {
+			writeError(w, http.StatusConflict, "active_installation_exists", "Program has an active installation. Use force=true to delete anyway.")
 			return
 		}
 		writeError(w, http.StatusInternalServerError, "internal_error", "")

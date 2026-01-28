@@ -145,8 +145,8 @@ export function PlanProvider({ children }: { children: ReactNode }) {
   const recalibrate = useCallback(async (optionType: RecalibrationOptionType): Promise<boolean> => {
     if (!plan) return false;
     try {
-      await recalibratePlan(plan.id, optionType);
-      await refresh();
+      const updatedPlan = await recalibratePlan(plan.id, optionType);
+      setPlan(updatedPlan);
       return true;
     } catch (err) {
       if (err instanceof ApiError) {
@@ -156,7 +156,7 @@ export function PlanProvider({ children }: { children: ReactNode }) {
       }
       return false;
     }
-  }, [plan, refresh]);
+  }, [plan]);
 
   const value = useMemo(
     () => ({

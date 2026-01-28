@@ -69,6 +69,35 @@ func (s *TrainingProgramService) Delete(ctx context.Context, id int64) error {
 	return s.programStore.Delete(ctx, id)
 }
 
+// DeleteWithCascade removes a program and handles active installations.
+// If force is false and an active installation exists, returns store.ErrActiveInstallationExists.
+// If force is true, abandons active installation before deletion.
+func (s *TrainingProgramService) DeleteWithCascade(ctx context.Context, id int64, force bool) error {
+	// Check for active installation for this program
+	installation, err := s.programStore.GetActiveInstallationForProgram(ctx, id)
+	if err != nil && err != store.ErrInstallationNotFound {
+		return err
+	}
+
+	if installation != nil {
+		if !force {
+			return store.ErrActiveInstallationExists
+		}
+		// Abandon the active installation
+		if err := s.AbandonInstallation(ctx, installation.ID); err != nil {
+			return err
+		}
+	}
+
+	// Delete all installations for this program (historical)
+	if err := s.programStore.DeleteInstallationsForProgram(ctx, id); err != nil {
+		return err
+	}
+
+	// Delete the program itself
+	return s.programStore.Delete(ctx, id)
+}
+
 // GetWaveformData retrieves the waveform chart data for a program.
 func (s *TrainingProgramService) GetWaveformData(ctx context.Context, id int64) ([]domain.WaveformPoint, error) {
 	program, err := s.programStore.GetByID(ctx, id)

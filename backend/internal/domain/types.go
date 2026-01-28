@@ -305,13 +305,25 @@ type SupplementConfig struct {
 // TrainingSession represents a single training session within a day.
 // A day can have multiple sessions (e.g., morning Qigong + afternoon strength).
 type TrainingSession struct {
-	ID                 int64        // Database ID (0 for new sessions)
-	SessionOrder       int          // 1-based order within the day
-	IsPlanned          bool         // true for planned, false for actual
-	Type               TrainingType // Type of training activity
-	DurationMin        int          // Duration in minutes
-	PerceivedIntensity *int         // Optional RPE 1-10
-	Notes              string       // Optional notes
+	ID                 int64                 // Database ID (0 for new sessions)
+	SessionOrder       int                   // 1-based order within the day
+	IsPlanned          bool                  // true for planned, false for actual
+	IsDraft            bool                  // true for quick-submitted sessions pending echo enrichment
+	Type               TrainingType          // Type of training activity
+	DurationMin        int                   // Duration in minutes
+	PerceivedIntensity *int                  // Optional RPE 1-10
+	Notes              string                // Optional notes
+	RawEchoLog         *string               // Raw natural language echo text from user
+	ExtraMetadata      *SessionExtraMetadata // Parsed echo metadata (achievements, RPE offset, etc.)
+}
+
+// SessionExtraMetadata holds parsed data from an echo log.
+// Stored as JSONB in the database.
+type SessionExtraMetadata struct {
+	Achievements  []string `json:"achievements,omitempty"`  // Specific PRs or accomplishments
+	RPEOffset     int      `json:"rpe_offset,omitempty"`    // Adjustment to initial RPE (-3 to +3)
+	EchoProcessed bool     `json:"echo_processed"`          // Whether echo was successfully parsed
+	EchoModel     string   `json:"echo_model,omitempty"`    // LLM model used for parsing
 }
 
 // TrainingTypeConfig represents the database-stored configuration for a training type.
@@ -374,6 +386,63 @@ type PlannedDayType struct {
 	DayType DayType // performance, fatburner, or metabolize
 }
 
+// ScheduledSession represents a training session scheduled via the Workout Planner.
+// Unlike TrainingSession which is tied to a DailyLog, ScheduledSession exists
+// independently and is used to pre-populate training when the day arrives.
+// This is part of the WorkoutSchedule aggregate (keyed by date).
+type ScheduledSession struct {
+	ID           int64
+	Date         string       // YYYY-MM-DD format
+	SessionOrder int          // 1-based order within the day
+	TrainingType TrainingType // Type of training activity
+	DurationMin  int          // Duration in minutes
+	LoadScore    float64      // Planned load score (1-5)
+	RPE          *int         // Optional planned RPE 1-10
+	Notes        string       // Optional notes
+}
+
+// ScheduledSessionInput contains the fields to create a scheduled session.
+type ScheduledSessionInput struct {
+	TrainingType string  `json:"trainingType"`
+	DurationMin  int     `json:"durationMin"`
+	LoadScore    float64 `json:"loadScore"`
+	RPE          *int    `json:"rpe,omitempty"`
+	Notes        string  `json:"notes,omitempty"`
+}
+
+// NewScheduledSession creates a ScheduledSession from input with validation.
+func NewScheduledSession(date string, order int, input ScheduledSessionInput) (*ScheduledSession, error) {
+	trainingType, err := ParseTrainingType(input.TrainingType)
+	if err != nil {
+		return nil, err
+	}
+
+	if input.DurationMin < 0 || input.DurationMin > 480 {
+		return nil, ErrInvalidTrainingDuration
+	}
+
+	if input.LoadScore == 0 {
+		input.LoadScore = 3.0
+	}
+	if input.LoadScore < 1 || input.LoadScore > 5 {
+		return nil, ErrInvalidProgramDayLoadScore
+	}
+
+	if input.RPE != nil && (*input.RPE < 1 || *input.RPE > 10) {
+		return nil, ErrInvalidPerceivedIntensity
+	}
+
+	return &ScheduledSession{
+		Date:         date,
+		SessionOrder: order,
+		TrainingType: trainingType,
+		DurationMin:  input.DurationMin,
+		LoadScore:    input.LoadScore,
+		RPE:          input.RPE,
+		Notes:        input.Notes,
+	}, nil
+}
+
 // FoodCategory represents the primary macro category of a food.
 type FoodCategory string
 
@@ -381,6 +450,8 @@ const (
 	FoodCategoryHighCarb    FoodCategory = "high_carb"
 	FoodCategoryHighProtein FoodCategory = "high_protein"
 	FoodCategoryHighFat     FoodCategory = "high_fat"
+	FoodCategoryVeg         FoodCategory = "veg"
+	FoodCategoryFruit       FoodCategory = "fruit"
 )
 
 // ValidFoodCategories contains all valid food category values.
@@ -388,6 +459,8 @@ var ValidFoodCategories = map[FoodCategory]bool{
 	FoodCategoryHighCarb:    true,
 	FoodCategoryHighProtein: true,
 	FoodCategoryHighFat:     true,
+	FoodCategoryVeg:         true,
+	FoodCategoryFruit:       true,
 }
 
 // FoodReference represents a food item in the reference table.

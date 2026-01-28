@@ -8,10 +8,13 @@ import type {
   NutritionPlan,
   TrainingSession,
   SolverSolution,
+  ScheduledSession,
+  SessionExercise,
 } from '../../api/types';
-import { addConsumedMacros } from '../../api/client';
+import { addConsumedMacros, getPlannedSessions, getTrainingProgram } from '../../api/client';
 import { useCheckinState } from '../../hooks/useCheckinState';
 import { useFluxNotification } from '../../hooks/useFluxNotification';
+import { useActiveInstallation } from '../../contexts/ActiveInstallationContext';
 import { MorningCheckinModal, type CheckinData } from './MorningCheckinModal';
 import { StatusZone } from './StatusZone';
 import { MissionZone } from './MissionZone';
@@ -109,13 +112,107 @@ export function CommandCenter({
     }
   }, [fluxNotification, dismissFluxNotification]);
 
-  // Default planned sessions (TODO: integrate with workout planner schedule)
-  const [plannedSessions] = useState<TrainingSession[]>([
-    { type: 'rest', durationMin: 0 },
-  ]);
+  // Get sessions from active program installation
+  const { installation: activeInstallation, sessionsByDate } = useActiveInstallation();
 
-  // Use log's planned sessions if available, otherwise use fetched
-  const effectivePlannedSessions = log?.plannedTrainingSessions ?? plannedSessions;
+  // Fetch planned sessions from workout planner (always, not just when no log)
+  const [workoutPlannerSessions, setWorkoutPlannerSessions] = useState<TrainingSession[]>([]);
+
+  useEffect(() => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const controller = new AbortController();
+
+    getPlannedSessions(todayStr, controller.signal)
+      .then((sessions) => {
+        setWorkoutPlannerSessions(sessions.map(s => ({
+          type: s.trainingType,
+          durationMin: s.durationMin,
+        })));
+      })
+      .catch((err) => {
+        if (err.name !== 'AbortError') {
+          console.warn('Failed to fetch planned sessions:', err);
+        }
+      });
+
+    return () => controller.abort();
+  }, []);
+
+  // Get today's program sessions and convert to TrainingSession format
+  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const programSessions = useMemo((): TrainingSession[] => {
+    const todaySessions = sessionsByDate.get(todayStr);
+    if (!todaySessions || todaySessions.length === 0) return [];
+    return todaySessions.map(s => ({
+      type: s.trainingType,
+      durationMin: s.durationMin,
+    }));
+  }, [sessionsByDate, todayStr]);
+
+  // Combine all session sources: (program + workout planner) > log > default rest
+  // Priority: planner/program sessions are the "source of truth" for what's planned
+  const effectivePlannedSessions = useMemo((): TrainingSession[] => {
+    // Combine program sessions + workout planner sessions (avoiding duplicates)
+    const combined: TrainingSession[] = [...programSessions];
+    for (const wpSession of workoutPlannerSessions) {
+      if (!combined.some(s => s.type === wpSession.type && s.durationMin === wpSession.durationMin)) {
+        combined.push(wpSession);
+      }
+    }
+    // If we have sessions from planner/program, use them
+    if (combined.length > 0) {
+      return combined;
+    }
+    // Fall back to log's sessions if no planner/program sessions
+    if (log?.plannedTrainingSessions && log.plannedTrainingSessions.length > 0) {
+      return log.plannedTrainingSessions;
+    }
+    // Default to rest
+    return [{ type: 'rest', durationMin: 0 }];
+  }, [log, programSessions, workoutPlannerSessions]);
+
+  // Resolve today's scheduled program session (with exercises) from active installation
+  const [todaysProgramSession, setTodaysProgramSession] = useState<{
+    scheduledSession: ScheduledSession;
+    exercises: SessionExercise[];
+  } | null>(null);
+
+  useEffect(() => {
+    if (!activeInstallation || !log) {
+      setTodaysProgramSession(null);
+      return;
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+    const todaySessions = sessionsByDate.get(today);
+    if (!todaySessions || todaySessions.length === 0) {
+      setTodaysProgramSession(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    const scheduledSession = todaySessions[0];
+
+    getTrainingProgram(activeInstallation.programId, controller.signal)
+      .then((program) => {
+        if (controller.signal.aborted) return;
+        // Find the matching day by weekNumber and dayNumber
+        const week = program.weeks?.find((w) => w.weekNumber === scheduledSession.weekNumber);
+        const day = week?.days.find((d) => d.dayNumber === scheduledSession.dayNumber);
+        if (day?.sessionExercises && day.sessionExercises.length > 0) {
+          setTodaysProgramSession({ scheduledSession, exercises: day.sessionExercises });
+        } else {
+          setTodaysProgramSession(null);
+        }
+      })
+      .catch((err) => {
+        if (err.name !== 'AbortError') {
+          console.warn('Failed to resolve program session exercises:', err);
+        }
+      });
+
+    return () => controller.abort();
+  }, [activeInstallation, sessionsByDate, log]);
 
   const handleCheckinComplete = useCallback(
     async (data: CheckinData) => {
@@ -297,11 +394,13 @@ export function CommandCenter({
 
             {/* Zone B: Mission */}
             <MissionZone
-              plannedSessions={log.plannedTrainingSessions}
+              plannedSessions={effectivePlannedSessions}
               actualSessions={log.actualTrainingSessions}
               trainingSummary={log.trainingSummary}
               onToggleSession={handleToggleSession}
               saving={saving}
+              programSession={todaysProgramSession}
+              logDate={log.date}
             />
           </motion.div>
 

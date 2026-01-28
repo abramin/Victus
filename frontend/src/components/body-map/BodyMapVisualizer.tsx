@@ -10,12 +10,13 @@ import {
 
 interface BodyMapVisualizerProps {
   muscles: MuscleFatigue[];
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'xs' | 'sm' | 'md' | 'lg';
   onMuscleClick?: (muscle: MuscleGroup) => void;
   highlightMuscles?: MuscleGroup[];
 }
 
 const SIZE_CONFIG = {
+  xs: { width: 140, height: 280 },
   sm: { width: 200, height: 400 },
   md: { width: 280, height: 560 },
   lg: { width: 360, height: 720 },

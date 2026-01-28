@@ -32,3 +32,14 @@ export const formatNumber = (value: number, decimals: number): string =>
  */
 export const formatPercent = (value: number, decimals = PERCENT_DECIMALS): string =>
   value.toFixed(decimals);
+
+/**
+ * Formats decimal sleep hours into a human-readable "Xh Ym" string.
+ * @param hours - Sleep duration in decimal hours (e.g., 7.5 → "7h 30m")
+ */
+export function formatSleepHours(hours: number | undefined | null): string {
+  if (hours == null) return '—';
+  const h = Math.floor(hours);
+  const m = Math.round((hours - h) * 60);
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}

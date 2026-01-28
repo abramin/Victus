@@ -1,4 +1,5 @@
-import type { DayType, TrainingSession, ActualTrainingSession, TrainingType } from '../../api/types';
+import { useMemo } from 'react';
+import type { DayType, TrainingSession, ActualTrainingSession, TrainingType, ScheduledSession } from '../../api/types';
 import { MacroDonutChart } from '../charts';
 import { TrainingBadge } from './TrainingBadge';
 import { DayTypeQuickSelector } from './DayTypeQuickSelector';
@@ -68,6 +69,9 @@ interface CalendarDayCellProps {
   // Energy Stack props
   caloriesNormalized?: number;
   loadNormalized?: number;
+  // Program indicator
+  isProgramDay?: boolean;
+  programSessions?: ScheduledSession[];
 }
 
 /**
@@ -109,11 +113,31 @@ export function CalendarDayCell({
   // Energy Stack props
   caloriesNormalized = 0,
   loadNormalized = 0,
+  // Program indicator
+  isProgramDay = false,
+  programSessions,
 }: CalendarDayCellProps) {
   const isDisabled = !dayData.hasData;
-  const sessions = (dayData.actualSessions?.length ?? 0) > 0
-    ? dayData.actualSessions
-    : dayData.plannedSessions;
+
+  // Session resolution: past dates use logged data, future dates use program sessions if available
+  const sessions = useMemo(() => {
+    // Past dates: prefer actual over planned (existing behavior)
+    if (isPast) {
+      return (dayData.actualSessions?.length ?? 0) > 0
+        ? dayData.actualSessions
+        : dayData.plannedSessions;
+    }
+    // Future dates: use program sessions if available
+    if (programSessions?.length) {
+      return programSessions.map(ps => ({
+        type: ps.trainingType,
+        durationMin: ps.durationMin,
+        notes: ps.label,
+      })) as TrainingSession[];
+    }
+    return dayData.plannedSessions;
+  }, [isPast, dayData.actualSessions, dayData.plannedSessions, programSessions]);
+
   const hasTraining = (sessions?.length ?? 0) > 0 && sessions!.some(s => s.type !== 'rest');
   const dateKey = toDateKey(dayData.date);
 
@@ -201,6 +225,16 @@ export function CalendarDayCell({
         }
       }}
     >
+      {/* Program day indicator - shown in all zoom modes */}
+      {programSessions?.length && !isPast && (
+        <div className="absolute top-1 right-1 z-10 flex items-center gap-1 bg-blue-500/20 rounded px-1">
+          <div className="w-2 h-2 rounded-full bg-blue-500" title="Program session" />
+          <span className="text-[8px] text-blue-400 truncate max-w-[50px]">
+            {programSessions[0].label}
+          </span>
+        </div>
+      )}
+
       {/* Conditional rendering based on zoom mode */}
       {zoomMode === 'macro' && (
         <MacroCell
@@ -235,6 +269,20 @@ export function CalendarDayCell({
           </span>
           {isToday && (
             <span className="text-[10px] text-blue-400 font-medium">TODAY</span>
+          )}
+          {/* Program day indicator with label */}
+          {programSessions?.length && !isPast ? (
+            <div className="flex items-center gap-1">
+              <div className="w-2 h-2 rounded-full bg-blue-500" title="Program session" />
+              <span className="text-[9px] text-blue-400 truncate max-w-[60px]">
+                {programSessions[0].label}
+              </span>
+            </div>
+          ) : isProgramDay && (
+            <div
+              className="w-2 h-2 rounded-full bg-blue-500"
+              title="Part of active program"
+            />
           )}
           {/* Adherence glowing dot for past days - only when showStats is enabled */}
           {showStats && isPast && dayData.hasData && adherenceStatus !== 'future' && adherenceStatus !== 'rest' && (

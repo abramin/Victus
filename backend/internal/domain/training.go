@@ -51,18 +51,6 @@ func TotalDurationMin(sessions []TrainingSession) int {
 	return total
 }
 
-// TotalLoadScore returns the sum of load scores across all sessions.
-// Load is weighted by duration (normalized to 60 min).
-func TotalLoadScore(sessions []TrainingSession) float64 {
-	var total float64
-	for _, s := range sessions {
-		config := GetTrainingConfig(s.Type)
-		// Weight load by duration (normalized to 60 min)
-		durationFactor := float64(s.DurationMin) / 60.0
-		total += config.LoadScore * durationFactor
-	}
-	return total
-}
 
 // SessionLoad calculates load for a single training session.
 // Formula: loadScore × (durationMin/60) × (RPE/3)
@@ -80,6 +68,16 @@ func SessionLoad(trainingType TrainingType, durationMin int, rpe *int) float64 {
 	return config.LoadScore * durationFactor * rpeFactor
 }
 
+// TotalSessionLoad sums RPE-weighted load scores across all sessions.
+// This is the single source of truth for "load of a session slice".
+func TotalSessionLoad(sessions []TrainingSession) float64 {
+	var total float64
+	for _, s := range sessions {
+		total += SessionLoad(s.Type, s.DurationMin, s.PerceivedIntensity)
+	}
+	return total
+}
+
 // DailyLoad calculates total load for a day from sessions.
 // Uses actual sessions if present, otherwise planned sessions.
 func DailyLoad(actualSessions, plannedSessions []TrainingSession) float64 {
@@ -87,12 +85,7 @@ func DailyLoad(actualSessions, plannedSessions []TrainingSession) float64 {
 	if len(sessions) == 0 {
 		sessions = plannedSessions
 	}
-
-	var total float64
-	for _, s := range sessions {
-		total += SessionLoad(s.Type, s.DurationMin, s.PerceivedIntensity)
-	}
-	return total
+	return TotalSessionLoad(sessions)
 }
 
 // CalculateAcuteLoad computes 7-day rolling average load.

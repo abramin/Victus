@@ -105,6 +105,7 @@ func (pc *PostgresContainer) ClearTables(ctx context.Context) error {
 		"monthly_summaries",
 		"weekly_targets",
 		"nutrition_plans",
+		"planned_sessions",
 		"planned_day_types",
 		"daily_logs",
 		"user_profile",

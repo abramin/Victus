@@ -1,13 +1,13 @@
 import { useState, useMemo } from 'react';
-import type { TrainingProgram, ProgramDay } from '../../api/types';
-import { installProgram } from '../../api/client';
+import type { TrainingProgram, ProgramDay, ProgramInstallation } from '../../api/types';
+import { installProgram, getActiveInstallation, abandonInstallation, ApiError } from '../../api/client';
 import { DayChip } from './DayChip';
 import { WeekdaySlot } from './WeekdaySlot';
 
 interface ProgramInstallerProps {
   program: TrainingProgram;
   onClose: () => void;
-  onInstalled: () => void;
+  onInstalled: () => void | Promise<void>;
 }
 
 /**
@@ -39,6 +39,7 @@ export function ProgramInstaller({ program, onClose, onInstalled }: ProgramInsta
 
   const [installing, setInstalling] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [conflictInstallation, setConflictInstallation] = useState<ProgramInstallation | null>(null);
 
   // Get program day by day number
   const getDayByNumber = (dayNumber: number): ProgramDay | null => {
@@ -85,16 +86,59 @@ export function ProgramInstaller({ program, onClose, onInstalled }: ProgramInsta
   const requiredDays = program.trainingDaysPerWeek;
   const isReady = assignedCount >= requiredDays;
 
+  // Convert frontend mapping to backend format
+  // Frontend: weekDayMapping[weekdayIndex] = programDayNumber (index is weekday 0-6)
+  // Backend:  weekDayMapping[programDayIndex] = weekday (index is program day, value is weekday 1-7)
+  const convertMappingForBackend = (frontendMapping: number[]): number[] => {
+    const maxDayNumber = Math.max(...frontendMapping);
+    if (maxDayNumber <= 0) return [];
+
+    const backendMapping: number[] = [];
+    for (let dayNum = 1; dayNum <= maxDayNumber; dayNum++) {
+      const weekdayIndex = frontendMapping.findIndex((d) => d === dayNum);
+      // weekdayIndex is 0-6 (Mon-Sun), backend wants 1-7, or 0 if not found
+      backendMapping.push(weekdayIndex === -1 ? 0 : weekdayIndex + 1);
+    }
+    return backendMapping;
+  };
+
   // Handle install
   const handleInstall = async () => {
     if (!isReady) return;
 
     setInstalling(true);
     setError(null);
+    setConflictInstallation(null);
 
     try {
-      await installProgram(program.id, { startDate, weekDayMapping });
-      onInstalled();
+      const backendMapping = convertMappingForBackend(weekDayMapping);
+      await installProgram(program.id, { startDate, weekDayMapping: backendMapping });
+      await onInstalled();
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        // Fetch active installation details for the conflict banner
+        const active = await getActiveInstallation().catch(() => null);
+        setConflictInstallation(active);
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to install program');
+      }
+    } finally {
+      setInstalling(false);
+    }
+  };
+
+  // Abandon the conflicting installation then retry
+  const handleAbandonAndInstall = async () => {
+    if (!conflictInstallation) return;
+    setInstalling(true);
+    setError(null);
+
+    try {
+      await abandonInstallation(conflictInstallation.id);
+      setConflictInstallation(null);
+      const backendMapping = convertMappingForBackend(weekDayMapping);
+      await installProgram(program.id, { startDate, weekDayMapping: backendMapping });
+      await onInstalled();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to install program');
     } finally {
@@ -210,7 +254,28 @@ export function ProgramInstaller({ program, onClose, onInstalled }: ProgramInsta
             </p>
           </div>
 
-          {/* Error message */}
+          {/* Conflict banner: active installation exists */}
+          {conflictInstallation && (
+            <div className="mt-4 p-4 bg-amber-900/20 border border-amber-800/30 rounded-lg">
+              <p className="text-sm text-amber-300 font-medium mb-1">
+                {conflictInstallation.program?.name || 'Another program'} is currently installed
+              </p>
+              <p className="text-xs text-amber-600 mb-3">
+                Only one program can be active at a time. Abandoning will end the current installation.
+              </p>
+              <button
+                type="button"
+                onClick={handleAbandonAndInstall}
+                disabled={installing}
+                className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-sm rounded
+                           transition-colors disabled:opacity-50 disabled:cursor-wait"
+              >
+                {installing ? 'Working…' : 'Abandon & Install'}
+              </button>
+            </div>
+          )}
+
+          {/* Generic error message */}
           {error && (
             <div className="mt-4 p-3 bg-red-900/20 border border-red-800/30 rounded-lg">
               <p className="text-sm text-red-400">{error}</p>

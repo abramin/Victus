@@ -12,6 +12,7 @@ import {
   FAT_KCAL_PER_G,
 } from '../../constants';
 import { toDateKey } from '../../utils';
+import { useActiveInstallation } from '../../contexts/ActiveInstallationContext';
 
 interface PlanCalendarProps {
   profile: UserProfile;
@@ -58,6 +59,9 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
   const [rangeData, setRangeData] = useState<DailyTargetsRangePoint[]>([]);
   const [rangeLoading, setRangeLoading] = useState(false);
   const [rangeError, setRangeError] = useState<string | null>(null);
+
+  // Active program installation context
+  const { sessionsByDate: programSessionsByDate } = useActiveInstallation();
 
   // Drag-and-drop state
   const [dropTarget, setDropTarget] = useState<string | null>(null);
@@ -507,6 +511,7 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
             }
 
             const cellDateKey = toDateKey(dayData.date);
+            const hasProgramSession = programSessionsByDate.has(cellDateKey);
             const isSelected = selectedDate === cellDateKey;
             const isFiltered = !matchesViewFilter(dayData);
 
@@ -561,6 +566,9 @@ export function PlanCalendar({ profile }: PlanCalendarProps) {
                 // Energy Stack props
                 caloriesNormalized={summaryData?.caloriesNormalized ?? 0}
                 loadNormalized={summaryData?.loadNormalized ?? 0}
+                // Program indicator
+                isProgramDay={programSessionsByDate.has(cellDateKey)}
+                programSessions={programSessionsByDate.get(cellDateKey)}
               />
             );
           })}

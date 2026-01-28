@@ -1060,6 +1060,269 @@ func (s *FoodReferenceStoreSuite) TestUpdatePlateMultiplier() {
 	})
 }
 
+// --- Metabolic Store Suite ---
+// Justification: MetabolicStore maps 13 columns with several NULLable fields and
+// notification-pending filtering. Column-mapping bugs are invisible above the store boundary.
+
+type MetabolicStoreSuite struct {
+	suite.Suite
+	pg       *testutil.PostgresContainer
+	db       *sql.DB
+	logStore *DailyLogStore
+	store    *MetabolicStore
+	ctx      context.Context
+}
+
+func TestMetabolicStoreSuite(t *testing.T) {
+	suite.Run(t, new(MetabolicStoreSuite))
+}
+
+func (s *MetabolicStoreSuite) SetupSuite() {
+	s.pg = testutil.SetupPostgres(s.T())
+	s.db = s.pg.DB
+}
+
+func (s *MetabolicStoreSuite) SetupTest() {
+	s.ctx = context.Background()
+	s.Require().NoError(s.pg.ClearTables(s.ctx))
+	s.logStore = NewDailyLogStore(s.db)
+	s.store = NewMetabolicStore(s.db)
+}
+
+func (s *MetabolicStoreSuite) createDailyLog(date string) int64 {
+	log := &domain.DailyLog{
+		Date:              date,
+		WeightKg:          85,
+		SleepQuality:      80,
+		DayType:           domain.DayTypeFatburner,
+		CalculatedTargets: domain.DailyTargets{DayType: domain.DayTypeFatburner},
+	}
+	logID, err := s.logStore.Create(s.ctx, log)
+	s.Require().NoError(err)
+	return logID
+}
+
+func (s *MetabolicStoreSuite) TestFieldRoundTrip() {
+	s.Run("all fields survive Create then GetLatest", func() {
+		logID := s.createDailyLog("2026-01-10")
+
+		record := &domain.MetabolicHistoryRecord{
+			DailyLogID:          logID,
+			CalculatedTDEE:      2400,
+			PreviousTDEE:        2350,
+			DeltaKcal:           50,
+			TDEESource:          "flux",
+			WasSwingConstrained: true,
+			BMRFloorApplied:     false,
+			AdherenceGatePassed: true,
+			Confidence:          0.85,
+			DataPointsUsed:      22,
+			EMAWeightKg:         84.7,
+			BMRValue:            1850.0,
+			NotificationPending: true,
+		}
+
+		id, err := s.store.Create(s.ctx, record)
+		s.Require().NoError(err)
+		s.Greater(id, int64(0))
+
+		loaded, err := s.store.GetLatest(s.ctx)
+		s.Require().NoError(err)
+
+		s.Equal(logID, loaded.DailyLogID)
+		s.Equal(2400, loaded.CalculatedTDEE)
+		s.Equal(2350, loaded.PreviousTDEE)
+		s.Equal(50, loaded.DeltaKcal)
+		s.Equal("flux", loaded.TDEESource)
+		s.True(loaded.WasSwingConstrained)
+		s.False(loaded.BMRFloorApplied)
+		s.True(loaded.AdherenceGatePassed)
+		s.InDelta(0.85, loaded.Confidence, 0.001)
+		s.Equal(22, loaded.DataPointsUsed)
+		s.InDelta(84.7, loaded.EMAWeightKg, 0.01)
+		s.InDelta(1850.0, loaded.BMRValue, 0.01)
+		s.True(loaded.NotificationPending)
+	})
+
+	s.Run("zero-value optional fields survive round-trip", func() {
+		logID := s.createDailyLog("2026-01-11")
+
+		record := &domain.MetabolicHistoryRecord{
+			DailyLogID:          logID,
+			CalculatedTDEE:      2200,
+			PreviousTDEE:        0,
+			DeltaKcal:           0,
+			TDEESource:          "formula",
+			WasSwingConstrained: false,
+			BMRFloorApplied:     true,
+			AdherenceGatePassed: false,
+			Confidence:          0.0,
+			DataPointsUsed:      0,
+			EMAWeightKg:         0.0,
+			BMRValue:            1800.0,
+			NotificationPending: false,
+		}
+
+		_, err := s.store.Create(s.ctx, record)
+		s.Require().NoError(err)
+
+		loaded, err := s.store.GetLatest(s.ctx)
+		s.Require().NoError(err)
+
+		s.Equal(2200, loaded.CalculatedTDEE)
+		s.False(loaded.WasSwingConstrained)
+		s.True(loaded.BMRFloorApplied)
+		s.False(loaded.NotificationPending)
+	})
+}
+
+func (s *MetabolicStoreSuite) TestGetLatestReturnsNotFoundWhenEmpty() {
+	s.Run("returns error when no records exist", func() {
+		_, err := s.store.GetLatest(s.ctx)
+		s.Require().ErrorIs(err, ErrMetabolicHistoryNotFound)
+	})
+}
+
+func (s *MetabolicStoreSuite) TestGetByDailyLogID() {
+	s.Run("retrieves record by associated log ID", func() {
+		logID := s.createDailyLog("2026-01-12")
+
+		record := &domain.MetabolicHistoryRecord{
+			DailyLogID:     logID,
+			CalculatedTDEE: 2300,
+			TDEESource:     "flux",
+			BMRValue:       1900.0,
+		}
+		_, err := s.store.Create(s.ctx, record)
+		s.Require().NoError(err)
+
+		loaded, err := s.store.GetByDailyLogID(s.ctx, logID)
+		s.Require().NoError(err)
+		s.Equal(2300, loaded.CalculatedTDEE)
+		s.Equal(logID, loaded.DailyLogID)
+	})
+
+	s.Run("returns not found for unrecognized log ID", func() {
+		_, err := s.store.GetByDailyLogID(s.ctx, 99999)
+		s.Require().ErrorIs(err, ErrMetabolicHistoryNotFound)
+	})
+}
+
+func (s *MetabolicStoreSuite) TestGetPendingNotificationNilWhenNonePending() {
+	s.Run("returns nil when only dismissed records exist", func() {
+		logID := s.createDailyLog("2026-01-13")
+		record := &domain.MetabolicHistoryRecord{
+			DailyLogID:          logID,
+			CalculatedTDEE:      2200,
+			TDEESource:          "flux",
+			NotificationPending: false,
+		}
+		_, err := s.store.Create(s.ctx, record)
+		s.Require().NoError(err)
+
+		notification, err := s.store.GetPendingNotification(s.ctx)
+		s.Require().NoError(err)
+		s.Nil(notification)
+	})
+}
+
+func (s *MetabolicStoreSuite) TestNotificationFiltering() {
+	s.Run("returns only the pending record when dismissed records also exist", func() {
+		// Create dismissed record
+		logID1 := s.createDailyLog("2026-01-14")
+		dismissed := &domain.MetabolicHistoryRecord{
+			DailyLogID:          logID1,
+			CalculatedTDEE:      2100,
+			PreviousTDEE:        2050,
+			DeltaKcal:           50,
+			TDEESource:          "flux",
+			NotificationPending: false,
+		}
+		_, err := s.store.Create(s.ctx, dismissed)
+		s.Require().NoError(err)
+
+		// Create pending record
+		logID2 := s.createDailyLog("2026-01-15")
+		pending := &domain.MetabolicHistoryRecord{
+			DailyLogID:          logID2,
+			CalculatedTDEE:      2500,
+			PreviousTDEE:        2200,
+			DeltaKcal:           300,
+			TDEESource:          "flux",
+			NotificationPending: true,
+		}
+		_, err = s.store.Create(s.ctx, pending)
+		s.Require().NoError(err)
+
+		notification, err := s.store.GetPendingNotification(s.ctx)
+		s.Require().NoError(err)
+		s.Require().NotNil(notification)
+		s.Equal(2500, notification.NewTDEE)
+		s.Equal(300, notification.DeltaKcal)
+	})
+}
+
+func (s *MetabolicStoreSuite) TestDismissNotification() {
+	s.Run("clears pending flag on existing record", func() {
+		logID := s.createDailyLog("2026-01-16")
+		record := &domain.MetabolicHistoryRecord{
+			DailyLogID:          logID,
+			CalculatedTDEE:      2400,
+			PreviousTDEE:        2200,
+			DeltaKcal:           200,
+			TDEESource:          "flux",
+			NotificationPending: true,
+		}
+		id, err := s.store.Create(s.ctx, record)
+		s.Require().NoError(err)
+
+		err = s.store.DismissNotification(s.ctx, id)
+		s.Require().NoError(err)
+
+		// Verify no pending notification remains
+		notification, err := s.store.GetPendingNotification(s.ctx)
+		s.Require().NoError(err)
+		s.Nil(notification, "Dismissed notification should not appear as pending")
+	})
+
+	s.Run("returns error for non-existent record", func() {
+		err := s.store.DismissNotification(s.ctx, 99999)
+		s.Require().ErrorIs(err, ErrMetabolicHistoryNotFound)
+	})
+}
+
+func (s *MetabolicStoreSuite) TestGetPreviousTDEEReturnsZeroWhenEmpty() {
+	s.Run("returns zero when no history exists", func() {
+		tdee, err := s.store.GetPreviousTDEE(s.ctx)
+		s.Require().NoError(err)
+		s.Equal(0, tdee)
+	})
+}
+
+func (s *MetabolicStoreSuite) TestGetPreviousTDEE() {
+	s.Run("returns latest TDEE value", func() {
+		logID1 := s.createDailyLog("2026-01-17")
+		_, err := s.store.Create(s.ctx, &domain.MetabolicHistoryRecord{
+			DailyLogID:     logID1,
+			CalculatedTDEE: 2100,
+			TDEESource:     "formula",
+		})
+		s.Require().NoError(err)
+
+		logID2 := s.createDailyLog("2026-01-18")
+		_, err = s.store.Create(s.ctx, &domain.MetabolicHistoryRecord{
+			DailyLogID:     logID2,
+			CalculatedTDEE: 2250,
+			TDEESource:     "flux",
+		})
+		s.Require().NoError(err)
+
+		tdee, err := s.store.GetPreviousTDEE(s.ctx)
+		s.Require().NoError(err)
+		s.Equal(2250, tdee, "Should return the most recent TDEE")
+	})
+}
+
 func (s *FoodReferenceStoreSuite) TestListPantryFoods() {
 	s.Run("returns foods with nutritional data", func() {
 		// Food with nutrition data

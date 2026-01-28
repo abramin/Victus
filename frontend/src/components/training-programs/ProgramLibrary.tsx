@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { ProgramSummary, ProgramDifficulty, ProgramFocus } from '../../api/types';
-import { listTrainingPrograms } from '../../api/client';
+import { listTrainingPrograms, deleteTrainingProgram } from '../../api/client';
 import { ProgramCard } from './ProgramCard';
 import { ProgramDetailModal } from './ProgramDetailModal';
 import { ProgramBuilder } from './ProgramBuilder';
 import { DIFFICULTY_COLORS, FOCUS_COLORS } from './constants';
+import { useActiveInstallation } from '../../contexts/ActiveInstallationContext';
 
 /**
  * Main program library view with filtering and card grid.
@@ -14,6 +15,9 @@ export function ProgramLibrary() {
   const [programs, setPrograms] = useState<ProgramSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Active installation context
+  const { installation: activeInstallation, refresh: refreshInstallation } = useActiveInstallation();
 
   // Filters
   const [difficultyFilter, setDifficultyFilter] = useState<ProgramDifficulty | ''>('');
@@ -25,6 +29,10 @@ export function ProgramLibrary() {
 
   // Program builder modal
   const [showBuilder, setShowBuilder] = useState(false);
+
+  // Delete confirmation state
+  const [confirmingDelete, setConfirmingDelete] = useState<ProgramSummary | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -38,7 +46,6 @@ export function ProgramLibrary() {
           {
             difficulty: difficultyFilter || undefined,
             focus: focusFilter || undefined,
-            templatesOnly: true,
           },
           controller.signal
         );
@@ -64,7 +71,6 @@ export function ProgramLibrary() {
       const data = await listTrainingPrograms({
         difficulty: difficultyFilter || undefined,
         focus: focusFilter || undefined,
-        templatesOnly: false, // Show user's custom programs too
       });
       setPrograms(data);
     } catch (err) {
@@ -79,6 +85,28 @@ export function ProgramLibrary() {
     setShowBuilder(false);
     refreshPrograms();
     setSelectedProgramId(programId);
+  };
+
+  // Handle delete confirmation
+  const handleConfirmDelete = async () => {
+    if (!confirmingDelete) return;
+
+    const programId = confirmingDelete.id;
+    const isActiveProgram = activeInstallation?.programId === programId;
+
+    setIsDeleting(true);
+    try {
+      await deleteTrainingProgram(programId, { force: isActiveProgram });
+      setConfirmingDelete(null);
+      await refreshPrograms();
+      if (isActiveProgram) {
+        await refreshInstallation();
+      }
+    } catch (err) {
+      console.error('Failed to delete program:', err);
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   // Filter by search query (client-side)
@@ -143,7 +171,7 @@ export function ProgramLibrary() {
           ))}
         </select>
 
-        {/* Create custom button */}
+        {/* Create custom button - always visible */}
         <button
           onClick={() => setShowBuilder(true)}
           className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg
@@ -151,6 +179,22 @@ export function ProgramLibrary() {
         >
           + Create Custom
         </button>
+
+        {/* Manage active button - only when active installation exists */}
+        {activeInstallation && (
+          <button
+            onClick={() => setSelectedProgramId(activeInstallation.programId)}
+            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg
+                       transition-colors focus:outline-none focus:ring-2 focus:ring-slate-500
+                       flex items-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            Manage Active
+          </button>
+        )}
       </div>
 
       {/* Content */}
@@ -180,13 +224,56 @@ export function ProgramLibrary() {
       ) : (
         /* Program card grid */
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredPrograms.map((program) => (
-            <ProgramCard
-              key={program.id}
-              program={program}
-              onClick={() => setSelectedProgramId(program.id)}
-            />
-          ))}
+          {filteredPrograms.map((program) => {
+            const isActive = activeInstallation?.programId === program.id;
+            return (
+              <ProgramCard
+                key={program.id}
+                program={program}
+                onClick={() => setSelectedProgramId(program.id)}
+                isActive={isActive}
+                progress={isActive && activeInstallation?.program ? {
+                  currentWeek: activeInstallation.currentWeek,
+                  totalWeeks: activeInstallation.program.durationWeeks,
+                } : undefined}
+                onDelete={() => setConfirmingDelete(program)}
+              />
+            );
+          })}
+        </div>
+      )}
+
+      {/* Delete confirmation dialog */}
+      {confirmingDelete && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+          <div className="bg-slate-800 rounded-xl p-6 max-w-sm w-full text-center border border-slate-700 shadow-xl">
+            <h3 className="text-lg font-semibold text-red-400 mb-3">DECOMMISSION PROTOCOL</h3>
+            <p className="text-sm text-slate-300 mb-4">
+              {activeInstallation?.programId === confirmingDelete.id
+                ? `Deleting "${confirmingDelete.name}" will remove all future planned sessions from your calendar. This action cannot be undone.`
+                : `Delete "${confirmingDelete.name}"? This action cannot be undone.`}
+            </p>
+            <div className="flex gap-3 justify-center">
+              <button
+                onClick={() => setConfirmingDelete(null)}
+                disabled={isDeleting}
+                className="px-4 py-2 text-slate-400 hover:text-white transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                disabled={isDeleting}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors
+                           disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isDeleting && (
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white/30 border-t-white" />
+                )}
+                Confirm
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -195,6 +282,12 @@ export function ProgramLibrary() {
         <ProgramDetailModal
           programId={selectedProgramId}
           onClose={() => setSelectedProgramId(null)}
+          onInstallationChange={refreshInstallation}
+          onDeleted={() => {
+            setSelectedProgramId(null);
+            refreshPrograms();
+            refreshInstallation();
+          }}
         />
       )}
 

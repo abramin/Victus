@@ -8,27 +8,36 @@ interface PlanHealthPanelProps {
   analysis: DualTrackAnalysis | null;
 }
 
-type SignalStatus = 'on_track' | 'slight_delay' | 'off_track';
+type SignalStatus = 'on_track' | 'at_risk' | 'off_track' | 'critical_deviation';
 
 /**
- * Calculate plan health status based on projected landing weight vs goal.
+ * Calculate plan health status using Vector-First logic.
  *
- * Thresholds:
- * - ON TRACK: Projected to land within 1.0kg of goal
- * - SLIGHT DELAY: Projected to land within 3.0kg of goal
- * - OFF TRACK: Projected to land more than 3.0kg from goal
+ * Priority order (strict):
+ * 1. CRITICAL DEVIATION (Red): trendDiverging = true (trend opposes goal direction)
+ * 2. ON TRACK (Green): Projected landing variance < 1.0kg
+ * 3. AT RISK (Amber): Projected landing variance 1.0-3.0kg
+ * 4. OFF TRACK (Red): Projected landing variance > 3.0kg
  */
-function getSignalStatus(landingPoint: { varianceFromGoalKg: number } | undefined): SignalStatus {
-  if (!landingPoint) {
-    return 'on_track'; // No projection available, assume on track
+function getSignalStatus(analysis: DualTrackAnalysis): SignalStatus {
+  // Step 1: Vector Direction Check (highest priority)
+  // trendDiverging = true means trend direction opposes goal direction
+  // (e.g., gaining weight on a weight loss plan)
+  if (analysis.trendDiverging) {
+    return 'critical_deviation';
   }
 
-  const delta = Math.abs(landingPoint.varianceFromGoalKg);
-
-  if (delta <= 1.0) {
+  // Step 2 & 3: Status based on projected landing variance
+  if (!analysis.landingPoint) {
     return 'on_track';
-  } else if (delta <= 3.0) {
-    return 'slight_delay';
+  }
+
+  const projectedError = Math.abs(analysis.landingPoint.varianceFromGoalKg);
+
+  if (projectedError < 1.0) {
+    return 'on_track';
+  } else if (projectedError <= 3.0) {
+    return 'at_risk';
   } else {
     return 'off_track';
   }
@@ -42,8 +51,8 @@ const SIGNAL_CONFIG = {
     textColor: 'text-green-400',
     dotColor: 'bg-green-500',
   },
-  slight_delay: {
-    label: 'SLIGHT DELAY',
+  at_risk: {
+    label: 'AT RISK',
     bgColor: 'bg-amber-500/20',
     borderColor: 'border-amber-500/50',
     textColor: 'text-amber-400',
@@ -51,6 +60,13 @@ const SIGNAL_CONFIG = {
   },
   off_track: {
     label: 'OFF TRACK',
+    bgColor: 'bg-red-500/20',
+    borderColor: 'border-red-500/50',
+    textColor: 'text-red-400',
+    dotColor: 'bg-red-500',
+  },
+  critical_deviation: {
+    label: 'CRITICAL DEVIATION',
     bgColor: 'bg-red-500/20',
     borderColor: 'border-red-500/50',
     textColor: 'text-red-400',
@@ -69,7 +85,7 @@ export function PlanHealthPanel({ plan, analysis }: PlanHealthPanelProps) {
     );
   }
 
-  const signal = getSignalStatus(analysis.landingPoint);
+  const signal = getSignalStatus(analysis);
   const config = SIGNAL_CONFIG[signal];
 
   // Calculate current vs required pace
@@ -86,13 +102,26 @@ export function PlanHealthPanel({ plan, analysis }: PlanHealthPanelProps) {
     : null;
 
   // Landing point projection text with correction guidance
-  const landingText = analysis.landingPoint
-    ? signal === 'on_track'
-      ? `At this pace, you reach ${analysis.landingPoint.weightKg.toFixed(1)}kg (Goal: ${plan.goalWeightKg.toFixed(1)}kg)`
-      : kcalCorrection
-      ? `Current velocity puts you at ${analysis.landingPoint.weightKg.toFixed(1)}kg. ${isWeightLoss ? 'Increase' : 'Decrease'} deficit by ${kcalCorrection} kcal to correct.`
-      : `Current velocity puts you at ${analysis.landingPoint.weightKg.toFixed(1)}kg (Goal: ${plan.goalWeightKg.toFixed(1)}kg)`
-    : null;
+  const getLandingText = (): string | null => {
+    // Critical deviation - show the trend warning prominently
+    if (signal === 'critical_deviation') {
+      return analysis.trendDivergingMsg || 'Trending in opposite direction to your goal.';
+    }
+
+    if (!analysis.landingPoint) return null;
+
+    if (signal === 'on_track') {
+      return `At this pace, you reach ${analysis.landingPoint.weightKg.toFixed(1)}kg (Goal: ${plan.goalWeightKg.toFixed(1)}kg)`;
+    }
+
+    if (kcalCorrection) {
+      return `Current velocity puts you at ${analysis.landingPoint.weightKg.toFixed(1)}kg. ${isWeightLoss ? 'Increase' : 'Decrease'} deficit by ${kcalCorrection} kcal to correct.`;
+    }
+
+    return `Current velocity puts you at ${analysis.landingPoint.weightKg.toFixed(1)}kg (Goal: ${plan.goalWeightKg.toFixed(1)}kg)`;
+  };
+
+  const landingText = getLandingText();
 
   return (
     <Card title="Plan Health">
@@ -137,13 +166,29 @@ export function PlanHealthPanel({ plan, analysis }: PlanHealthPanelProps) {
             {/* Variance Display */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <div className="text-xs text-gray-500 uppercase tracking-wide">Variance</div>
-                <div className={`text-lg font-semibold ${analysis.varianceKg > 0 ? 'text-orange-400' : analysis.varianceKg < 0 ? 'text-green-400' : 'text-gray-300'}`}>
-                  {analysis.varianceKg > 0 ? '+' : ''}{analysis.varianceKg.toFixed(1)} kg
+                <div className="text-xs text-gray-500 uppercase tracking-wide">
+                  {signal === 'critical_deviation' || signal === 'off_track' ? 'Projected Variance' : 'Current Variance'}
                 </div>
-                <div className="text-xs text-gray-500">
-                  ({analysis.variancePercent > 0 ? '+' : ''}{analysis.variancePercent.toFixed(1)}%)
-                </div>
+                {/* Show projected variance for critical/off_track when it's significantly larger */}
+                {(signal === 'critical_deviation' || signal === 'off_track') && analysis.landingPoint ? (
+                  <>
+                    <div className="text-lg font-bold text-red-400">
+                      {analysis.landingPoint.varianceFromGoalKg > 0 ? '+' : ''}{analysis.landingPoint.varianceFromGoalKg.toFixed(1)} kg
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      Current: {analysis.varianceKg > 0 ? '+' : ''}{analysis.varianceKg.toFixed(1)} kg
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className={`text-lg font-semibold ${analysis.varianceKg > 0 ? 'text-orange-400' : analysis.varianceKg < 0 ? 'text-green-400' : 'text-gray-300'}`}>
+                      {analysis.varianceKg > 0 ? '+' : ''}{analysis.varianceKg.toFixed(1)} kg
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      ({analysis.variancePercent > 0 ? '+' : ''}{analysis.variancePercent.toFixed(1)}%)
+                    </div>
+                  </>
+                )}
               </div>
               <div>
                 <div className="text-xs text-gray-500 uppercase tracking-wide">Tolerance</div>

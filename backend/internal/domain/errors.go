@@ -93,6 +93,14 @@ var (
 	ErrInvalidArchetype   = newValidationError("invalid workout archetype")
 )
 
+// Progression Pattern validation errors
+var (
+	ErrInvalidProgressionType  = newValidationError("progression type must be 'strength' or 'skill'")
+	ErrInvalidStrengthConfig   = newValidationError("strength config: baseWeight > 0, incrementUnit in [0.5, 20.0], successThreshold in [0.5, 1.0], deloadFrequency in [1, 12]")
+	ErrInvalidSkillConfig      = newValidationError("skill config: minSeconds > 0, maxSeconds > minSeconds, rpeTarget in [1.0, 10.0]")
+	ErrProgressionTypeMismatch = newValidationError("progression type must match the provided config (strength or skill)")
+)
+
 // Training Program validation errors
 var (
 	ErrInvalidProgramDifficulty    = newValidationError("program difficulty must be 'beginner', 'intermediate', or 'advanced'")
@@ -116,4 +124,20 @@ var (
 	ErrProgramNotFound             = newValidationError("training program not found")
 	ErrActiveInstallationExists    = newValidationError("an active program installation already exists")
 	ErrInstallationNotFound        = newValidationError("program installation not found")
+
+	// Session exercise (Block Constructor) validation errors
+	ErrInvalidSessionPhase           = newValidationError("session phase must be 'prepare', 'practice', or 'push'")
+	ErrInvalidSessionExerciseID      = newValidationError("session exercise ID is required")
+	ErrInvalidSessionExerciseOrder   = newValidationError("session exercise order must be >= 1")
+	ErrDuplicateSessionExerciseOrder = newValidationError("duplicate exercise order within the same phase")
+	ErrTooManySessionExercises       = newValidationError("maximum 12 exercises per day session flow")
+)
+
+// Echo logging validation errors
+var (
+	ErrSessionNotDraft    = newValidationError("session is not in draft state")
+	ErrSessionNotFound    = newValidationError("training session not found")
+	ErrInvalidRPEOffset   = newValidationError("RPE offset must be between -3 and +3")
+	ErrInvalidJointDelta  = newValidationError("joint integrity delta must be between -1.0 and +1.0")
+	ErrEchoAlreadyApplied = newValidationError("echo has already been applied to this session")
 )

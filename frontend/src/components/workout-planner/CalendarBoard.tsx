@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { motion, useAnimation } from 'framer-motion';
-import type { DayType, TrainingType, TrainingConfig } from '../../api/types';
+import type { DayType, TrainingType, TrainingConfig, ScheduledSession } from '../../api/types';
 import { DayDropZone, type PlannedSessionDraft, type DayRecoveryWarning } from './DayDropZone';
 import { calculateSessionLoad } from './loadCalculations';
 import { shiverAnimation } from '../../lib/animations';
@@ -17,6 +17,7 @@ interface PlannedDayData {
 interface CalendarBoardProps {
   weekDates: string[];
   plannedDays: Map<string, PlannedDayData>;
+  programSessionsByDate?: Map<string, ScheduledSession[]>;
   isDragging: boolean;
   activeDragType: TrainingType | null;
   selectedSession?: { type: TrainingType; config: TrainingConfig } | null;
@@ -44,6 +45,7 @@ function formatLocalDate(date: Date): string {
 export function CalendarBoard({
   weekDates,
   plannedDays,
+  programSessionsByDate,
   isDragging,
   activeDragType,
   selectedSession,
@@ -120,6 +122,7 @@ export function CalendarBoard({
               dayName={DAY_NAMES[index]}
               dayNumber={dayNumber}
               sessions={sessions}
+              programSessions={programSessionsByDate?.get(date)}
               dayType={dayType}
               totalLoad={totalLoad}
               isToday={isToday}

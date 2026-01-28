@@ -6,6 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Victus is an adaptive daily nutrition planning app that calculates personalized macro targets based on biometrics, planned training, and historical data. It learns from actual weight/intake history to provide increasingly accurate TDEE recommendations.
 
+## Communication Style
+
+- Do not narrate your thinking or planning process. No "Let me look at..." or "I'll now..." preamble.
+- Do not provide a summary or recap at the end of a response. Stop after the work is done.
+- Be terse. Token efficiency matters. Only speak when there is something the user needs to know or a decision to make.
+
 ## Commands
 
 ### Backend (Go)

@@ -6,7 +6,7 @@ interface AdjustStrategyModalProps {
   isOpen: boolean;
   onClose: () => void;
   plan: NutritionPlan;
-  analysis: DualTrackAnalysis;
+  analysis: DualTrackAnalysis | null;
   onApply: (option: RecalibrationOption) => Promise<void>;
   recentlyRecalibrated?: boolean;
 }
@@ -82,6 +82,31 @@ export function AdjustStrategyModal({
 
   if (!isOpen) return null;
 
+  // Handle null analysis - show loading or unavailable state
+  if (!analysis) {
+    return (
+      <div className="fixed inset-0 z-50 overflow-y-auto">
+        <div
+          className="fixed inset-0 bg-black/50 transition-opacity z-0"
+          onClick={onClose}
+        />
+        <div className="relative flex min-h-full items-center justify-center p-4 z-10">
+          <div className="relative bg-white rounded-lg shadow-xl max-w-lg w-full p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="text-center">
+              <div className="text-gray-500 mb-4">Loading analysis data...</div>
+              <button
+                onClick={onClose}
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Suppress options if user just applied a recalibration this session
   const increaseDeficitOption = !recentlyRecalibrated ? analysis.options?.find((o) => o.type === 'increase_deficit') : undefined;
   const extendTimelineOption = !recentlyRecalibrated ? analysis.options?.find((o) => o.type === 'extend_timeline') : undefined;
@@ -90,11 +115,10 @@ export function AdjustStrategyModal({
   const weightToGoal = analysis.actualWeightKg - plan.goalWeightKg;
   const isWeightLoss = plan.goalWeightKg < plan.startWeightKg;
 
-  // Calculate if plan is off track based on landing point
-  const landingDelta = analysis.landingPoint
-    ? Math.abs(analysis.landingPoint.varianceFromGoalKg)
-    : 0;
-  const isOffTrack = landingDelta > 1.0;
+  // Use recalibrationNeeded as the single source of truth for "off track" status.
+  // This ensures the modal agrees with PlanHealthPanel. The landing point is
+  // informational only - it uses stale 30-day trend data after recalibration.
+  const isOffTrack = analysis.recalibrationNeeded;
 
   const kcalCorrection = calculateKcalCorrection(analysis.landingPoint?.varianceFromGoalKg, weeksRemaining);
 
@@ -132,6 +156,7 @@ export function AdjustStrategyModal({
           aria-modal="true"
           aria-labelledby="adjust-strategy-title"
           className="relative bg-white rounded-lg shadow-xl max-w-lg w-full"
+          onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-gray-200">
@@ -263,6 +288,20 @@ export function AdjustStrategyModal({
                       )}
                       <p className="text-xs text-gray-500 mt-4">
                         Recalibration options will be available after more data is logged.
+                      </p>
+                    </div>
+                  </div>
+                ) : analysis.trendDiverging ? (
+                  <div className="space-y-3">
+                    <div className="text-lg font-semibold text-amber-600 mb-2">
+                      Trend Warning
+                    </div>
+                    <div className="text-sm text-gray-700 space-y-2">
+                      <p>
+                        {analysis.trendDivergingMsg || 'Your weight trend is moving away from your goal.'}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-4">
+                        Consider adjusting your intake to get back on track before variance increases.
                       </p>
                     </div>
                   </div>

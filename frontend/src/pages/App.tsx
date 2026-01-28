@@ -19,6 +19,7 @@ import { ErrorBoundary } from '../components/common';
 import { WorkoutPlanner } from '../components/workout-planner';
 import { PhysiqueDashboard } from '../components/physique';
 import { ProgramLibrary } from '../components/training-programs/ProgramLibrary';
+import { TacticalKitchen } from '../components/tactical-kitchen';
 import { WeeklyDebrief } from './WeeklyDebrief';
 
 function App() {
@@ -127,8 +128,8 @@ function App() {
               />
             }
           />
-          {/* Kitchen - The Execution Hub (formerly Meal Points) */}
-          <Route path="/kitchen" element={<MealPointsDashboard log={log} profile={profile} />} />
+          {/* Kitchen - The Tactical Plate Builder */}
+          <Route path="/kitchen" element={<TacticalKitchen />} />
           {/* Strategy - The War Room (formerly Plan) */}
           <Route path="/strategy" element={
             <div className="p-6 max-w-6xl mx-auto">

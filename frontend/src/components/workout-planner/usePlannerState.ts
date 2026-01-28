@@ -1,8 +1,9 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
-import type { DayType, TrainingConfig, TrainingType } from '../../api/types';
+import type { DayType, TrainingConfig, TrainingType, ScheduledSession } from '../../api/types';
 import { upsertPlannedDay } from '../../api/client';
 import { calculateSessionLoad } from './loadCalculations';
 import type { PlannedSessionDraft } from './DayDropZone';
+import { useActiveInstallationOptional } from '../../contexts/ActiveInstallationContext';
 
 /**
  * Infer day type from training sessions.
@@ -101,6 +102,14 @@ export function usePlannerState() {
   // Save status
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Active installation context (optional - may be outside provider)
+  const installationContext = useActiveInstallationOptional();
+
+  // Program sessions grouped by date
+  const programSessionsByDate = useMemo((): Map<string, ScheduledSession[]> => {
+    return installationContext?.sessionsByDate ?? new Map();
+  }, [installationContext?.sessionsByDate]);
 
   // Week dates calculation
   const weekDates = useMemo(() => {
@@ -283,8 +292,15 @@ export function usePlannerState() {
         if (dayData.sessions.length > 0) {
           // Infer day type from sessions or use explicit day type
           const dayType = dayData.dayType || inferDayType(dayData.sessions);
+          // Convert draft sessions to API format
+          const sessions = dayData.sessions.map(s => ({
+            trainingType: s.trainingType,
+            durationMin: s.durationMin,
+            loadScore: s.loadScore,
+            rpe: s.rpe,
+          }));
           savePromises.push(
-            upsertPlannedDay(date, dayType).then(() => {})
+            upsertPlannedDay(date, dayType, sessions).then(() => {})
           );
         }
       }
@@ -318,6 +334,7 @@ export function usePlannerState() {
     // Draft state
     draftDays,
     hasUnsavedChanges,
+    programSessionsByDate,
 
     // Session management
     addSession,

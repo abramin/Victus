@@ -1,7 +1,11 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import type { TrainingSession, ActualTrainingSession, TrainingSummary } from '../../api/types';
+import type { TrainingSession, ActualTrainingSession, TrainingSummary, ScheduledSession, SessionExercise, SessionResponse } from '../../api/types';
+import { quickSubmitSession } from '../../api/client';
 import { TRAINING_LABELS, TRAINING_ICONS, TRAINING_COLORS } from '../../constants';
 import { Panel } from '../common/Panel';
+import { ActiveSessionView, type SessionResult } from '../training-programs/ActiveSessionView';
+import { DraftSessionCard } from '../training/DraftSessionCard';
 
 interface MissionZoneProps {
   plannedSessions: TrainingSession[];
@@ -9,6 +13,8 @@ interface MissionZoneProps {
   trainingSummary?: TrainingSummary;
   onToggleSession?: (session: TrainingSession, completed: boolean) => void;
   saving?: boolean;
+  programSession?: { scheduledSession: ScheduledSession; exercises: SessionExercise[] } | null;
+  logDate?: string;
 }
 
 type MissionState = 'empty' | 'planned' | 'done';
@@ -47,9 +53,55 @@ export function MissionZone({
   trainingSummary,
   onToggleSession,
   saving = false,
+  programSession,
+  logDate,
 }: MissionZoneProps) {
+  const [activeSession, setActiveSession] = useState(false);
+  const [draftSession, setDraftSession] = useState<SessionResponse | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
   const state = getMissionState(plannedSessions, actualSessions);
   const isRestDay = plannedSessions.every((s) => s.type === 'rest');
+
+  // Handle session completion: persist as draft via quickSubmitSession
+  const handleSessionComplete = async (result: SessionResult) => {
+    if (!logDate || !programSession) return;
+    setSubmitting(true);
+    setActiveSession(false);
+    try {
+      // Derive aggregate RPE from completed exercises
+      const rpes = result.exercises.map((e) => e.rpe);
+      const avgRpe = rpes.length > 0
+        ? Math.round(rpes.reduce((a, b) => a + b, 0) / rpes.length)
+        : 5;
+      const durationMin = Math.round(result.totalDurationSec / 60);
+
+      const draft = await quickSubmitSession(logDate, {
+        type: programSession.scheduledSession.trainingType,
+        durationMin,
+        perceivedIntensity: avgRpe,
+        notes: `Program session: ${programSession.scheduledSession.label}`,
+      });
+      setDraftSession(draft);
+    } catch (err) {
+      console.error('Failed to submit session as draft:', err);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // If actively running a program session, render ActiveSessionView inline
+  if (activeSession && programSession) {
+    return (
+      <Panel>
+        <ActiveSessionView
+          exercises={programSession.exercises}
+          onComplete={handleSessionComplete}
+          onAbort={() => setActiveSession(false)}
+        />
+      </Panel>
+    );
+  }
 
   // Empty State
   if (state === 'empty') {
@@ -113,6 +165,47 @@ export function MissionZone({
         )}
       </div>
 
+      {/* Program Session Card */}
+      {programSession && !draftSession && (
+        <div className="mb-3 p-3 rounded-lg border border-blue-800/50 bg-blue-950/20">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">{TRAINING_ICONS[programSession.scheduledSession.trainingType] || '🏋️'}</span>
+              <div>
+                <span className="text-sm font-medium text-white">
+                  {programSession.scheduledSession.label}
+                </span>
+                <span className="text-xs text-gray-500 ml-2">
+                  {programSession.exercises.length} exercises · {programSession.scheduledSession.durationMin} min
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setActiveSession(true)}
+              disabled={submitting}
+              className="px-3 py-1.5 text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-1.5"
+            >
+              <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+              Start Session
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Draft Session Card (after completing a program session) */}
+      {draftSession && (
+        <div className="mb-3">
+          <DraftSessionCard
+            session={draftSession}
+            onUpdate={(updated) => setDraftSession(null)}
+            onFinalize={() => setDraftSession(null)}
+          />
+        </div>
+      )}
+
       {/* Session List */}
       <div className="space-y-2">
         {plannedSessions
@@ -170,7 +263,7 @@ export function MissionZone({
                 {/* Quick log button (if not completed) */}
                 {!completed && (
                   <Link
-                    to="/log-workout"
+                    to={`/log-workout?type=${session.type}&duration=${session.durationMin}`}
                     className="px-3 py-1 text-sm bg-gray-700 text-gray-300 rounded hover:bg-gray-600 transition-colors"
                   >
                     Log

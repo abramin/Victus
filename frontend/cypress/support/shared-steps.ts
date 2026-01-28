@@ -109,23 +109,25 @@ export const buildDailyLog = (date: string, weightKg: number) => ({
 
 // =============================================================================
 // UI INTERACTION STEPS - Form Fields
+// Use name attribute (semantic) as the primary selector.
+// data-testid is reserved for elements without a stable name attribute.
 // =============================================================================
 
 When("I enter {string} in the {string} field", (value: string, field: string) => {
-  cy.get(`[data-testid="${field}-input"], input[name="${field}"], #${field}`)
+  cy.get(`input[name="${field}"]`)
     .first()
     .clear()
     .type(value)
 })
 
 When("I clear the {string} field", (field: string) => {
-  cy.get(`[data-testid="${field}-input"], input[name="${field}"], #${field}`)
+  cy.get(`input[name="${field}"]`)
     .first()
     .clear()
 })
 
 When("I select {string} for the {string} field", (value: string, field: string) => {
-  cy.get(`[data-testid="${field}-select"], select[name="${field}"], #${field}`)
+  cy.get(`select[name="${field}"]`)
     .first()
     .select(value)
 })
@@ -144,58 +146,64 @@ When("I submit the form", () => {
 
 // =============================================================================
 // UI INTERACTION STEPS - Boundary Values
+// Use name attribute for all form inputs.
 // =============================================================================
 
 When("I enter a weight below the minimum", () => {
-  cy.get('[data-testid="weight-input"], input[name="weight"]').first().clear().type(BOUNDARIES.weight.belowMin.toString())
+  cy.get('input[name="weight"]').first().clear().type(BOUNDARIES.weight.belowMin.toString())
 })
 
 When("I enter a weight above the maximum", () => {
-  cy.get('[data-testid="weight-input"], input[name="weight"]').first().clear().type(BOUNDARIES.weight.aboveMax.toString())
+  cy.get('input[name="weight"]').first().clear().type(BOUNDARIES.weight.aboveMax.toString())
 })
 
 When("I enter a weight at the minimum boundary", () => {
-  cy.get('[data-testid="weight-input"], input[name="weight"]').first().clear().type(BOUNDARIES.weight.min.toString())
+  cy.get('input[name="weight"]').first().clear().type(BOUNDARIES.weight.min.toString())
 })
 
 When("I enter a weight at the maximum boundary", () => {
-  cy.get('[data-testid="weight-input"], input[name="weight"]').first().clear().type(BOUNDARIES.weight.max.toString())
+  cy.get('input[name="weight"]').first().clear().type(BOUNDARIES.weight.max.toString())
 })
 
 When("I enter a height below the minimum", () => {
-  cy.get('[data-testid="height-input"], input[name="height"]').first().clear().type(BOUNDARIES.height.belowMin.toString())
+  cy.get('input[name="height"]').first().clear().type(BOUNDARIES.height.belowMin.toString())
 })
 
 When("I enter a height above the maximum", () => {
-  cy.get('[data-testid="height-input"], input[name="height"]').first().clear().type(BOUNDARIES.height.aboveMax.toString())
+  cy.get('input[name="height"]').first().clear().type(BOUNDARIES.height.aboveMax.toString())
 })
 
 When("I enter a body fat percentage below the minimum", () => {
-  cy.get('[data-testid="bodyFat-input"], input[name="bodyFatPercent"]').first().clear().type(BOUNDARIES.bodyFat.belowMin.toString())
+  cy.get('input[name="bodyFatPercent"]').first().clear().type(BOUNDARIES.bodyFat.belowMin.toString())
 })
 
 When("I enter a body fat percentage above the maximum", () => {
-  cy.get('[data-testid="bodyFat-input"], input[name="bodyFatPercent"]').first().clear().type(BOUNDARIES.bodyFat.aboveMax.toString())
+  cy.get('input[name="bodyFatPercent"]').first().clear().type(BOUNDARIES.bodyFat.aboveMax.toString())
 })
 
 When("I enter a sleep quality at the minimum", () => {
-  cy.get('[data-testid="sleepQuality-input"], input[name="sleepQuality"]').first().clear().type(BOUNDARIES.sleepQuality.min.toString())
+  cy.get('input[name="sleepQuality"]').first().clear().type(BOUNDARIES.sleepQuality.min.toString())
 })
 
 When("I enter a sleep quality at the maximum", () => {
-  cy.get('[data-testid="sleepQuality-input"], input[name="sleepQuality"]').first().clear().type(BOUNDARIES.sleepQuality.max.toString())
+  cy.get('input[name="sleepQuality"]').first().clear().type(BOUNDARIES.sleepQuality.max.toString())
 })
 
 // =============================================================================
 // UI STATE STEPS - Validation Errors
+// Use ARIA roles and attributes as the primary query strategy.
 // =============================================================================
 
 Then("I should see a validation error for {string}", (field: string) => {
-  cy.get(`[data-testid="${field}-error"], [aria-describedby*="${field}"]`).should("be.visible")
+  cy.get(`[aria-describedby*="${field}"], input[name="${field}"]`)
+    .first()
+    .should("have.attr", "aria-invalid", "true")
 })
 
 Then("I should not see a validation error for {string}", (field: string) => {
-  cy.get(`[data-testid="${field}-error"]`).should("not.exist")
+  cy.get(`input[name="${field}"]`)
+    .first()
+    .should("not.have.attr", "aria-invalid", "true")
 })
 
 Then("I should see the error message {string}", (message: string) => {
@@ -203,31 +211,30 @@ Then("I should see the error message {string}", (message: string) => {
 })
 
 Then("the {string} field should show an error", (field: string) => {
-  cy.get(`[data-testid="${field}-input"], input[name="${field}"]`)
+  cy.get(`input[name="${field}"]`)
     .first()
     .should("have.attr", "aria-invalid", "true")
-    .or("have.class", "error")
-    .or("have.class", "border-red")
 })
 
 Then("the form should show validation errors", () => {
-  cy.get('[data-testid*="-error"], .text-red-500, [role="alert"]').should("be.visible")
+  cy.get('[role="alert"]').should("be.visible")
 })
 
 Then("the form should not show validation errors", () => {
-  cy.get('[data-testid*="-error"]').should("not.exist")
+  cy.get('[role="alert"]').should("not.exist")
 })
 
 // =============================================================================
 // UI STATE STEPS - Loading & Saving
+// Use role="status" for loading indicators (ARIA live region).
 // =============================================================================
 
 Then("I should see a loading spinner", () => {
-  cy.get('[data-testid="loading-spinner"], .animate-spin').should("be.visible")
+  cy.get('[role="status"]').should("be.visible")
 })
 
 Then("the loading spinner should disappear", () => {
-  cy.get('[data-testid="loading-spinner"], .animate-spin', { timeout: 10000 }).should("not.exist")
+  cy.get('[role="status"]', { timeout: 10000 }).should("not.exist")
 })
 
 Then("I should see a saving indicator", () => {
@@ -248,10 +255,11 @@ Then("the save button should show {string}", (text: string) => {
 
 // =============================================================================
 // UI STATE STEPS - Success & Error Messages
+// Use role="status" for success (live region), role="alert" for errors.
 // =============================================================================
 
 Then("I should see a success message", () => {
-  cy.get('[data-testid="success-message"], [role="alert"]')
+  cy.get('[role="status"]')
     .contains(/saved|success|updated|created/i)
     .should("be.visible")
 })
@@ -261,8 +269,7 @@ Then("I should see a success message containing {string}", (text: string) => {
 })
 
 Then("I should see an error message", () => {
-  cy.get('[data-testid="error-message"], [role="alert"], .text-red-500')
-    .should("be.visible")
+  cy.get('[role="alert"]').should("be.visible")
 })
 
 Then("I should see an error message containing {string}", (text: string) => {
@@ -270,7 +277,7 @@ Then("I should see an error message containing {string}", (text: string) => {
 })
 
 Then("the success message should disappear", () => {
-  cy.get('[data-testid="success-message"]', { timeout: 6000 }).should("not.exist")
+  cy.get('[role="status"]', { timeout: 6000 }).should("not.exist")
 })
 
 // =============================================================================
@@ -286,7 +293,7 @@ Then("the form should show default values", () => {
 })
 
 Then("the {string} field should have value {string}", (field: string, value: string) => {
-  cy.get(`[data-testid="${field}-input"], input[name="${field}"]`)
+  cy.get(`input[name="${field}"]`)
     .first()
     .should("have.value", value)
 })
@@ -304,19 +311,19 @@ Then("the form should not indicate unsaved changes", () => {
 // =============================================================================
 
 Then("the body fat field should be visible", () => {
-  cy.get('[data-testid="bodyFat-input"], input[name="bodyFatPercent"]').should("be.visible")
+  cy.get('input[name="bodyFatPercent"]').should("be.visible")
 })
 
 Then("the body fat field should not be visible", () => {
-  cy.get('[data-testid="bodyFat-input"], input[name="bodyFatPercent"]').should("not.exist")
+  cy.get('input[name="bodyFatPercent"]').should("not.exist")
 })
 
 Then("the manual TDEE field should be visible", () => {
-  cy.get('[data-testid="manualTdee-input"], input[name="manualTdee"]').should("be.visible")
+  cy.get('input[name="manualTdee"]').should("be.visible")
 })
 
 Then("the manual TDEE field should not be visible", () => {
-  cy.get('[data-testid="manualTdee-input"], input[name="manualTdee"]').should("not.exist")
+  cy.get('input[name="manualTdee"]').should("not.exist")
 })
 
 Then("I should see an aggressive goal warning", () => {

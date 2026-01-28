@@ -44,6 +44,7 @@ type PlanResponse struct {
 	Status                   string                 `json:"status"`
 	CurrentWeek              int                    `json:"currentWeek"` // 0 if not started, >duration if ended
 	WeeklyTargets            []WeeklyTargetResponse `json:"weeklyTargets"`
+	LastRecalibratedAt       string                 `json:"lastRecalibratedAt,omitempty"`
 	CreatedAt                string                 `json:"createdAt,omitempty"`
 	UpdatedAt                string                 `json:"updatedAt,omitempty"`
 }
@@ -105,6 +106,9 @@ func PlanToResponse(p *domain.NutritionPlan, now time.Time) PlanResponse {
 		}
 	}
 
+	if p.LastRecalibratedAt != nil {
+		resp.LastRecalibratedAt = p.LastRecalibratedAt.Format(time.RFC3339)
+	}
 	if !p.CreatedAt.IsZero() {
 		resp.CreatedAt = p.CreatedAt.Format(time.RFC3339)
 	}

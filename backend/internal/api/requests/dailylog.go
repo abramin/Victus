@@ -487,10 +487,7 @@ func DailyLogToResponseWithTrainingLoad(d *domain.DailyLog, trainingLoad *domain
 		}
 	}
 
-	summarySessions := d.PlannedSessions
-	if len(d.ActualSessions) > 0 {
-		summarySessions = d.ActualSessions
-	}
+	summarySessions := d.EffectiveSessions()
 
 	resp := DailyLogResponse{
 		Date:                    d.Date,
@@ -505,7 +502,7 @@ func DailyLogToResponseWithTrainingLoad(d *domain.DailyLog, trainingLoad *domain
 		TrainingSummary: TrainingSummaryResponse{
 			SessionCount:     len(summarySessions),
 			TotalDurationMin: domain.TotalDurationMin(summarySessions),
-			TotalLoadScore:   domain.TotalLoadScore(summarySessions),
+			TotalLoadScore:   d.LoadScore(),
 			Summary:          domain.SessionSummary(summarySessions),
 		},
 		TrainingLoad:          TrainingLoadToResponse(trainingLoad),

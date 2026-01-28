@@ -111,6 +111,23 @@ describe('Recovery calculation contract', () => {
       expect(result.isReady).toBe(false);
     });
 
+    it('shows abbreviated weekday for recovery spanning more than 2 days', () => {
+      // Invariant: Recovery >2 days out must show weekday abbreviation, not "Tomorrow".
+      // This path is unreachable via E2E because test environments cannot
+      // reliably control system time to produce multi-day recovery windows.
+
+      // Set time to noon on Monday, Jan 26, 2026
+      vi.setSystemTime(new Date(2026, 0, 26, 12, 0, 0));
+
+      // 80% fatigue = (80-5)/2 = 37.5, ceil = 38 hours
+      // 38 hours from noon Monday = 2 AM Wednesday
+      const result = getRecoveryStatus(80, new Date());
+      expect(result.hoursRemaining).toBe(38);
+      expect(result.isReady).toBe(false);
+      // Should show abbreviated weekday, not "Today" or "Tomorrow"
+      expect(result.label).toBe('Wed');
+    });
+
     it('handles recovery window spanning midnight', () => {
       // Invariant: Recovery calculations must cross day boundaries correctly.
       // This tests date arithmetic in recovery ETA.

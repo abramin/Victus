@@ -9,6 +9,7 @@ import type { FatigueStatus } from '../../api/types';
 
 // Color stops for the fatigue spectrum (HSL values)
 const COLOR_STOPS = {
+  healing: { h: 187, s: 85, l: 53 }, // Cyan (#22d3ee) - for negative fatigue (improvement)
   fresh: { h: 234, s: 89, l: 59 }, // Indigo (#4f46e5)
   stimulated: { h: 160, s: 84, l: 39 }, // Emerald (#10b981)
   fatigued: { h: 38, s: 92, l: 50 }, // Amber (#f59e0b)
@@ -93,15 +94,24 @@ function hslToHex(h: number, s: number, l: number): string {
 }
 
 /**
- * Get muscle color based on fatigue percentage (0-100)
+ * Get muscle color based on fatigue percentage (-20 to 100)
  *
  * Returns a continuous gradient:
+ * - Negative (healing): Cyan glow (from echo-detected improvement)
  * - 0-25%: Indigo → Emerald (fresh to activated)
  * - 25-50%: Emerald (stimulated zone)
  * - 50-75%: Emerald → Amber (working to worked)
  * - 75-100%: Amber → Rose (fatigued to overreached)
  */
 export function getMuscleColor(fatiguePercent: number): string {
+  // Handle healing state (negative fatigue from echo logs)
+  if (fatiguePercent < 0) {
+    // Interpolate from indigo (fresh) toward cyan (healing) based on improvement magnitude
+    const healingIntensity = Math.min(Math.abs(fatiguePercent) / 20, 1);
+    const hsl = lerpHSL(COLOR_STOPS.fresh, COLOR_STOPS.healing, healingIntensity);
+    return hslToHex(hsl.h, hsl.s, hsl.l);
+  }
+
   const clamped = Math.max(0, Math.min(100, fatiguePercent));
 
   let hsl: { h: number; s: number; l: number };
@@ -130,6 +140,26 @@ export function getMuscleColor(fatiguePercent: number): string {
   }
 
   return hslToHex(hsl.h, hsl.s, hsl.l);
+}
+
+/**
+ * Get healing glow parameters for muscles with negative fatigue (improvement).
+ * Returns null if the muscle is not in a healing state.
+ */
+export function getHealingGlowParams(fatiguePercent: number): {
+  glowColor: string;
+  pulseSpeed: number;
+  intensity: number;
+} | null {
+  if (fatiguePercent >= 0) return null;
+
+  const healingIntensity = Math.min(Math.abs(fatiguePercent) / 20, 1);
+
+  return {
+    glowColor: '#22d3ee', // Cyan
+    pulseSpeed: 3, // Slow, calming pulse
+    intensity: healingIntensity * 0.5, // Max 50% glow intensity
+  };
 }
 
 /**

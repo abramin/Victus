@@ -1,20 +1,26 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { RadialIntensitySelector } from './RadialIntensitySelector';
-import { TrainingTypeCards } from './TrainingTypeCards';
 import { SessionReceipt } from './SessionReceipt';
 import { SessionCard } from './SessionCard';
+import { AtomicSessionCard } from './AtomicSessionCard';
 import { ActualVsPlannedComparison } from './ActualVsPlannedComparison';
 import { ArchetypeSelector } from '../body-map/ArchetypeSelector';
 import { SessionReportModal } from '../body-map/SessionReportModal';
-import { SemanticHighlighter } from '../semantic/SemanticHighlighter';
-import { useSemanticDetection, extractIssuesFromTokens } from '../semantic';
+import { extractIssuesFromTokens } from '../semantic';
 import { useSemanticFeedbackOptional } from '../../contexts/SemanticFeedbackContext';
-import { applyFatigue, createBodyIssues } from '../../api/client';
-import type { DailyLog, ActualTrainingSession, TrainingSession, TrainingType, Archetype, SessionFatigueReport } from '../../api/types';
+import { applyFatigue, createBodyIssues, quickSubmitSession } from '../../api/client';
+import type { DailyLog, ActualTrainingSession, TrainingSession, TrainingType, Archetype, SessionFatigueReport, SessionResponse } from '../../api/types';
 import type { SemanticToken } from '../semantic/semanticDictionary';
 import { TRAINING_LABELS } from '../../constants';
+import { formatNumber } from '../../utils/format';
+import { DraftSessionCard } from './DraftSessionCard';
 
-type SessionWithId = Omit<ActualTrainingSession, 'sessionOrder'> & { _id: string };
+type SessionWithId = Omit<ActualTrainingSession, 'sessionOrder'> & {
+  _id: string;
+  committed: boolean;
+  archetype?: Archetype;
+};
 
 const TRAINING_OPTIONS = [
   { value: 'rest', label: 'Rest Day' },
@@ -128,54 +134,76 @@ export function LogWorkoutView({ log, onUpdateActual, saving }: LogWorkoutViewPr
   const [globalRpe, setGlobalRpe] = useState(DEFAULT_RPE);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isDetailsCollapsed, setIsDetailsCollapsed] = useState(false);
-  const [notesExpanded, setNotesExpanded] = useState<Record<string, boolean>>({});
+  const [selectedArchetype, setSelectedArchetype] = useState<Archetype | null>(null);
   const [showReceipt, setShowReceipt] = useState(false);
   const [savedLoadScore, setSavedLoadScore] = useState(0);
-  const [selectedArchetype, setSelectedArchetype] = useState<Archetype | null>(null);
   const [fatigueReport, setFatigueReport] = useState<SessionFatigueReport | null>(null);
   const [showFatigueReport, setShowFatigueReport] = useState(false);
   const [sessionTokens, setSessionTokens] = useState<Record<string, SemanticToken[]>>({});
+  const [draftSessions, setDraftSessions] = useState<SessionResponse[]>([]);
   const idCounterRef = useRef(0);
   const notesContainerRef = useRef<HTMLDivElement>(null);
   const semanticFeedback = useSemanticFeedbackOptional();
+  const [searchParams] = useSearchParams();
+  const urlParamsConsumed = useRef(false);
 
   const generateId = useCallback(() => {
     idCounterRef.current += 1;
     return `session-${idCounterRef.current}`;
   }, []);
 
-  // Initialize sessions from log
+  // Initialize sessions from log, consuming URL params only once on first mount
   useEffect(() => {
     if (!log) return;
 
     idCounterRef.current = 0;
-    const baseSessions =
-      log.actualTrainingSessions && log.actualTrainingSessions.length > 0
-        ? log.actualTrainingSessions
-        : log.plannedTrainingSessions;
 
-    setSessions(
-      baseSessions.map((session) => ({
+    const paramType = searchParams.get('type');
+    const paramDuration = searchParams.get('duration');
+
+    if (paramType && paramDuration && !urlParamsConsumed.current) {
+      // First mount with URL params: preserve existing actuals, prepend the new session
+      urlParamsConsumed.current = true;
+      const existingSessions = (log.actualTrainingSessions ?? []).map((session) => ({
         _id: generateId(),
         type: session.type,
         durationMin: session.durationMin,
         perceivedIntensity: getSessionPerceivedIntensity(session),
         notes: session.notes ?? '',
-      }))
-    );
-    setHasUnsavedChanges(false);
-  }, [log, generateId]);
+        committed: true, // Existing sessions are already persisted
+      }));
+      setSessions([
+        {
+          _id: generateId(),
+          type: paramType as TrainingType,
+          durationMin: parseInt(paramDuration, 10),
+          perceivedIntensity: DEFAULT_RPE,
+          notes: '',
+          committed: false, // New session from URL starts uncommitted
+        },
+        ...existingSessions, // Prepend: new session at top
+      ]);
+      setHasUnsavedChanges(true);
+    } else {
+      // Normal init: use actuals if present, otherwise planned sessions
+      const hasActuals = log.actualTrainingSessions && log.actualTrainingSessions.length > 0;
+      const baseSessions = hasActuals
+        ? log.actualTrainingSessions
+        : log.plannedTrainingSessions;
 
-  useEffect(() => {
-    setNotesExpanded((prev) => {
-      const next: Record<string, boolean> = {};
-      sessions.forEach((session) => {
-        const hasNotes = (session.notes ?? '').trim().length > 0;
-        next[session._id] = prev[session._id] ?? hasNotes;
-      });
-      return next;
-    });
-  }, [sessions]);
+      setSessions(
+        baseSessions.map((session) => ({
+          _id: generateId(),
+          type: session.type,
+          durationMin: session.durationMin,
+          perceivedIntensity: getSessionPerceivedIntensity(session),
+          notes: session.notes ?? '',
+          committed: hasActuals, // Sessions from actuals are committed, from planned are not
+        }))
+      );
+      setHasUnsavedChanges(false);
+    }
+  }, [log, generateId, searchParams]);
 
   const updateSession = useCallback((id: string, updates: Partial<ActualTrainingSession>) => {
     setSessions((prev) =>
@@ -187,14 +215,15 @@ export function LogWorkoutView({ log, onUpdateActual, saving }: LogWorkoutViewPr
   const addSession = useCallback(() => {
     if (sessions.length >= 10) return;
     setSessions((prev) => [
-      ...prev,
       {
         _id: generateId(),
         type: 'walking',
         durationMin: 30,
         perceivedIntensity: mode === 'quick' ? globalRpe : undefined,
         notes: '',
+        committed: false, // New sessions start uncommitted
       },
+      ...prev, // Prepend: new session appears at top
     ]);
     setHasUnsavedChanges(true);
   }, [sessions.length, generateId, mode, globalRpe]);
@@ -204,6 +233,19 @@ export function LogWorkoutView({ log, onUpdateActual, saving }: LogWorkoutViewPr
       if (prev.length <= 1) return prev;
       return prev.filter((s) => s._id !== id);
     });
+    setHasUnsavedChanges(true);
+  }, []);
+
+  const commitSession = useCallback((id: string) => {
+    setSessions((prev) =>
+      prev.map((s) => (s._id === id ? { ...s, committed: true } : s))
+    );
+  }, []);
+
+  const uncommitSession = useCallback((id: string) => {
+    setSessions((prev) =>
+      prev.map((s) => (s._id === id ? { ...s, committed: false } : s))
+    );
     setHasUnsavedChanges(true);
   }, []);
 
@@ -221,8 +263,9 @@ export function LogWorkoutView({ log, onUpdateActual, saving }: LogWorkoutViewPr
   }, [globalRpe, isQuickMode]);
 
   const handleSave = async () => {
-    const sessionsWithoutId = sessions.map(({ _id, ...rest }) => rest);
-    const result = await onUpdateActual(sessionsWithoutId);
+    // Strip internal fields before sending to backend
+    const sessionsForApi = sessions.map(({ _id, committed, archetype, ...rest }) => rest);
+    const result = await onUpdateActual(sessionsForApi);
     if (result) {
       setHasUnsavedChanges(false);
 
@@ -256,27 +299,17 @@ export function LogWorkoutView({ log, onUpdateActual, saving }: LogWorkoutViewPr
         }
       }
 
-      // Calculate aggregated values for fatigue
-      const activeSessions = sessions.filter(s => s.type !== 'rest');
-      const rawDuration = activeSessions.reduce((sum, s) => sum + s.durationMin, 0);
-      // Cap duration at 480 min (backend limit) - fatigue calculation uses capped value
-      const totalDuration = Math.min(rawDuration, 480);
-      const rpeValues = activeSessions.map(s => s.perceivedIntensity ?? DEFAULT_RPE);
+      // Apply fatigue if archetype selected
+      const activeSessions = sessions.filter((s) => s.type !== 'rest');
+      const totalDuration = Math.min(
+        activeSessions.reduce((sum, s) => sum + s.durationMin, 0),
+        480
+      );
+      const rpeValues = activeSessions.map((s) => s.perceivedIntensity ?? DEFAULT_RPE);
       const avgRpe = rpeValues.length > 0
         ? Math.round(rpeValues.reduce((a, b) => a + b, 0) / rpeValues.length)
         : DEFAULT_RPE;
 
-      // Debug: Log values to understand why fatigue isn't being applied
-      console.log('🏋️ Fatigue check:', {
-        selectedArchetype,
-        totalDuration,
-        rawDuration,
-        avgRpe,
-        activeSessionCount: activeSessions.length,
-        willApplyFatigue: !!(selectedArchetype && totalDuration > 0),
-      });
-
-      // If archetype selected, apply fatigue and show detailed report
       if (selectedArchetype && totalDuration > 0) {
         try {
           const report = await applyFatigue({
@@ -287,16 +320,7 @@ export function LogWorkoutView({ log, onUpdateActual, saving }: LogWorkoutViewPr
           setFatigueReport(report);
           setShowFatigueReport(true);
         } catch (error) {
-          // Log error for debugging - check browser console
-          const errorMessage = error instanceof Error ? error.message : String(error);
-          console.error('Failed to apply fatigue:', errorMessage, {
-            archetype: selectedArchetype,
-            totalDuration,
-            avgRpe,
-          });
-          // Temporarily show alert for debugging
-          alert(`Fatigue apply failed: ${errorMessage}\nArchetype: ${selectedArchetype}\nDuration: ${totalDuration}min\nRPE: ${avgRpe}`);
-          // If fatigue apply fails, fall back to simple receipt
+          console.error('Failed to apply fatigue:', error);
           const totalLoad = sessions.reduce((sum, session) => sum + getSessionLoadScore(session), 0);
           if (totalLoad > 0) {
             setSavedLoadScore(totalLoad);
@@ -309,6 +333,31 @@ export function LogWorkoutView({ log, onUpdateActual, saving }: LogWorkoutViewPr
         if (totalLoad > 0) {
           setSavedLoadScore(totalLoad);
           setShowReceipt(true);
+        }
+      }
+
+      // Mark all sessions as committed after successful save
+      setSessions((prev) => prev.map((s) => ({ ...s, committed: true })));
+
+      // Create draft sessions for Echo enrichment
+      if (log?.date) {
+        const nonRestSessions = sessions.filter((s) => s.type !== 'rest');
+        const drafts: SessionResponse[] = [];
+        for (const session of nonRestSessions) {
+          try {
+            const draft = await quickSubmitSession(log.date, {
+              type: session.type,
+              durationMin: session.durationMin,
+              perceivedIntensity: session.perceivedIntensity,
+              notes: session.notes || undefined,
+            });
+            drafts.push(draft);
+          } catch (err) {
+            console.error('Failed to create draft session for echo:', err);
+          }
+        }
+        if (drafts.length > 0) {
+          setDraftSessions(drafts);
         }
       }
     }
@@ -325,6 +374,7 @@ export function LogWorkoutView({ log, onUpdateActual, saving }: LogWorkoutViewPr
         durationMin: session.durationMin,
         perceivedIntensity: session.type === 'rest' ? undefined : DEFAULT_RPE,
         notes: '',
+        committed: false, // Quick complete sessions start uncommitted
       }))
     );
     setHasUnsavedChanges(true);
@@ -351,6 +401,7 @@ export function LogWorkoutView({ log, onUpdateActual, saving }: LogWorkoutViewPr
         durationMin: 30,
         perceivedIntensity: undefined,
         notes: '',
+        committed: false, // Active recovery sessions start uncommitted
       },
     ]);
     setMode('detail');
@@ -442,31 +493,6 @@ export function LogWorkoutView({ log, onUpdateActual, saving }: LogWorkoutViewPr
           <h1 className="text-2xl font-semibold text-white">Log Workout</h1>
           <p className="text-gray-400 text-sm">{todayLabel}</p>
         </div>
-        {shouldShowWorkoutDetails && (
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={saving || !hasUnsavedChanges}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center gap-2 ${
-                hasUnsavedChanges
-                  ? 'bg-white text-black hover:bg-gray-200'
-                  : 'bg-gray-700 text-gray-400'
-              }`}
-            >
-              {saving ? (
-                'Saving...'
-              ) : (
-                <>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  Save Workout
-                </>
-              )}
-            </button>
-          </div>
-        )}
       </div>
 
       {shouldShowWorkoutDetails && (
@@ -484,7 +510,7 @@ export function LogWorkoutView({ log, onUpdateActual, saving }: LogWorkoutViewPr
                     </svg>
                     <span>Training Logged: {adherence?.label ?? 'Logged'}</span>
                     <span className={`text-xs font-semibold ${totalLoadTone.className}`}>
-                      Load: {totalLoadScore} ({totalLoadTone.label})
+                      Load: {formatNumber(totalLoadScore, 1)} ({totalLoadTone.label})
                     </span>
                   </div>
                   <p className="text-xs text-emerald-200/70 mt-1">
@@ -658,188 +684,9 @@ export function LogWorkoutView({ log, onUpdateActual, saving }: LogWorkoutViewPr
                 )}
               </div>
 
-              {/* Session List */}
-              <div className="space-y-4">
-                {sessions.map((session, index) => {
-                  const rpeValue =
-                    session.type === 'rest' ? DEFAULT_RPE : session.perceivedIntensity ?? DEFAULT_RPE;
-                  const loadScore = getSessionLoadScore(session);
-                  const loadTone = getLoadTone(loadScore);
-                  const isEstimatedRpe =
-                    session.type !== 'rest' && session.perceivedIntensity === undefined;
-                  const trainingLabel = getTrainingLabel(session.type);
-                  const hasNotes = (session.notes ?? '').trim().length > 0;
-                  const isNotesVisible = notesExpanded[session._id] || hasNotes;
-
-                  return (
-                    <div
-                      key={session._id}
-                      className="bg-gray-900 rounded-xl p-4 border border-gray-800"
-                    >
-                      {/* Header: Session number + delete button */}
-                      <div className="flex items-center justify-between mb-4">
-                        <span className="text-sm font-medium text-gray-400">Session {index + 1}</span>
-                        {!isQuickMode && sessions.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => removeSession(session._id)}
-                            className="text-gray-500 hover:text-red-400 p-1 rounded transition-colors"
-                            title="Remove session"
-                            aria-label="Remove session"
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        )}
-                      </div>
-
-                      {/* Training Type Selection */}
-                      {isQuickMode ? (
-                        <div className="flex flex-wrap items-center gap-3 mb-4">
-                          <span className="px-4 py-2 bg-gray-800 rounded-lg text-sm font-medium text-white">
-                            {trainingLabel}
-                          </span>
-                          {session.type !== 'rest' && (
-                            <span className="px-4 py-2 bg-gray-800 rounded-lg text-sm text-gray-300 flex items-center gap-2">
-                              <span className="text-gray-400">⏱</span>
-                              {session.durationMin} min
-                            </span>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="mb-4">
-                          {/* Quick Add Grid */}
-                          <TrainingTypeCards
-                            value={session.type}
-                            onChange={(newType) => {
-                              updateSession(session._id, {
-                                type: newType,
-                                durationMin: newType === 'rest' ? 0 : session.durationMin || 30,
-                                perceivedIntensity:
-                                  newType === 'rest'
-                                    ? undefined
-                                    : session.perceivedIntensity,
-                              });
-                            }}
-                            disabled={saving}
-                          />
-
-                          {/* Duration Input */}
-                          {session.type !== 'rest' && (
-                            <div className="flex items-center gap-2 mt-3">
-                              <span className="text-sm text-gray-400">Duration:</span>
-                              <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg hover:border-gray-600 transition-colors">
-                                <span className="text-gray-400">⏱</span>
-                                <input
-                                  type="number"
-                                  value={session.durationMin}
-                                  onChange={(e) =>
-                                    updateSession(session._id, {
-                                      durationMin: parseInt(e.target.value) || 0,
-                                    })
-                                  }
-                                  min={0}
-                                  max={480}
-                                  step={5}
-                                  aria-label="Duration in minutes"
-                                  className="w-12 bg-transparent text-white text-sm font-medium focus:outline-none placeholder-gray-500"
-                                />
-                                <span className="text-xs text-gray-500">min</span>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Dial: Centered RadialIntensitySelector */}
-                      {session.type !== 'rest' && (
-                        <>
-                          {isQuickMode ? (
-                            <p className="text-center text-sm text-gray-400 my-4">
-                              Global RPE {globalRpe} applied
-                            </p>
-                          ) : (
-                            <div className="flex justify-center my-4">
-                              <RadialIntensitySelector
-                                value={session.perceivedIntensity}
-                                onChange={(val) => updateSession(session._id, { perceivedIntensity: val })}
-                                disabled={saving}
-                              />
-                            </div>
-                          )}
-
-                          {/* Load Output: Hero metric card */}
-                          <div className="text-center mt-6 p-3 bg-slate-800 rounded-lg border border-slate-700">
-                            <div className="flex items-center justify-center gap-2">
-                              <span className="text-lg">⚡</span>
-                              <span className="text-xl font-bold text-white">LOAD: {loadScore}</span>
-                            </div>
-                            <p className={`text-xs mt-1 ${loadTone.className}`}>
-                              ({loadTone.label})
-                            </p>
-                          </div>
-                        </>
-                      )}
-
-                      {/* Footer: Add Note + Clear RPE */}
-                      <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-800">
-                        {isNotesVisible ? (
-                          <div className="flex-1 mr-4" ref={notesContainerRef}>
-                            <SemanticHighlighter
-                              value={session.notes || ''}
-                              onChange={(value) => updateSession(session._id, { notes: value })}
-                              placeholder="How did it feel? Any observations..."
-                              rows={2}
-                              disabled={isQuickMode || saving}
-                              onTokensChange={(tokens) =>
-                                setSessionTokens((prev) => ({ ...prev, [session._id]: tokens }))
-                              }
-                            />
-                          </div>
-                        ) : (
-                          !isQuickMode && (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setNotesExpanded((prev) => ({ ...prev, [session._id]: true }))
-                              }
-                              className="text-sm text-gray-400 hover:text-white transition-colors flex items-center gap-1"
-                              disabled={saving}
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                              </svg>
-                              Add Note
-                            </button>
-                          )
-                        )}
-
-                        {/* Clear RPE button */}
-                        {!isQuickMode && session.type !== 'rest' && session.perceivedIntensity !== undefined && (
-                          <button
-                            type="button"
-                            onClick={() => updateSession(session._id, { perceivedIntensity: undefined })}
-                            className="text-sm text-gray-500 hover:text-gray-300 transition-colors"
-                            disabled={saving}
-                          >
-                            Clear RPE
-                          </button>
-                        )}
-
-                        {/* Spacer for alignment when no buttons */}
-                        {(isQuickMode || (session.type === 'rest') || (!isNotesVisible && session.perceivedIntensity === undefined)) && (
-                          <span />
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Archetype Selector - only show if there are active sessions */}
-              {hasActiveSessions && (
-                <div className="mt-6">
+              {/* Archetype Selector - above session cards */}
+              {!isQuickMode && hasActiveSessions && (
+                <div className="mb-4">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-sm font-medium text-gray-400">Workout Type (Optional)</h3>
                     {selectedArchetype && (
@@ -863,28 +710,98 @@ export function LogWorkoutView({ log, onUpdateActual, saving }: LogWorkoutViewPr
                 </div>
               )}
 
-              {/* Bottom Save Button */}
-              <div className="mt-6 flex justify-end">
-                <button
-                  type="button"
-                  onClick={handleSave}
-                  disabled={saving || !hasUnsavedChanges}
-                  className={`px-6 py-3 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center gap-2 ${
-                    hasUnsavedChanges ? 'bg-white text-black hover:bg-gray-200' : 'bg-gray-700 text-gray-400'
-                  }`}
-                >
-                  {saving ? (
-                    'Saving...'
-                  ) : (
-                    <>
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      Save Workout
-                    </>
-                  )}
-                </button>
+              {/* Session List */}
+              <div className="space-y-4">
+                {isQuickMode ? (
+                  /* Quick Mode: Simple read-only cards */
+                  sessions.map((session, index) => {
+                    const loadScore = getSessionLoadScore(session);
+                    const loadTone = getLoadTone(loadScore);
+                    const trainingLabel = getTrainingLabel(session.type);
+
+                    return (
+                      <div
+                        key={session._id}
+                        className="bg-gray-900 rounded-xl p-4 border border-gray-800"
+                      >
+                        <div className="flex items-center justify-between mb-4">
+                          <span className="text-sm font-medium text-gray-400">Session {index + 1}</span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3 mb-4">
+                          <span className="px-4 py-2 bg-gray-800 rounded-lg text-sm font-medium text-white">
+                            {trainingLabel}
+                          </span>
+                          {session.type !== 'rest' && (
+                            <span className="px-4 py-2 bg-gray-800 rounded-lg text-sm text-gray-300 flex items-center gap-2">
+                              <span className="text-gray-400">⏱</span>
+                              {session.durationMin} min
+                            </span>
+                          )}
+                        </div>
+                        {session.type !== 'rest' && (
+                          <>
+                            <p className="text-center text-sm text-gray-400 my-4">
+                              Global RPE {globalRpe} applied
+                            </p>
+                            <div className="text-center mt-6 p-3 bg-slate-800 rounded-lg border border-slate-700">
+                              <div className="flex items-center justify-center gap-2">
+                                <span className="text-lg">⚡</span>
+                                <span className="text-xl font-bold text-white">LOAD: {formatNumber(loadScore, 1)}</span>
+                              </div>
+                              <p className={`text-xs mt-1 ${loadTone.className}`}>
+                                ({loadTone.label})
+                              </p>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })
+                ) : (
+                  /* Detail Mode: Atomic Session Cards */
+                  sessions.map((session, index) => (
+                    <AtomicSessionCard
+                      key={session._id}
+                      session={session}
+                      index={index}
+                      totalCount={sessions.length}
+                      saving={saving}
+                      onUpdate={updateSession}
+                      onCommit={commitSession}
+                      onUncommit={uncommitSession}
+                      onRemove={removeSession}
+                      onTokensChange={(id, tokens) =>
+                        setSessionTokens((prev) => ({ ...prev, [id]: tokens }))
+                      }
+                    />
+                  ))
+                )}
               </div>
+
+              {/* Quick Mode: Bottom Save Button */}
+              {isQuickMode && (
+                <div className="mt-6 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={handleSave}
+                    disabled={saving || !hasUnsavedChanges}
+                    className={`px-6 py-3 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center gap-2 ${
+                      hasUnsavedChanges ? 'bg-white text-black hover:bg-gray-200' : 'bg-gray-700 text-gray-400'
+                    }`}
+                  >
+                    {saving ? (
+                      'Saving...'
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Save Workout
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
             </>
           )}
         </>
@@ -906,6 +823,48 @@ export function LogWorkoutView({ log, onUpdateActual, saving }: LogWorkoutViewPr
           setFatigueReport(null);
         }}
       />
+
+      {/* Draft Sessions - Echo enrichment cards */}
+      {draftSessions.length > 0 && (
+        <div className="mt-6 space-y-3">
+          <h4 className="text-sm font-medium text-gray-400 uppercase tracking-wider">Post-Workout Echo</h4>
+          {draftSessions.map((draft) => (
+            <DraftSessionCard
+              key={draft.id}
+              session={draft}
+              onUpdate={() => {
+                setDraftSessions((prev) => prev.filter((d) => d.id !== draft.id));
+              }}
+              onFinalize={() => {
+                setDraftSessions((prev) => prev.filter((d) => d.id !== draft.id));
+              }}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Floating "Commit All" FAB - Detail Mode only, deactivates after persist */}
+      {!isQuickMode && sessions.some((s) => s.committed) && hasUnsavedChanges && (
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saving}
+          className="fixed bottom-6 right-6 px-6 py-3 bg-emerald-600 hover:bg-emerald-500
+                     text-white font-medium rounded-full shadow-lg transition-all
+                     flex items-center gap-2 z-50 disabled:opacity-50"
+        >
+          {saving ? (
+            'Saving...'
+          ) : (
+            <>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              Commit All ({sessions.filter((s) => s.committed).length})
+            </>
+          )}
+        </button>
+      )}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import type { CNSStatusBreakdown } from '../../../api/types';
 import { CNSStatusBadge } from '../../cns';
+import { formatSleepHours } from '../../../utils/format';
 
 interface BiometricsStripProps {
   weightKg: number;
@@ -20,13 +21,6 @@ function getRhrStatus(rhr: number): { label: string; color: string } {
   if (rhr <= 60) return { label: 'Athletic', color: 'text-green-400' };
   if (rhr <= 80) return { label: 'Normal', color: 'text-slate-400' };
   return { label: 'Elevated', color: 'text-yellow-400' };
-}
-
-function formatSleepHours(hours: number | undefined): string {
-  if (hours === undefined) return '--';
-  const h = Math.floor(hours);
-  const m = Math.round((hours - h) * 60);
-  return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
 export function BiometricsStrip({

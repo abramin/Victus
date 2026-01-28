@@ -1,142 +1,180 @@
 package domain
 
-import "testing"
+import (
+	"testing"
 
-func TestEvaluateAuditRules_HighFatigueLowCarbs(t *testing.T) {
-	rules := DefaultAuditRules()
-	ctx := AuditContext{
-		OverallFatigue: 65,
-		CurrentDayType: DayTypeFatburner,
-	}
+	"github.com/stretchr/testify/suite"
+)
 
-	mismatches := EvaluateAuditRules(ctx, rules)
+// Justification: Audit rules are pure-domain invariants. EvaluateAuditRules breaks
+// silently if a rule's threshold or trigger condition is changed.
 
-	if len(mismatches) != 1 {
-		t.Errorf("expected 1 mismatch, got %d", len(mismatches))
-	}
-	if mismatches[0].ID != AuditRuleHighFatigueLowCarbs {
-		t.Errorf("expected %s, got %s", AuditRuleHighFatigueLowCarbs, mismatches[0].ID)
-	}
-	if mismatches[0].Severity != AuditSeverityWarning {
-		t.Errorf("expected warning severity, got %s", mismatches[0].Severity)
-	}
+type AuditSuite struct {
+	suite.Suite
 }
 
-func TestEvaluateAuditRules_CNSDepletedPerformance(t *testing.T) {
-	rules := DefaultAuditRules()
-	depleted := CNSStatusDepleted
-	ctx := AuditContext{
-		CNSStatus:      &depleted,
-		CurrentDayType: DayTypePerformance,
-	}
-
-	mismatches := EvaluateAuditRules(ctx, rules)
-
-	if len(mismatches) != 1 {
-		t.Errorf("expected 1 mismatch, got %d", len(mismatches))
-	}
-	if mismatches[0].ID != AuditRuleCNSDepletedPerformance {
-		t.Errorf("expected %s, got %s", AuditRuleCNSDepletedPerformance, mismatches[0].ID)
-	}
-	if mismatches[0].Severity != AuditSeverityCritical {
-		t.Errorf("expected critical severity, got %s", mismatches[0].Severity)
-	}
+func TestAuditSuite(t *testing.T) {
+	suite.Run(t, new(AuditSuite))
 }
 
-func TestEvaluateAuditRules_HeavyTrainingLowProtein(t *testing.T) {
-	rules := DefaultAuditRules()
-	ctx := AuditContext{
-		TotalTrainingLoad: 15,
-		ProteinPercent:    60,
-	}
+func (s *AuditSuite) TestHighFatigueLowCarbs() {
+	s.Run("triggers when fatigue exceeds 60% on a fatburner day", func() {
+		ctx := AuditContext{
+			OverallFatigue: 65,
+			CurrentDayType: DayTypeFatburner,
+		}
 
-	mismatches := EvaluateAuditRules(ctx, rules)
+		mismatches := EvaluateAuditRules(ctx, DefaultAuditRules())
 
-	if len(mismatches) != 1 {
-		t.Errorf("expected 1 mismatch, got %d", len(mismatches))
-	}
-	if mismatches[0].ID != AuditRuleHeavyTrainingLowProtein {
-		t.Errorf("expected %s, got %s", AuditRuleHeavyTrainingLowProtein, mismatches[0].ID)
-	}
+		s.Require().Len(mismatches, 1)
+		s.Equal(AuditRuleHighFatigueLowCarbs, mismatches[0].ID)
+		s.Equal(AuditSeverityWarning, mismatches[0].Severity)
+		s.NotEmpty(mismatches[0].Summary)
+	})
+
+	s.Run("does not trigger when fatigue is below threshold", func() {
+		ctx := AuditContext{
+			OverallFatigue: 55,
+			CurrentDayType: DayTypeFatburner,
+		}
+
+		mismatches := EvaluateAuditRules(ctx, DefaultAuditRules())
+
+		s.Empty(mismatches)
+	})
 }
 
-func TestEvaluateAuditRules_RecoveryOverreached(t *testing.T) {
-	rules := DefaultAuditRules()
-	ctx := AuditContext{
-		OverreachedMuscles: 5,
-		HasRecoveryPlanned: false,
-	}
+func (s *AuditSuite) TestCNSDepletedPerformance() {
+	s.Run("triggers when CNS is depleted on a performance day", func() {
+		depleted := CNSStatusDepleted
+		ctx := AuditContext{
+			CNSStatus:      &depleted,
+			CurrentDayType: DayTypePerformance,
+		}
 
-	mismatches := EvaluateAuditRules(ctx, rules)
+		mismatches := EvaluateAuditRules(ctx, DefaultAuditRules())
 
-	if len(mismatches) != 1 {
-		t.Errorf("expected 1 mismatch, got %d", len(mismatches))
-	}
-	if mismatches[0].ID != AuditRuleRecoveryOverreached {
-		t.Errorf("expected %s, got %s", AuditRuleRecoveryOverreached, mismatches[0].ID)
-	}
+		s.Require().Len(mismatches, 1)
+		s.Equal(AuditRuleCNSDepletedPerformance, mismatches[0].ID)
+		s.Equal(AuditSeverityCritical, mismatches[0].Severity)
+	})
+
+	s.Run("does not trigger when CNS is optimized", func() {
+		optimized := CNSStatusOptimized
+		ctx := AuditContext{
+			CNSStatus:      &optimized,
+			CurrentDayType: DayTypePerformance,
+		}
+
+		mismatches := EvaluateAuditRules(ctx, DefaultAuditRules())
+
+		s.Empty(mismatches)
+	})
+
+	s.Run("does not trigger when day type is not performance", func() {
+		depleted := CNSStatusDepleted
+		ctx := AuditContext{
+			CNSStatus:      &depleted,
+			CurrentDayType: DayTypeFatburner,
+		}
+
+		mismatches := EvaluateAuditRules(ctx, DefaultAuditRules())
+
+		// Only the high-fatigue-low-carbs rule might trigger, not CNS
+		for _, m := range mismatches {
+			s.NotEqual(AuditRuleCNSDepletedPerformance, m.ID)
+		}
+	})
 }
 
-func TestEvaluateAuditRules_NoMismatch(t *testing.T) {
-	rules := DefaultAuditRules()
-	ctx := AuditContext{
-		OverallFatigue:     40,
-		CurrentDayType:     DayTypePerformance,
-		TotalTrainingLoad:  5,
-		ProteinPercent:     90,
-		OverreachedMuscles: 1,
-		HasRecoveryPlanned: true,
-	}
+func (s *AuditSuite) TestHeavyTrainingLowProtein() {
+	s.Run("triggers when load exceeds 10 and protein below 80%", func() {
+		ctx := AuditContext{
+			TotalTrainingLoad: 15,
+			ProteinPercent:    60,
+		}
 
-	mismatches := EvaluateAuditRules(ctx, rules)
+		mismatches := EvaluateAuditRules(ctx, DefaultAuditRules())
 
-	if len(mismatches) != 0 {
-		t.Errorf("expected no mismatches, got %d", len(mismatches))
-	}
+		s.Require().Len(mismatches, 1)
+		s.Equal(AuditRuleHeavyTrainingLowProtein, mismatches[0].ID)
+		s.NotEmpty(mismatches[0].Summary)
+	})
+
+	s.Run("does not trigger when protein meets threshold", func() {
+		ctx := AuditContext{
+			TotalTrainingLoad: 15,
+			ProteinPercent:    85,
+		}
+
+		mismatches := EvaluateAuditRules(ctx, DefaultAuditRules())
+
+		s.Empty(mismatches)
+	})
 }
 
-func TestGetHighestSeverity(t *testing.T) {
-	tests := []struct {
-		name       string
-		mismatches []AuditMismatch
-		want       AuditSeverity
-	}{
-		{
-			name:       "empty",
-			mismatches: []AuditMismatch{},
-			want:       "",
-		},
-		{
-			name: "warning only",
-			mismatches: []AuditMismatch{
-				{Severity: AuditSeverityWarning},
-			},
-			want: AuditSeverityWarning,
-		},
-		{
-			name: "critical only",
-			mismatches: []AuditMismatch{
-				{Severity: AuditSeverityCritical},
-			},
-			want: AuditSeverityCritical,
-		},
-		{
-			name: "mixed - critical wins",
-			mismatches: []AuditMismatch{
-				{Severity: AuditSeverityWarning},
-				{Severity: AuditSeverityCritical},
-				{Severity: AuditSeverityWarning},
-			},
-			want: AuditSeverityCritical,
-		},
-	}
+func (s *AuditSuite) TestRecoveryOverreached() {
+	s.Run("triggers when muscles overreached without recovery planned", func() {
+		ctx := AuditContext{
+			OverreachedMuscles: 5,
+			HasRecoveryPlanned: false,
+		}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := GetHighestSeverity(tt.mismatches)
-			if got != tt.want {
-				t.Errorf("GetHighestSeverity() = %v, want %v", got, tt.want)
-			}
-		})
-	}
+		mismatches := EvaluateAuditRules(ctx, DefaultAuditRules())
+
+		s.Require().Len(mismatches, 1)
+		s.Equal(AuditRuleRecoveryOverreached, mismatches[0].ID)
+	})
+
+	s.Run("does not trigger when recovery is planned", func() {
+		ctx := AuditContext{
+			OverreachedMuscles: 5,
+			HasRecoveryPlanned: true,
+		}
+
+		mismatches := EvaluateAuditRules(ctx, DefaultAuditRules())
+
+		s.Empty(mismatches)
+	})
+}
+
+func (s *AuditSuite) TestNoMismatchOnValidContext() {
+	s.Run("returns empty when all conditions are safe", func() {
+		optimized := CNSStatusOptimized
+		ctx := AuditContext{
+			OverallFatigue:     40,
+			CurrentDayType:     DayTypePerformance,
+			CNSStatus:          &optimized,
+			TotalTrainingLoad:  5,
+			ProteinPercent:     90,
+			OverreachedMuscles: 1,
+			HasRecoveryPlanned: true,
+		}
+
+		mismatches := EvaluateAuditRules(ctx, DefaultAuditRules())
+
+		s.Empty(mismatches)
+	})
+}
+
+func (s *AuditSuite) TestGetHighestSeverity() {
+	s.Run("returns empty string for no mismatches", func() {
+		s.Equal(AuditSeverity(""), GetHighestSeverity([]AuditMismatch{}))
+	})
+
+	s.Run("returns warning when only warnings present", func() {
+		mismatches := []AuditMismatch{
+			{Severity: AuditSeverityWarning},
+		}
+		s.Equal(AuditSeverityWarning, GetHighestSeverity(mismatches))
+	})
+
+	s.Run("returns critical when critical is present", func() {
+		mismatches := []AuditMismatch{
+			{Severity: AuditSeverityWarning},
+			{Severity: AuditSeverityCritical},
+			{Severity: AuditSeverityWarning},
+		}
+		s.Equal(AuditSeverityCritical, GetHighestSeverity(mismatches))
+	})
 }
