@@ -218,6 +218,7 @@ export function CommandCenter({
     async (data: CheckinData) => {
       const request: CreateDailyLogRequest = {
         weightKg: data.weightKg,
+        bodyFatPercent: data.bodyFatPercent,
         sleepQuality: data.sleepQuality,
         sleepHours: data.sleepHours,
         hrvMs: data.hrvMs,
@@ -239,6 +240,7 @@ export function CommandCenter({
     async (data: CheckinData) => {
       const request: CreateDailyLogRequest = {
         weightKg: data.weightKg,
+        bodyFatPercent: data.bodyFatPercent,
         sleepQuality: data.sleepQuality,
         sleepHours: data.sleepHours,
         hrvMs: data.hrvMs,
@@ -260,6 +262,7 @@ export function CommandCenter({
   // Prepare initial data from current log for edit mode
   const editInitialData = log ? {
     weightKg: log.weightKg,
+    bodyFatPercent: log.bodyFatPercent,
     sleepHours: log.sleepHours ?? 7,
     sleepQuality: log.sleepQuality ?? 70,
     hrvMs: log.hrvMs,
@@ -421,6 +424,8 @@ export function CommandCenter({
               consumedCarbsG={log.consumedCarbsG}
               consumedFatG={log.consumedFatG}
               onLogSolution={handleLogSolution}
+              activeProtocol={profile.fastingProtocol}
+              activeBurn={log.activeCaloriesBurned ?? 0}
             />
           </motion.div>
         </motion.div>

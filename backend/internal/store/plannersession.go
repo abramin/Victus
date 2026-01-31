@@ -8,22 +8,25 @@ import (
 	"victus/internal/domain"
 )
 
-// ErrPlannedSessionNotFound is returned when no planned session exists for the given ID.
-var ErrPlannedSessionNotFound = errors.New("planned session not found")
+// ErrPlannerSessionNotFound is returned when no planner session exists for the given ID.
+var ErrPlannerSessionNotFound = errors.New("planner session not found")
 
-// PlannedSessionStore handles database operations for planned sessions from the workout planner.
-type PlannedSessionStore struct {
+// PlannerSessionStore handles database operations for sessions from the workout planner.
+// These are ad-hoc sessions scheduled for future dates, distinct from:
+// - TrainingSession (bound to DailyLog)
+// - ScheduledSession (from program installation)
+type PlannerSessionStore struct {
 	db DBTX
 }
 
-// NewPlannedSessionStore creates a new PlannedSessionStore.
-func NewPlannedSessionStore(db DBTX) *PlannedSessionStore {
-	return &PlannedSessionStore{db: db}
+// NewPlannerSessionStore creates a new PlannerSessionStore.
+func NewPlannerSessionStore(db DBTX) *PlannerSessionStore {
+	return &PlannerSessionStore{db: db}
 }
 
-// GetByDate retrieves all planned sessions for a date (YYYY-MM-DD format).
+// GetByDate retrieves all planner sessions for a date (YYYY-MM-DD format).
 // Returns an empty slice if no sessions exist for that date.
-func (s *PlannedSessionStore) GetByDate(ctx context.Context, date string) ([]domain.PlannedSession, error) {
+func (s *PlannerSessionStore) GetByDate(ctx context.Context, date string) ([]domain.PlannerSession, error) {
 	const query = `
 		SELECT id, plan_date, session_order, training_type, duration_min, load_score, rpe, notes
 		FROM planned_sessions
@@ -37,9 +40,9 @@ func (s *PlannedSessionStore) GetByDate(ctx context.Context, date string) ([]dom
 	}
 	defer rows.Close()
 
-	var sessions []domain.PlannedSession
+	var sessions []domain.PlannerSession
 	for rows.Next() {
-		var ps domain.PlannedSession
+		var ps domain.PlannerSession
 		if err := rows.Scan(
 			&ps.ID, &ps.Date, &ps.SessionOrder, &ps.TrainingType,
 			&ps.DurationMin, &ps.LoadScore, &ps.RPE, &ps.Notes,
@@ -56,9 +59,9 @@ func (s *PlannedSessionStore) GetByDate(ctx context.Context, date string) ([]dom
 	return sessions, nil
 }
 
-// ListByDateRange retrieves planned sessions for a date range (inclusive).
+// ListByDateRange retrieves planner sessions for a date range (inclusive).
 // Returns an empty slice if no sessions exist in the range.
-func (s *PlannedSessionStore) ListByDateRange(ctx context.Context, startDate, endDate string) ([]domain.PlannedSession, error) {
+func (s *PlannerSessionStore) ListByDateRange(ctx context.Context, startDate, endDate string) ([]domain.PlannerSession, error) {
 	const query = `
 		SELECT id, plan_date, session_order, training_type, duration_min, load_score, rpe, notes
 		FROM planned_sessions
@@ -72,9 +75,9 @@ func (s *PlannedSessionStore) ListByDateRange(ctx context.Context, startDate, en
 	}
 	defer rows.Close()
 
-	var sessions []domain.PlannedSession
+	var sessions []domain.PlannerSession
 	for rows.Next() {
-		var ps domain.PlannedSession
+		var ps domain.PlannerSession
 		if err := rows.Scan(
 			&ps.ID, &ps.Date, &ps.SessionOrder, &ps.TrainingType,
 			&ps.DurationMin, &ps.LoadScore, &ps.RPE, &ps.Notes,
@@ -91,9 +94,9 @@ func (s *PlannedSessionStore) ListByDateRange(ctx context.Context, startDate, en
 	return sessions, nil
 }
 
-// UpsertForDate replaces all planned sessions for a date with the provided sessions.
+// UpsertForDate replaces all planner sessions for a date with the provided sessions.
 // This is atomic: deletes existing sessions and inserts new ones in a single transaction.
-func (s *PlannedSessionStore) UpsertForDate(ctx context.Context, date string, sessions []domain.PlannedSession) error {
+func (s *PlannerSessionStore) UpsertForDate(ctx context.Context, date string, sessions []domain.PlannerSession) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -124,8 +127,8 @@ func (s *PlannedSessionStore) UpsertForDate(ctx context.Context, date string, se
 	return tx.Commit()
 }
 
-// DeleteByDate removes all planned sessions for the given date.
-func (s *PlannedSessionStore) DeleteByDate(ctx context.Context, date string) error {
+// DeleteByDate removes all planner sessions for the given date.
+func (s *PlannerSessionStore) DeleteByDate(ctx context.Context, date string) error {
 	_, err := s.db.ExecContext(ctx, "DELETE FROM planned_sessions WHERE plan_date = $1", date)
 	return err
 }

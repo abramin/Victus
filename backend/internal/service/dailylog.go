@@ -267,6 +267,28 @@ func (s *DailyLogService) GetToday(ctx context.Context, now time.Time) (*domain.
 	return s.GetByDate(ctx, today)
 }
 
+// GetNeuralBattery computes the Neural Battery from today's HRV and recent history.
+// Returns nil if no HRV data is available.
+func (s *DailyLogService) GetNeuralBattery(ctx context.Context) *domain.NeuralBattery {
+	now := time.Now()
+	log, err := s.GetToday(ctx, now)
+	if err != nil || log.HRVMs == nil || *log.HRVMs <= 0 {
+		return nil
+	}
+
+	today := now.Format("2006-01-02")
+	hrvHistory, err := s.logStore.GetHRVHistory(ctx, today, domain.HRVBaselineWindowDays)
+	if err != nil {
+		return nil
+	}
+
+	cnsResult := domain.CalculateCNSStatus(domain.CNSInput{
+		CurrentHRV: *log.HRVMs,
+		HRVHistory: hrvHistory,
+	})
+	return domain.CalculateNeuralBattery(cnsResult)
+}
+
 // UpdateActualTraining updates the actual training sessions for a given date.
 // Returns store.ErrDailyLogNotFound if no log exists for that date.
 func (s *DailyLogService) UpdateActualTraining(ctx context.Context, date string, sessions []domain.TrainingSession) (*domain.DailyLog, error) {
@@ -293,7 +315,19 @@ func (s *DailyLogService) UpdateActualTraining(ctx context.Context, date string,
 		}
 
 		// Insert new actual sessions
-		return s.sessionStore.CreateForLogWithTx(ctx, tx, log.ID, sessions)
+		if err := s.sessionStore.CreateForLogWithTx(ctx, tx, log.ID, sessions); err != nil {
+			return err
+		}
+
+		// Active Fuel Bridge: Calculate active burn based on load
+		loadScore := domain.TotalSessionLoad(sessions)
+		estimatedBurn := int(loadScore * log.WeightKg * 0.25)
+
+		// Update persistent storage with calculated burn
+		// Note: We always update calculation here. If the user wants to manually override,
+		// they can do so explicitly via UpdateActiveCaloriesBurned endpoint/method.
+		// Taking the stance that changing the sessions should re-trigger the calculation.
+		return s.logStore.UpdateActiveCaloriesBurnedWithTx(ctx, tx, log.Date, &estimatedBurn)
 	}); err != nil {
 		return nil, err
 	}
@@ -351,6 +385,15 @@ func (s *DailyLogService) UpsertHealthKitMetrics(ctx context.Context, date strin
 // Returns store.ErrDailyLogNotFound if no log exists for that date.
 func (s *DailyLogService) AddConsumedMacros(ctx context.Context, date string, macros store.ConsumedMacros) (*domain.DailyLog, error) {
 	if err := s.logStore.AddConsumedMacros(ctx, date, macros); err != nil {
+		return nil, err
+	}
+	return s.GetByDate(ctx, date)
+}
+
+// ClearMealConsumedMacros clears the consumed macros for a specific meal slot.
+// Returns store.ErrDailyLogNotFound if no log exists for that date.
+func (s *DailyLogService) ClearMealConsumedMacros(ctx context.Context, date string, meal domain.MealName) (*domain.DailyLog, error) {
+	if err := s.logStore.ClearMealConsumedMacros(ctx, date, meal); err != nil {
 		return nil, err
 	}
 	return s.GetByDate(ctx, date)
@@ -929,7 +972,7 @@ func buildDayInsightPrompt(
 ) string {
 	sessionStr := "No training"
 	if len(sessionTypes) > 0 {
-		sessionStr = fmt.Sprintf("%s (%d min, RPE %d/10)", 
+		sessionStr = fmt.Sprintf("%s (%d min, RPE %d/10)",
 			strings.Join(sessionTypes, " + "), totalDuration, avgRPE)
 	}
 

@@ -61,7 +61,7 @@ api/ → service/ → store/ → db/
 
 - **api/** - HTTP handlers, request/response DTOs, routing, middleware
 - **service/** - Business logic orchestration, calls domain functions and stores
-- **store/** - Data persistence using SQLite, implements repository pattern
+- **store/** - Data persistence using PostgreSQL, implements repository pattern
 - **domain/** - Pure domain types and calculation functions (no I/O imports)
 - **db/** - Database connection and migrations
 
@@ -209,7 +209,7 @@ Supports bulk import of Garmin training data to backfill historical training ses
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PORT` | `8080` | Backend server port |
-| `DB_PATH` | `data/victus.sqlite` | SQLite database file (use `:memory:` for tests) |
+| `DATABASE_URL` | - | PostgreSQL connection URL (required) |
 | `OLLAMA_URL` | `http://localhost:11434` | Ollama API endpoint for AI features (insights, recipe naming) |
 | `CORS_ALLOWED_ORIGIN` | `*` | CORS origin |
 

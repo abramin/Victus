@@ -688,9 +688,9 @@ The Cockpit Dashboard is the primary daily view showing meal points, activity tr
 - Updates reflected immediately in Deficit Monitor
 - Stored separately from training session calories for clarity
 
-## 7. Persistence (SQLite reference schema)
+## 7. Persistence (PostgreSQL schema)
 
-The SQLite schema from the base PRD remains the reference and is compatible with the acceptance criteria above. fileciteturn1file17
+The PostgreSQL schema from the base PRD remains the reference and is compatible with the acceptance criteria above. fileciteturn1file17
 
 ---
 

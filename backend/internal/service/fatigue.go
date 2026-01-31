@@ -197,10 +197,61 @@ func (s *FatigueService) GetBodyStatus(ctx context.Context, asOf time.Time) (*do
 	// Calculate overall score
 	overallScore := domain.CalculateOverallFatigueScore(muscles)
 
+	// Calculate joint integrity (estimated from muscle fatigue)
+	// Joint integrity inversely correlates with muscle fatigue around joints
+	jointIntegrity := make(map[string]float64)
+	for _, muscle := range muscles {
+		// Common joint-muscle mappings
+		switch muscle.Muscle {
+		case domain.MuscleFrontDelt, domain.MuscleSideDelt, domain.MuscleRearDelt:
+			val := 1.0 - (muscle.FatiguePercent / 100)
+			if existing, ok := jointIntegrity["shoulder"]; ok {
+				jointIntegrity["shoulder"] = (existing + val) / 2 // Average multiple muscles
+			} else {
+				jointIntegrity["shoulder"] = val
+			}
+		case domain.MuscleCore, domain.MuscleLowerBack, domain.MuscleTraps:
+			val := 1.0 - (muscle.FatiguePercent / 100)
+			if existing, ok := jointIntegrity["spine"]; ok {
+				jointIntegrity["spine"] = (existing + val) / 2 // Average multiple muscles
+			} else {
+				jointIntegrity["spine"] = val
+			}
+		case domain.MuscleQuads, domain.MuscleHamstrings, domain.MuscleGlutes:
+			val := 1.0 - (muscle.FatiguePercent / 100)
+			if existing, ok := jointIntegrity["knee"]; ok {
+				jointIntegrity["knee"] = (existing + val) / 2 // Average multiple muscles
+			} else {
+				jointIntegrity["knee"] = val
+			}
+		case domain.MuscleCalves:
+			jointIntegrity["ankle"] = 1.0 - (muscle.FatiguePercent / 100)
+		}
+	}
+
+	// Ensure all major joints have a value
+	if _, ok := jointIntegrity["shoulder"]; !ok {
+		jointIntegrity["shoulder"] = 1.0
+	}
+	if _, ok := jointIntegrity["spine"]; !ok {
+		jointIntegrity["spine"] = 1.0
+	}
+	if _, ok := jointIntegrity["knee"]; !ok {
+		jointIntegrity["knee"] = 1.0
+	}
+	if _, ok := jointIntegrity["ankle"]; !ok {
+		jointIntegrity["ankle"] = 1.0
+	}
+
+	// Calculate systemic load as average fatigue across all muscles
+	systemicLoad := overallScore
+
 	return &domain.BodyStatus{
-		Muscles:      muscles,
-		OverallScore: overallScore,
-		AsOfTime:     asOf.Format(time.RFC3339),
+		Muscles:        muscles,
+		OverallScore:   overallScore,
+		AsOfTime:       asOf.Format(time.RFC3339),
+		JointIntegrity: jointIntegrity,
+		SystemicLoad:   systemicLoad,
 	}, nil
 }
 

@@ -351,6 +351,7 @@ func (s *OllamaService) GenerateSemanticRefinement(
 	solution domain.SolverSolution,
 	trainingCtx *domain.TrainingContextForSolver,
 	absurdity *domain.AbsurdityWarning,
+	bodyStatus *domain.BodyStatus, // New parameter for bio-status integration
 ) domain.SemanticRefinement {
 	fallback := BuildFallbackRefinement(solution, absurdity)
 
@@ -375,64 +376,8 @@ func (s *OllamaService) GenerateSemanticRefinement(
 		return fallback
 	}
 
-	prompt := fmt.Sprintf(`You are the Victus Neural OS Logistics Chef. You receive raw ingredient data and transform it into a tactical field ration briefing.
-
-SOLUTION DATA (JSON):
-%s
-
-YOUR MISSION:
-Generate a JSON response with EXACTLY these 5 fields. Return ONLY valid JSON with no preamble or explanation.
-
-REQUIRED JSON FORMAT:
-{
-  "missionTitle": "string",
-  "operationalSteps": "string",
-  "logisticAlert": null or "string",
-  "flavorPatch": null or "string",
-  "contextualInsight": "string"
-}
-
-FIELD SPECIFICATIONS:
-
-1. missionTitle (string, 15-60 chars):
-   - Format: [MAIN INGREDIENT] + [TEXTURE/PREP] // [ALPHA-NUMERIC CODE]
-   - MUST BE ALL CAPS
-   - Example: "WHEY CHIA SLUDGE // MK-4"
-   - Example: "CHICKEN RICE STACK // BR-12"
-   - Example: "BANANA OAT SLURRY // OP-7"
-
-2. operationalSteps (string, 20-250 chars):
-   - ONE sentence with specific mechanical instructions
-   - Include measurements (ml, tbsp, minutes)
-   - CRITICAL: If ingredients are dry/incompatible (whey powder + chia seeds), you MUST instruct adding liquid
-   - Liquids to suggest: Water, Almond Milk, Coconut Milk, Coffee
-   - Example: "Hydrate 12 tbsp chia in 300ml water for 10 mins, then fold in 6 scoops whey until pudding consistency."
-   - Example: "Mix 200g chicken with 150g cooked rice and microwave 90 seconds until steaming."
-
-3. logisticAlert (null or string, max 150 chars):
-   - Only if there's a genuine problem (very high protein >60g, weird combo, digestive concern)
-   - MUST include the SOLUTION/SPLITTING STRATEGY
-   - Example: "PROTEIN OVERLOAD (72g). Split into 2 servings: consume 50%% now, refrigerate 50%% for +3hr post-training."
-   - Example: null if no concerns
-
-4. flavorPatch (null or string, max 100 chars):
-   - ONLY zero-calorie additives
-   - Options: Salt, Cinnamon, Vanilla Extract, Cocoa Powder (unsweetened), Sweetener, Citrus Zest, Cayenne
-   - Example: "Add cinnamon and sweetener to neutralize whey bitterness."
-   - Example: null if not needed
-
-5. contextualInsight (string, 20-120 chars):
-   - 1-2 sentences on why this combination works for the training context
-   - Reference dayType or planned training if provided
-   - Example: "High-protein recovery stack optimized for post-HIIT glycogen replenishment."
-
-CRITICAL RULES:
-- Return ONLY valid JSON, no markdown, no preamble, no explanation
-- All strings must use double quotes
-- Use null (not "null" or empty string) for absent fields
-- operationalSteps must mandate liquid if ingredients are dry powders/seeds
-
-TONE: Military logistics meets sports nutrition. Direct, mechanical, tactical.`, string(payloadJSON))
+	// Dynamic Prompt Construction based on Bio-Status and Meal Logic
+	prompt := buildTacticalPrompt(string(payloadJSON), trainingCtx, bodyStatus, solution.TotalMacros.ProteinG)
 
 	req := ollamaRequest{
 		Model:  "llama3.2",
@@ -538,6 +483,103 @@ TONE: Military logistics meets sports nutrition. Direct, mechanical, tactical.`,
 	}
 }
 
+// buildTacticalPrompt constructs the dynamic system prompt based on BodyStatus and MealType.
+func buildTacticalPrompt(jsonPayload string, trainingCtx *domain.TrainingContextForSolver, bodyStatus *domain.BodyStatus, totalProtein float64) string {
+	basePrompt := `You are the Victus Neural OS Logistics Chef. You receive raw ingredient data and transform it into a tactical field ration briefing.
+
+SOLUTION DATA (JSON):
+%s
+
+YOUR MISSION:
+Generate a JSON response with EXACTLY these 5 fields. Return ONLY valid JSON with no preamble or explanation.
+
+CONTEXTUAL LOGIC:
+%s
+
+REQUIRED JSON FORMAT:
+{
+  "missionTitle": "string",
+  "operationalSteps": "string",
+  "logisticAlert": null or "string",
+  "flavorPatch": null or "string",
+  "contextualInsight": "string"
+}
+
+FIELD SPECIFICATIONS:
+
+1. missionTitle (string, 15-60 chars):
+   - Format: [MAIN INGREDIENT] + [TEXTURE/PREP] // [ALPHA-NUMERIC CODE]
+   - MUST BE ALL CAPS
+   - Example: "WHEY CHIA SLUDGE // MK-4"
+   - Example: "CHICKEN RICE STACK // BR-12"
+
+2. operationalSteps (string, 20-250 chars):
+   - ONE sentence with specific mechanical instructions.
+   - ASSIGN CULINARY ROLES: Identify the 'Base' (volume), 'Binder' (fat/liquid), and 'Crunch'.
+   - TEXTURE GUARD: If ingredients are dry/powders (e.g., Whey + Chia), you MUST instruct adding liquid (Water/Almond Milk/Coffee) to reach pudding consistency.
+   - Example: "Hydrate chia in 200ml almond milk for 10 min, then fold in whey to form a cohesive sludge."
+
+3. logisticAlert (null or string, max 150 chars):
+   - ABSORPTION GUARD: If protein > 60g, you MUST suggest a Splitting Strategy (Stage 1 & Stage 2).
+   - Example: "PROTEIN OVERLOAD (72g). Split into 2 servings: consume 50%% now, refrigerate 50%% for +3hr."
+   - Otherwise, use null unless a genuine digestive concern exists.
+
+4. flavorPatch (null or string, max 100 chars):
+   - STRICTLY LIMITED TO ZERO-CALORIE PATCHES: Salt, Cinnamon, Stevia, Black Pepper, Lemon Juice, Hot Sauce.
+   - You MUST include exactly one patch suggestion to prevent flavor fatigue.
+   - Example: "Add cinnamon and stevia to neutralize whey bitterness."
+
+5. contextualInsight (string, 20-120 chars):
+   - 1-2 sentences on why this stack fits the current bio-status or protocol.
+   - Example: "Anti-inflammatory stack optimized for wrist recovery."
+
+CRITICAL RULES:
+- Return ONLY valid JSON.
+- All strings must use double quotes.
+- Use null for absent fields.
+
+TONE: Military logistics meets sports nutrition. Direct, mechanical, tactical.`
+
+	// Build Dynamic Context Logic
+	var contextLogic strings.Builder
+
+	// 1. Joint/Bio-Repair Check
+	if bodyStatus != nil {
+		for joint, integrity := range bodyStatus.JointIntegrity {
+			if integrity < 0.5 { // Red/Amber status
+				contextLogic.WriteString(fmt.Sprintf("- CRITICAL: Detect inflammation in %s. Prioritize anti-inflammatory prep steps. Add [BIO-REPAIR] tag to title.\n", joint))
+			}
+		}
+		// Systemic Load Check
+		if bodyStatus.SystemicLoad > 7.5 {
+			contextLogic.WriteString("- HIGH SYSTEMIC LOAD DETECTED: Prioritize digestibility and gut health.\n")
+		}
+	}
+
+	// 2. Protocol-Aware Meal Logic
+	if trainingCtx != nil {
+		mealTime := strings.ToUpper(trainingCtx.MealTime)
+
+		// Inject Protocol Context
+		if trainingCtx.ActiveProtocol != "" {
+			contextLogic.WriteString(fmt.Sprintf("- PROTOCOL ACTIVE: %s. \n", strings.ToUpper(string(trainingCtx.ActiveProtocol))))
+		}
+
+		if strings.Contains(mealTime, "BREAKFAST") {
+			contextLogic.WriteString("- PROTOCOL: Sweet/Energy. Use fruits/grains as textural base. Exclude savory vegetables logic.\n")
+		} else if strings.Contains(mealTime, "LUNCH") || strings.Contains(mealTime, "DINNER") {
+			contextLogic.WriteString("- PROTOCOL: Savory/Recovery. Use vegetables/proteins as base. Exclude high-sugar fruits logic.\n")
+		}
+	}
+
+	// 3. Protein Load Check (Explicit)
+	if totalProtein > 60.0 {
+		contextLogic.WriteString(fmt.Sprintf("- HIGH PROTEIN ALERT (%.0fg): Trigger Splitting Strategy in logisticAlert.\n", totalProtein))
+	}
+
+	return fmt.Sprintf(basePrompt, jsonPayload, contextLogic.String())
+}
+
 // BuildFallbackRefinement creates a semantic refinement when Ollama is unavailable.
 // Includes basic liquid binder logic for dry ingredient combinations.
 // Exported for use by solver service for non-primary solutions.
@@ -564,10 +606,10 @@ func BuildFallbackRefinement(solution domain.SolverSolution, absurdity *domain.A
 	for _, ing := range solution.Ingredients {
 		name := strings.ToLower(ing.Food.FoodItem)
 		if strings.Contains(name, "whey") ||
-		   strings.Contains(name, "protein") ||
-		   strings.Contains(name, "powder") ||
-		   strings.Contains(name, "chia") ||
-		   strings.Contains(name, "oat") {
+			strings.Contains(name, "protein") ||
+			strings.Contains(name, "powder") ||
+			strings.Contains(name, "chia") ||
+			strings.Contains(name, "oat") {
 			needsLiquid = true
 			break
 		}
@@ -581,8 +623,8 @@ func BuildFallbackRefinement(solution domain.SolverSolution, absurdity *domain.A
 		for _, ing := range solution.Ingredients {
 			name := strings.ToLower(ing.Food.FoodItem)
 			if strings.Contains(name, "whey") || strings.Contains(name, "protein") ||
-			   strings.Contains(name, "powder") || strings.Contains(name, "chia") ||
-			   strings.Contains(name, "oat") {
+				strings.Contains(name, "powder") || strings.Contains(name, "chia") ||
+				strings.Contains(name, "oat") {
 				totalDryWeight += ing.AmountG
 			}
 		}
@@ -825,4 +867,275 @@ Return ONLY valid JSON, no explanation or preamble.`,
 		echoResult.PerceivedExertionOffset)
 
 	return &echoResult, nil
+}
+
+// voiceCommandLLMResponse is the expected JSON response from Ollama for voice commands.
+type voiceCommandLLMResponse struct {
+	Intent      string             `json:"intent"`
+	Activity    *string            `json:"activity,omitempty"`
+	DurationMin *int               `json:"duration_min,omitempty"`
+	AvgHR       *int               `json:"avg_hr,omitempty"`
+	RPE         *int               `json:"rpe,omitempty"`
+	Sensation   *string            `json:"sensation,omitempty"`
+	Items       []nutritionItemLLM `json:"items,omitempty"`
+	Metric      *string            `json:"metric,omitempty"`
+	Value       *float64           `json:"value,omitempty"`
+	Unit        *string            `json:"unit,omitempty"`
+}
+
+type nutritionItemLLM struct {
+	Food     string   `json:"food"`
+	Quantity *float64 `json:"quantity,omitempty"`
+	Unit     *string  `json:"unit,omitempty"`
+}
+
+// ParseVoiceCommand processes a natural language voice command and extracts structured data.
+// Uses a flexible JSON schema that handles partial data (returns null for missing fields).
+// Returns nil if Ollama is unavailable or parsing fails (caller should handle gracefully).
+func (s *OllamaService) ParseVoiceCommand(ctx context.Context, rawInput string) (*domain.VoiceCommandResult, error) {
+	if !s.enabled {
+		log.Printf("[OLLAMA] Service disabled, skipping voice command parsing")
+		return nil, nil
+	}
+
+	if rawInput == "" {
+		return nil, nil
+	}
+
+	prompt := buildVoiceCommandPrompt(rawInput)
+
+	req := ollamaRequest{
+		Model:  "llama3.2",
+		Prompt: prompt,
+		Stream: false,
+	}
+
+	body, err := json.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
+
+	// Use 60s timeout for voice command parsing (async background process)
+	voiceCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+
+	httpReq, err := http.NewRequestWithContext(voiceCtx, "POST", s.baseURL+"/api/generate", bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	log.Printf("[OLLAMA] Sending voice command parse request (input length: %d chars)", len(rawInput))
+
+	resp, err := s.client.Do(httpReq)
+	if err != nil {
+		log.Printf("[OLLAMA] Voice command parse request failed: %v", err)
+		s.enabled = false
+		return nil, nil
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("[OLLAMA] Voice command parse returned status %d", resp.StatusCode)
+		return nil, nil
+	}
+
+	var result ollamaResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		log.Printf("[OLLAMA] Failed to decode voice command response: %v", err)
+		return nil, nil
+	}
+
+	// Extract JSON from response
+	responseText := strings.TrimSpace(result.Response)
+	log.Printf("[OLLAMA] Voice command raw response: %s", responseText[:min(200, len(responseText))])
+
+	// Find JSON object in response
+	startIdx := strings.Index(responseText, "{")
+	endIdx := strings.LastIndex(responseText, "}")
+	if startIdx == -1 || endIdx == -1 || endIdx <= startIdx {
+		log.Printf("[OLLAMA] No valid JSON found in voice command response")
+		return nil, nil
+	}
+
+	jsonStr := responseText[startIdx : endIdx+1]
+
+	var llmResp voiceCommandLLMResponse
+	if err := json.Unmarshal([]byte(jsonStr), &llmResp); err != nil {
+		log.Printf("[OLLAMA] Failed to parse voice command JSON: %v", err)
+		return nil, nil
+	}
+
+	// Convert LLM response to domain type
+	voiceResult := convertLLMToVoiceResult(llmResp, rawInput)
+
+	// Validate the result
+	if err := domain.ValidateVoiceCommandResult(voiceResult); err != nil {
+		log.Printf("[OLLAMA] Voice command validation failed: %v", err)
+		return nil, nil
+	}
+
+	log.Printf("[OLLAMA] Successfully parsed voice command: intent=%s, isDraft=%v",
+		voiceResult.Intent, voiceResult.IsDraftTrainingSession())
+
+	return voiceResult, nil
+}
+
+// buildVoiceCommandPrompt constructs the Universal Neural Parser system prompt.
+func buildVoiceCommandPrompt(rawInput string) string {
+	return fmt.Sprintf(`You are the Victus Neural Parser. Your job is to extract structured data from messy natural language.
+
+USER INPUT:
+%s
+
+GLOBAL RULES:
+1. Identify Intent: Is this TRAINING, NUTRITION, or BIOMETRICS?
+2. Extract Data: Map words to the Schema below.
+3. Handle Missing Data: If a specific field is not mentioned, return null. Do not guess.
+4. Ignore Filler: Ignore words like 'uh', 'maybe', 'I think'.
+
+SCHEMA 1: TRAINING
+- activity: String (e.g., 'Rowing', 'Running', 'Strength', 'Walking')
+- duration_min: Integer or null
+- avg_hr: Integer or null
+- rpe: Integer (1-10) or null
+- sensation: String or null (e.g., 'wrist hurts', 'felt strong', 'knee clicky')
+
+SCHEMA 2: NUTRITION
+- items: Array of objects:
+  - food: String (e.g., 'Greek Yogurt', 'eggs', 'chicken breast')
+  - quantity: Number (e.g., 100, 1, 2)
+  - unit: String (e.g., 'g', 'cup', 'whole', 'slice')
+
+SCHEMA 3: BIOMETRICS
+- metric: String (e.g., 'Weight', 'Sleep', 'Body Status')
+- value: Number or null
+- unit: String (e.g., 'kg', 'hours') or null
+- sensation: String or null (e.g., 'left knee clicky', 'back stiff')
+
+EXAMPLES:
+
+Input: 'Did 20 mins of rowing, heart rate was around 145.'
+Output: {"intent": "TRAINING", "activity": "Rowing", "duration_min": 20, "avg_hr": 145, "rpe": null, "sensation": null}
+
+Input: 'Just did some rowing'
+Output: {"intent": "TRAINING", "activity": "Rowing", "duration_min": null, "avg_hr": null, "rpe": null, "sensation": null}
+
+Input: 'My left knee feels a bit clicky today.'
+Output: {"intent": "BIOMETRICS", "metric": "Body Status", "value": null, "unit": null, "sensation": "left knee clicky"}
+
+Input: 'Weighed in at 82.5 kg this morning'
+Output: {"intent": "BIOMETRICS", "metric": "Weight", "value": 82.5, "unit": "kg", "sensation": null}
+
+Input: 'Had 100g Greek yogurt and 2 eggs for breakfast'
+Output: {"intent": "NUTRITION", "items": [{"food": "Greek yogurt", "quantity": 100, "unit": "g"}, {"food": "eggs", "quantity": 2, "unit": "whole"}]}
+
+Input: 'Slept 7.5 hours last night'
+Output: {"intent": "BIOMETRICS", "metric": "Sleep", "value": 7.5, "unit": "hours", "sensation": null}
+
+Input: 'Strength training for 45 minutes, RPE 8, shoulders feeling tight'
+Output: {"intent": "TRAINING", "activity": "Strength", "duration_min": 45, "avg_hr": null, "rpe": 8, "sensation": "shoulders feeling tight"}
+
+Return ONLY valid JSON with no preamble or explanation.`, rawInput)
+}
+
+// convertLLMToVoiceResult transforms the LLM response into a domain VoiceCommandResult.
+func convertLLMToVoiceResult(llmResp voiceCommandLLMResponse, rawInput string) *domain.VoiceCommandResult {
+	result := &domain.VoiceCommandResult{
+		RawInput:   rawInput,
+		ParsedAt:   time.Now(),
+		Confidence: 0.8, // Default confidence
+	}
+
+	// Parse intent
+	intent, err := domain.ParseVoiceIntent(llmResp.Intent)
+	if err != nil {
+		// Default to biometrics if intent parsing fails
+		intent = domain.VoiceIntentBiometrics
+		result.Confidence = 0.5
+	}
+	result.Intent = intent
+
+	switch intent {
+	case domain.VoiceIntentTraining:
+		activity := ""
+		if llmResp.Activity != nil {
+			activity = *llmResp.Activity
+		}
+		result.Training = &domain.TrainingVoiceData{
+			Activity:    activity,
+			DurationMin: llmResp.DurationMin,
+			AvgHR:       llmResp.AvgHR,
+			RPE:         llmResp.RPE,
+			Sensation:   llmResp.Sensation,
+		}
+
+	case domain.VoiceIntentNutrition:
+		items := make([]domain.NutritionItem, len(llmResp.Items))
+		for i, item := range llmResp.Items {
+			items[i] = domain.NutritionItem{
+				Food:     item.Food,
+				Quantity: item.Quantity,
+				Unit:     item.Unit,
+			}
+		}
+		result.Nutrition = &domain.NutritionData{
+			Items: items,
+		}
+
+	case domain.VoiceIntentBiometrics:
+		metric := ""
+		if llmResp.Metric != nil {
+			metric = *llmResp.Metric
+		}
+		result.Biometrics = &domain.BiometricData{
+			Metric:    metric,
+			Value:     llmResp.Value,
+			Unit:      llmResp.Unit,
+			Sensation: llmResp.Sensation,
+		}
+	}
+
+	return result
+}
+
+// GenerateFormCorrection analyzes user feedback about a movement and provides a tactical cue.
+// Returns nil if Ollama is unavailable.
+func (s *OllamaService) GenerateFormCorrection(ctx context.Context, req domain.FormCorrectionRequest) *domain.FormCorrectionResult {
+	if !s.enabled || req.UserFeedback == "" {
+		return nil
+	}
+
+	prompt := fmt.Sprintf(`You are the Victus Movement Specialist. A user reported a technical failure during %s.
+
+USER FEEDBACK: %s
+
+INSTRUCTIONS:
+1. Identify the likely mechanical error (e.g., lack of core bracing).
+2. Provide a 1-sentence 'Cue' for the next session (e.g., 'Pin your lower back to the floor').
+3. Suggest a 1-level 'Regression' if the failure was due to strength (e.g., 'Switch to Knee-Tucks'). Use null if no regression needed.
+
+Return ONLY valid JSON:
+{"mechanicalError": "string", "tacticalCue": "string", "regression": null or "string"}`, req.MovementName, req.UserFeedback)
+
+	raw, err := s.Generate(ctx, prompt)
+	if err != nil {
+		log.Printf("[OLLAMA] Form correction failed: %v", err)
+		return nil
+	}
+
+	// Extract JSON
+	startIdx := strings.Index(raw, "{")
+	endIdx := strings.LastIndex(raw, "}")
+	if startIdx == -1 || endIdx == -1 || endIdx <= startIdx {
+		return nil
+	}
+
+	var result domain.FormCorrectionResult
+	if err := json.Unmarshal([]byte(raw[startIdx:endIdx+1]), &result); err != nil {
+		log.Printf("[OLLAMA] Form correction JSON parse failed: %v", err)
+		return nil
+	}
+
+	return &result
 }

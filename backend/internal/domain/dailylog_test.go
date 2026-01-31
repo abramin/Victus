@@ -452,3 +452,55 @@ func (s *DailyLogSuite) TestDailyLogBuilder() {
 		s.Require().ErrorIs(err, ErrInvalidWeight)
 	})
 }
+
+func (s *DailyLogSuite) intPtr(i int) *int {
+	return &i
+}
+
+func (s *DailyLogSuite) TestLoadScore() {
+	s.Run("uses actual sessions when present", func() {
+		log := s.validLog()
+		log.ActualSessions = []TrainingSession{
+			{Type: TrainingTypeHIIT, DurationMin: 30, PerceivedIntensity: s.intPtr(8)},
+		}
+		// Should use actual: HIIT 30min RPE 8
+		// 5 * (30/60) * (8/3) = 5 * 0.5 * 2.667 = 6.667
+		s.InDelta(6.667, log.LoadScore(), 0.01)
+	})
+
+	s.Run("falls back to planned when no actual", func() {
+		log := s.validLog()
+		// validLog has Strength 60min, no RPE (defaults to 5)
+		// 5 * (60/60) * (5/3) = 8.333
+		s.InDelta(8.333, log.LoadScore(), 0.01)
+	})
+
+	s.Run("returns zero for rest day", func() {
+		log := s.validLog()
+		log.PlannedSessions = []TrainingSession{
+			{Type: TrainingTypeRest, DurationMin: 0},
+		}
+		log.ActualSessions = nil
+		s.Equal(0.0, log.LoadScore())
+	})
+}
+
+func (s *DailyLogSuite) TestEffectiveSessions() {
+	s.Run("returns actual when present", func() {
+		log := s.validLog()
+		log.ActualSessions = []TrainingSession{
+			{Type: TrainingTypeHIIT, DurationMin: 30},
+		}
+		effective := log.EffectiveSessions()
+		s.Len(effective, 1)
+		s.Equal(TrainingTypeHIIT, effective[0].Type)
+	})
+
+	s.Run("returns planned when no actual", func() {
+		log := s.validLog()
+		log.ActualSessions = nil
+		effective := log.EffectiveSessions()
+		s.Len(effective, 1)
+		s.Equal(TrainingTypeStrength, effective[0].Type) // From validLog
+	})
+}

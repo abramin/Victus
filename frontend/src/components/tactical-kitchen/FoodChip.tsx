@@ -10,12 +10,16 @@ const CATEGORY_EMOJI: Record<FoodCategory, string> = {
   high_protein: '🥩',
   high_carb: '🍚',
   high_fat: '🥑',
+  vegetable: '🥬',
+  fruit: '🍎',
 };
 
 const CATEGORY_COLORS: Record<FoodCategory, string> = {
   high_protein: 'border-purple-500/40',
   high_carb: 'border-orange-500/40',
   high_fat: 'border-gray-500/40',
+  vegetable: 'border-green-500/40',
+  fruit: 'border-pink-500/40',
 };
 
 interface FoodChipProps {

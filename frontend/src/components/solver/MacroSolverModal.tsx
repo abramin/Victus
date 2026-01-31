@@ -10,6 +10,7 @@ import type {
   SolverRequest,
   DayType,
   PlannedTrainingForSolver,
+  FastingProtocol,
 } from '../../api/types';
 import { staggerContainer, fadeInUp } from '../../lib/animations';
 
@@ -24,6 +25,7 @@ interface MacroSolverModalProps {
   /** Optional training context for semantic refinement */
   dayType?: DayType;
   plannedTraining?: PlannedTrainingForSolver[];
+  activeProtocol?: FastingProtocol;
 }
 
 /**
@@ -53,6 +55,7 @@ export function MacroSolverModal({
   onLogSolution,
   dayType,
   plannedTraining,
+  activeProtocol,
 }: MacroSolverModalProps) {
   const [state, setState] = useState<ModalState>('computing');
   const [solutions, setSolutions] = useState<SolverSolution[]>([]);
@@ -76,6 +79,7 @@ export function MacroSolverModal({
         dayType,
         plannedTraining,
         mealTime: inferMealTime(),
+        activeProtocol,
       };
 
       // Run API call and minimum delay in parallel

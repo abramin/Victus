@@ -473,7 +473,6 @@ func (s *DailyLogStore) ListAdaptiveDataPoints(ctx context.Context, endDate stri
 	return points, nil
 }
 
-
 // UpdateActiveCaloriesBurned updates only the active_calories_burned field for a given date.
 // Returns ErrDailyLogNotFound if no log exists for that date.
 func (s *DailyLogStore) UpdateActiveCaloriesBurned(ctx context.Context, date string, calories *int) error {
@@ -489,6 +488,36 @@ func (s *DailyLogStore) UpdateActiveCaloriesBurned(ctx context.Context, date str
 	}
 
 	result, err := s.db.ExecContext(ctx, query, caloriesVal, time.Now(), date)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return ErrDailyLogNotFound
+	}
+
+	return nil
+}
+
+// UpdateActiveCaloriesBurnedWithTx updates active calories burned within a transaction.
+func (s *DailyLogStore) UpdateActiveCaloriesBurnedWithTx(ctx context.Context, tx *sql.Tx, date string, calories *int) error {
+	const query = `
+		UPDATE daily_logs
+		SET active_calories_burned = $1, updated_at = $2
+		WHERE log_date = $3
+	`
+
+	var caloriesVal interface{}
+	if calories != nil {
+		caloriesVal = *calories
+	}
+
+	result, err := tx.ExecContext(ctx, query, caloriesVal, time.Now(), date)
 	if err != nil {
 		return err
 	}
@@ -757,6 +786,65 @@ func (s *DailyLogStore) AddConsumedMacros(ctx context.Context, date string, macr
 	args = append(args, time.Now(), date)
 
 	result, err := s.db.ExecContext(ctx, baseQuery, args...)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return ErrDailyLogNotFound
+	}
+
+	return nil
+}
+
+// ClearMealConsumedMacros clears the consumed macros for a specific meal slot and
+// subtracts those values from the aggregate totals.
+// Returns ErrDailyLogNotFound if no log exists for that date.
+func (s *DailyLogStore) ClearMealConsumedMacros(ctx context.Context, date string, meal domain.MealName) error {
+	if !domain.ValidMealNames[meal] {
+		return fmt.Errorf("invalid meal name: %s", meal)
+	}
+
+	mealPrefix := string(meal)
+
+	// First, get the current meal values so we can subtract from totals
+	getQuery := fmt.Sprintf(`
+		SELECT COALESCE(%s_consumed_kcal, 0), COALESCE(%s_consumed_protein_g, 0),
+		       COALESCE(%s_consumed_carbs_g, 0), COALESCE(%s_consumed_fat_g, 0)
+		FROM daily_logs
+		WHERE log_date = $1`,
+		mealPrefix, mealPrefix, mealPrefix, mealPrefix)
+
+	var kcal, proteinG, carbsG, fatG int
+	err := s.db.QueryRowContext(ctx, getQuery, date).Scan(&kcal, &proteinG, &carbsG, &fatG)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrDailyLogNotFound
+		}
+		return err
+	}
+
+	// Update: subtract from totals and zero out the meal columns
+	updateQuery := fmt.Sprintf(`
+		UPDATE daily_logs
+		SET consumed_calories = COALESCE(consumed_calories, 0) - $1,
+		    consumed_protein_g = COALESCE(consumed_protein_g, 0) - $2,
+		    consumed_carbs_g = COALESCE(consumed_carbs_g, 0) - $3,
+		    consumed_fat_g = COALESCE(consumed_fat_g, 0) - $4,
+		    %s_consumed_kcal = 0,
+		    %s_consumed_protein_g = 0,
+		    %s_consumed_carbs_g = 0,
+		    %s_consumed_fat_g = 0,
+		    updated_at = $5
+		WHERE log_date = $6`,
+		mealPrefix, mealPrefix, mealPrefix, mealPrefix)
+
+	result, err := s.db.ExecContext(ctx, updateQuery, kcal, proteinG, carbsG, fatG, time.Now(), date)
 	if err != nil {
 		return err
 	}
@@ -1074,53 +1162,39 @@ type SleepData struct {
 }
 
 // UpdateSleepData updates sleep-related fields for an existing daily log.
+// If the daily log doesn't exist, it creates one with default values.
 // Only non-nil fields are updated.
 func (s *DailyLogStore) UpdateSleepData(ctx context.Context, date string, data SleepData) error {
-	var setClauses []string
-	var args []interface{}
-	paramNum := 1
-
-	if data.SleepQuality != nil {
-		setClauses = append(setClauses, fmt.Sprintf("sleep_quality = $%d", paramNum))
-		args = append(args, *data.SleepQuality)
-		paramNum++
-	}
-	if data.SleepHours != nil {
-		setClauses = append(setClauses, fmt.Sprintf("sleep_hours = $%d", paramNum))
-		args = append(args, *data.SleepHours)
-		paramNum++
-	}
-	if data.RestingHeartRate != nil {
-		setClauses = append(setClauses, fmt.Sprintf("resting_heart_rate = $%d", paramNum))
-		args = append(args, *data.RestingHeartRate)
-		paramNum++
-	}
-	if data.HRVMs != nil {
-		setClauses = append(setClauses, fmt.Sprintf("hrv_ms = $%d", paramNum))
-		args = append(args, *data.HRVMs)
-		paramNum++
-	}
-
-	if len(setClauses) == 0 {
+	if data.SleepQuality == nil && data.SleepHours == nil && data.RestingHeartRate == nil && data.HRVMs == nil {
 		return nil
 	}
 
-	setClauses = append(setClauses, fmt.Sprintf("updated_at = $%d", paramNum))
-	args = append(args, time.Now())
-	paramNum++
-
-	query := fmt.Sprintf("UPDATE daily_logs SET %s WHERE log_date = $%d",
-		strings.Join(setClauses, ", "), paramNum)
-	args = append(args, date)
-
-	result, err := s.db.ExecContext(ctx, query, args...)
-	if err != nil {
-		return err
+	now := time.Now()
+	sleepQuality := 50
+	if data.SleepQuality != nil {
+		sleepQuality = *data.SleepQuality
 	}
 
-	rowsAffected, _ := result.RowsAffected()
-	if rowsAffected == 0 {
-		return ErrDailyLogNotFound
+	// UPSERT: create if not exists (with default weight), update sleep fields only
+	query := `
+		INSERT INTO daily_logs (
+			log_date, weight_kg, sleep_quality, sleep_hours,
+			resting_heart_rate, hrv_ms,
+			planned_training_type, planned_duration_min,
+			created_at, updated_at
+		) VALUES ($1, 75.0, $2, $3, $4, $5, 'rest', 0, $6, $7)
+		ON CONFLICT (log_date) DO UPDATE SET
+			sleep_quality = EXCLUDED.sleep_quality,
+			sleep_hours = COALESCE(EXCLUDED.sleep_hours, daily_logs.sleep_hours),
+			resting_heart_rate = COALESCE(EXCLUDED.resting_heart_rate, daily_logs.resting_heart_rate),
+			hrv_ms = COALESCE(EXCLUDED.hrv_ms, daily_logs.hrv_ms),
+			updated_at = EXCLUDED.updated_at
+	`
+
+	_, err := s.db.ExecContext(ctx, query, date, sleepQuality,
+		data.SleepHours, data.RestingHeartRate, data.HRVMs, now, now)
+	if err != nil {
+		return fmt.Errorf("failed to upsert sleep data: %w", err)
 	}
 
 	return nil
@@ -1133,86 +1207,79 @@ type WeightData struct {
 }
 
 // UpdateWeightData updates weight-related fields for an existing daily log.
+// If the daily log doesn't exist, it creates one with default values.
 // Only non-nil fields are updated.
 func (s *DailyLogStore) UpdateWeightData(ctx context.Context, date string, data WeightData) error {
-	var setClauses []string
-	var args []interface{}
-	paramNum := 1
-
-	if data.WeightKg != nil {
-		setClauses = append(setClauses, fmt.Sprintf("weight_kg = $%d", paramNum))
-		args = append(args, *data.WeightKg)
-		paramNum++
-	}
-	if data.BodyFatPercent != nil {
-		setClauses = append(setClauses, fmt.Sprintf("body_fat_percent = $%d", paramNum))
-		args = append(args, *data.BodyFatPercent)
-		paramNum++
-	}
-
-	if len(setClauses) == 0 {
+	if data.WeightKg == nil && data.BodyFatPercent == nil {
 		return nil
 	}
 
-	setClauses = append(setClauses, fmt.Sprintf("updated_at = $%d", paramNum))
-	args = append(args, time.Now())
-	paramNum++
-
-	query := fmt.Sprintf("UPDATE daily_logs SET %s WHERE log_date = $%d",
-		strings.Join(setClauses, ", "), paramNum)
-	args = append(args, date)
-
-	result, err := s.db.ExecContext(ctx, query, args...)
-	if err != nil {
-		return err
+	weightKg := 75.0 // default
+	if data.WeightKg != nil {
+		weightKg = *data.WeightKg
 	}
 
-	rowsAffected, _ := result.RowsAffected()
-	if rowsAffected == 0 {
-		return ErrDailyLogNotFound
+	now := time.Now()
+
+	// Use UPSERT to create if not exists, update weight fields only if exists
+	query := `
+		INSERT INTO daily_logs (
+			log_date, weight_kg, body_fat_percent, sleep_quality, 
+			planned_training_type, planned_duration_min,
+			created_at, updated_at
+		) VALUES ($1, $2, $3, 50, 'rest', 0, $4, $5)
+		ON CONFLICT (log_date) DO UPDATE SET
+			weight_kg = COALESCE(EXCLUDED.weight_kg, daily_logs.weight_kg),
+			body_fat_percent = COALESCE(EXCLUDED.body_fat_percent, daily_logs.body_fat_percent),
+			updated_at = EXCLUDED.updated_at
+	`
+
+	_, err := s.db.ExecContext(ctx, query, date, weightKg, data.BodyFatPercent, now, now)
+	if err != nil {
+		return fmt.Errorf("failed to upsert weight data: %w", err)
 	}
 
 	return nil
 }
 
 // UpdateHRV updates the HRV field for an existing daily log.
+// If no log exists, creates one with default values and preserves weight if later imported.
 func (s *DailyLogStore) UpdateHRV(ctx context.Context, date string, hrvMs int) error {
+	now := time.Now()
+
+	// UPSERT: create if not exists (with default weight), update HRV only
 	const query = `
-		UPDATE daily_logs
-		SET hrv_ms = $1, updated_at = $2
-		WHERE log_date = $3
+		INSERT INTO daily_logs (
+			log_date, weight_kg, sleep_quality, hrv_ms,
+			planned_training_type, planned_duration_min,
+			created_at, updated_at
+		) VALUES ($1, 75.0, 50, $2, 'rest', 0, $3, $4)
+		ON CONFLICT (log_date) DO UPDATE SET
+			hrv_ms = EXCLUDED.hrv_ms,
+			updated_at = EXCLUDED.updated_at
 	`
 
-	result, err := s.db.ExecContext(ctx, query, hrvMs, time.Now(), date)
-	if err != nil {
-		return err
-	}
-
-	rowsAffected, _ := result.RowsAffected()
-	if rowsAffected == 0 {
-		return ErrDailyLogNotFound
-	}
-
-	return nil
+	_, err := s.db.ExecContext(ctx, query, date, hrvMs, now, now)
+	return err
 }
 
 // UpdateRHR updates the resting heart rate for an existing daily log.
+// If no log exists, creates one with default values and preserves weight if later imported.
 func (s *DailyLogStore) UpdateRHR(ctx context.Context, date string, rhr int) error {
+	now := time.Now()
+
+	// UPSERT: create if not exists (with default weight), update RHR only
 	const query = `
-		UPDATE daily_logs
-		SET resting_heart_rate = $1, updated_at = $2
-		WHERE log_date = $3
+		INSERT INTO daily_logs (
+			log_date, weight_kg, sleep_quality, resting_heart_rate,
+			planned_training_type, planned_duration_min,
+			created_at, updated_at
+		) VALUES ($1, 75.0, 50, $2, 'rest', 0, $3, $4)
+		ON CONFLICT (log_date) DO UPDATE SET
+			resting_heart_rate = EXCLUDED.resting_heart_rate,
+			updated_at = EXCLUDED.updated_at
 	`
 
-	result, err := s.db.ExecContext(ctx, query, rhr, time.Now(), date)
-	if err != nil {
-		return err
-	}
-
-	rowsAffected, _ := result.RowsAffected()
-	if rowsAffected == 0 {
-		return ErrDailyLogNotFound
-	}
-
-	return nil
+	_, err := s.db.ExecContext(ctx, query, date, rhr, now, now)
+	return err
 }

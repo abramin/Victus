@@ -29,8 +29,10 @@ type Server struct {
 	bodyIssueService     *service.BodyIssueService
 	auditService         *service.AuditService
 	echoService          *service.EchoService
+	ollamaService        *service.OllamaService
+	movementService      *service.MovementService
 	plannedDayTypeStore  *store.PlannedDayTypeStore
-	plannedSessionStore  *store.PlannedSessionStore
+	plannerSessionStore  *store.PlannerSessionStore
 	foodReferenceStore   *store.FoodReferenceStore
 	monthlySummaryStore  *store.MonthlySummaryStore
 }
@@ -43,13 +45,14 @@ func NewServer(db store.DBTX) *Server {
 	trainingConfigStore := store.NewTrainingConfigStore(db)
 	planStore := store.NewNutritionPlanStore(db)
 	plannedDayTypeStore := store.NewPlannedDayTypeStore(db)
-	plannedSessionStore := store.NewPlannedSessionStore(db)
+	plannerSessionStore := store.NewPlannerSessionStore(db)
 	foodReferenceStore := store.NewFoodReferenceStore(db)
 	fatigueStore := store.NewFatigueStore(db)
 	programStore := store.NewTrainingProgramStore(db)
 	metabolicStore := store.NewMetabolicStore(db)
 	monthlySummaryStore := store.NewMonthlySummaryStore(db)
 	bodyIssueStore := store.NewBodyIssueStore(db)
+	movementStore := store.NewMovementStore(db)
 
 	// Create services
 	dailyLogService := service.NewDailyLogService(dailyLogStore, trainingSessionStore, profileStore)
@@ -60,17 +63,20 @@ func NewServer(db store.DBTX) *Server {
 	ollamaService := service.NewOllamaService(ollamaURL)
 	dailyLogService.SetOllamaService(ollamaService) // Enable AI insights
 
+	// Create fatigue service with body issue integration
+	fatigueService := service.NewFatigueService(fatigueStore)
+	fatigueService.SetBodyIssueStore(bodyIssueStore) // Enable Semantic Body fatigue modifiers
+
+	// Create movement service for Adaptive Movement Engine
+	movementService := service.NewMovementService(movementStore, fatigueService)
+
 	// Create solver service for Macro Tetris feature
-	solverService := service.NewSolverService(foodReferenceStore, ollamaService)
+	solverService := service.NewSolverService(foodReferenceStore, ollamaService, fatigueService)
 
 	// Create weekly debrief service for Mission Report feature
 	weeklyDebriefService := service.NewWeeklyDebriefService(
 		dailyLogStore, trainingSessionStore, profileStore, metabolicStore, ollamaService,
 	)
-
-	// Create fatigue service with body issue integration
-	fatigueService := service.NewFatigueService(fatigueStore)
-	fatigueService.SetBodyIssueStore(bodyIssueStore) // Enable Semantic Body fatigue modifiers
 
 	// Create audit service for Strategy Auditor (Check Engine light)
 	auditService := service.NewAuditService(fatigueStore, dailyLogStore, plannedDayTypeStore, ollamaURL)
@@ -91,8 +97,10 @@ func NewServer(db store.DBTX) *Server {
 		importService:        service.NewImportService(dailyLogStore, monthlySummaryStore),
 		bodyIssueService:     service.NewBodyIssueService(bodyIssueStore),
 		auditService:         auditService,
+		ollamaService:        ollamaService,
+		movementService:      movementService,
 		plannedDayTypeStore:  plannedDayTypeStore,
-		plannedSessionStore:  plannedSessionStore,
+		plannerSessionStore:  plannerSessionStore,
 		foodReferenceStore:   foodReferenceStore,
 		monthlySummaryStore:  monthlySummaryStore,
 	}
@@ -123,6 +131,7 @@ func NewServer(db store.DBTX) *Server {
 	mux.HandleFunc("PATCH /api/logs/{date}/fasting-override", srv.updateFastingOverride)
 	mux.HandleFunc("PATCH /api/logs/{date}/health-sync", srv.syncHealthData)
 	mux.HandleFunc("PATCH /api/logs/{date}/consumed-macros", srv.addConsumedMacros)
+	mux.HandleFunc("DELETE /api/logs/{date}/consumed-macros/{meal}", srv.clearMealConsumedMacros)
 	mux.HandleFunc("GET /api/logs/{date}/insight", srv.getDayInsight)
 
 	// Training config routes
@@ -210,8 +219,21 @@ func NewServer(db store.DBTX) *Server {
 	// Strategy Auditor routes (Check Engine light - Phase 4.2)
 	mux.HandleFunc("GET /api/audit/status", srv.getAuditStatus)
 
+	// Movement taxonomy routes (Adaptive Movement Engine)
+	mux.HandleFunc("GET /api/movements", srv.listMovements)
+	mux.HandleFunc("GET /api/movements/filtered", srv.getFilteredMovements)
+	mux.HandleFunc("GET /api/movements/{id}", srv.getMovementByID)
+	mux.HandleFunc("GET /api/movements/{id}/progress", srv.getMovementProgress)
+	mux.HandleFunc("POST /api/movements/{id}/complete-session", srv.completeMovementSession)
+	mux.HandleFunc("GET /api/neural-battery", srv.getNeuralBattery)
+	mux.HandleFunc("POST /api/movements/analyze-form", srv.analyzeFormCorrection)
+
 	// Echo logging routes (Neural Echo feature)
 	srv.registerEchoRoutes()
+
+	// Voice command routes (Neural Voice Command feature)
+	voiceHandler := NewVoiceCommandHandler(ollamaService, bodyIssueStore, dailyLogService, foodReferenceStore)
+	mux.HandleFunc("POST /api/voice/parse", voiceHandler.ParseVoiceCommand)
 
 	return srv
 }

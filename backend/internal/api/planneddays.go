@@ -105,10 +105,10 @@ func (s *Server) upsertPlannedDay(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Save planned sessions if provided
-	var sessions []domain.PlannedSession
+	// Save planner sessions if provided
+	var sessions []domain.PlannerSession
 	for i, sessionInput := range req.Sessions {
-		ps, err := domain.NewPlannedSession(date, i+1, domain.PlannedSessionInput{
+		ps, err := domain.NewPlannerSession(date, i+1, domain.PlannerSessionInput{
 			TrainingType: sessionInput.TrainingType,
 			DurationMin:  sessionInput.DurationMin,
 			LoadScore:    sessionInput.LoadScore,
@@ -122,7 +122,7 @@ func (s *Server) upsertPlannedDay(w http.ResponseWriter, r *http.Request) {
 		sessions = append(sessions, *ps)
 	}
 
-	if err := s.plannedSessionStore.UpsertForDate(r.Context(), date, sessions); err != nil {
+	if err := s.plannerSessionStore.UpsertForDate(r.Context(), date, sessions); err != nil {
 		writeError(w, http.StatusInternalServerError, "internal_error", "Failed to save planned sessions")
 		return
 	}
@@ -175,7 +175,7 @@ func (s *Server) deletePlannedDay(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.plannedSessionStore.DeleteByDate(r.Context(), date); err != nil {
+	if err := s.plannerSessionStore.DeleteByDate(r.Context(), date); err != nil {
 		writeError(w, http.StatusInternalServerError, "internal_error", "Failed to delete planned sessions")
 		return
 	}
@@ -192,7 +192,7 @@ func (s *Server) getPlannedSessions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sessions, err := s.plannedSessionStore.GetByDate(r.Context(), date)
+	sessions, err := s.plannerSessionStore.GetByDate(r.Context(), date)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal_error", "Failed to retrieve planned sessions")
 		return

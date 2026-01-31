@@ -18,6 +18,7 @@ export interface MealState {
   items: SelectedFood[];
   totalProteinG: number;
   totalCarbsG: number;
+  fruitVegCarbsG: number;
   totalFatG: number;
   totalCalories: number;
 }
@@ -68,11 +69,17 @@ const CATEGORY_MACROS: Record<FoodCategory, { proteinPer100: number; carbsPer100
   high_protein: { proteinPer100: 25, carbsPer100: 5, fatPer100: 8 },
   high_carb: { proteinPer100: 8, carbsPer100: 60, fatPer100: 2 },
   high_fat: { proteinPer100: 5, carbsPer100: 5, fatPer100: 40 },
-  veg: { proteinPer100: 2, carbsPer100: 6, fatPer100: 0 },
+  vegetable: { proteinPer100: 2, carbsPer100: 6, fatPer100: 0 },
   fruit: { proteinPer100: 1, carbsPer100: 15, fatPer100: 0 },
 };
 
 export const DEFAULT_SERVING_G = 100;
+
+const FRUIT_VEG_CATEGORIES: FoodCategory[] = ['vegetable', 'fruit'];
+
+function isFruitOrVeg(category: FoodCategory) {
+  return FRUIT_VEG_CATEGORIES.includes(category);
+}
 
 export function calculateMacros(food: FoodReference, grams: number) {
   const macros = CATEGORY_MACROS[food.category];
@@ -121,6 +128,7 @@ function createInitialMealState(): MealState {
     items: [],
     totalProteinG: 0,
     totalCarbsG: 0,
+    fruitVegCarbsG: 0,
     totalFatG: 0,
     totalCalories: 0,
   };
@@ -159,6 +167,7 @@ function reducer(state: State, action: Action): State {
 
     case 'ADD_FOOD': {
       const macros = calculateMacros(action.food, action.grams);
+      const fruitVegCarbs = isFruitOrVeg(action.food.category) ? macros.carbsG : 0;
       const newItem: SelectedFood = {
         food: action.food,
         grams: action.grams,
@@ -171,6 +180,7 @@ function reducer(state: State, action: Action): State {
         items: [...currentMealState.items, newItem],
         totalProteinG: currentMealState.totalProteinG + macros.proteinG,
         totalCarbsG: currentMealState.totalCarbsG + macros.carbsG,
+        fruitVegCarbsG: currentMealState.fruitVegCarbsG + fruitVegCarbs,
         totalFatG: currentMealState.totalFatG + macros.fatG,
         totalCalories: currentMealState.totalCalories + macros.calories,
       };
@@ -188,11 +198,13 @@ function reducer(state: State, action: Action): State {
       const currentMealState = state.mealStates[action.meal];
       const itemToRemove = currentMealState.items[action.index];
       if (!itemToRemove) return state;
+      const fruitVegCarbs = isFruitOrVeg(itemToRemove.food.category) ? itemToRemove.carbsG : 0;
 
       const updatedMealState: MealState = {
         items: currentMealState.items.filter((_, i) => i !== action.index),
         totalProteinG: currentMealState.totalProteinG - itemToRemove.proteinG,
         totalCarbsG: currentMealState.totalCarbsG - itemToRemove.carbsG,
+        fruitVegCarbsG: currentMealState.fruitVegCarbsG - fruitVegCarbs,
         totalFatG: currentMealState.totalFatG - itemToRemove.fatG,
         totalCalories: currentMealState.totalCalories - itemToRemove.calories,
       };
@@ -249,6 +261,10 @@ export function useTacticalKitchenState(protocol: FastingProtocol) {
     dispatch({ type: 'CLEAR_MEAL', meal: activeMeal });
   }, [activeMeal]);
 
+  const setMealIndex = useCallback((index: number) => {
+    dispatch({ type: 'SET_MEAL', index });
+  }, []);
+
   return {
     activeMealIndex: state.activeMealIndex,
     availableMeals,
@@ -261,5 +277,6 @@ export function useTacticalKitchenState(protocol: FastingProtocol) {
     addFood,
     removeFood,
     clearMeal,
+    setMealIndex,
   };
 }

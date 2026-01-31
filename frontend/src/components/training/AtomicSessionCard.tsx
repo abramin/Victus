@@ -84,7 +84,7 @@ export function AtomicSessionCard({
   const hasNotes = (session.notes ?? '').trim().length > 0;
   const isNotesVisible = notesExpanded || hasNotes;
   const isCommitted = session.committed;
-  const canDelete = totalCount > 1 && !isCommitted;
+  const canDelete = !isCommitted;
 
   const handleTypeChange = (newType: TrainingType) => {
     onUpdate(session._id, {
@@ -96,11 +96,10 @@ export function AtomicSessionCard({
 
   return (
     <div
-      className={`bg-gray-900 rounded-xl p-4 border-2 transition-colors ${
-        isCommitted
+      className={`bg-gray-900 rounded-xl p-4 border-2 transition-colors ${isCommitted
           ? 'border-emerald-600 bg-emerald-950/20'
           : 'border-gray-800'
-      }`}
+        }`}
     >
       {/* Header: Session number + committed indicator */}
       <div className="flex items-center justify-between mb-4">

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"time"
 
 	"victus/internal/domain"
 	"victus/internal/store"
@@ -9,15 +10,17 @@ import (
 
 // SolverService orchestrates the Macro Tetris Solver.
 type SolverService struct {
-	foodStore *store.FoodReferenceStore
-	ollama    *OllamaService
+	foodStore      *store.FoodReferenceStore
+	ollama         *OllamaService
+	fatigueService *FatigueService
 }
 
 // NewSolverService creates a new SolverService.
-func NewSolverService(foodStore *store.FoodReferenceStore, ollama *OllamaService) *SolverService {
+func NewSolverService(foodStore *store.FoodReferenceStore, ollama *OllamaService, fatigueService *FatigueService) *SolverService {
 	return &SolverService{
-		foodStore: foodStore,
-		ollama:    ollama,
+		foodStore:      foodStore,
+		ollama:         ollama,
+		fatigueService: fatigueService,
 	}
 }
 
@@ -48,12 +51,20 @@ func (s *SolverService) SolveWithContext(
 		}, nil
 	}
 
+	// Determine meal time for protocol locking
+	mealTime := "any"
+	if trainingCtx != nil {
+		mealTime = trainingCtx.MealTime
+	}
+
 	// Build solver request
 	req := domain.SolverRequest{
 		RemainingBudget:  budget,
-		MaxIngredients:   3,
+		MinIngredients:   3,
+		MaxIngredients:   5,
 		TolerancePercent: 0.10,
 		PantryFoods:      pantry,
+		MealTime:         mealTime,
 	}
 
 	// Run the solver algorithm
@@ -63,9 +74,15 @@ func (s *SolverService) SolveWithContext(
 	// Only generate AI refinement for the TOP solution to avoid frontend timeouts
 	// (3 solutions × 8s each = 24s, which can cause timeouts)
 	if s.ollama != nil && result.Computed && len(result.Solutions) > 0 {
+		// Get current body status from fatigue service
+		bodyStatus, err := s.fatigueService.GetBodyStatus(ctx, time.Now())
+		if err != nil {
+			bodyStatus = nil // Gracefully handle errors; continue without body context
+		}
+
 		// Generate full semantic refinement for the first (best match) solution
 		absurdity := domain.CheckAbsurdity(result.Solutions[0])
-		refinement := s.ollama.GenerateSemanticRefinement(ctx, result.Solutions[0], trainingCtx, absurdity)
+		refinement := s.ollama.GenerateSemanticRefinement(ctx, result.Solutions[0], trainingCtx, absurdity, bodyStatus)
 		result.Solutions[0].Refinement = &refinement
 
 		// Use the LLM-generated mission title as the recipe name

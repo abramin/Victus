@@ -22,37 +22,37 @@ interface FoodLibraryProps {
 
 type FilterTab = 'all' | 'carb' | 'protein' | 'fat';
 
-const FILTER_CONFIG: Record<FilterTab, { 
-  label: string; 
+const FILTER_CONFIG: Record<FilterTab, {
+  label: string;
   emoji: string;
   categories: FoodCategory[];
   color: string;
   bgColor: string;
 }> = {
-  all: { 
-    label: 'All', 
-    emoji: '🍽️', 
+  all: {
+    label: 'All',
+    emoji: '🍽️',
     categories: ['high_carb', 'high_protein', 'high_fat'],
     color: 'text-white',
     bgColor: 'bg-gray-600',
   },
-  carb: { 
-    label: 'Carb', 
-    emoji: '🍞', 
+  carb: {
+    label: 'Carb',
+    emoji: '🍞',
     categories: ['high_carb'],
     color: 'text-orange-400',
     bgColor: 'bg-orange-500/20',
   },
-  protein: { 
-    label: 'Prot', 
-    emoji: '🍗', 
+  protein: {
+    label: 'Prot',
+    emoji: '🍗',
     categories: ['high_protein'],
     color: 'text-purple-400',
     bgColor: 'bg-purple-500/20',
   },
-  fat: { 
-    label: 'Fats', 
-    emoji: '🥑', 
+  fat: {
+    label: 'Fats',
+    emoji: '🥑',
     categories: ['high_fat'],
     color: 'text-gray-400',
     bgColor: 'bg-gray-500/20',
@@ -63,6 +63,8 @@ const CATEGORY_EMOJI: Record<FoodCategory, string> = {
   high_carb: '🍞',
   high_protein: '🍗',
   high_fat: '🥑',
+  vegetable: '🥬',
+  fruit: '🍎',
 };
 
 function capitalizeFirst(str: string): string {
@@ -119,7 +121,7 @@ export function FoodLibrary({
     const categories = FILTER_CONFIG[activeFilter].categories;
     return foods.filter(food => {
       const matchesCategory = categories.includes(food.category);
-      const matchesSearch = searchQuery === '' || 
+      const matchesSearch = searchQuery === '' ||
         food.foodItem.toLowerCase().includes(searchQuery.toLowerCase());
       return matchesCategory && matchesSearch;
     });
@@ -288,7 +290,7 @@ export function FoodLibrary({
           const isHovered = hoveredFood?.id === food.id;
           const suggestion = getSuggestion(food);
           const categoryEmoji = CATEGORY_EMOJI[food.category];
-          
+
           return (
             <motion.button
               key={food.id}
@@ -298,8 +300,8 @@ export function FoodLibrary({
               className={`
                 w-full flex items-center text-sm py-3 px-3 rounded-lg
                 transition-colors text-left
-                ${isSelected 
-                  ? 'bg-emerald-500/20 border border-emerald-500/50' 
+                ${isSelected
+                  ? 'bg-emerald-500/20 border border-emerald-500/50'
                   : isHovered
                     ? 'bg-gray-700/70 border border-gray-600'
                     : 'bg-gray-800/50 hover:bg-gray-700/50 border border-transparent'
@@ -309,7 +311,7 @@ export function FoodLibrary({
             >
               {/* Category Emoji */}
               <span className="text-lg mr-3 flex-shrink-0">{categoryEmoji}</span>
-              
+
               {/* Food Name & Serving Info */}
               <div className="flex-1 min-w-0">
                 <div className="text-gray-200 truncate font-medium">{food.foodItem}</div>
@@ -331,29 +333,27 @@ export function FoodLibrary({
                   );
                 })()}
               </div>
-              
+
               {/* Multiplier Badge */}
               {food.plateMultiplier && (
-                <span className={`text-xs px-2 py-0.5 rounded-full ml-2 flex-shrink-0 ${
-                  FILTER_CONFIG[
+                <span className={`text-xs px-2 py-0.5 rounded-full ml-2 flex-shrink-0 ${FILTER_CONFIG[
                     food.category === 'high_carb' ? 'carb' :
-                    food.category === 'high_protein' ? 'protein' : 'fat'
+                      food.category === 'high_protein' ? 'protein' : 'fat'
                   ].bgColor
-                } ${
-                  FILTER_CONFIG[
+                  } ${FILTER_CONFIG[
                     food.category === 'high_carb' ? 'carb' :
-                    food.category === 'high_protein' ? 'protein' : 'fat'
+                      food.category === 'high_protein' ? 'protein' : 'fat'
                   ].color
-                }`}>
-                  {food.plateMultiplier <= 0.25 ? '¼' : 
-                   food.plateMultiplier <= 0.5 ? '½' : 
-                   food.plateMultiplier <= 0.75 ? '¾' : '1'} plate
+                  }`}>
+                  {food.plateMultiplier <= 0.25 ? '¼' :
+                    food.plateMultiplier <= 0.5 ? '½' :
+                      food.plateMultiplier <= 0.75 ? '¾' : '1'} plate
                 </span>
               )}
             </motion.button>
           );
         })}
-        
+
         {filteredFoods.length === 0 && (
           <div className="text-gray-500 text-sm text-center py-8">
             No foods match your search

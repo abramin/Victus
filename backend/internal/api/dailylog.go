@@ -62,7 +62,9 @@ func (s *Server) getTodayLog(w http.ResponseWriter, r *http.Request) {
 	log, err := s.dailyLogService.GetToday(r.Context(), now)
 
 	if errors.Is(err, store.ErrDailyLogNotFound) {
-		writeError(w, http.StatusNotFound, "not_found", "No log exists for today. Create one with POST /api/logs")
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(nil)
 		return
 	}
 
@@ -92,7 +94,9 @@ func (s *Server) getLogByDate(w http.ResponseWriter, r *http.Request) {
 
 	log, trainingLoad, err := s.dailyLogService.GetLogWithTrainingLoad(r.Context(), date)
 	if errors.Is(err, store.ErrDailyLogNotFound) {
-		writeError(w, http.StatusNotFound, "not_found", "No log exists for this date")
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(nil)
 		return
 	}
 	if err != nil {
@@ -325,6 +329,40 @@ func (s *Server) addConsumedMacros(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if !handleDailyLogError(w, err, "No log exists for this date") {
 			writeInternalError(w, err, "addConsumedMacros")
+		}
+		return
+	}
+
+	// Calculate training load metrics (ACR)
+	trainingLoad, err := s.dailyLogService.GetTrainingLoadMetrics(r.Context(), log.Date, log.ActualSessions, log.PlannedSessions)
+	if err != nil {
+		trainingLoad = nil
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(requests.DailyLogToResponseWithTrainingLoad(log, trainingLoad))
+}
+
+// clearMealConsumedMacros handles DELETE /api/logs/{date}/consumed-macros/{meal}
+// Clears the consumed macros for a specific meal slot and subtracts from totals.
+func (s *Server) clearMealConsumedMacros(w http.ResponseWriter, r *http.Request) {
+	date := r.PathValue("date")
+	if date == "" {
+		writeError(w, http.StatusBadRequest, "missing_date", "Date parameter is required")
+		return
+	}
+
+	mealStr := r.PathValue("meal")
+	meal := domain.MealName(mealStr)
+	if !domain.ValidMealNames[meal] {
+		writeError(w, http.StatusBadRequest, "invalid_meal", "Meal must be 'breakfast', 'lunch', or 'dinner'")
+		return
+	}
+
+	log, err := s.dailyLogService.ClearMealConsumedMacros(r.Context(), date, meal)
+	if err != nil {
+		if !handleDailyLogError(w, err, "No log exists for this date") {
+			writeInternalError(w, err, "clearMealConsumedMacros")
 		}
 		return
 	}

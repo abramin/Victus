@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import type { DailyTargets, DayType, SolverSolution } from '../../api/types';
+import type { DailyTargets, DayType, SolverSolution, FastingProtocol } from '../../api/types';
 import { DAY_TYPE_BADGE } from '../../constants';
 import { AnimatedNumber, Panel } from '../common';
 import { WaterTracker } from '../saved-view/WaterTracker';
@@ -18,6 +18,8 @@ interface FuelZoneProps {
   waterIntakeL?: number;
   onAddWater?: (amountL: number) => void;
   onLogSolution?: (solution: SolverSolution) => void;
+  activeProtocol?: FastingProtocol;
+  activeBurn?: number;
 }
 
 export function FuelZone({
@@ -30,6 +32,8 @@ export function FuelZone({
   waterIntakeL = 0,
   onAddWater,
   onLogSolution,
+  activeProtocol,
+  activeBurn = 0,
 }: FuelZoneProps) {
   const [isSolverOpen, setIsSolverOpen] = useState(false);
   // No targets yet
@@ -47,11 +51,14 @@ export function FuelZone({
     );
   }
 
-  const remainingCalories = targets.totalCalories - consumedCalories;
-  const remainingProteinG = targets.totalProteinG - consumedProteinG;
-  const remainingCarbsG = targets.totalCarbsG - consumedCarbsG;
-  const remainingFatG = targets.totalFatsG - consumedFatG;
-  const calorieProgress = Math.min(100, (consumedCalories / targets.totalCalories) * 100);
+
+  const baseBudget = targets.totalCalories;
+  const totalBudget = baseBudget + activeBurn;
+  const remainingCalories = totalBudget - consumedCalories;
+  // const remainingProteinG = targets.totalProteinG - consumedProteinG;
+  // const remainingCarbsG = targets.totalCarbsG - consumedCarbsG;
+  // const remainingFatG = targets.totalFatsG - consumedFatG;
+  const calorieProgress = Math.min(100, (consumedCalories / totalBudget) * 100);
   const effectiveDayType = dayType ?? targets.dayType;
   const badge = DAY_TYPE_BADGE[effectiveDayType];
 
@@ -60,9 +67,16 @@ export function FuelZone({
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-white font-medium">Fuel Budget</h3>
-        <span className={`px-2 py-1 text-xs rounded-full border ${badge.className}`}>
-          {badge.label}
-        </span>
+        <div className="flex items-center gap-2">
+          {activeBurn > 0 && (
+            <span className="text-xs font-bold text-emerald-400 animate-pulse">
+              +{activeBurn} ACTIVE
+            </span>
+          )}
+          <span className={`px-2 py-1 text-xs rounded-full border ${badge.className}`}>
+            {badge.label}
+          </span>
+        </div>
       </div>
 
       {/* Remaining Calories - Hero */}
@@ -77,13 +91,12 @@ export function FuelZone({
       <div className="mb-4">
         <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
           <div
-            className={`h-full transition-all duration-300 ${
-              calorieProgress > 100
-                ? 'bg-red-500'
-                : calorieProgress > 80
+            className={`h-full transition-all duration-300 ${calorieProgress > 100
+              ? 'bg-red-500'
+              : calorieProgress > 80
                 ? 'bg-yellow-500'
                 : 'bg-green-500'
-            }`}
+              }`}
             style={{ width: `${Math.min(100, calorieProgress)}%` }}
           />
         </div>
@@ -92,7 +105,7 @@ export function FuelZone({
             <AnimatedNumber value={consumedCalories} /> consumed
           </span>
           <span>
-            <AnimatedNumber value={targets.totalCalories} /> total
+            <AnimatedNumber value={totalBudget} /> total
           </span>
         </div>
       </div>
@@ -165,10 +178,11 @@ export function FuelZone({
         isOpen={isSolverOpen}
         onClose={() => setIsSolverOpen(false)}
         remainingCalories={remainingCalories}
-        remainingProteinG={remainingProteinG}
-        remainingCarbsG={remainingCarbsG}
-        remainingFatG={remainingFatG}
+        remainingProteinG={targets.totalProteinG - consumedProteinG}
+        remainingCarbsG={targets.totalCarbsG - consumedCarbsG}
+        remainingFatG={targets.totalFatsG - consumedFatG}
         onLogSolution={onLogSolution}
+        activeProtocol={activeProtocol}
       />
     </Panel>
   );

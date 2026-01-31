@@ -70,14 +70,27 @@ export function WeightHistory({ profile }: { profile: UserProfile }) {
 
   const weightStats = useMemo(() => {
     const trendConfidence = trend ? getTrendConfidence(trend.rSquared) : null;
+
+    // Body fat stats for composition view
+    const pointsWithBodyFat = points.filter((p) => p.bodyFatPercent !== undefined);
+    const latestBf = pointsWithBodyFat.length > 0 ? pointsWithBodyFat[pointsWithBodyFat.length - 1] : null;
+    const earliestBf = pointsWithBodyFat.length > 0 ? pointsWithBodyFat[0] : null;
+    const bodyFatChange = latestBf && earliestBf && latestBf.bodyFatPercent !== undefined && earliestBf.bodyFatPercent !== undefined
+      ? latestBf.bodyFatPercent - earliestBf.bodyFatPercent
+      : null;
+
     return {
       latestWeight: latest ? formatWeight(latest.weightKg) : '--',
       rangeChange: points.length > 1 ? `${rangeChange >= 0 ? '+' : ''}${rangeChange.toFixed(1)} kg` : '--',
       weeklyChange: trend ? formatWeeklyChange(trend.weeklyChangeKg) : '--',
       trendConfidence,
       dataPoints: points.length,
+      // Body fat specific
+      latestBodyFat: latestBf?.bodyFatPercent !== undefined ? `${latestBf.bodyFatPercent.toFixed(1)}%` : '--',
+      bodyFatChange: bodyFatChange !== null ? `${bodyFatChange >= 0 ? '+' : ''}${bodyFatChange.toFixed(1)}%` : '--',
+      bodyFatMeasurements: pointsWithBodyFat.length,
     };
-  }, [latest, points.length, rangeChange, trend]);
+  }, [latest, points, rangeChange, trend]);
 
   // Check if enough composition data exists to show toggle (at least 3 points with body fat)
   const hasCompositionData = useMemo(() => {
@@ -143,11 +156,10 @@ export function WeightHistory({ profile }: { profile: UserProfile }) {
               key={option.value}
               onClick={() => setRange(option.value)}
               data-testid={`range-${option.value}`}
-              className={`px-3 py-1.5 rounded text-sm transition-colors ${
-                range === option.value
+              className={`px-3 py-1.5 rounded text-sm transition-colors ${range === option.value
                   ? 'bg-slate-700 text-white'
                   : 'text-slate-400 hover:text-white'
-              }`}
+                }`}
             >
               {option.label}
             </button>
@@ -171,22 +183,20 @@ export function WeightHistory({ profile }: { profile: UserProfile }) {
             <div className="flex items-center gap-1 bg-slate-900 rounded-lg p-1 border border-slate-800">
               <button
                 onClick={() => setChartView('weight')}
-                className={`px-3 py-1 rounded text-xs transition-colors ${
-                  chartView === 'weight'
+                className={`px-3 py-1 rounded text-xs transition-colors ${chartView === 'weight'
                     ? 'bg-slate-700 text-white'
                     : 'text-slate-400 hover:text-white'
-                }`}
+                  }`}
               >
                 Weight
               </button>
               {hasCompositionData && (
                 <button
                   onClick={() => setChartView('composition')}
-                  className={`px-3 py-1 rounded text-xs transition-colors ${
-                    chartView === 'composition'
+                  className={`px-3 py-1 rounded text-xs transition-colors ${chartView === 'composition'
                       ? 'bg-slate-700 text-white'
                       : 'text-slate-400 hover:text-white'
-                  }`}
+                    }`}
                 >
                   Composition
                 </button>
@@ -194,11 +204,10 @@ export function WeightHistory({ profile }: { profile: UserProfile }) {
               {hasRecoveryData && (
                 <button
                   onClick={() => setChartView('recovery')}
-                  className={`px-3 py-1 rounded text-xs transition-colors ${
-                    chartView === 'recovery'
+                  className={`px-3 py-1 rounded text-xs transition-colors ${chartView === 'recovery'
                       ? 'bg-slate-700 text-white'
                       : 'text-slate-400 hover:text-white'
-                  }`}
+                    }`}
                 >
                   Recovery
                 </button>
@@ -206,11 +215,10 @@ export function WeightHistory({ profile }: { profile: UserProfile }) {
               {hasResilienceData && (
                 <button
                   onClick={() => setChartView('resilience')}
-                  className={`px-3 py-1 rounded text-xs transition-colors ${
-                    chartView === 'resilience'
+                  className={`px-3 py-1 rounded text-xs transition-colors ${chartView === 'resilience'
                       ? 'bg-slate-700 text-white'
                       : 'text-slate-400 hover:text-white'
-                  }`}
+                    }`}
                 >
                   Resilience
                 </button>
@@ -219,30 +227,57 @@ export function WeightHistory({ profile }: { profile: UserProfile }) {
           ) : undefined
         }
       >
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
-          <div className="bg-slate-900/70 rounded-lg border border-slate-800 p-4">
-            <p className="text-xs text-slate-500 mb-1">Latest</p>
-            <p className="text-lg font-semibold text-white">{weightStats.latestWeight}</p>
+        {chartView === 'composition' ? (
+          /* Body Fat Summary Cards */
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+            <div className="bg-slate-900/70 rounded-lg border border-slate-800 p-4">
+              <p className="text-xs text-slate-500 mb-1">Latest BF%</p>
+              <p className="text-lg font-semibold text-white">{weightStats.latestBodyFat}</p>
+            </div>
+            <div className="bg-slate-900/70 rounded-lg border border-slate-800 p-4">
+              <p className="text-xs text-slate-500 mb-1">BF% Change</p>
+              <p className="text-lg font-semibold text-white">{weightStats.bodyFatChange}</p>
+            </div>
+            <div className="bg-slate-900/70 rounded-lg border border-slate-800 p-4">
+              <p className="text-xs text-slate-500 mb-1">Latest Weight</p>
+              <p className="text-lg font-semibold text-white">{weightStats.latestWeight}</p>
+            </div>
+            <div className="bg-slate-900/70 rounded-lg border border-slate-800 p-4">
+              <p className="text-xs text-slate-500 mb-1">Weight Change</p>
+              <p className="text-lg font-semibold text-white">{weightStats.rangeChange}</p>
+            </div>
+            <div className="bg-slate-900/70 rounded-lg border border-slate-800 p-4">
+              <p className="text-xs text-slate-500 mb-1">Measurements</p>
+              <p className="text-lg font-semibold text-white">{weightStats.bodyFatMeasurements}</p>
+            </div>
           </div>
-          <div className="bg-slate-900/70 rounded-lg border border-slate-800 p-4">
-            <p className="text-xs text-slate-500 mb-1">Range Change</p>
-            <p className="text-lg font-semibold text-white">{weightStats.rangeChange}</p>
+        ) : (
+          /* Weight Summary Cards */
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+            <div className="bg-slate-900/70 rounded-lg border border-slate-800 p-4">
+              <p className="text-xs text-slate-500 mb-1">Latest</p>
+              <p className="text-lg font-semibold text-white">{weightStats.latestWeight}</p>
+            </div>
+            <div className="bg-slate-900/70 rounded-lg border border-slate-800 p-4">
+              <p className="text-xs text-slate-500 mb-1">Range Change</p>
+              <p className="text-lg font-semibold text-white">{weightStats.rangeChange}</p>
+            </div>
+            <div className="bg-slate-900/70 rounded-lg border border-slate-800 p-4">
+              <p className="text-xs text-slate-500 mb-1">Weekly Trend</p>
+              <p className="text-lg font-semibold text-white">{weightStats.weeklyChange}</p>
+            </div>
+            <div className="bg-slate-900/70 rounded-lg border border-slate-800 p-4">
+              <p className="text-xs text-slate-500 mb-1">Trend Confidence</p>
+              <p className={`text-lg font-semibold ${weightStats.trendConfidence?.color ?? 'text-slate-400'}`}>
+                {weightStats.trendConfidence ? `${weightStats.trendConfidence.emoji} ${weightStats.trendConfidence.label}` : '--'}
+              </p>
+            </div>
+            <div className="bg-slate-900/70 rounded-lg border border-slate-800 p-4">
+              <p className="text-xs text-slate-500 mb-1">Data Points</p>
+              <p className="text-lg font-semibold text-white">{weightStats.dataPoints}</p>
+            </div>
           </div>
-          <div className="bg-slate-900/70 rounded-lg border border-slate-800 p-4">
-            <p className="text-xs text-slate-500 mb-1">Weekly Trend</p>
-            <p className="text-lg font-semibold text-white">{weightStats.weeklyChange}</p>
-          </div>
-          <div className="bg-slate-900/70 rounded-lg border border-slate-800 p-4">
-            <p className="text-xs text-slate-500 mb-1">Trend Confidence</p>
-            <p className={`text-lg font-semibold ${weightStats.trendConfidence?.color ?? 'text-slate-400'}`}>
-              {weightStats.trendConfidence ? `${weightStats.trendConfidence.emoji} ${weightStats.trendConfidence.label}` : '--'}
-            </p>
-          </div>
-          <div className="bg-slate-900/70 rounded-lg border border-slate-800 p-4">
-            <p className="text-xs text-slate-500 mb-1">Data Points</p>
-            <p className="text-lg font-semibold text-white">{weightStats.dataPoints}</p>
-          </div>
-        </div>
+        )}
 
         {loading && (
           <div className="h-64 bg-slate-900/60 rounded-lg border border-slate-800 flex items-center justify-center text-slate-500 text-sm" data-testid="loading-indicator">
@@ -294,11 +329,10 @@ export function WeightHistory({ profile }: { profile: UserProfile }) {
                     <button
                       key={point.date}
                       onClick={() => handleSelectDate(point.date)}
-                      className={`px-3 py-1.5 rounded-full text-xs border transition-colors ${
-                        selectedDate === point.date
+                      className={`px-3 py-1.5 rounded-full text-xs border transition-colors ${selectedDate === point.date
                           ? 'bg-slate-700 text-white border-slate-600'
                           : 'text-slate-400 border-slate-800 hover:text-white'
-                      }`}
+                        }`}
                     >
                       {formatShortDate(point.date)}
                     </button>

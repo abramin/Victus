@@ -245,7 +245,7 @@ export interface PlannedDaysResponse {
 }
 
 // Food Reference Types
-export type FoodCategory = 'high_carb' | 'high_protein' | 'high_fat';
+export type FoodCategory = 'high_carb' | 'high_protein' | 'high_fat' | 'vegetable' | 'fruit';
 
 export interface FoodReference {
   id: number;

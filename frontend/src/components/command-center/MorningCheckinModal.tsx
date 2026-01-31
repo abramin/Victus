@@ -4,6 +4,8 @@ import type { CreateDailyLogRequest, DayType, TrainingSession, UserProfile } fro
 import {
   WEIGHT_MIN_KG,
   WEIGHT_MAX_KG,
+  BODY_FAT_MIN_PERCENT,
+  BODY_FAT_MAX_PERCENT,
   SLEEP_HOURS_MIN,
   SLEEP_HOURS_MAX,
   HRV_MIN_MS,
@@ -26,6 +28,7 @@ interface MorningCheckinModalProps {
   mode?: 'create' | 'edit';
   initialData?: {
     weightKg: number;
+    bodyFatPercent?: number;
     sleepHours: number;
     sleepQuality: number;
     hrvMs?: number;
@@ -36,6 +39,7 @@ interface MorningCheckinModalProps {
 
 export interface CheckinData {
   weightKg: number;
+  bodyFatPercent?: number;
   sleepHours: number;
   sleepQuality: number;
   hrvMs?: number;
@@ -92,6 +96,9 @@ export function MorningCheckinModal({
   const [sleepHours, setSleepHours] = useState(() =>
     initialData?.sleepHours ?? 7
   );
+  const [bodyFatPercent, setBodyFatPercent] = useState<number | ''>(() =>
+    initialData?.bodyFatPercent ?? ''
+  );
   const [hrvMs, setHrvMs] = useState<number | ''>(() =>
     initialData?.hrvMs ?? ''
   );
@@ -110,6 +117,7 @@ export function MorningCheckinModal({
     if (isOpen) {
       if (isEditMode && initialData) {
         setWeightKg(initialData.weightKg);
+        setBodyFatPercent(initialData.bodyFatPercent ?? '');
         setSleepHours(initialData.sleepHours);
         setHrvMs(initialData.hrvMs ?? '');
         setRestingHeartRate(initialData.restingHeartRate ?? '');
@@ -204,6 +212,12 @@ export function MorningCheckinModal({
       return;
     }
 
+    // Body Fat validation (optional, but if provided must be in range)
+    if (bodyFatPercent !== '' && (bodyFatPercent < BODY_FAT_MIN_PERCENT || bodyFatPercent > BODY_FAT_MAX_PERCENT)) {
+      setValidationError(`Body Fat must be between ${BODY_FAT_MIN_PERCENT} and ${BODY_FAT_MAX_PERCENT}%`);
+      return;
+    }
+
     // HRV validation (optional, but if provided must be in range)
     if (hrvMs !== '' && (hrvMs < HRV_MIN_MS || hrvMs > HRV_MAX_MS)) {
       setValidationError(`HRV must be between ${HRV_MIN_MS} and ${HRV_MAX_MS} ms`);
@@ -220,6 +234,7 @@ export function MorningCheckinModal({
 
     const checkinData: CheckinData = {
       weightKg: Number(weightKg),
+      bodyFatPercent: bodyFatPercent !== '' ? bodyFatPercent : undefined,
       sleepHours,
       sleepQuality: sleepHoursToQuality(sleepHours),
       hrvMs: hrvMs !== '' ? hrvMs : undefined,
@@ -286,24 +301,44 @@ export function MorningCheckinModal({
               </p>
             </div>
 
-            {/* Weight Input */}
-            <div className="mb-6">
-              <label className="block text-sm text-gray-400 mb-2">
-                Weight (kg) <span className="text-red-400">*</span>
-              </label>
-              <input
-                type="number"
-                value={weightKg}
-                onChange={(e) => {
-                  setWeightKg(e.target.value ? parseFloat(e.target.value) : '');
-                  setValidationError(null);
-                }}
-                step={0.1}
-                min={WEIGHT_MIN_KG}
-                max={WEIGHT_MAX_KG}
-                placeholder="Enter weight"
-                className="w-full px-4 py-4 bg-gray-900 border border-gray-700 rounded-xl text-white text-xl text-center placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/30"
-              />
+            {/* Weight and Body Fat Inputs - Side by Side */}
+            <div className="mb-6 grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm text-gray-400 mb-2">
+                  Weight (kg) <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="number"
+                  value={weightKg}
+                  onChange={(e) => {
+                    setWeightKg(e.target.value ? parseFloat(e.target.value) : '');
+                    setValidationError(null);
+                  }}
+                  step={0.1}
+                  min={WEIGHT_MIN_KG}
+                  max={WEIGHT_MAX_KG}
+                  placeholder="Enter weight"
+                  className="w-full px-3 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white text-lg text-center placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/30"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-2">
+                  Body Fat % <span className="text-gray-500 text-xs">(opt)</span>
+                </label>
+                <input
+                  type="number"
+                  value={bodyFatPercent}
+                  onChange={(e) => {
+                    setBodyFatPercent(e.target.value ? parseFloat(e.target.value) : '');
+                    setValidationError(null);
+                  }}
+                  step={0.1}
+                  min={BODY_FAT_MIN_PERCENT}
+                  max={BODY_FAT_MAX_PERCENT}
+                  placeholder="e.g. 15"
+                  className="w-full px-3 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white text-lg text-center placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/30"
+                />
+              </div>
             </div>
 
             {/* Sleep Hours Slider */}
@@ -380,11 +415,10 @@ export function MorningCheckinModal({
                 <button
                   type="button"
                   onClick={() => setFeeling('rest')}
-                  className={`px-4 py-4 rounded-xl font-medium transition-all ${
-                    feeling === 'rest'
+                  className={`px-4 py-4 rounded-xl font-medium transition-all ${feeling === 'rest'
                       ? 'bg-amber-600 text-white ring-2 ring-amber-400'
                       : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-                  }`}
+                    }`}
                 >
                   <span className="block text-2xl mb-1">😴</span>
                   Need Rest
@@ -392,11 +426,10 @@ export function MorningCheckinModal({
                 <button
                   type="button"
                   onClick={() => setFeeling('ready')}
-                  className={`px-4 py-4 rounded-xl font-medium transition-all ${
-                    feeling === 'ready'
+                  className={`px-4 py-4 rounded-xl font-medium transition-all ${feeling === 'ready'
                       ? 'bg-green-600 text-white ring-2 ring-green-400'
                       : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-                  }`}
+                    }`}
                 >
                   <span className="block text-2xl mb-1">💪</span>
                   Ready
@@ -425,11 +458,10 @@ export function MorningCheckinModal({
                         key={dt}
                         type="button"
                         onClick={() => setDayType(dt)}
-                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                          dayType === dt
+                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${dayType === dt
                             ? `${DAY_TYPE_BADGE[dt].className} ring-1`
                             : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-                        }`}
+                          }`}
                       >
                         {DAY_TYPE_BADGE[dt].label}
                       </button>

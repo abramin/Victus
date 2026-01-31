@@ -50,6 +50,20 @@ describe('ActiveSessionView', () => {
     expect(screen.getByText('EX. 1 OF 3')).toBeDefined();
   });
 
+  it('exercise timer counts up from 0', () => {
+    renderView();
+    // Initial state: timer at 0:00
+    expect(screen.getByText('00:00')).toBeDefined();
+
+    // Advance time by 5 seconds
+    act(() => {
+      vi.advanceTimersByTime(5000);
+    });
+
+    // Timer should now show 00:05
+    expect(screen.getByText('00:05')).toBeDefined();
+  });
+
   it('resolves exercises in phase order (prepare → practice → push)', () => {
     // Provide exercises out of phase order
     const outOfOrder: SessionExercise[] = [
@@ -153,5 +167,39 @@ describe('ActiveSessionView', () => {
     // Should skip unknown and show the valid one
     expect(screen.getByText('Hip Circles')).toBeDefined();
     expect(screen.getByText('EX. 1 OF 1')).toBeDefined();
+  });
+
+  it('renders weight and rep sliders for rep-based exercises', () => {
+    const repBasedExercises: SessionExercise[] = [
+      { exerciseId: 'bear_to_monkey', phase: 'practice', order: 1, reps: 8 },
+    ];
+    renderView(repBasedExercises);
+
+    // Should show both sliders
+    const weightSlider = screen.getByLabelText('Weight') as HTMLInputElement;
+    const repsSlider = screen.getByLabelText('Target Reps') as HTMLInputElement;
+
+    expect(weightSlider).toBeDefined();
+    expect(repsSlider).toBeDefined();
+
+    // Should show default weight value (bodyweight = 0 kg)
+    expect(weightSlider.value).toBe('0');
+
+    // Should show target reps
+    expect(repsSlider.value).toBe('8');
+
+    // Should show the weight label
+    expect(screen.getByText('0.0 kg')).toBeDefined();
+  });
+
+  it('does not render sliders for timed exercises', () => {
+    const timedExercises: SessionExercise[] = [
+      { exerciseId: 'hip_circles', phase: 'prepare', order: 1, durationSec: 30 },
+    ];
+    renderView(timedExercises);
+
+    // Should NOT show sliders
+    expect(screen.queryByLabelText('Weight')).toBeNull();
+    expect(screen.queryByLabelText('Target Reps')).toBeNull();
   });
 });

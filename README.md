@@ -7,7 +7,7 @@ Scaffolded Go + React application with Docker-based development workflow.
 - Location: `backend`
 - Entry point: `cmd/server/main.go`
 - Health check: `GET /api/health`
-- SQLite database path configurable via `DB_PATH` (defaults to `data/victus.sqlite`).
+- PostgreSQL database connection via `DATABASE_URL` environment variable.
 
 ### Running locally
 
@@ -33,7 +33,7 @@ npm run dev
 
 ## Docker Compose
 
-A `docker-compose.yml` is provided to start the full stack with hot reload for the frontend and a persistent SQLite volume for the backend.
+A `docker-compose.yml` is provided to start the full stack with hot reload for the frontend and a PostgreSQL database for the backend.
 
 ```bash
 docker compose up --build
@@ -46,7 +46,7 @@ Backend configuration is loaded from `backend/.env.example` by default. Override
 | Variable | Description | Default |
 | --- | --- | --- |
 | `PORT` | Port for the Go HTTP server | `8080` |
-| `DB_PATH` | SQLite database file path | `data/victus.sqlite` |
+| `DATABASE_URL` | PostgreSQL connection URL | - (required) |
 | `CORS_ALLOWED_ORIGIN` | Allowed origin for CORS | `*` |
 | `CORS_ALLOWED_METHODS` | Allowed HTTP methods | `GET,POST,PUT,DELETE,OPTIONS` |
 | `CORS_ALLOWED_HEADERS` | Allowed headers | `Content-Type,Authorization` |

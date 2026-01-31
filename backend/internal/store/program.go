@@ -415,7 +415,7 @@ func (s *TrainingProgramStore) getWeeks(ctx context.Context, programID int64) ([
 	}
 	defer rows.Close()
 
-	// First pass: collect all weeks (must close rows before nested queries to avoid SQLite deadlock)
+	// First pass: collect all weeks
 	var weeks []domain.ProgramWeek
 	for rows.Next() {
 		var week domain.ProgramWeek
@@ -438,7 +438,7 @@ func (s *TrainingProgramStore) getWeeks(ctx context.Context, programID int64) ([
 		return nil, err
 	}
 
-	// Close rows before making nested queries to avoid SQLite connection deadlock
+	// Close rows before making nested queries
 	rows.Close()
 
 	// Second pass: load days for each week

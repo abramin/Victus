@@ -45,7 +45,7 @@ Victus is an adaptive daily nutrition planning app that:
 | Layer | Technology |
 |-------|------------|
 | Backend | Go 1.22+, net/http, database/sql |
-| Database | SQLite |
+| Database | PostgreSQL |
 | Frontend | React 19, TypeScript, React Router v7 |
 | Styling | Tailwind CSS v4 |
 | Build | Vite 7.3 |
@@ -73,7 +73,7 @@ Victus is an adaptive daily nutrition planning app that:
 │                         Go Backend API                               │
 │  ┌─────────┐  ┌─────────────┐  ┌─────────┐  ┌─────────┐            │
 │  │   API   │→ │   Service   │→ │  Store  │→ │   DB    │            │
-│  │ Handlers│  │   Logic     │  │  Layer  │  │ SQLite  │            │
+│  │ Handlers│  │   Logic     │  │  Layer  │  │ Postgres│            │
 │  └─────────┘  └──────┬──────┘  └─────────┘  └─────────┘            │
 │                      │                                               │
 │               ┌──────▼──────┐                                        │
@@ -119,7 +119,7 @@ HTTP Request
           ▼                               ▼
 ┌─────────────────────────┐   ┌─────────────────────────┐
 │  Domain Layer (domain/) │   │  Store Layer (store/)   │
-│  - Pure types & enums   │   │  - SQLite persistence   │
+│  - Pure types & enums   │   │  - PostgreSQL persistence│
 │  - Calculation functions│   │  - Repository pattern   │
 │  - Validation rules     │   │  - No business logic    │
 │  - NO I/O imports       │   │  - Sentinel errors      │
@@ -128,7 +128,7 @@ HTTP Request
                                           ▼
                               ┌─────────────────────────┐
                               │  DB Layer (db/)         │
-                              │  - SQLite connection    │
+                              │  - PostgreSQL connection│
                               │  - Migrations           │
                               └─────────────────────────┘
 ```
@@ -181,9 +181,9 @@ backend/
 │   │   ├── weighttrend.go       # Weight trend regression
 │   │   └── errors.go            # Domain validation errors
 │   └── db/                      # Database layer
-│       ├── db.go                # SQLite connection
+│       ├── db.go                # PostgreSQL connection
 │       └── migrations.go        # Schema migrations
-└── data/                        # SQLite database directory
+└── data/                        # Data directory (legacy)
 ```
 
 ### 3.3 Design Principles
@@ -952,10 +952,10 @@ go test -run TestName ./...       # Single test
 **Test Structure:**
 - `internal/domain/*_test.go` - Unit tests for pure domain functions
 - `internal/service/service_test.go` - Service integration tests
-- `internal/store/store_test.go` - Store tests (in-memory SQLite)
+- `internal/store/store_test.go` - Store tests (test database)
 - `internal/api/handlers_test.go` - API integration tests
 
-**Test Database:** Uses `:memory:` SQLite for isolation.
+**Test Database:** Uses PostgreSQL test database for isolation.
 
 ### 10.2 Frontend Testing
 
@@ -1011,7 +1011,7 @@ docker compose up --build         # Full stack
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PORT` | `8080` | Backend server port |
-| `DB_PATH` | `data/victus.sqlite` | SQLite file path |
+| `DATABASE_URL` | - | PostgreSQL connection URL (required) |
 | `CORS_ALLOWED_ORIGIN` | `*` | CORS origin |
 
 ### 11.4 CI/CD Pipeline

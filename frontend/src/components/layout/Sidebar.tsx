@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { useSemanticFeedbackOptional } from '../../contexts/SemanticFeedbackContext';
 import { iconReceivePulse } from '../../lib/animations';
 
-export type NavItem = 'today' | 'kitchen' | 'strategy' | 'schedule' | 'workout-planner' | 'programs' | 'physique' | 'history' | 'debrief' | 'log-workout' | 'profile';
+export type NavItem = 'today' | 'kitchen' | 'strategy' | 'schedule' | 'workout-planner' | 'programs' | 'movement' | 'physique' | 'history' | 'debrief' | 'log-workout' | 'profile';
 
 interface SidebarProps {
   currentNav?: NavItem;
@@ -90,6 +90,16 @@ const NAV_SECTIONS: NavSection[] = [
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 6v12M15 6v12" />
+          </svg>
+        ),
+      },
+      {
+        id: 'movement',
+        path: '/movement',
+        label: 'Movement',
+        icon: (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
           </svg>
         ),
       },

@@ -62,7 +62,9 @@ func (s *Server) getActivePlan(w http.ResponseWriter, r *http.Request) {
 	plan, err := s.planService.GetActive(r.Context())
 	if err != nil {
 		if errors.Is(err, store.ErrPlanNotFound) {
-			writeError(w, http.StatusNotFound, "not_found", "No active nutrition plan exists")
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(nil)
 			return
 		}
 		writeInternalError(w, err, "getActivePlan")

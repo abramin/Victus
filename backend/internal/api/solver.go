@@ -17,6 +17,7 @@ type SolveMacrosRequest struct {
 	DayType         string                   `json:"dayType,omitempty"`
 	PlannedTraining []PlannedTrainingRequest `json:"plannedTraining,omitempty"`
 	MealTime        string                   `json:"mealTime,omitempty"`
+	ActiveProtocol  string                   `json:"activeProtocol,omitempty"`
 }
 
 // PlannedTrainingRequest represents a planned training session in the solver request.
@@ -33,11 +34,11 @@ type SolveMacrosResponse struct {
 
 // SolutionResponse represents a single solver solution.
 type SolutionResponse struct {
-	Ingredients []IngredientResponse       `json:"ingredients"`
-	TotalMacros MacroBudgetResponse        `json:"totalMacros"`
-	MatchScore  float64                    `json:"matchScore"`
-	RecipeName  string                     `json:"recipeName"`
-	WhyText     string                     `json:"whyText"`
+	Ingredients []IngredientResponse        `json:"ingredients"`
+	TotalMacros MacroBudgetResponse         `json:"totalMacros"`
+	MatchScore  float64                     `json:"matchScore"`
+	RecipeName  string                      `json:"recipeName"`
+	WhyText     string                      `json:"whyText"`
 	Refinement  *SemanticRefinementResponse `json:"refinement,omitempty"`
 }
 
@@ -108,6 +109,13 @@ func (s *Server) solveMacros(w http.ResponseWriter, r *http.Request) {
 					Type:        trainingType,
 					DurationMin: sess.DurationMin,
 				})
+			}
+		}
+
+		// Parse active protocol
+		if req.ActiveProtocol != "" {
+			if protocol, err := domain.ParseFastingProtocol(req.ActiveProtocol); err == nil {
+				trainingCtx.ActiveProtocol = protocol
 			}
 		}
 	}

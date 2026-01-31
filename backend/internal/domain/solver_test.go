@@ -59,6 +59,34 @@ func (s *SolverSuite) rice() FoodNutrition {
 	}
 }
 
+func (s *SolverSuite) berries() FoodNutrition {
+	return FoodNutrition{
+		ID:             3,
+		Category:       FoodCategoryFruit,
+		FoodItem:       "Berries",
+		ProteinGPer100: 0.7,
+		CarbsGPer100:   12.0,
+		FatGPer100:     0.3,
+		ServingUnit:    "g",
+		ServingSizeG:   100,
+		IsPantryStaple: true,
+	}
+}
+
+func (s *SolverSuite) broccoli() FoodNutrition {
+	return FoodNutrition{
+		ID:             4,
+		Category:       FoodCategoryVegetable,
+		FoodItem:       "Broccoli",
+		ProteinGPer100: 2.8,
+		CarbsGPer100:   7.0,
+		FatGPer100:     0.4,
+		ServingUnit:    "g",
+		ServingSizeG:   100,
+		IsPantryStaple: true,
+	}
+}
+
 func (s *SolverSuite) TestSolutionFinding() {
 	s.Run("empty pantry returns no solutions", func() {
 		req := SolverRequest{
@@ -77,26 +105,17 @@ func (s *SolverSuite) TestSolutionFinding() {
 		s.Empty(result.Solutions)
 	})
 
-	s.Run("single food finds solution", func() {
+	s.Run("single food fails complexity score", func() {
 		req := SolverRequest{
-			RemainingBudget: MacroBudget{
-				ProteinG:     20,
-				CarbsG:       10,
-				FatG:         5,
-				CaloriesKcal: 150,
-			},
-			PantryFoods: []FoodNutrition{s.greekYoghurt()},
+			RemainingBudget: MacroBudget{ProteinG: 20, CarbsG: 10, FatG: 5, CaloriesKcal: 150},
+			PantryFoods:     []FoodNutrition{s.greekYoghurt()},
+			MinIngredients:  1,
 		}
-
 		result := SolveMacros(req)
-
-		s.True(result.Computed)
-		s.NotEmpty(result.Solutions)
-		s.Len(result.Solutions[0].Ingredients, 1)
-		s.Greater(result.Solutions[0].MatchScore, 0.0)
+		s.False(result.Computed, "Single food should fail due to low complexity score")
 	})
 
-	s.Run("two foods finds multi-ingredient solution", func() {
+	s.Run("three foods finds solution", func() {
 		req := SolverRequest{
 			RemainingBudget: MacroBudget{
 				ProteinG:     45,
@@ -104,23 +123,74 @@ func (s *SolverSuite) TestSolutionFinding() {
 				FatG:         10,
 				CaloriesKcal: 500,
 			},
-			PantryFoods:    []FoodNutrition{s.chicken(), s.rice()},
-			MaxIngredients: 2,
+			PantryFoods:    []FoodNutrition{s.chicken(), s.rice(), s.broccoli()},
+			MinIngredients: 3,
+			MaxIngredients: 3,
+			MealTime:       "dinner",
 		}
 
 		result := SolveMacros(req)
 
 		s.True(result.Computed)
+		s.NotEmpty(result.Solutions)
 
-		// Should have solutions with chicken + rice
+		// Should have 3 ingredients
 		found := false
 		for _, sol := range result.Solutions {
-			if len(sol.Ingredients) == 2 {
+			if len(sol.Ingredients) == 3 {
 				found = true
 				break
 			}
 		}
-		s.True(found, "expected at least one 2-ingredient solution")
+		s.True(found, "expected at least one 3-ingredient solution")
+	})
+
+	s.Run("breakfast requires fruit or grain", func() {
+		chicken := s.chicken()
+		rice := s.rice() // Grain
+		yoghurt := s.greekYoghurt()
+		berries := s.berries() // Fruit
+
+		// Case 1: Chicken only -> Fail (Protocol + Complexity)
+		req := SolverRequest{
+			RemainingBudget: MacroBudget{ProteinG: 30, CarbsG: 0, FatG: 5, CaloriesKcal: 200},
+			PantryFoods:     []FoodNutrition{chicken},
+			MinIngredients:  1,
+			MealTime:        "breakfast",
+		}
+		res := SolveMacros(req)
+		s.False(res.Computed)
+
+		// Case 2: Yoghurt + Rice + Berries -> Valid
+		req2 := SolverRequest{
+			RemainingBudget: MacroBudget{ProteinG: 20, CarbsG: 50, FatG: 5, CaloriesKcal: 350},
+			PantryFoods:     []FoodNutrition{yoghurt, rice, berries},
+			MinIngredients:  3,
+			MealTime:        "breakfast",
+		}
+		res2 := SolveMacros(req2)
+		s.True(res2.Computed, "Should pass with Grain+Fruit")
+	})
+
+	s.Run("lunch prune excludes fruit", func() {
+		// Mock foods
+		apple := FoodNutrition{
+			ID: 3, Category: FoodCategoryFruit, FoodItem: "Apple",
+			CarbsGPer100: 14, ServingUnit: "large", ServingSizeG: 180,
+		}
+		chicken := s.chicken()
+
+		req := SolverRequest{
+			RemainingBudget: MacroBudget{ProteinG: 30, CarbsG: 30, FatG: 5, CaloriesKcal: 300},
+			PantryFoods:     []FoodNutrition{chicken, apple},
+			MinIngredients:  2,
+			MealTime:        "lunch",
+		}
+		res := SolveMacros(req)
+
+		// Since apple is pruned, we only have chicken. MinIngredients=2.
+		// Should fail to compute.
+		s.False(res.Computed, "Should fail because Apple is pruned for Lunch")
 	})
 }
 

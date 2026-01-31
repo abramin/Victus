@@ -162,9 +162,11 @@ type MuscleFatigueState struct {
 
 // BodyStatus represents the complete body fatigue state.
 type BodyStatus struct {
-	Muscles      []MuscleFatigueState `json:"muscles"`
-	OverallScore float64              `json:"overallScore"`
-	AsOfTime     string               `json:"asOfTime"`
+	Muscles        []MuscleFatigueState `json:"muscles"`
+	OverallScore   float64              `json:"overallScore"`
+	AsOfTime       string               `json:"asOfTime"`
+	JointIntegrity map[string]float64   `json:"jointIntegrity"`
+	SystemicLoad   float64              `json:"systemicLoad"`
 }
 
 // FatigueInjection represents the fatigue added to a single muscle by a workout.

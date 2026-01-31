@@ -460,9 +460,13 @@ func (s *HandlerSuite) TestPlanNotFoundErrorMapping() {
 		s.Equal(http.StatusNotFound, rec.Code)
 	})
 
-	s.Run("active plan returns 404 when none exists", func() {
+	s.Run("active plan returns null when none exists", func() {
 		rec := s.doRequest("GET", "/api/plans/active", nil)
-		s.Equal(http.StatusNotFound, rec.Code)
+		s.Equal(http.StatusOK, rec.Code)
+
+		var resp interface{}
+		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
+		s.Nil(resp)
 	})
 }
 
@@ -556,10 +560,10 @@ func (s *HandlerSuite) TestRecalibrateFullCycle() {
 		for i := 3; i >= 1; i-- {
 			logDate := time.Now().AddDate(0, 0, -i).Format("2006-01-02")
 			logReq := map[string]interface{}{
-				"date":     logDate,
-				"weightKg": 89, // Barely lost weight — plan expected more loss
+				"date":         logDate,
+				"weightKg":     89, // Barely lost weight — plan expected more loss
 				"sleepQuality": 75,
-				"dayType":  "fatburner",
+				"dayType":      "fatburner",
 			}
 			rec = s.doRequest("POST", "/api/logs", logReq)
 			s.Equal(http.StatusCreated, rec.Code, "log creation for %s should succeed", logDate)

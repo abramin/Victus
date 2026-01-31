@@ -276,6 +276,104 @@ func (s *TrainingLoadSuite) TestTrainingConfigValues() {
 	})
 }
 
+func (s *TrainingLoadSuite) TestTotalSessionLoad() {
+	s.Run("sums load across all sessions", func() {
+		sessions := []TrainingSession{
+			{Type: TrainingTypeStrength, DurationMin: 60, PerceivedIntensity: s.intPtr(6)},
+			{Type: TrainingTypeWalking, DurationMin: 30, PerceivedIntensity: s.intPtr(3)},
+		}
+		load := TotalSessionLoad(sessions)
+		// Strength: 5 * 1 * 2 = 10
+		// Walking: 1 * 0.5 * 1 = 0.5
+		// Total: 10.5
+		s.InDelta(10.5, load, 0.01)
+	})
+
+	s.Run("empty returns zero", func() {
+		load := TotalSessionLoad(nil)
+		s.Equal(0.0, load)
+	})
+
+	s.Run("single session matches SessionLoad", func() {
+		sessions := []TrainingSession{
+			{Type: TrainingTypeHIIT, DurationMin: 45, PerceivedIntensity: s.intPtr(7)},
+		}
+		expected := SessionLoad(TrainingTypeHIIT, 45, s.intPtr(7))
+		s.InDelta(expected, TotalSessionLoad(sessions), 0.001)
+	})
+}
+
+func (s *TrainingLoadSuite) TestNewPlannerSession() {
+	s.Run("valid input creates session", func() {
+		input := PlannerSessionInput{
+			TrainingType: "strength",
+			DurationMin:  60,
+			LoadScore:    4.0,
+			RPE:          s.intPtr(7),
+			Notes:        "test notes",
+		}
+		ps, err := NewPlannerSession("2025-01-15", 1, input)
+		s.NoError(err)
+		s.Equal("2025-01-15", ps.Date)
+		s.Equal(1, ps.SessionOrder)
+		s.Equal(TrainingTypeStrength, ps.TrainingType)
+		s.Equal(60, ps.DurationMin)
+		s.Equal(4.0, ps.LoadScore)
+		s.Equal(7, *ps.RPE)
+		s.Equal("test notes", ps.Notes)
+	})
+
+	s.Run("defaults LoadScore to 3.0 when zero", func() {
+		input := PlannerSessionInput{
+			TrainingType: "walking",
+			DurationMin:  30,
+			LoadScore:    0, // Should default to 3.0
+		}
+		ps, err := NewPlannerSession("2025-01-15", 1, input)
+		s.NoError(err)
+		s.Equal(3.0, ps.LoadScore)
+	})
+
+	s.Run("rejects invalid training type", func() {
+		input := PlannerSessionInput{
+			TrainingType: "invalid_type",
+			DurationMin:  60,
+		}
+		_, err := NewPlannerSession("2025-01-15", 1, input)
+		s.Error(err)
+	})
+
+	s.Run("rejects invalid duration", func() {
+		input := PlannerSessionInput{
+			TrainingType: "strength",
+			DurationMin:  500, // Max is 480
+		}
+		_, err := NewPlannerSession("2025-01-15", 1, input)
+		s.ErrorIs(err, ErrInvalidTrainingDuration)
+	})
+
+	s.Run("rejects LoadScore out of range", func() {
+		input := PlannerSessionInput{
+			TrainingType: "strength",
+			DurationMin:  60,
+			LoadScore:    6.0, // Max is 5
+		}
+		_, err := NewPlannerSession("2025-01-15", 1, input)
+		s.Error(err)
+	})
+
+	s.Run("rejects RPE out of range", func() {
+		badRPE := 11
+		input := PlannerSessionInput{
+			TrainingType: "strength",
+			DurationMin:  60,
+			RPE:          &badRPE, // Max is 10
+		}
+		_, err := NewPlannerSession("2025-01-15", 1, input)
+		s.ErrorIs(err, ErrInvalidPerceivedIntensity)
+	})
+}
+
 // Acceptance criteria tests from Issue #9
 // NOTE: User-visible behavior now also covered by training-load.feature scenarios.
 // These domain tests are retained because they guard the pure calculation invariants

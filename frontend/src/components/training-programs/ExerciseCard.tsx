@@ -10,12 +10,15 @@ interface ExerciseCardProps {
   total: number;
   targetDurationSec: number;
   targetReps: number;
+  currentWeight: number;
   elapsedSec: number;
   currentRep: number;
   rpe: number;
   onDone: () => void;
   onRpeChange: (rpe: number) => void;
   onRepIncrement: () => void;
+  onWeightChange: (weight: number) => void;
+  onTargetRepsChange: (reps: number) => void;
   onAbort: () => void;
 }
 
@@ -48,12 +51,15 @@ export function ExerciseCard({
   total,
   targetDurationSec,
   targetReps,
+  currentWeight,
   elapsedSec,
   currentRep,
   rpe,
   onDone,
   onRpeChange,
   onRepIncrement,
+  onWeightChange,
+  onTargetRepsChange,
   onAbort,
 }: ExerciseCardProps) {
   const isTimed = targetDurationSec > 0;
@@ -124,12 +130,59 @@ export function ExerciseCard({
         <RPEDial value={rpe} onChange={onRpeChange} />
       </div>
 
+      {/* Adjust Sliders (rep-based exercises only) */}
+      {!isTimed && (
+        <div className="px-6 py-4 border-t border-slate-800 bg-slate-900/50 space-y-4">
+          {/* Weight Slider */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label htmlFor="weight-slider" className="text-xs text-slate-400 uppercase tracking-wider">
+                Weight
+              </label>
+              <span className="text-sm font-semibold text-white tabular-nums">{currentWeight.toFixed(1)} kg</span>
+            </div>
+            <input
+              id="weight-slider"
+              type="range"
+              min="0"
+              max="150"
+              step="2.5"
+              value={currentWeight}
+              onChange={(e) => onWeightChange(parseFloat(e.target.value))}
+              className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+            />
+          </div>
+
+          {/* Target Reps Slider */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label htmlFor="reps-slider" className="text-xs text-slate-400 uppercase tracking-wider">
+                Target Reps
+              </label>
+              <span className="text-sm font-semibold text-white tabular-nums">{targetReps} reps</span>
+            </div>
+            <input
+              id="reps-slider"
+              type="range"
+              min="1"
+              max="30"
+              step="1"
+              value={targetReps}
+              onChange={(e) => onTargetRepsChange(parseInt(e.target.value, 10))}
+              className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+            />
+          </div>
+        </div>
+      )}
+
       {/* Control Bar */}
       <div className="flex items-center justify-between px-6 py-4 bg-slate-900/95 backdrop-blur border-t border-slate-800">
         {/* Timer or Rep Counter */}
         <div className="flex items-center gap-3">
           {isTimed ? (
-            <span className="text-2xl font-bold text-white tabular-nums">{formatTime(elapsedSec)}</span>
+            <span className="text-2xl font-bold text-white tabular-nums">
+              {formatTime(Math.max(0, targetDurationSec - elapsedSec))}
+            </span>
           ) : (
             <div className="flex items-center gap-2">
               <span className="text-2xl font-bold text-white tabular-nums">{currentRep}/{targetReps}</span>

@@ -6,11 +6,51 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
 	"victus/internal/domain"
 	"victus/internal/store"
 )
+
+// explanationCache caches AI-generated explanations by rule ID.
+// Cache entries expire after 1 hour.
+type explanationCache struct {
+	mu      sync.RWMutex
+	entries map[domain.AuditRuleID]cachedExplanation
+}
+
+type cachedExplanation struct {
+	text      string
+	expiresAt time.Time
+}
+
+func newExplanationCache() *explanationCache {
+	return &explanationCache{
+		entries: make(map[domain.AuditRuleID]cachedExplanation),
+	}
+}
+
+func (c *explanationCache) get(id domain.AuditRuleID) (string, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	entry, ok := c.entries[id]
+	if !ok || time.Now().After(entry.expiresAt) {
+		return "", false
+	}
+	return entry.text, true
+}
+
+func (c *explanationCache) set(id domain.AuditRuleID, text string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.entries[id] = cachedExplanation{
+		text:      text,
+		expiresAt: time.Now().Add(1 * time.Hour),
+	}
+}
 
 // AuditService evaluates strategy mismatches and generates audit status.
 type AuditService struct {
@@ -19,6 +59,7 @@ type AuditService struct {
 	plannedDayTypeStore *store.PlannedDayTypeStore
 	ollamaURL           string
 	ollamaClient        *http.Client
+	cache               *explanationCache
 }
 
 // NewAuditService creates a new AuditService.
@@ -36,7 +77,8 @@ func NewAuditService(
 		dailyLogStore:       dailyLogStore,
 		plannedDayTypeStore: plannedDayTypeStore,
 		ollamaURL:           ollamaURL,
-		ollamaClient:        &http.Client{Timeout: 15 * time.Second},
+		ollamaClient:        &http.Client{Timeout: 5 * time.Second},
+		cache:               newExplanationCache(),
 	}
 }
 
@@ -52,11 +94,16 @@ func (s *AuditService) GetAuditStatus(ctx context.Context) (*domain.AuditStatus,
 	rules := domain.DefaultAuditRules()
 	mismatches := domain.EvaluateAuditRules(*auditCtx, rules)
 
-	// Generate explanations for mismatches via Ollama (optional enhancement)
+	// Generate explanations for mismatches in parallel with caching
+	var wg sync.WaitGroup
 	for i := range mismatches {
-		explanation := s.generateExplanation(ctx, &mismatches[i])
-		mismatches[i].Explanation = explanation
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			mismatches[idx].Explanation = s.generateExplanationCached(ctx, &mismatches[idx])
+		}(i)
 	}
+	wg.Wait()
 
 	severity := domain.GetHighestSeverity(mismatches)
 
@@ -188,6 +235,22 @@ type ollamaExplanationRequest struct {
 // ollamaResponse is the response from Ollama API.
 type ollamaExplanationResponse struct {
 	Response string `json:"response"`
+}
+
+// generateExplanationCached checks cache first, then calls Ollama if needed.
+func (s *AuditService) generateExplanationCached(ctx context.Context, mismatch *domain.AuditMismatch) string {
+	// Check cache first
+	if cached, ok := s.cache.get(mismatch.ID); ok {
+		return cached
+	}
+
+	// Generate new explanation
+	explanation := s.generateExplanation(ctx, mismatch)
+
+	// Cache the result
+	s.cache.set(mismatch.ID, explanation)
+
+	return explanation
 }
 
 // generateExplanation uses Ollama to generate a coaching explanation for a mismatch.

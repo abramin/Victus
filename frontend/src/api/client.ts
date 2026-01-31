@@ -16,6 +16,7 @@ import type {
   PlannedDay,
   PlannedSession,
   PlannedSessionInput,
+  FoodCategory,
   FoodReferenceResponse,
   DayType,
   NutritionPlan,
@@ -42,6 +43,12 @@ import type {
   CalendarSummaryResponse,
   DayInsightResponse,
   PhaseInsightResponse,
+  Movement,
+  UserMovementProgress,
+  NeuralBattery,
+  FormCorrectionRequest,
+  FormCorrectionResult,
+  MovementProgressionInput,
 } from './types';
 
 const API_BASE = '/api';
@@ -232,6 +239,19 @@ export async function addConsumedMacros(
   return handleResponse<DailyLog>(response);
 }
 
+export async function clearMealConsumedMacros(
+  date: string,
+  meal: 'breakfast' | 'lunch' | 'dinner',
+  signal?: AbortSignal
+): Promise<DailyLog> {
+  const response = await fetch(`${API_BASE}/logs/${date}/consumed-macros/${meal}`, {
+    method: 'DELETE',
+    signal,
+  });
+
+  return handleResponse<DailyLog>(response);
+}
+
 export async function getTrainingConfigs(signal?: AbortSignal): Promise<TrainingConfig[]> {
   const response = await fetch(`${API_BASE}/training-configs`, { signal });
   return handleResponse<TrainingConfig[]>(response);
@@ -309,7 +329,21 @@ export async function getPlannedSessions(date: string, signal?: AbortSignal): Pr
 
 export async function getFoodReference(signal?: AbortSignal): Promise<FoodReferenceResponse> {
   const response = await fetch(`${API_BASE}/food-reference`, { signal });
-  return handleResponse<FoodReferenceResponse>(response);
+  const data = await handleResponse<FoodReferenceResponse>(response);
+  const foods = data.foods.map((food) => ({
+    ...food,
+    category: normalizeFoodCategory(food.category as ApiFoodCategory),
+  }));
+  return { foods };
+}
+
+type ApiFoodCategory = FoodCategory | 'veg';
+
+function normalizeFoodCategory(category: ApiFoodCategory): FoodCategory {
+  if (category === 'veg') {
+    return 'vegetable';
+  }
+  return category;
 }
 
 export async function updateFoodReferencePlateMultiplier(
@@ -940,4 +974,73 @@ export async function finalizeSession(sessionId: number, signal?: AbortSignal): 
 export async function getSession(sessionId: number, signal?: AbortSignal): Promise<SessionResponse> {
   const response = await fetch(`${API_BASE}/sessions/${sessionId}`, { signal });
   return handleResponse<SessionResponse>(response);
+}
+
+// ─── Adaptive Movement Engine ───────────────────────────────────────
+
+/**
+ * List all movements in the taxonomy.
+ */
+export async function listMovements(signal?: AbortSignal): Promise<Movement[]> {
+  const response = await fetch(`${API_BASE}/movements`, { signal });
+  return handleResponse<Movement[]>(response);
+}
+
+/**
+ * List movements filtered by joint integrity and intensity ceiling.
+ */
+export async function getFilteredMovements(ceiling?: number, signal?: AbortSignal): Promise<Movement[]> {
+  const params = ceiling ? `?ceiling=${ceiling}` : '';
+  const response = await fetch(`${API_BASE}/movements/filtered${params}`, { signal });
+  return handleResponse<Movement[]>(response);
+}
+
+/**
+ * Get a single movement by ID.
+ */
+export async function getMovement(id: string, signal?: AbortSignal): Promise<Movement> {
+  const response = await fetch(`${API_BASE}/movements/${id}`, { signal });
+  return handleResponse<Movement>(response);
+}
+
+/**
+ * Get user progression for a specific movement.
+ */
+export async function getMovementProgress(id: string, signal?: AbortSignal): Promise<UserMovementProgress | null> {
+  const response = await fetch(`${API_BASE}/movements/${id}/progress`, { signal });
+  return handleResponse<UserMovementProgress | null>(response);
+}
+
+/**
+ * Record a movement session completion for progression tracking.
+ */
+export async function completeMovementSession(id: string, input: MovementProgressionInput, signal?: AbortSignal): Promise<UserMovementProgress> {
+  const response = await fetch(`${API_BASE}/movements/${id}/complete-session`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+    signal,
+  });
+  return handleResponse<UserMovementProgress>(response);
+}
+
+/**
+ * Get the Neural Battery (CNS readiness) for today.
+ */
+export async function getNeuralBattery(signal?: AbortSignal): Promise<NeuralBattery | null> {
+  const response = await fetch(`${API_BASE}/neural-battery`, { signal });
+  return handleResponse<NeuralBattery | null>(response);
+}
+
+/**
+ * Analyze form issues with a movement via Ollama.
+ */
+export async function analyzeFormCorrection(req: FormCorrectionRequest, signal?: AbortSignal): Promise<FormCorrectionResult> {
+  const response = await fetch(`${API_BASE}/movements/analyze-form`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(req),
+    signal,
+  });
+  return handleResponse<FormCorrectionResult>(response);
 }

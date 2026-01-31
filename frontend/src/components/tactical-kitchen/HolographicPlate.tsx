@@ -14,7 +14,14 @@ interface MacroTarget {
 interface HolographicPlateProps {
   mealState: MealState;
   targets: MacroTarget;
+  /** Daily targets for the ring visualization */
+  dailyTargets?: MacroTarget;
+  /** Total consumed today across all meals */
+  consumedToday?: { proteinG: number; carbsG: number; fatG: number; calories: number };
+  /** Carbs from fruit/veg to exclude from carb budget */
+  fruitVegCarbsG?: number;
   pulsingMacro?: MacroType | null;
+  isWarning?: boolean;
 }
 
 interface RingConfig {
@@ -59,20 +66,20 @@ function MacroRing({ macro, consumed, target, config, delay, isPulsing }: MacroR
   // Pulse animation when food is added
   const pulseAnimation = isPulsing
     ? {
-        scale: [1, 1.08, 1],
-        filter: ['brightness(1)', 'brightness(1.5)', 'brightness(1)'],
-      }
+      scale: [1, 1.08, 1],
+      filter: ['brightness(1)', 'brightness(1.5)', 'brightness(1)'],
+    }
     : isOverflow
       ? {
-          opacity: [1, 0.5, 1],
-          strokeWidth: [config.strokeWidth + 2, config.strokeWidth + 6, config.strokeWidth + 2],
-        }
+        opacity: [1, 0.5, 1],
+        strokeWidth: [config.strokeWidth + 2, config.strokeWidth + 6, config.strokeWidth + 2],
+      }
       : { opacity: 1 };
 
   const pulseTransition = isPulsing
-    ? { duration: 0.4, ease: 'easeInOut' }
+    ? { duration: 0.4, ease: 'easeInOut' as const }
     : isOverflow
-      ? { duration: 0.8, repeat: Infinity, ease: 'easeInOut' }
+      ? { duration: 0.8, repeat: Infinity, ease: 'easeInOut' as const }
       : undefined;
 
   return (
@@ -159,9 +166,30 @@ function MacroRing({ macro, consumed, target, config, delay, isPulsing }: MacroR
   );
 }
 
-export function HolographicPlate({ mealState, targets, pulsingMacro }: HolographicPlateProps) {
-  const remainingCalories = Math.max(0, targets.calories - mealState.totalCalories);
-  const isCaloriesOverflow = mealState.totalCalories > targets.calories;
+export function HolographicPlate({
+  mealState,
+  targets,
+  dailyTargets,
+  consumedToday,
+  fruitVegCarbsG,
+  pulsingMacro,
+  isWarning
+}: HolographicPlateProps) {
+  // Use daily totals for ring display if provided, otherwise fall back to mealState
+  const ringConsumed = consumedToday ?? {
+    proteinG: mealState.totalProteinG,
+    carbsG: mealState.totalCarbsG,
+    fatG: mealState.totalFatG,
+    calories: mealState.totalCalories,
+  };
+  const adjustedRingConsumed = {
+    ...ringConsumed,
+    carbsG: Math.max(0, ringConsumed.carbsG - (fruitVegCarbsG ?? 0)),
+  };
+  const ringTargets = dailyTargets ?? targets;
+
+  const remainingCalories = Math.max(0, ringTargets.calories - adjustedRingConsumed.calories);
+  const isCaloriesOverflow = adjustedRingConsumed.calories > ringTargets.calories;
 
   return (
     <div className="flex flex-col items-center">
@@ -170,24 +198,24 @@ export function HolographicPlate({ mealState, targets, pulsingMacro }: Holograph
         <svg className="w-full h-full transform -rotate-90" viewBox="0 0 240 240">
           <MacroRing
             macro="protein"
-            consumed={mealState.totalProteinG}
-            target={targets.proteinG}
+            consumed={adjustedRingConsumed.proteinG}
+            target={ringTargets.proteinG}
             config={RINGS.protein}
             delay={100}
             isPulsing={pulsingMacro === 'protein'}
           />
           <MacroRing
             macro="carbs"
-            consumed={mealState.totalCarbsG}
-            target={targets.carbsG}
+            consumed={adjustedRingConsumed.carbsG}
+            target={ringTargets.carbsG}
             config={RINGS.carbs}
             delay={150}
             isPulsing={pulsingMacro === 'carbs'}
           />
           <MacroRing
             macro="fat"
-            consumed={mealState.totalFatG}
-            target={targets.fatG}
+            consumed={adjustedRingConsumed.fatG}
+            target={ringTargets.fatG}
             config={RINGS.fat}
             delay={200}
             isPulsing={pulsingMacro === 'fat'}
@@ -200,12 +228,12 @@ export function HolographicPlate({ mealState, targets, pulsingMacro }: Holograph
             key={remainingCalories}
             initial={{ scale: 1.1 }}
             animate={{ scale: 1 }}
-            className={`text-4xl font-bold ${isCaloriesOverflow ? 'text-red-400' : 'text-white'}`}
+            className={`text-4xl font-bold ${isCaloriesOverflow ? 'text-red-400' : isWarning ? 'text-amber-400' : 'text-white'}`}
           >
-            {isCaloriesOverflow ? `-${mealState.totalCalories - targets.calories}` : remainingCalories}
+            {isCaloriesOverflow ? `-${adjustedRingConsumed.calories - ringTargets.calories}` : remainingCalories}
           </motion.span>
-          <span className="text-xs text-slate-500 tracking-wider">
-            {isCaloriesOverflow ? 'OVER KCAL' : 'REMAINING'}
+          <span className={`text-xs tracking-wider ${isWarning ? 'text-amber-500 font-bold' : 'text-slate-500'}`}>
+            {isCaloriesOverflow ? 'OVER KCAL' : isWarning ? 'CRASH RISK' : 'REMAINING'}
           </span>
         </div>
       </div>
@@ -215,19 +243,19 @@ export function HolographicPlate({ mealState, targets, pulsingMacro }: Holograph
         <div className="flex items-center gap-1.5">
           <span className="w-2.5 h-2.5 rounded-full bg-purple-500" />
           <span className="text-slate-400">
-            P: {mealState.totalProteinG}/{targets.proteinG}g
+            P: {adjustedRingConsumed.proteinG}/{ringTargets.proteinG}g
           </span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-2.5 h-2.5 rounded-full bg-orange-500" />
           <span className="text-slate-400">
-            C: {mealState.totalCarbsG}/{targets.carbsG}g
+            C: {adjustedRingConsumed.carbsG}/{ringTargets.carbsG}g
           </span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-2.5 h-2.5 rounded-full bg-gray-500" />
           <span className="text-slate-400">
-            F: {mealState.totalFatG}/{targets.fatG}g
+            F: {adjustedRingConsumed.fatG}/{ringTargets.fatG}g
           </span>
         </div>
       </div>

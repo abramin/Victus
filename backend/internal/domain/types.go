@@ -320,10 +320,10 @@ type TrainingSession struct {
 // SessionExtraMetadata holds parsed data from an echo log.
 // Stored as JSONB in the database.
 type SessionExtraMetadata struct {
-	Achievements  []string `json:"achievements,omitempty"`  // Specific PRs or accomplishments
-	RPEOffset     int      `json:"rpe_offset,omitempty"`    // Adjustment to initial RPE (-3 to +3)
-	EchoProcessed bool     `json:"echo_processed"`          // Whether echo was successfully parsed
-	EchoModel     string   `json:"echo_model,omitempty"`    // LLM model used for parsing
+	Achievements  []string `json:"achievements,omitempty"` // Specific PRs or accomplishments
+	RPEOffset     int      `json:"rpe_offset,omitempty"`   // Adjustment to initial RPE (-3 to +3)
+	EchoProcessed bool     `json:"echo_processed"`         // Whether echo was successfully parsed
+	EchoModel     string   `json:"echo_model,omitempty"`   // LLM model used for parsing
 }
 
 // TrainingTypeConfig represents the database-stored configuration for a training type.
@@ -386,11 +386,11 @@ type PlannedDayType struct {
 	DayType DayType // performance, fatburner, or metabolize
 }
 
-// ScheduledSession represents a training session scheduled via the Workout Planner.
-// Unlike TrainingSession which is tied to a DailyLog, ScheduledSession exists
-// independently and is used to pre-populate training when the day arrives.
-// This is part of the WorkoutSchedule aggregate (keyed by date).
-type ScheduledSession struct {
+// PlannerSession represents a training session created via the Workout Planner.
+// Unlike TrainingSession (tied to DailyLog) or ScheduledSession (from program installation),
+// PlannerSession is ad-hoc manual scheduling for future dates.
+// This is part of the WorkoutPlan aggregate (keyed by date).
+type PlannerSession struct {
 	ID           int64
 	Date         string       // YYYY-MM-DD format
 	SessionOrder int          // 1-based order within the day
@@ -401,8 +401,8 @@ type ScheduledSession struct {
 	Notes        string       // Optional notes
 }
 
-// ScheduledSessionInput contains the fields to create a scheduled session.
-type ScheduledSessionInput struct {
+// PlannerSessionInput contains the fields to create a planner session.
+type PlannerSessionInput struct {
 	TrainingType string  `json:"trainingType"`
 	DurationMin  int     `json:"durationMin"`
 	LoadScore    float64 `json:"loadScore"`
@@ -410,8 +410,8 @@ type ScheduledSessionInput struct {
 	Notes        string  `json:"notes,omitempty"`
 }
 
-// NewScheduledSession creates a ScheduledSession from input with validation.
-func NewScheduledSession(date string, order int, input ScheduledSessionInput) (*ScheduledSession, error) {
+// NewPlannerSession creates a PlannerSession from input with validation.
+func NewPlannerSession(date string, order int, input PlannerSessionInput) (*PlannerSession, error) {
 	trainingType, err := ParseTrainingType(input.TrainingType)
 	if err != nil {
 		return nil, err
@@ -432,7 +432,7 @@ func NewScheduledSession(date string, order int, input ScheduledSessionInput) (*
 		return nil, ErrInvalidPerceivedIntensity
 	}
 
-	return &ScheduledSession{
+	return &PlannerSession{
 		Date:         date,
 		SessionOrder: order,
 		TrainingType: trainingType,
@@ -450,7 +450,7 @@ const (
 	FoodCategoryHighCarb    FoodCategory = "high_carb"
 	FoodCategoryHighProtein FoodCategory = "high_protein"
 	FoodCategoryHighFat     FoodCategory = "high_fat"
-	FoodCategoryVeg         FoodCategory = "veg"
+	FoodCategoryVegetable   FoodCategory = "veg"
 	FoodCategoryFruit       FoodCategory = "fruit"
 )
 
@@ -459,7 +459,7 @@ var ValidFoodCategories = map[FoodCategory]bool{
 	FoodCategoryHighCarb:    true,
 	FoodCategoryHighProtein: true,
 	FoodCategoryHighFat:     true,
-	FoodCategoryVeg:         true,
+	FoodCategoryVegetable:   true,
 	FoodCategoryFruit:       true,
 }
 
@@ -514,9 +514,11 @@ type SolverSolution struct {
 // SolverRequest contains input parameters for the macro solver.
 type SolverRequest struct {
 	RemainingBudget  MacroBudget
-	MaxIngredients   int             // Maximum ingredients per solution (default 3)
+	MinIngredients   int             // Minimum ingredients per solution (default 3)
+	MaxIngredients   int             // Maximum ingredients per solution (default 5)
 	TolerancePercent float64         // Acceptable deviation from target (default 0.10)
 	PantryFoods      []FoodNutrition // Available foods to choose from
+	MealTime         string          // "breakfast", "lunch", "dinner" for category locking
 }
 
 // SolverResponse contains the solver output.
@@ -543,6 +545,7 @@ type TrainingContextForSolver struct {
 	DayType         DayType           // performance, fatburner, or metabolize
 	PlannedSessions []TrainingSession // Planned training sessions for the day
 	MealTime        string            // "breakfast", "lunch", "dinner", or "snack"
+	ActiveProtocol  FastingProtocol   // standard, 16_8, or 20_4
 }
 
 // AbsurdityWarning represents a logistic alert for excessive ingredient amounts.

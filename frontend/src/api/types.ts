@@ -371,7 +371,7 @@ export interface PlannedDaysResponse {
 }
 
 // Food Reference Types (Cockpit Dashboard)
-export type FoodCategory = 'high_carb' | 'high_protein' | 'high_fat' | 'veg' | 'fruit';
+export type FoodCategory = 'high_carb' | 'high_protein' | 'high_fat' | 'vegetable' | 'fruit';
 
 export interface FoodReference {
   id: number;
@@ -626,6 +626,7 @@ export interface SessionExercise {
   order: number;
   durationSec?: number;
   reps?: number;
+  weightKg?: number;
   notes?: string;
 }
 
@@ -852,6 +853,7 @@ export interface SolverRequest {
   dayType?: DayType;
   plannedTraining?: PlannedTrainingForSolver[];
   mealTime?: 'breakfast' | 'lunch' | 'dinner' | 'snack';
+  activeProtocol?: FastingProtocol;
 }
 
 /**
@@ -1246,4 +1248,53 @@ export interface EchoResponse {
   session: SessionResponse;
   echoResult?: EchoResult;
   bodyIssuesCreated?: EchoBodyIssue[];
+}
+
+// ─── Adaptive Movement Engine ───────────────────────────────────────
+
+export type MovementCategory = 'locomotion' | 'push' | 'pull' | 'legs' | 'core' | 'skill' | 'power';
+
+export interface Movement {
+  id: string;
+  name: string;
+  category: MovementCategory;
+  tags: string[];
+  difficulty: number;
+  primaryLoad: string;
+  jointStress: Record<string, number>;
+  progressionId: string;
+}
+
+export interface UserMovementProgress {
+  movementId: string;
+  userDifficulty: number;
+  successfulSessions: number;
+  lastPerformedAt?: string;
+}
+
+export interface NeuralBattery {
+  percentage: number;
+  status: 'optimized' | 'strained' | 'depleted';
+  color: string;
+  intensityCeiling: number;
+  recommendation: string;
+}
+
+export interface FormCorrectionRequest {
+  movementId: string;
+  movementName: string;
+  userFeedback: string;
+}
+
+export interface FormCorrectionResult {
+  mechanicalError: string;
+  tacticalCue: string;
+  regression?: string;
+}
+
+export interface MovementProgressionInput {
+  completedReps: number;
+  targetReps: number;
+  rpe: number;
+  hadFormIssue: boolean;
 }

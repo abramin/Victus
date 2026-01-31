@@ -230,7 +230,7 @@ export function LogWorkoutView({ log, onUpdateActual, saving }: LogWorkoutViewPr
 
   const removeSession = useCallback((id: string) => {
     setSessions((prev) => {
-      if (prev.length <= 1) return prev;
+      // Allow removing the last session - empty state will show "No sessions logged"
       return prev.filter((s) => s._id !== id);
     });
     setHasUnsavedChanges(true);
@@ -433,7 +433,7 @@ export function LogWorkoutView({ log, onUpdateActual, saving }: LogWorkoutViewPr
   const shouldCollapseDetails = hasActualTraining && Boolean(adherence?.isExact);
   const isPlannedRestDay = log
     ? log.plannedTrainingSessions.length === 0 ||
-      log.plannedTrainingSessions.every((s) => s.type === 'rest')
+    log.plannedTrainingSessions.every((s) => s.type === 'rest')
     : false;
 
   useEffect(() => {
@@ -498,9 +498,8 @@ export function LogWorkoutView({ log, onUpdateActual, saving }: LogWorkoutViewPr
       {shouldShowWorkoutDetails && (
         <>
           {/* Status Banner */}
-          <div className={`rounded-xl p-4 border mb-6 ${
-            hasActualTraining ? 'bg-emerald-900/20 border-emerald-800' : 'bg-gray-900 border-gray-800'
-          }`}>
+          <div className={`rounded-xl p-4 border mb-6 ${hasActualTraining ? 'bg-emerald-900/20 border-emerald-800' : 'bg-gray-900 border-gray-800'
+            }`}>
             {hasActualTraining ? (
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
@@ -586,7 +585,7 @@ export function LogWorkoutView({ log, onUpdateActual, saving }: LogWorkoutViewPr
             <h3 className="text-sm font-medium text-gray-400 mb-3">Planned Training</h3>
             <div className="flex flex-wrap gap-2">
               {log.plannedTrainingSessions.length === 0 ||
-              log.plannedTrainingSessions.every((s) => s.type === 'rest') ? (
+                log.plannedTrainingSessions.every((s) => s.type === 'rest') ? (
                 <span className="text-sm text-gray-500">Rest day</span>
               ) : (
                 log.plannedTrainingSessions
@@ -785,9 +784,8 @@ export function LogWorkoutView({ log, onUpdateActual, saving }: LogWorkoutViewPr
                     type="button"
                     onClick={handleSave}
                     disabled={saving || !hasUnsavedChanges}
-                    className={`px-6 py-3 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center gap-2 ${
-                      hasUnsavedChanges ? 'bg-white text-black hover:bg-gray-200' : 'bg-gray-700 text-gray-400'
-                    }`}
+                    className={`px-6 py-3 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center gap-2 ${hasUnsavedChanges ? 'bg-white text-black hover:bg-gray-200' : 'bg-gray-700 text-gray-400'
+                      }`}
                   >
                     {saving ? (
                       'Saving...'
@@ -844,23 +842,37 @@ export function LogWorkoutView({ log, onUpdateActual, saving }: LogWorkoutViewPr
       )}
 
       {/* Floating "Commit All" FAB - Detail Mode only, deactivates after persist */}
-      {!isQuickMode && sessions.some((s) => s.committed) && hasUnsavedChanges && (
+      {/* Floating "Commit All" / "Save Changes" FAB - Detail Mode only */}
+      {!isQuickMode && hasUnsavedChanges && (
         <button
           type="button"
           onClick={handleSave}
           disabled={saving}
-          className="fixed bottom-6 right-6 px-6 py-3 bg-emerald-600 hover:bg-emerald-500
-                     text-white font-medium rounded-full shadow-lg transition-all
-                     flex items-center gap-2 z-50 disabled:opacity-50"
+          className={`fixed bottom-6 right-6 px-6 py-3 font-medium rounded-full shadow-lg transition-all
+                     flex items-center gap-2 z-50 disabled:opacity-50 ${sessions.length === 0
+              ? 'bg-red-600 hover:bg-red-500 text-white'
+              : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+            }`}
         >
           {saving ? (
             'Saving...'
           ) : (
             <>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              Commit All ({sessions.filter((s) => s.committed).length})
+              {sessions.length === 0 ? (
+                <>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  Confirm Deletion
+                </>
+              ) : (
+                <>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Commit All ({sessions.filter((s) => s.committed).length || sessions.length})
+                </>
+              )}
             </>
           )}
         </button>

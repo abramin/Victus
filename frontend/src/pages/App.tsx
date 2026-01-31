@@ -21,6 +21,8 @@ import { PhysiqueDashboard } from '../components/physique';
 import { ProgramLibrary } from '../components/training-programs/ProgramLibrary';
 import { TacticalKitchen } from '../components/tactical-kitchen';
 import { WeeklyDebrief } from './WeeklyDebrief';
+import { MovementLibrary } from '../components/movement/MovementLibrary';
+import { VoiceCommandButton } from '../components/voice';
 
 function App() {
   const {
@@ -141,6 +143,8 @@ function App() {
           <Route path="/schedule" element={<PlanCalendar profile={profile} />} />
           {/* Workout Planner - Tactical Drag-and-Drop */}
           <Route path="/workout-planner" element={<WorkoutPlanner />} />
+          {/* Movement - Adaptive Movement Engine */}
+          <Route path="/movement" element={<MovementLibrary />} />
           {/* Training Programs - Program Library & Builder */}
           <Route path="/programs" element={<ProgramLibrary />} />
           {/* Body Status - Muscle Fatigue Map */}
@@ -180,6 +184,18 @@ function App() {
           />
         </Routes>
       </AppLayout>
+
+      {/* Global Voice Command FAB - positioned on left to avoid overlapping action buttons */}
+      <VoiceCommandButton
+        date={log?.date}
+        leftOffset={24}
+        onResult={(response) => {
+          // Refresh data after successful voice command
+          if (response.success) {
+            refreshLog();
+          }
+        }}
+      />
     </ErrorBoundary>
   );
 }

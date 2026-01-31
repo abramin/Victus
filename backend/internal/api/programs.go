@@ -186,7 +186,9 @@ func (s *Server) getActiveInstallation(w http.ResponseWriter, r *http.Request) {
 	installation, err := s.programService.GetActiveInstallation(r.Context())
 	if err != nil {
 		if errors.Is(err, store.ErrInstallationNotFound) {
-			writeError(w, http.StatusNotFound, "not_found", "No active program installation exists")
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(nil)
 			return
 		}
 		writeError(w, http.StatusInternalServerError, "internal_error", "")

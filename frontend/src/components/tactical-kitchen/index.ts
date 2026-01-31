@@ -1,13 +1,13 @@
 export { TacticalKitchen } from './TacticalKitchen';
 export { MealCycler } from './MealCycler';
 export { HolographicPlate } from './HolographicPlate';
-export { GridArmory } from './GridArmory';
-export { AcceleratorChip } from './AcceleratorChip';
-export { FineTuneOverlay } from './FineTuneOverlay';
+export { CommandArmory } from './CommandArmory';
+export { NeuralChip } from './NeuralChip';
 export { IngredientPile } from './IngredientPile';
+export { RemainingBudget } from './RemainingBudget';
+export { LoggedMealsPanel } from './LoggedMealsPanel';
 export { GramSlider } from './GramSlider';
 export { useTacticalKitchenState } from './useTacticalKitchenState';
-export { useAccelerator } from './useAccelerator';
+export { useNeuralAccelerator } from './useNeuralAccelerator';
 export type { MealName, MealState, SelectedFood } from './useTacticalKitchenState';
 export type { MacroType } from './HolographicPlate';
-export type { CategoryTab } from './GridArmory';
