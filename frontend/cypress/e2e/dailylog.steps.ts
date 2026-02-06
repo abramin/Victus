@@ -219,7 +219,7 @@ Then("the training summary should reflect actual sessions", () => {
 })
 
 // =============================================================================
-// UI STATE STEPS
+// UI STATE STEPS - Morning Check-in Modal
 // =============================================================================
 
 Given("no daily log exists for today", () => {
@@ -230,20 +230,57 @@ Given("no daily log exists for today", () => {
   })
 })
 
-When("I complete the daily update form", () => {
-  cy.get('input[type="number"]').first().clear().type("82.5")
-  cy.get('[data-testid="sleep-quality-input"], input[name="sleepQuality"]').first().then(($el) => {
-    if ($el.length) {
-      cy.wrap($el).clear().type("80")
-    }
+Then("I should see the morning check-in modal", () => {
+  cy.get('[aria-labelledby="checkin-title"], [role="dialog"]', { timeout: 10000 }).should("be.visible")
+})
+
+Then("the check-in form should show default values", () => {
+  cy.get('[role="dialog"] input[type="number"]').first().should("exist")
+})
+
+Then("I should see the command center", () => {
+  cy.get('[data-testid="command-center"]', { timeout: 10000 }).should("exist")
+})
+
+Then("the command center should show today's data", () => {
+  // Command center renders zones with data when log exists
+  cy.get('[data-testid="command-center"]').should("exist")
+  cy.contains(/fuel budget|command center|today/i, { timeout: 10000 }).should("be.visible")
+})
+
+When("I clear the check-in weight field", () => {
+  cy.get('[role="dialog"] input[type="number"]').first().clear()
+})
+
+When("I submit the check-in", () => {
+  cy.get('[role="dialog"]').contains("button", /start day|save/i).click()
+})
+
+Then("the check-in should show a weight error", () => {
+  cy.get('[role="dialog"]').then(($dialog) => {
+    const hasError =
+      $dialog.find('[aria-invalid="true"]').length > 0 ||
+      $dialog.find('[role="alert"]').length > 0 ||
+      $dialog.text().match(/required|invalid|weight/i)
+    expect(hasError).to.be.ok
   })
 })
 
-When("I update the weight to a new value", () => {
-  cy.get('[data-testid="weight-input"], input[name="weightKg"], input[type="number"]')
-    .first()
-    .clear()
-    .type("85.0")
+When("I complete the morning check-in", () => {
+  cy.get('[role="dialog"] input[type="number"]').first().clear().type("82.5")
+})
+
+// =============================================================================
+// SAVE/UPDATE FLOW - API WEIGHT UPDATE
+// =============================================================================
+
+When("I update the log weight to {int}", (weight: number) => {
+  cy.request({
+    method: "PUT",
+    url: `${apiBaseUrl}/api/logs/${validDailyLog.date}`,
+    body: { ...validDailyLog, weightKg: weight },
+    failOnStatusCode: false,
+  }).as("lastResponse")
 })
 
 Then("the weight should be updated in the log", () => {

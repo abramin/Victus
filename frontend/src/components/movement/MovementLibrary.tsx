@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Movement, NeuralBattery, UserMovementProgress } from '../../api/types';
 import { listMovements, getFilteredMovements, getMovementProgress } from '../../api/client';
 import { useSessionBuilder } from './useSessionBuilder';
@@ -10,6 +10,7 @@ import { JointIntegrity } from './JointIntegrity';
 import { MovementArmory } from './MovementArmory';
 import { ChipPopover } from './ChipPopover';
 import { SessionCompleteModal } from './SessionCompleteModal';
+import { useSystemicLoad } from '../../hooks/useSystemicLoad';
 
 export function MovementLibrary() {
   const [movements, setMovements] = useState<Movement[]>([]);
@@ -24,6 +25,26 @@ export function MovementLibrary() {
   // Popover state
   const [popoverEntry, setPopoverEntry] = useState<BuilderEntry | null>(null);
   const [popoverRect, setPopoverRect] = useState<DOMRect | null>(null);
+
+  const { prescription } = useSystemicLoad(true);
+
+  // Apply prescription filtering: override ceiling and filter by allowed tags
+  const effectiveCeiling = useMemo(() => {
+    if (prescription && ceiling != null) {
+      return Math.min(ceiling, prescription.difficultyCap);
+    }
+    return prescription?.difficultyCap ?? ceiling;
+  }, [ceiling, prescription]);
+
+  const filteredMovements = useMemo(() => {
+    if (!prescription || !prescription.allowedTags.length) return movements;
+    return movements.map((m) => {
+      const allowed = m.tags.some((t) =>
+        prescription.allowedTags.some((at) => t.toLowerCase() === at.toLowerCase())
+      );
+      return { ...m, _blocked: !allowed };
+    });
+  }, [movements, prescription]);
 
   const builder = useSessionBuilder(movements);
 
@@ -133,11 +154,23 @@ export function MovementLibrary() {
           <span className="text-[10px] tracking-widest text-slate-600 uppercase">
             Adaptive Movement Engine
           </span>
+          {prescription && prescription.statusCode !== 'prime_state' && (
+            <span
+              className="px-2 py-0.5 rounded text-[9px] font-mono font-bold tracking-wide"
+              style={{
+                color: prescription.statusCode === 'system_critical' ? '#ef4444' : '#f97316',
+                backgroundColor: prescription.statusCode === 'system_critical' ? 'rgba(239,68,68,0.1)' : 'rgba(249,115,22,0.1)',
+                border: `1px solid ${prescription.statusCode === 'system_critical' ? 'rgba(239,68,68,0.3)' : 'rgba(249,115,22,0.3)'}`,
+              }}
+            >
+              {prescription.prescriptionName.toUpperCase()}
+            </span>
+          )}
         </div>
 
         {/* Smart Fill */}
         <button
-          onClick={() => builder.smartFill(ceiling, batteryPct)}
+          onClick={() => builder.smartFill(effectiveCeiling, batteryPct)}
           className="px-3 py-1.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-[11px] font-semibold rounded-lg transition-all shadow-lg active:scale-95"
         >
           ⚡ SMART FILL
@@ -161,21 +194,25 @@ export function MovementLibrary() {
             zones={builder.zones}
             onRemove={builder.removeEntry}
             onChipClick={handleChipClick}
+            totalLoad={builder.totalLoad}
+            totalDuration={builder.totalDuration}
+            onDeploy={handleStartSession}
           />
         </div>
 
         {/* Right: Movement Armory spans both rows */}
         <div className="row-span-2">
           <MovementArmory
-            movements={movements}
-            ceiling={ceiling}
+            movements={filteredMovements}
+            ceiling={effectiveCeiling}
+            jointStressMap={builder.jointStressMap}
             onAdd={builder.addMovement}
           />
         </div>
 
         {/* Left bottom: split between Joint Integrity and Load Projector */}
         <div className="row-span-1 grid grid-rows-2 gap-3">
-          <JointIntegrity movements={movements} entries={builder.allEntries} />
+          <JointIntegrity movements={movements} entries={builder.allEntries} stressMap={builder.jointStressMap} />
           <LoadProjector
             totalLoad={builder.totalLoad}
             isOverloaded={isOverloaded}
@@ -199,20 +236,11 @@ export function MovementLibrary() {
             </button>
           </div>
 
-          <div className="flex items-center gap-3">
-            <button
-              className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-xs transition-colors"
-            >
-              💾 Save to Library
-            </button>
-            <button
-              onClick={handleStartSession}
-              disabled={isOverloaded}
-              className="px-5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-semibold rounded-lg transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              ▶ START SESSION
-            </button>
-          </div>
+          <button
+            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-xs transition-colors"
+          >
+            💾 Save to Library
+          </button>
         </div>
       )}
 

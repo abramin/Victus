@@ -87,6 +87,12 @@ Then("the profile should be saved", () => {
   }).its("status").should("eq", 200)
 })
 
+Then("I should see the first-day command center state", () => {
+  // After onboarding, user lands on Command Center with no log yet
+  // The morning check-in modal should appear or the command center should render
+  cy.get('[data-testid="command-center"], [aria-labelledby="checkin-title"]', { timeout: 10000 }).should("exist")
+})
+
 When("I clear the weight field", () => {
   cy.get('input[type="number"]').eq(1).clear()
 })

@@ -192,3 +192,66 @@ body {
 .animate-glitch-peek {
   animation: glitch-peek 0.3s ease-out;
 }
+
+/* ─── Systemic Gyroscope Animations ─────────────────────────────── */
+
+/* Chromatic aberration shake for critical imbalance */
+@keyframes chromatic-shake {
+  0%, 100% {
+    filter: none;
+    transform: translate(0, 0);
+  }
+  10% {
+    filter: drop-shadow(-2px 0 rgba(255, 0, 0, 0.4)) drop-shadow(2px 0 rgba(0, 0, 255, 0.4));
+    transform: translate(-1px, 0);
+  }
+  30% {
+    filter: drop-shadow(-3px 0 rgba(255, 0, 0, 0.5)) drop-shadow(3px 0 rgba(0, 0, 255, 0.5));
+    transform: translate(2px, -1px);
+  }
+  50% {
+    filter: drop-shadow(-2px 0 rgba(255, 0, 0, 0.4)) drop-shadow(2px 0 rgba(0, 0, 255, 0.4));
+    transform: translate(-2px, 1px);
+  }
+  70% {
+    filter: drop-shadow(-1px 0 rgba(255, 0, 0, 0.25)) drop-shadow(1px 0 rgba(0, 0, 255, 0.25));
+    transform: translate(1px, 0);
+  }
+}
+.animate-chromatic-shake {
+  animation: chromatic-shake 0.4s ease-in-out infinite;
+  animation-delay: 3s;
+}
+
+/* Film grain overlay for neural overload */
+.film-grain-overlay {
+  position: fixed;
+  inset: 0;
+  opacity: 0.04;
+  pointer-events: none;
+  z-index: 50;
+  background: repeating-conic-gradient(
+    rgba(255,255,255,0.08) 0% 25%,
+    transparent 0% 50%
+  ) 0 0 / 4px 4px;
+  animation: film-grain-flicker 0.08s steps(2) infinite;
+}
+
+@keyframes film-grain-flicker {
+  0%, 100% { opacity: 0.04; }
+  50% { opacity: 0.06; }
+}
+
+/* Vignette overlay for mechanical overload */
+.vignette-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 50%,
+    rgba(239, 68, 68, 0.12) 85%,
+    rgba(239, 68, 68, 0.25) 100%
+  );
+}

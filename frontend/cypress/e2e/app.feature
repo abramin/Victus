@@ -84,11 +84,11 @@ Feature: App shell
     Then I should see the weight history
     And I should see the main app layout
 
-  Scenario: Direct navigation to daily update view
+  Scenario: Direct navigation to command center
     Given the app is running
     And a user profile exists
-    When I visit the daily update page directly
-    Then I should see the daily update form
+    When I visit the command center directly
+    Then I should see the command center
     And I should see the main app layout
 
   Scenario: Direct navigation to profile view

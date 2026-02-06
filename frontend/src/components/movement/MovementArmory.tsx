@@ -1,25 +1,18 @@
 import { useState } from 'react';
+import { Lock } from 'lucide-react';
 import type { Movement, MovementCategory } from '../../api/types';
+import { zoneColorFor, hasJointConflict } from './useSessionBuilder';
 
 const CATEGORIES: MovementCategory[] = ['locomotion', 'push', 'pull', 'legs', 'core', 'skill', 'power'];
-
-const CATEGORY_COLORS: Record<string, string> = {
-  locomotion: 'bg-emerald-700 hover:bg-emerald-600',
-  push: 'bg-red-700 hover:bg-red-600',
-  pull: 'bg-blue-700 hover:bg-blue-600',
-  legs: 'bg-amber-700 hover:bg-amber-600',
-  core: 'bg-purple-700 hover:bg-purple-600',
-  skill: 'bg-cyan-700 hover:bg-cyan-600',
-  power: 'bg-orange-700 hover:bg-orange-600',
-};
 
 interface MovementArmoryProps {
   movements: Movement[];
   ceiling: number | null;
+  jointStressMap: Map<string, number>;
   onAdd: (id: string) => void;
 }
 
-export function MovementArmory({ movements, ceiling, onAdd }: MovementArmoryProps) {
+export function MovementArmory({ movements, ceiling, jointStressMap, onAdd }: MovementArmoryProps) {
   const [search, setSearch] = useState('');
 
   const filtered = movements.filter(
@@ -56,16 +49,21 @@ export function MovementArmory({ movements, ceiling, onAdd }: MovementArmoryProp
             <div className="grid grid-cols-2 gap-1.5">
               {items.map((m) => {
                 const dimmed = ceiling != null && m.difficulty > ceiling;
+                const blocked = '_blocked' in m && (m as Movement & { _blocked?: boolean })._blocked === true;
+                const locked = hasJointConflict(m, jointStressMap);
+                const isDisabled = dimmed || blocked || locked;
+                const zc = zoneColorFor(m.category);
                 return (
                   <button
                     key={m.id}
-                    onClick={() => !dimmed && onAdd(m.id)}
-                    disabled={dimmed}
-                    className={`text-left text-[11px] font-medium text-white px-2.5 py-1.5 rounded transition-all truncate
-                      ${CATEGORY_COLORS[m.category] ?? 'bg-slate-700 hover:bg-slate-600'}
-                      ${dimmed ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer active:scale-95'}`}
+                    onClick={() => !isDisabled && onAdd(m.id)}
+                    disabled={isDisabled}
+                    className={`text-left text-[11px] font-medium text-white px-2.5 py-1.5 rounded transition-all truncate flex items-center gap-1
+                      ${zc.base} ${zc.hover}
+                      ${locked ? 'opacity-50 cursor-not-allowed' : dimmed || blocked ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer active:scale-95'}`}
                   >
-                    {m.name}
+                    {locked && <Lock className="w-3 h-3 shrink-0" />}
+                    <span className="truncate">{m.name}</span>
                   </button>
                 );
               })}

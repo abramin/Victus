@@ -12,6 +12,8 @@ import { PlanProgressTimeline } from './PlanProgressTimeline';
 import { PlanHealthPanel } from './PlanHealthPanel';
 import { AdjustStrategyModal } from './AdjustStrategyModal';
 import { CheckEngineLight, DiagnosticPanel } from '../strategy-auditor';
+import { RecalibrationTimeline } from './RecalibrationTimeline';
+import { useRecalibrationHistory } from '../../hooks/useRecalibrationHistory';
 import type { CreatePlanRequest, RecalibrationOption } from '../../api/types';
 
 interface RecalibrationResult {
@@ -31,6 +33,7 @@ export function PlanOverview() {
   const { analysis, loading: analysisLoading, error: analysisError, refresh: refreshAnalysis } = usePlanAnalysis();
   const { log } = useDailyLog();
   const { status: auditStatus } = useStrategyAuditor();
+  const { records: recalibrationRecords, loading: recalibrationLoading, refresh: refreshRecalibrations } = useRecalibrationHistory(plan?.id);
 
   const [showAdjustModal, setShowAdjustModal] = useState(false);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
@@ -103,7 +106,7 @@ export function PlanOverview() {
 
     const success = await recalibrate(option.type);
     if (success) {
-      await refreshAnalysis();
+      await Promise.all([refreshAnalysis(), refreshRecalibrations()]);
       // Parse new values from option.newParameter (e.g., "1950 kcal/day" or "85 weeks")
       if (option.type === 'increase_deficit') {
         // Parse new calorie target from newParameter like "1950 kcal/day"
@@ -352,6 +355,14 @@ export function PlanOverview() {
         showSparklines={true}
         plan={plan}
       />
+
+      {/* Recalibration History Timeline */}
+      {plan.status !== 'abandoned' && (
+        <RecalibrationTimeline
+          records={recalibrationRecords}
+          loading={recalibrationLoading}
+        />
+      )}
 
       {/* Adjust Strategy Modal */}
       <AdjustStrategyModal

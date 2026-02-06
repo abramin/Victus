@@ -18,7 +18,7 @@ export interface BuilderEntry {
 
 export type ZoneState = Record<SessionPhase, BuilderEntry[]>;
 
-const ZONE_MAP: Record<MovementCategory, SessionPhase> = {
+export const ZONE_MAP: Record<MovementCategory, SessionPhase> = {
   locomotion: 'prepare',
   core: 'prepare',
   skill: 'practice',
@@ -33,6 +33,41 @@ const ZONE_DEFAULTS: Record<SessionPhase, { sets: number; reps: number; duration
   practice: { sets: 3, reps: 8, duration: 5 },
   push: { sets: 3, reps: 10, duration: 8 },
 };
+
+// ---------------------------------------------------------------------------
+// Zone-based chip colors (aligned with ZONE_CONFIG in SessionCanvas)
+// ---------------------------------------------------------------------------
+
+const ZONE_CHIP_COLORS: Record<SessionPhase, { base: string; hover: string }> = {
+  prepare:  { base: 'bg-amber-700',  hover: 'hover:bg-amber-600' },
+  practice: { base: 'bg-teal-700',   hover: 'hover:bg-teal-600' },
+  push:     { base: 'bg-violet-700', hover: 'hover:bg-violet-600' },
+};
+
+export function zoneColorFor(category: MovementCategory): { base: string; hover: string } {
+  return ZONE_CHIP_COLORS[ZONE_MAP[category]];
+}
+
+// ---------------------------------------------------------------------------
+// Joint stress utilities
+// ---------------------------------------------------------------------------
+
+export function computeJointStressMap(entries: BuilderEntry[]): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const e of entries) {
+    for (const [joint, stress] of Object.entries(e.movement.jointStress)) {
+      map.set(joint, Math.max(map.get(joint) ?? 0, stress));
+    }
+  }
+  return map;
+}
+
+export function hasJointConflict(movement: Movement, stressMap: Map<string, number>): boolean {
+  for (const [joint, stress] of Object.entries(movement.jointStress)) {
+    if (stress > 0.1 && (stressMap.get(joint) ?? 0) > 0.5) return true;
+  }
+  return false;
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -92,6 +127,18 @@ export function useSessionBuilder(movements: Movement[]) {
   // Active burn estimate (kcal)
   const activeBurn = useMemo(
     () => Math.round(allEntries.reduce((sum, e) => sum + e.movement.difficulty * e.durationMinutes * 1.2, 0)),
+    [allEntries],
+  );
+
+  // Total estimated duration (minutes)
+  const totalDuration = useMemo(
+    () => allEntries.reduce((sum, e) => sum + e.durationMinutes, 0),
+    [allEntries],
+  );
+
+  // Joint stress map from current session entries
+  const jointStressMap = useMemo(
+    () => computeJointStressMap(allEntries),
     [allEntries],
   );
 
@@ -177,8 +224,10 @@ export function useSessionBuilder(movements: Movement[]) {
     zones,
     allEntries,
     totalLoad,
+    totalDuration,
     projectedDrain,
     activeBurn,
+    jointStressMap,
     addMovement,
     removeEntry,
     updateEntry,

@@ -5,6 +5,8 @@ import { MetabolicTimer } from '../fasting';
 import { Panel } from '../common/Panel';
 import { CNSShieldIndicator } from '../cns';
 import { BiometricHUD } from './BiometricHUD';
+import { SystemicGyroscope } from './SystemicGyroscope';
+import { useSystemicLoad } from '../../hooks/useSystemicLoad';
 
 interface StatusZoneProps {
   recoveryScore?: RecoveryScoreBreakdown;
@@ -75,6 +77,7 @@ export function StatusZone({
   const score = recoveryScore?.score ?? 50;
   const message = getReadinessMessage(score, sleepHours);
   const showFastingTimer = profile.fastingProtocol && profile.fastingProtocol !== 'standard';
+  const { load: systemicLoad } = useSystemicLoad();
 
   return (
     <div className="space-y-4">
@@ -104,14 +107,17 @@ export function StatusZone({
             </svg>
           </div>
 
-          {(recoveryScore || cnsStatus) && (
-            <div className="flex justify-center items-center gap-8">
+          {(recoveryScore || cnsStatus || systemicLoad) && (
+            <div className="flex justify-center items-center gap-6">
               {recoveryScore && (
                 <ReadinessGauge
                   score={recoveryScore.score}
                   components={recoveryScore}
                   size="sm"
                 />
+              )}
+              {systemicLoad && (
+                <SystemicGyroscope load={systemicLoad} size="sm" />
               )}
               {cnsStatus && (
                 <CNSShieldIndicator cnsStatus={cnsStatus} size="sm" />
@@ -142,6 +148,16 @@ export function StatusZone({
           yesterdayLog={yesterdayLog}
           onEdit={onEdit}
         />
+      )}
+
+      {/* Systemic state overlays */}
+      {systemicLoad?.state === 'cerebral_overheat' && <div className="film-grain-overlay" />}
+      {systemicLoad?.state === 'structural_failure' && <div className="vignette-overlay" />}
+      {systemicLoad?.state === 'system_critical' && (
+        <>
+          <div className="film-grain-overlay" />
+          <div className="vignette-overlay" />
+        </>
       )}
     </div>
   );

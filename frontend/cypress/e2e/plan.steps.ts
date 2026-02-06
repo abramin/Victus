@@ -396,3 +396,46 @@ Then("the plan duration should be {int} weeks", (weeks: number) => {
     expect(body.durationWeeks).to.equal(weeks)
   })
 })
+
+// =============================================================================
+// UI LIFECYCLE STEPS
+// =============================================================================
+
+When("I visit the strategy page", () => {
+  cy.visit("/strategy")
+})
+
+Then("I should see the plan progress view", () => {
+  cy.contains(/plan progress|strategy/i, { timeout: 10000 }).should("be.visible")
+})
+
+Then("I should see plan action buttons", () => {
+  cy.contains("button", /pause|adjust|complete|abandon/i).should("exist")
+})
+
+Then("I should see the strategy page", () => {
+  cy.contains(/strategy/i, { timeout: 10000 }).should("be.visible")
+})
+
+Then("I should see a prompt to create a plan", () => {
+  cy.contains(/create|new plan|get started|no active plan/i, { timeout: 10000 }).should("be.visible")
+})
+
+When("I click the abandon plan button", () => {
+  cy.contains("button", /abandon/i).click()
+  // Handle confirmation dialog if present
+  cy.get("body").then(($body) => {
+    if ($body.text().match(/confirm|are you sure/i)) {
+      cy.contains("button", /confirm|yes/i).click()
+    }
+  })
+})
+
+When("I click the complete plan button", () => {
+  cy.contains("button", /complete/i).click()
+  cy.get("body").then(($body) => {
+    if ($body.text().match(/confirm|are you sure/i)) {
+      cy.contains("button", /confirm|yes/i).click()
+    }
+  })
+})

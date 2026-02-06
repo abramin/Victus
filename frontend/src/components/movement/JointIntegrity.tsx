@@ -4,6 +4,7 @@ import type { BuilderEntry } from './useSessionBuilder';
 interface JointIntegrityProps {
   movements: Movement[];
   entries: BuilderEntry[];
+  stressMap?: Map<string, number>;
 }
 
 // SVG body outline with joint hotspots
@@ -17,18 +18,20 @@ const JOINT_POSITIONS: Record<string, { cx: number; cy: number; label: string }>
   ankles: { cx: 50, cy: 88, label: 'Ankles' },
 };
 
-export function JointIntegrity({ movements, entries }: JointIntegrityProps) {
-  // Aggregate joint stress from builder entries (or all movements if none)
-  const active = entries.length > 0
-    ? entries.map((e) => e.movement)
-    : movements;
-
-  const stressMap = new Map<string, number>();
-  for (const m of active) {
-    for (const [joint, stress] of Object.entries(m.jointStress)) {
-      stressMap.set(joint, Math.max(stressMap.get(joint) ?? 0, stress));
+export function JointIntegrity({ movements, entries, stressMap: externalStressMap }: JointIntegrityProps) {
+  // Use externally computed stress map if provided, otherwise compute locally
+  const stressMap = externalStressMap ?? (() => {
+    const active = entries.length > 0
+      ? entries.map((e) => e.movement)
+      : movements;
+    const map = new Map<string, number>();
+    for (const m of active) {
+      for (const [joint, stress] of Object.entries(m.jointStress)) {
+        map.set(joint, Math.max(map.get(joint) ?? 0, stress));
+      }
     }
-  }
+    return map;
+  })();
 
   const guardCount = [...stressMap.values()].filter((s) => s > 0.5).length;
 

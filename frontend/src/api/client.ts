@@ -24,6 +24,7 @@ import type {
   CreatePlanRequest,
   WeeklyTarget,
   DualTrackAnalysis,
+  RecalibrationRecord,
   BodyStatus,
   ArchetypeConfig,
   SessionFatigueReport,
@@ -49,6 +50,8 @@ import type {
   FormCorrectionRequest,
   FormCorrectionResult,
   MovementProgressionInput,
+  SystemicLoadResponse,
+  SystemicLoad,
 } from './types';
 
 const API_BASE = '/api';
@@ -479,6 +482,11 @@ export async function getPlanAnalysis(id: number, date?: string, signal?: AbortS
     : `${API_BASE}/plans/${id}/analysis`;
   const response = await fetch(url, { signal });
   return handleResponse<DualTrackAnalysis>(response);
+}
+
+export async function getPlanRecalibrations(planId: number, signal?: AbortSignal): Promise<RecalibrationRecord[]> {
+  const response = await fetch(`${API_BASE}/plans/${planId}/recalibrations`, { signal });
+  return handleResponse<RecalibrationRecord[]>(response);
 }
 
 export async function getPhaseInsight(id: number, weekNumber?: number, signal?: AbortSignal): Promise<PhaseInsightResponse> {
@@ -1043,4 +1051,19 @@ export async function analyzeFormCorrection(req: FormCorrectionRequest, signal?:
     signal,
   });
   return handleResponse<FormCorrectionResult>(response);
+}
+
+// ─── Systemic Gyroscope ─────────────────────────────────────────────
+
+/**
+ * Get systemic load (neural vs mechanical balance).
+ * Pass withPrescription=true to include Ollama tactical prescription.
+ */
+export async function getSystemicLoad(withPrescription?: boolean, signal?: AbortSignal): Promise<SystemicLoadResponse | SystemicLoad> {
+  const params = withPrescription ? '?prescription=true' : '';
+  const response = await fetch(`${API_BASE}/systemic-load${params}`, { signal });
+  if (withPrescription) {
+    return handleResponse<SystemicLoadResponse>(response);
+  }
+  return handleResponse<SystemicLoad>(response);
 }

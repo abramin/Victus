@@ -453,6 +453,29 @@ export interface RecalibrationOption {
   impact: string;
 }
 
+export interface RecalibrationDetails {
+  beforeGoalWeightKg: number;
+  beforeDurationWeeks: number;
+  beforeRequiredWeeklyChangeKg: number;
+  beforeDailyDeficitKcal: number;
+  afterGoalWeightKg: number;
+  afterDurationWeeks: number;
+  afterRequiredWeeklyChangeKg: number;
+  afterDailyDeficitKcal: number;
+  currentWeek: number;
+  actualWeightKg: number;
+  feasibilityTag?: string;
+  impact?: string;
+}
+
+export interface RecalibrationRecord {
+  id: number;
+  planId: number;
+  actionType: RecalibrationOptionType;
+  details: RecalibrationDetails;
+  createdAt: string;
+}
+
 export interface ProjectionPoint {
   weekNumber: number;
   date: string;
@@ -1297,4 +1320,38 @@ export interface MovementProgressionInput {
   targetReps: number;
   rpe: number;
   hadFormIssue: boolean;
+}
+
+// ─── Systemic Gyroscope (Load Balancing) ────────────────────────────
+
+export type SystemicLoadState =
+  | 'prime_state'
+  | 'cerebral_overheat'
+  | 'structural_failure'
+  | 'system_critical'
+  | 'elevated';
+
+export interface SystemicLoad {
+  neuralLoadPct: number;
+  mechanicalLoadPct: number;
+  state: SystemicLoadState;
+  tiltDegrees: number;
+  imbalance: number;
+  statusColor: string;
+  statusLabel: string;
+}
+
+export interface SystemicPrescription {
+  statusCode: SystemicLoadState;
+  diagnosis: string;
+  prescriptionName: string;
+  rationale: string;
+  allowedTags: string[];
+  difficultyCap: number;
+  generatedByLlm: boolean;
+}
+
+export interface SystemicLoadResponse {
+  load: SystemicLoad;
+  prescription?: SystemicPrescription;
 }

@@ -4,7 +4,7 @@ Feature: Onboarding wizard
     Given the backend is running
     And no profile exists
 
-  Scenario: Complete onboarding wizard creates profile
+  Scenario: Complete onboarding wizard creates profile and shows first-day state
     When I visit the home page
     Then I should see the onboarding wizard
     When I complete the basic info step with valid data
@@ -17,6 +17,7 @@ Feature: Onboarding wizard
     And I click the complete button
     Then I should see the main dashboard
     And the profile should be saved
+    And I should see the first-day command center state
 
   Scenario: Onboarding shows validation on empty fields
     When I visit the home page

@@ -1,14 +1,5 @@
 import type { SessionPhase, ZoneState, BuilderEntry } from './useSessionBuilder';
-
-const CATEGORY_COLORS: Record<string, string> = {
-  locomotion: 'bg-emerald-600',
-  push: 'bg-red-600',
-  pull: 'bg-blue-600',
-  legs: 'bg-amber-600',
-  core: 'bg-purple-600',
-  skill: 'bg-cyan-600',
-  power: 'bg-orange-600',
-};
+import { zoneColorFor } from './useSessionBuilder';
 
 const ZONE_CONFIG: Record<SessionPhase, { label: string; bg: string; text: string; border: string; empty: string }> = {
   prepare: {
@@ -40,9 +31,12 @@ interface SessionCanvasProps {
   zones: ZoneState;
   onRemove: (entryId: string) => void;
   onChipClick: (entryId: string, rect: DOMRect) => void;
+  totalLoad: number;
+  totalDuration: number;
+  onDeploy: () => void;
 }
 
-export function SessionCanvas({ zones, onRemove, onChipClick }: SessionCanvasProps) {
+export function SessionCanvas({ zones, onRemove, onChipClick, totalLoad, totalDuration, onDeploy }: SessionCanvasProps) {
   return (
     <div className="bg-slate-900 border border-slate-700/60 rounded-xl p-4 flex flex-col h-full">
       <h2 className="text-[10px] font-semibold tracking-widest text-slate-500 uppercase mb-3">
@@ -79,6 +73,21 @@ export function SessionCanvas({ zones, onRemove, onChipClick }: SessionCanvasPro
           );
         })}
       </div>
+
+      {/* Deploy footer */}
+      {totalLoad > 0 && (
+        <div className="mt-3 flex items-center justify-between border-t border-slate-700/40 pt-3">
+          <span className="text-[10px] text-slate-400 font-mono">
+            Est. Duration: <span className="text-white font-semibold">{totalDuration}</span> min
+          </span>
+          <button
+            onClick={onDeploy}
+            className="px-5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 hover:animate-pulse text-white text-xs font-bold tracking-wider rounded-lg transition-all shadow-lg active:scale-95"
+          >
+            DEPLOY SESSION ▶
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -88,7 +97,7 @@ function EntryChip({ entry, onClick, onRemove }: {
   onClick: (id: string, rect: DOMRect) => void;
   onRemove: (id: string) => void;
 }) {
-  const color = CATEGORY_COLORS[entry.movement.category] ?? 'bg-slate-600';
+  const color = zoneColorFor(entry.movement.category).base;
 
   function handleClick(e: React.MouseEvent<HTMLButtonElement>) {
     onClick(entry.id, e.currentTarget.getBoundingClientRect());

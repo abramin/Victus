@@ -115,8 +115,12 @@ When("I visit the history page directly", () => {
   cy.visit("/history")
 })
 
-When("I visit the daily update page directly", () => {
-  cy.visit("/daily-update")
+When("I visit the command center directly", () => {
+  cy.visit("/")
+})
+
+Then("I should see the command center", () => {
+  cy.get('[data-testid="command-center"]', { timeout: 10000 }).should("exist")
 })
 
 When("I visit the profile page directly", () => {

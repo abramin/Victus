@@ -304,3 +304,22 @@ Then("the load should reflect HIIT intensity factor", () => {
     // HIIT has higher MET/load factor than strength
   })
 })
+
+// =============================================================================
+// UI WORKOUT LOGGING STEPS
+// =============================================================================
+
+When("I visit the log workout page", () => {
+  cy.visit("/log-workout")
+})
+
+Then("I should see the log workout view", () => {
+  cy.get('[data-testid="log-workout-view"]', { timeout: 10000 }).should("exist")
+})
+
+Then("I should see planned training sessions listed", () => {
+  // The log workout view shows planned sessions from the daily log
+  cy.get('[data-testid="log-workout-view"]').within(() => {
+    cy.contains(/strength|training|session|planned/i).should("exist")
+  })
+})

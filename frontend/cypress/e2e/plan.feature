@@ -193,3 +193,39 @@ Feature: Nutrition plan management
     When I create a plan with invalid start date
     Then the response status should be 400
     And the error response should include "validation_error"
+
+  # =============================================================================
+  # UI LIFECYCLE TESTS
+  # =============================================================================
+
+  Scenario: Strategy page shows active plan
+    Given the backend is running
+    And a valid profile exists
+    And an active plan exists
+    When I visit the strategy page
+    Then I should see the plan progress view
+    And I should see plan action buttons
+
+  Scenario: Strategy page shows no-plan state
+    Given the backend is running
+    And a valid profile exists
+    And no active plan exists
+    When I visit the strategy page
+    Then I should see the strategy page
+    And I should see a prompt to create a plan
+
+  Scenario: Abandon plan via UI
+    Given the backend is running
+    And a valid profile exists
+    And an active plan exists
+    When I visit the strategy page
+    And I click the abandon plan button
+    Then the plan should no longer be active
+
+  Scenario: Complete plan via UI
+    Given the backend is running
+    And a valid profile exists
+    And an active plan exists
+    When I visit the strategy page
+    And I click the complete plan button
+    Then the plan should no longer be active

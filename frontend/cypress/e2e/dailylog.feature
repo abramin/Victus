@@ -87,40 +87,39 @@ Feature: Daily log management
   # UI STATE TESTS
   # =============================================================================
 
-  Scenario: Daily update form shows empty state for new log
+  Scenario: Morning check-in modal opens when no log exists
     Given the backend is running
     And a valid profile exists
     And no daily log exists for today
     When I visit the home page
-    And I click on the daily update nav item
-    Then I should see the daily update form
-    And the form should show default values
+    Then I should see the morning check-in modal
 
-  Scenario: Daily update form is pre-populated when log exists
+  Scenario: Command center shows data when log exists
     Given the backend is running
     And a valid profile exists
     And I have created a valid daily log for today
     When I visit the home page
-    And I click on the daily update nav item
-    Then I should see the daily update form
-    And the form should be pre-populated with existing data
+    Then I should see the command center
+    And the command center should show today's data
 
-  Scenario: Show validation error when weight is empty
+  Scenario: Check-in rejects empty weight
     Given the backend is running
     And a valid profile exists
+    And no daily log exists for today
     When I visit the home page
-    And I click on the daily update nav item
-    And I clear the weight field
-    And I submit the form
-    Then I should see a validation error for "weight"
+    Then I should see the morning check-in modal
+    When I clear the check-in weight field
+    And I submit the check-in
+    Then the check-in should show a weight error
 
-  Scenario: Show saving indicator during form submission
+  Scenario: Check-in shows saving state on submit
     Given the backend is running
     And a valid profile exists
+    And no daily log exists for today
     When I visit the home page
-    And I click on the daily update nav item
-    And I complete the daily update form
-    And I submit the form
+    Then I should see the morning check-in modal
+    When I complete the morning check-in
+    And I submit the check-in
     Then I should see a saving indicator
   # =============================================================================
   # BOUNDARY CONDITION TESTS
@@ -240,15 +239,13 @@ Feature: Daily log management
   # SAVE/UPDATE FLOWS
   # =============================================================================
 
-  Scenario: Update weight on existing log via UI
-    Given the backend is running
-    And a valid profile exists
+  Scenario: Update weight on existing log via API
+    Given the profile API is running
+    And I have upserted a valid user profile
     And I have created a valid daily log for today
-    When I visit the home page
-    And I click on the daily update nav item
-    And I update the weight to a new value
-    And I submit the form
-    Then the weight should be updated in the log
+    When I update the log weight to 85
+    Then the response status should be 200
+    And the weight should be updated in the log
 
   Scenario: Change day type after initial save
     Given the profile API is running

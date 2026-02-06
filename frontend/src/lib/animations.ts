@@ -697,3 +697,44 @@ export const foodPillPopIn: Variants = {
     transition: { duration: 0.2 },
   },
 };
+
+// === SYSTEMIC GYROSCOPE ===
+
+export const gyroscopeGlow: Variants = {
+  prime: {
+    boxShadow: [
+      '0 0 8px rgba(34, 197, 94, 0.3)',
+      '0 0 18px rgba(34, 197, 94, 0.5)',
+      '0 0 8px rgba(34, 197, 94, 0.3)',
+    ],
+    transition: { duration: 3, repeat: Infinity, ease: 'easeInOut' },
+  },
+  warning: {
+    boxShadow: [
+      '0 0 8px rgba(249, 115, 22, 0.3)',
+      '0 0 22px rgba(249, 115, 22, 0.5)',
+      '0 0 8px rgba(249, 115, 22, 0.3)',
+    ],
+    transition: { duration: 1.5, repeat: Infinity, ease: 'easeInOut' },
+  },
+  critical: {
+    boxShadow: [
+      '0 0 12px rgba(239, 68, 68, 0.4)',
+      '0 0 30px rgba(239, 68, 68, 0.7)',
+      '0 0 12px rgba(239, 68, 68, 0.4)',
+    ],
+    transition: { duration: 0.8, repeat: Infinity, ease: 'easeInOut' },
+  },
+};
+
+export const gyroscopeShake = {
+  shake: {
+    x: [0, -1.5, 1.5, -1, 1, 0],
+    transition: {
+      duration: 0.4,
+      repeat: Infinity,
+      repeatDelay: 4,
+      ease: 'easeInOut',
+    },
+  },
+};

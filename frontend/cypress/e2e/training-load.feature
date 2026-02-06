@@ -140,3 +140,24 @@ Feature: Training load calculation
     When I create a log with high intensity HIIT session
     Then the response status should be 201
     And the load should reflect HIIT intensity factor
+  # =============================================================================
+  # UI WORKOUT LOGGING TESTS
+  # =============================================================================
+
+  Scenario: Log workout page renders with planned sessions
+    Given the backend is running
+    And a valid profile exists
+    And I have created a valid daily log for today
+    When I visit the log workout page
+    Then I should see the log workout view
+    And I should see planned training sessions listed
+
+  Scenario: Logging actual workout updates daily load via API
+    Given the profile API is running
+    And I have upserted a valid user profile
+    And I have created a valid daily log for today
+    When I update the actual training sessions
+    And I fetch today's daily log
+    Then the response status should be 200
+    And the training load should reflect actual sessions
+    And the training load should use actual sessions

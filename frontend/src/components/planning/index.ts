@@ -5,3 +5,4 @@ export { DualTrackChart } from './DualTrackChart';
 export { RecalibrationPrompt } from './RecalibrationPrompt';
 export { PlanOverview } from './PlanOverview';
 export { PlanProgressTimeline } from './PlanProgressTimeline';
+export { RecalibrationTimeline } from './RecalibrationTimeline';

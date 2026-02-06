@@ -31,6 +31,7 @@ type Server struct {
 	echoService          *service.EchoService
 	ollamaService        *service.OllamaService
 	movementService      *service.MovementService
+	systemicLoadService  *service.SystemicLoadService
 	plannedDayTypeStore  *store.PlannedDayTypeStore
 	plannerSessionStore  *store.PlannerSessionStore
 	foodReferenceStore   *store.FoodReferenceStore
@@ -81,6 +82,9 @@ func NewServer(db store.DBTX) *Server {
 	// Create audit service for Strategy Auditor (Check Engine light)
 	auditService := service.NewAuditService(fatigueStore, dailyLogStore, plannedDayTypeStore, ollamaURL)
 
+	// Create systemic load service for Systemic Gyroscope (Load Balancing)
+	systemicLoadService := service.NewSystemicLoadService(dailyLogService, fatigueService, ollamaService)
+
 	mux := http.NewServeMux()
 	srv := &Server{
 		mux:                  mux,
@@ -99,6 +103,7 @@ func NewServer(db store.DBTX) *Server {
 		auditService:         auditService,
 		ollamaService:        ollamaService,
 		movementService:      movementService,
+		systemicLoadService:  systemicLoadService,
 		plannedDayTypeStore:  plannedDayTypeStore,
 		plannerSessionStore:  plannerSessionStore,
 		foodReferenceStore:   foodReferenceStore,
@@ -219,6 +224,9 @@ func NewServer(db store.DBTX) *Server {
 
 	// Strategy Auditor routes (Check Engine light - Phase 4.2)
 	mux.HandleFunc("GET /api/audit/status", srv.getAuditStatus)
+
+	// Systemic Gyroscope routes (Load Balancing)
+	mux.HandleFunc("GET /api/systemic-load", srv.getSystemicLoad)
 
 	// Movement taxonomy routes (Adaptive Movement Engine)
 	mux.HandleFunc("GET /api/movements", srv.listMovements)
