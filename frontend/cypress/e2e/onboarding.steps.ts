@@ -51,7 +51,7 @@ When("I click the previous button", () => {
 })
 
 When("I click the complete button", () => {
-  cy.contains("button", "Complete").click()
+  cy.contains("button", /complete|engage systems/i).click()
 })
 
 Then("I should see the activity goals step", () => {
@@ -60,15 +60,8 @@ Then("I should see the activity goals step", () => {
 })
 
 When("I select my activity level and goal", () => {
-  // Click on moderate activity if available
-  cy.get("body").then(($body) => {
-    const matches = $body
-      .find("button, [role='button']")
-      .filter((_, el) => /moderate/i.test(el.textContent ?? ""))
-    if (matches.length) {
-      cy.wrap(matches.first()).click({ force: true })
-    }
-  })
+  cy.get('[data-testid="activity-level-moderate"]').click()
+  cy.get('[data-testid="goal-maintain"]').click()
 })
 
 Then("I should see the nutrition targets step", () => {
@@ -115,19 +108,19 @@ Then("I should not see the onboarding wizard", () => {
 // =============================================================================
 
 When("I select sedentary activity level", () => {
-  cy.contains(/sedentary/i).click({ force: true })
+  cy.get('[data-testid="activity-level-sedentary"]').click()
 })
 
 When("I select light activity level", () => {
-  cy.contains(/light/i).click({ force: true })
+  cy.get('[data-testid="activity-level-light"]').click()
 })
 
 When("I select active activity level", () => {
-  cy.contains(/\bactive\b/i).click({ force: true })
+  cy.get('[data-testid="activity-level-active"]').click()
 })
 
 When("I select very active activity level", () => {
-  cy.contains(/very active/i).click({ force: true })
+  cy.get('[data-testid="activity-level-very_active"]').click()
 })
 
 Then("the profile should have sedentary activity level", () => {
@@ -171,15 +164,15 @@ Then("the profile should have very active activity level", () => {
 // =============================================================================
 
 When("I select lose weight goal", () => {
-  cy.contains(/lose/i).click({ force: true })
+  cy.get('[data-testid="goal-lose_weight"]').click()
 })
 
 When("I select maintain weight goal", () => {
-  cy.contains(/maintain/i).click({ force: true })
+  cy.get('[data-testid="goal-maintain"]').click()
 })
 
 When("I select gain weight goal", () => {
-  cy.contains(/gain/i).click({ force: true })
+  cy.get('[data-testid="goal-gain_weight"]').click()
 })
 
 Then("the profile should have lose weight goal", () => {
@@ -248,8 +241,15 @@ When("I complete rest of basic info except height", () => {
 // =============================================================================
 
 Then("I should briefly see a saving indicator", () => {
-  // The saving indicator may be very brief
-  cy.get("body").should("exist")
+  cy.get("body").then(($body) => {
+    if ($body.text().match(/engaging/i)) {
+      cy.contains("button", /engaging/i).should("be.visible")
+      return
+    }
+
+    // If save completed quickly, verify onboarding exited.
+    cy.contains("Welcome to Victus").should("not.exist")
+  })
 })
 
 // =============================================================================

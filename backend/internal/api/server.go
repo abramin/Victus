@@ -179,6 +179,7 @@ func NewServer(db store.DBTX) *Server {
 	mux.HandleFunc("POST /api/plans/{id}/pause", srv.pausePlan)
 	mux.HandleFunc("POST /api/plans/{id}/resume", srv.resumePlan)
 	mux.HandleFunc("POST /api/plans/{id}/recalibrate", srv.recalibratePlan)
+	mux.HandleFunc("GET /api/plans/{id}/recalibrations", srv.getRecalibrationHistory)
 	mux.HandleFunc("DELETE /api/plans/{id}", srv.deletePlan)
 
 	// Training program routes (Program Management feature)

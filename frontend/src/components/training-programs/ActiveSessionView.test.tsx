@@ -50,18 +50,22 @@ describe('ActiveSessionView', () => {
     expect(screen.getByText('EX. 1 OF 3')).toBeDefined();
   });
 
-  it('exercise timer counts up from 0', () => {
+  it('timed exercise countdown starts after prepare phase', () => {
     renderView();
-    // Initial state: timer at 0:00
-    expect(screen.getByText('00:00')).toBeDefined();
+    // Initial state: timed exercise shows remaining duration.
+    expect(screen.getByText('00:30')).toBeDefined();
 
-    // Advance time by 5 seconds
+    // Prepare countdown is 3 seconds before exercise timer starts.
+    act(() => {
+      vi.advanceTimersByTime(3000);
+    });
+    expect(screen.getByText('00:30')).toBeDefined();
+
+    // Then the timer should count down during exercise.
     act(() => {
       vi.advanceTimersByTime(5000);
     });
-
-    // Timer should now show 00:05
-    expect(screen.getByText('00:05')).toBeDefined();
+    expect(screen.getByText('00:25')).toBeDefined();
   });
 
   it('resolves exercises in phase order (prepare → practice → push)', () => {

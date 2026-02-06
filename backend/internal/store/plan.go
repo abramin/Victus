@@ -3,7 +3,9 @@ package store
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"victus/internal/domain"
@@ -364,6 +366,147 @@ func (s *NutritionPlanStore) ListAll(ctx context.Context) ([]*domain.NutritionPl
 	}
 
 	return plans, nil
+}
+
+// UpdatePlanWithRecalibration atomically updates a plan's fields/targets and inserts a recalibration record.
+func (s *NutritionPlanStore) UpdatePlanWithRecalibration(ctx context.Context, plan *domain.NutritionPlan, record domain.RecalibrationRecord) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// Update plan fields
+	const updatePlanQuery = `
+		UPDATE nutrition_plans
+		SET goal_weight_kg = $1, duration_weeks = $2,
+			required_weekly_change_kg = $3, required_daily_deficit_kcal = $4,
+			last_recalibrated_at = $5, updated_at = $6
+		WHERE id = $7
+	`
+
+	result, err := tx.ExecContext(ctx, updatePlanQuery,
+		plan.GoalWeightKg,
+		plan.DurationWeeks,
+		plan.RequiredWeeklyChangeKg,
+		plan.RequiredDailyDeficitKcal,
+		plan.LastRecalibratedAt,
+		time.Now(),
+		plan.ID,
+	)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return ErrPlanNotFound
+	}
+
+	// Delete existing weekly targets
+	_, err = tx.ExecContext(ctx, "DELETE FROM weekly_targets WHERE plan_id = $1", plan.ID)
+	if err != nil {
+		return err
+	}
+
+	// Insert new weekly targets
+	const insertTargetQuery = `
+		INSERT INTO weekly_targets (
+			plan_id, week_number, start_date, end_date,
+			projected_weight_kg, projected_tdee, target_intake_kcal,
+			target_carbs_g, target_protein_g, target_fats_g,
+			actual_weight_kg, actual_intake_kcal, days_logged
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+	`
+
+	for _, target := range plan.WeeklyTargets {
+		_, err := tx.ExecContext(ctx, insertTargetQuery,
+			plan.ID,
+			target.WeekNumber,
+			target.StartDate.Format("2006-01-02"),
+			target.EndDate.Format("2006-01-02"),
+			target.ProjectedWeightKg,
+			target.ProjectedTDEE,
+			target.TargetIntakeKcal,
+			target.TargetCarbsG,
+			target.TargetProteinG,
+			target.TargetFatsG,
+			target.ActualWeightKg,
+			target.ActualIntakeKcal,
+			target.DaysLogged,
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Insert recalibration record
+	detailsJSON, err := json.Marshal(record.Details)
+	if err != nil {
+		return fmt.Errorf("marshal recalibration details: %w", err)
+	}
+	const insertRecordQuery = `
+		INSERT INTO recalibration_history (plan_id, action_type, details, created_at)
+		VALUES ($1, $2, $3, $4)
+	`
+	_, err = tx.ExecContext(ctx, insertRecordQuery,
+		record.PlanID, string(record.ActionType), detailsJSON, record.CreatedAt,
+	)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+// InsertRecalibrationRecord inserts a single recalibration record (used for keep_current).
+func (s *NutritionPlanStore) InsertRecalibrationRecord(ctx context.Context, record domain.RecalibrationRecord) error {
+	detailsJSON, err := json.Marshal(record.Details)
+	if err != nil {
+		return fmt.Errorf("marshal recalibration details: %w", err)
+	}
+	const query = `
+		INSERT INTO recalibration_history (plan_id, action_type, details, created_at)
+		VALUES ($1, $2, $3, $4)
+	`
+	_, err = s.db.ExecContext(ctx, query, record.PlanID, string(record.ActionType), detailsJSON, record.CreatedAt)
+	return err
+}
+
+// ListRecalibrations retrieves all recalibration records for a plan, ordered by most recent first.
+func (s *NutritionPlanStore) ListRecalibrations(ctx context.Context, planID int64) ([]domain.RecalibrationRecord, error) {
+	const query = `
+		SELECT id, plan_id, action_type, details, created_at
+		FROM recalibration_history
+		WHERE plan_id = $1
+		ORDER BY created_at DESC
+	`
+	rows, err := s.db.QueryContext(ctx, query, planID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var records []domain.RecalibrationRecord
+	for rows.Next() {
+		var r domain.RecalibrationRecord
+		var detailsJSON []byte
+		var createdAt string
+
+		err := rows.Scan(&r.ID, &r.PlanID, &r.ActionType, &detailsJSON, &createdAt)
+		if err != nil {
+			return nil, err
+		}
+		r.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", createdAt)
+		if err := json.Unmarshal(detailsJSON, &r.Details); err != nil {
+			return nil, fmt.Errorf("unmarshal recalibration details: %w", err)
+		}
+		records = append(records, r)
+	}
+	return records, rows.Err()
 }
 
 // getWeeklyTargets retrieves all weekly targets for a plan.

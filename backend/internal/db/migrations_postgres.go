@@ -36,6 +36,7 @@ func RunPostgresMigrations(db *sql.DB) error {
 		pgCreatePlannedSessionsTable, // Ad-hoc workout planner sessions
 		pgCreateMovementsTable,
 		pgCreateUserMovementProgressTable,
+		pgCreateRecalibrationHistoryTable,
 	}
 
 	for i, migration := range migrations {
@@ -454,6 +455,16 @@ CREATE TABLE IF NOT EXISTS planned_sessions (
     UNIQUE(plan_date, session_order)
 );
 CREATE INDEX IF NOT EXISTS idx_planned_sessions_date ON planned_sessions(plan_date)`
+
+const pgCreateRecalibrationHistoryTable = `
+CREATE TABLE IF NOT EXISTS recalibration_history (
+    id SERIAL PRIMARY KEY,
+    plan_id INTEGER NOT NULL REFERENCES nutrition_plans(id) ON DELETE CASCADE,
+    action_type TEXT NOT NULL CHECK (action_type IN ('increase_deficit', 'extend_timeline', 'revise_goal', 'keep_current')),
+    details JSONB NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_recalibration_history_plan ON recalibration_history(plan_id)`
 
 var pgAlterMigrations = []string{
 	// Add progression_config column to program_days for optional pattern-based progression

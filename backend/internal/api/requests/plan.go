@@ -134,6 +134,55 @@ func PlanToSummaryResponse(p *domain.NutritionPlan, now time.Time) PlanSummaryRe
 	}
 }
 
+// RecalibrationRecordResponse represents a recalibration history entry in API responses.
+type RecalibrationRecordResponse struct {
+	ID         int64                        `json:"id"`
+	PlanID     int64                        `json:"planId"`
+	ActionType string                       `json:"actionType"`
+	Details    RecalibrationDetailsResponse `json:"details"`
+	CreatedAt  string                       `json:"createdAt"`
+}
+
+// RecalibrationDetailsResponse represents the before/after snapshot.
+type RecalibrationDetailsResponse struct {
+	BeforeGoalWeightKg           float64 `json:"beforeGoalWeightKg"`
+	BeforeDurationWeeks          int     `json:"beforeDurationWeeks"`
+	BeforeRequiredWeeklyChangeKg float64 `json:"beforeRequiredWeeklyChangeKg"`
+	BeforeDailyDeficitKcal       float64 `json:"beforeDailyDeficitKcal"`
+	AfterGoalWeightKg            float64 `json:"afterGoalWeightKg"`
+	AfterDurationWeeks           int     `json:"afterDurationWeeks"`
+	AfterRequiredWeeklyChangeKg  float64 `json:"afterRequiredWeeklyChangeKg"`
+	AfterDailyDeficitKcal        float64 `json:"afterDailyDeficitKcal"`
+	CurrentWeek                  int     `json:"currentWeek"`
+	ActualWeightKg               float64 `json:"actualWeightKg"`
+	FeasibilityTag               string  `json:"feasibilityTag,omitempty"`
+	Impact                       string  `json:"impact,omitempty"`
+}
+
+// RecalibrationRecordToResponse converts a domain RecalibrationRecord to API response.
+func RecalibrationRecordToResponse(r domain.RecalibrationRecord) RecalibrationRecordResponse {
+	return RecalibrationRecordResponse{
+		ID:         r.ID,
+		PlanID:     r.PlanID,
+		ActionType: string(r.ActionType),
+		Details: RecalibrationDetailsResponse{
+			BeforeGoalWeightKg:           r.Details.BeforeGoalWeightKg,
+			BeforeDurationWeeks:          r.Details.BeforeDurationWeeks,
+			BeforeRequiredWeeklyChangeKg: r.Details.BeforeRequiredWeeklyChangeKg,
+			BeforeDailyDeficitKcal:       r.Details.BeforeDailyDeficitKcal,
+			AfterGoalWeightKg:            r.Details.AfterGoalWeightKg,
+			AfterDurationWeeks:           r.Details.AfterDurationWeeks,
+			AfterRequiredWeeklyChangeKg:  r.Details.AfterRequiredWeeklyChangeKg,
+			AfterDailyDeficitKcal:        r.Details.AfterDailyDeficitKcal,
+			CurrentWeek:                  r.Details.CurrentWeek,
+			ActualWeightKg:               r.Details.ActualWeightKg,
+			FeasibilityTag:               r.Details.FeasibilityTag,
+			Impact:                       r.Details.Impact,
+		},
+		CreatedAt: r.CreatedAt.Format(time.RFC3339),
+	}
+}
+
 // RecalibratePlanRequest is the request body for POST /api/plans/{id}/recalibrate.
 type RecalibratePlanRequest struct {
 	Type string `json:"type"` // increase_deficit, extend_timeline, revise_goal, keep_current

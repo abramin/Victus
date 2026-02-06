@@ -19,6 +19,7 @@ export function MovementLibrary() {
   const [ceiling, setCeiling] = useState<number | null>(null);
   const [batteryPct, setBatteryPct] = useState(50);
   const [activeMovement, setActiveMovement] = useState<Movement | null>(null);
+  const [sessionQueue, setSessionQueue] = useState<Movement[]>([]);
 
   // Popover state
   const [popoverEntry, setPopoverEntry] = useState<BuilderEntry | null>(null);
@@ -72,12 +73,31 @@ export function MovementLibrary() {
     setPopoverRect(rect);
   }
 
+  function handleStartSession() {
+    const queue = builder.allEntries.map((e) => e.movement);
+    if (queue.length === 0) return;
+    setSessionQueue(queue.slice(1));
+    setActiveMovement(queue[0]);
+  }
+
   function handleComplete(result: UserMovementProgress) {
     setProgressMap((prev) => {
       const next = new Map(prev);
       next.set(result.movementId, result);
       return next;
     });
+    if (sessionQueue.length > 0) {
+      setActiveMovement(sessionQueue[0]);
+      setSessionQueue((prev) => prev.slice(1));
+    }
+  }
+
+  function handleSessionClose() {
+    setActiveMovement(null);
+    setSessionQueue([]);
+    if (sessionQueue.length === 0 && activeMovement) {
+      builder.clear();
+    }
   }
 
   if (loading) {
@@ -186,6 +206,7 @@ export function MovementLibrary() {
               💾 Save to Library
             </button>
             <button
+              onClick={handleStartSession}
               disabled={isOverloaded}
               className="px-5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-semibold rounded-lg transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -210,7 +231,7 @@ export function MovementLibrary() {
         <SessionCompleteModal
           movement={activeMovement}
           currentProgress={progressMap.get(activeMovement.id) ?? null}
-          onClose={() => setActiveMovement(null)}
+          onClose={handleSessionClose}
           onComplete={handleComplete}
         />
       )}

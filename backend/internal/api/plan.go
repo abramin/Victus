@@ -224,6 +224,32 @@ func (s *Server) recalibratePlan(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(requests.PlanToResponse(plan, now))
 }
 
+// getRecalibrationHistory handles GET /api/plans/{id}/recalibrations
+func (s *Server) getRecalibrationHistory(w http.ResponseWriter, r *http.Request) {
+	id, ok := parsePlanID(w, r)
+	if !ok {
+		return
+	}
+
+	records, err := s.planService.ListRecalibrations(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, store.ErrPlanNotFound) {
+			writeError(w, http.StatusNotFound, "not_found", "Nutrition plan not found")
+			return
+		}
+		writeInternalError(w, err, "getRecalibrationHistory")
+		return
+	}
+
+	response := make([]requests.RecalibrationRecordResponse, len(records))
+	for i, rec := range records {
+		response[i] = requests.RecalibrationRecordToResponse(rec)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
 // deletePlan handles DELETE /api/plans/{id}
 func (s *Server) deletePlan(w http.ResponseWriter, r *http.Request) {
 	id, ok := parsePlanID(w, r)

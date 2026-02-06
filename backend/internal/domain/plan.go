@@ -5,6 +5,60 @@ import (
 	"time"
 )
 
+// RecalibrationRecord captures a single recalibration event for audit history.
+type RecalibrationRecord struct {
+	ID         int64
+	PlanID     int64
+	ActionType RecalibrationOptionType
+	Details    RecalibrationDetails
+	CreatedAt  time.Time
+}
+
+// RecalibrationDetails is the before/after snapshot persisted as JSON.
+type RecalibrationDetails struct {
+	BeforeGoalWeightKg           float64 `json:"beforeGoalWeightKg"`
+	BeforeDurationWeeks          int     `json:"beforeDurationWeeks"`
+	BeforeRequiredWeeklyChangeKg float64 `json:"beforeRequiredWeeklyChangeKg"`
+	BeforeDailyDeficitKcal       float64 `json:"beforeDailyDeficitKcal"`
+	AfterGoalWeightKg            float64 `json:"afterGoalWeightKg"`
+	AfterDurationWeeks           int     `json:"afterDurationWeeks"`
+	AfterRequiredWeeklyChangeKg  float64 `json:"afterRequiredWeeklyChangeKg"`
+	AfterDailyDeficitKcal        float64 `json:"afterDailyDeficitKcal"`
+	CurrentWeek                  int     `json:"currentWeek"`
+	ActualWeightKg               float64 `json:"actualWeightKg"`
+	FeasibilityTag               string  `json:"feasibilityTag,omitempty"`
+	Impact                       string  `json:"impact,omitempty"`
+}
+
+// NewRecalibrationRecord builds a record from the before/after plan state.
+func NewRecalibrationRecord(
+	planID int64,
+	actionType RecalibrationOptionType,
+	before *NutritionPlan,
+	after *NutritionPlan,
+	actualWeightKg float64,
+	currentWeek int,
+	now time.Time,
+) RecalibrationRecord {
+	return RecalibrationRecord{
+		PlanID:     planID,
+		ActionType: actionType,
+		Details: RecalibrationDetails{
+			BeforeGoalWeightKg:           before.GoalWeightKg,
+			BeforeDurationWeeks:          before.DurationWeeks,
+			BeforeRequiredWeeklyChangeKg: before.RequiredWeeklyChangeKg,
+			BeforeDailyDeficitKcal:       before.RequiredDailyDeficitKcal,
+			AfterGoalWeightKg:            after.GoalWeightKg,
+			AfterDurationWeeks:           after.DurationWeeks,
+			AfterRequiredWeeklyChangeKg:  after.RequiredWeeklyChangeKg,
+			AfterDailyDeficitKcal:        after.RequiredDailyDeficitKcal,
+			CurrentWeek:                  currentWeek,
+			ActualWeightKg:               actualWeightKg,
+		},
+		CreatedAt: now,
+	}
+}
+
 // PlanStatus represents the current state of a nutrition plan.
 type PlanStatus string
 

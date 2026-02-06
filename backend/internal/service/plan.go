@@ -120,43 +120,100 @@ func (s *NutritionPlanService) GetCurrentWeekTarget(ctx context.Context, now tim
 	return target, nil
 }
 
-// Recalibrate applies a recalibration option to a plan.
+// Recalibrate applies a recalibration option to a plan and persists an audit record.
 // This modifies the plan based on the selected strategy:
 // - increase_deficit: Increase daily deficit to hit goal on time
 // - extend_timeline: Add weeks to maintain current deficit
 // - revise_goal: Adjust goal weight to be achievable
-// - keep_current: No changes (returns current plan)
+// - keep_current: No plan changes, but records the conscious decision
 func (s *NutritionPlanService) Recalibrate(ctx context.Context, id int64, optionType domain.RecalibrationOptionType, now time.Time) (*domain.NutritionPlan, error) {
-	// Get the current plan
 	plan, err := s.planStore.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
-	// Get profile for TDEE calculations
 	profile, err := s.profileStore.Get(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	// If keep_current, just return the plan unchanged
+	// Snapshot before values
+	beforeGoalWeight := plan.GoalWeightKg
+	beforeDuration := plan.DurationWeeks
+	beforeWeeklyChange := plan.RequiredWeeklyChangeKg
+	beforeDeficit := plan.RequiredDailyDeficitKcal
+
+	currentWeek := plan.GetCurrentWeek(now)
+
+	// Determine actual weight from last logged week
+	actualWeight := plan.StartWeightKg
+	for i := len(plan.WeeklyTargets) - 1; i >= 0; i-- {
+		if plan.WeeklyTargets[i].ActualWeightKg != nil {
+			actualWeight = *plan.WeeklyTargets[i].ActualWeightKg
+			break
+		}
+	}
+
 	if optionType == domain.RecalibrationKeepCurrent {
+		// Record the conscious decision, update last_recalibrated_at
+		record := domain.RecalibrationRecord{
+			PlanID:     id,
+			ActionType: optionType,
+			Details: domain.RecalibrationDetails{
+				BeforeGoalWeightKg:           beforeGoalWeight,
+				BeforeDurationWeeks:          beforeDuration,
+				BeforeRequiredWeeklyChangeKg: beforeWeeklyChange,
+				BeforeDailyDeficitKcal:       beforeDeficit,
+				AfterGoalWeightKg:            beforeGoalWeight,
+				AfterDurationWeeks:           beforeDuration,
+				AfterRequiredWeeklyChangeKg:  beforeWeeklyChange,
+				AfterDailyDeficitKcal:        beforeDeficit,
+				CurrentWeek:                  currentWeek,
+				ActualWeightKg:               actualWeight,
+			},
+			CreatedAt: now,
+		}
+		if err := s.planStore.InsertRecalibrationRecord(ctx, record); err != nil {
+			return nil, err
+		}
 		return plan, nil
 	}
 
-	// Apply recalibration based on option type
+	// Apply recalibration
 	updatedPlan, err := domain.ApplyRecalibration(plan, profile, optionType, now)
 	if err != nil {
 		return nil, err
 	}
 
-	// Update the plan in the store
-	if err := s.planStore.UpdatePlan(ctx, updatedPlan); err != nil {
+	// Build record with before/after snapshots
+	record := domain.NewRecalibrationRecord(
+		id, optionType,
+		&domain.NutritionPlan{
+			GoalWeightKg:             beforeGoalWeight,
+			DurationWeeks:            beforeDuration,
+			RequiredWeeklyChangeKg:   beforeWeeklyChange,
+			RequiredDailyDeficitKcal: beforeDeficit,
+		},
+		updatedPlan,
+		actualWeight,
+		currentWeek,
+		now,
+	)
+
+	// Atomic update: plan + targets + history record
+	if err := s.planStore.UpdatePlanWithRecalibration(ctx, updatedPlan, record); err != nil {
 		return nil, err
 	}
 
-	// Return fresh copy
 	return s.planStore.GetByID(ctx, id)
+}
+
+// ListRecalibrations retrieves recalibration history for a plan.
+func (s *NutritionPlanService) ListRecalibrations(ctx context.Context, planID int64) ([]domain.RecalibrationRecord, error) {
+	if _, err := s.planStore.GetByID(ctx, planID); err != nil {
+		return nil, err
+	}
+	return s.planStore.ListRecalibrations(ctx, planID)
 }
 
 // SetOllamaService injects the Ollama service for AI-generated insights.
