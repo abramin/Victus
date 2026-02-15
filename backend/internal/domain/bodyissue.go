@@ -122,11 +122,22 @@ type BodyPartIssue struct {
 
 // BodyPartIssueInput is used when creating a new body part issue.
 type BodyPartIssueInput struct {
-	Date      string      `json:"date"`
-	BodyPart  MuscleGroup `json:"bodyPart"`
-	Symptom   string      `json:"symptom"`
-	RawText   string      `json:"rawText"`
-	SessionID *int64      `json:"sessionId"`
+	Date      string        `json:"date"`
+	BodyPart  MuscleGroup   `json:"bodyPart"`
+	Symptom   string        `json:"symptom"`
+	Severity  IssueSeverity `json:"severity"`
+	RawText   string        `json:"rawText"`
+	SessionID *int64        `json:"sessionId"`
+}
+
+// ResolveSeverity sets the Severity field based on the Symptom.
+// Defaults to IssueSeverityMinor if the symptom is not recognized.
+func (input *BodyPartIssueInput) ResolveSeverity() {
+	sev := GetSymptomSeverity(input.Symptom)
+	if sev == 0 {
+		sev = IssueSeverityMinor
+	}
+	input.Severity = sev
 }
 
 // GetSymptomSeverity returns the severity for a symptom keyword.

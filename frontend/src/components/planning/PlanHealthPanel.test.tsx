@@ -7,14 +7,15 @@ import type { NutritionPlan, DualTrackAnalysis, RecalibrationOption } from '../.
 describe('PlanHealthPanel - Vector-First Plan Health Status', () => {
   const mockPlan: NutritionPlan = {
     id: 1,
-    userId: 1,
     startWeightKg: 75,
     goalWeightKg: 40,
     durationWeeks: 12,
     requiredWeeklyChangeKg: -0.5,
+    requiredDailyDeficitKcal: 550,
     startDate: '2024-01-01',
-    endDate: '2024-03-25',
     status: 'active',
+    currentWeek: 2,
+    weeklyTargets: [],
     createdAt: '2024-01-01T00:00:00Z',
     updatedAt: '2024-01-01T00:00:00Z',
   };
@@ -98,6 +99,7 @@ describe('PlanHealthPanel - Vector-First Plan Health Status', () => {
       variancePercent: -0.68,
       tolerancePercent: 3,
       recalibrationNeeded: false,
+      trendDiverging: false,
       planProjection: [],
       landingPoint: {
         weightKg: 40.5, // 0.5kg from goal (40kg) — ON TRACK
@@ -124,6 +126,7 @@ describe('PlanHealthPanel - Vector-First Plan Health Status', () => {
       variancePercent: -0.68,
       tolerancePercent: 3,
       recalibrationNeeded: false,
+      trendDiverging: false,
       planProjection: [],
       landingPoint: {
         weightKg: 40.99, // 0.99kg from goal — still ON TRACK
@@ -149,6 +152,7 @@ describe('PlanHealthPanel - Vector-First Plan Health Status', () => {
       variancePercent: 0,
       tolerancePercent: 3,
       recalibrationNeeded: false,
+      trendDiverging: false,
       planProjection: [],
       landingPoint: {
         weightKg: 42.5, // 2.5kg from goal (40kg) — AT RISK
@@ -175,6 +179,7 @@ describe('PlanHealthPanel - Vector-First Plan Health Status', () => {
       variancePercent: 0,
       tolerancePercent: 3,
       recalibrationNeeded: false,
+      trendDiverging: false,
       planProjection: [],
       landingPoint: {
         weightKg: 41.0, // Exactly 1.0kg from goal — AT RISK
@@ -200,6 +205,7 @@ describe('PlanHealthPanel - Vector-First Plan Health Status', () => {
       variancePercent: 0,
       tolerancePercent: 3,
       recalibrationNeeded: false,
+      trendDiverging: false,
       planProjection: [],
       landingPoint: {
         weightKg: 43, // Exactly 3.0kg from goal (40kg) — last AT RISK
@@ -225,6 +231,7 @@ describe('PlanHealthPanel - Vector-First Plan Health Status', () => {
       variancePercent: 0,
       tolerancePercent: 3,
       recalibrationNeeded: false,
+      trendDiverging: false,
       planProjection: [],
       landingPoint: {
         weightKg: 68.3, // 28.3kg from goal (40kg) — OFF TRACK
@@ -251,6 +258,7 @@ describe('PlanHealthPanel - Vector-First Plan Health Status', () => {
       variancePercent: 0,
       tolerancePercent: 3,
       recalibrationNeeded: false,
+      trendDiverging: false,
       planProjection: [],
       landingPoint: {
         weightKg: 43.01, // 3.01kg from goal — crosses into OFF TRACK
@@ -276,6 +284,7 @@ describe('PlanHealthPanel - Vector-First Plan Health Status', () => {
       variancePercent: 0,
       tolerancePercent: 3,
       recalibrationNeeded: false,
+      trendDiverging: false,
       planProjection: [],
       landingPoint: {
         weightKg: 50, // 10kg from goal (40kg)
@@ -311,6 +320,7 @@ describe('PlanHealthPanel - Vector-First Plan Health Status', () => {
       variancePercent: -0.82,
       tolerancePercent: 3,
       recalibrationNeeded: false,
+      trendDiverging: false,
       planProjection: [],
       landingPoint: {
         weightKg: 70, // 5kg below goal (75kg)
@@ -338,6 +348,7 @@ describe('PlanHealthPanel - Vector-First Plan Health Status', () => {
       variancePercent: -0.68,
       tolerancePercent: 3,
       recalibrationNeeded: false,
+      trendDiverging: false,
       planProjection: [],
       // No landingPoint — insufficient trend data
     };
@@ -391,7 +402,6 @@ describe('PlanHealthPanel - Vector-First Plan Health Status', () => {
 describe('Health signal ↔ strategy availability coherence', () => {
   const plan: NutritionPlan = {
     id: 1,
-    userId: 1,
     startWeightKg: 90,
     goalWeightKg: 85,
     durationWeeks: 10,
@@ -425,6 +435,7 @@ describe('Health signal ↔ strategy availability coherence', () => {
       variancePercent: 0,
       tolerancePercent: 3,
       recalibrationNeeded: false,
+      trendDiverging: false,
       planProjection: [],
       landingPoint: {
         weightKg: 85.2, // 0.2kg from goal — ON TRACK
@@ -460,6 +471,7 @@ describe('Health signal ↔ strategy availability coherence', () => {
       variancePercent: 3.95,
       tolerancePercent: 3,
       recalibrationNeeded: true,
+      trendDiverging: false,
       options: offTrackOptions,
       planProjection: [],
       landingPoint: {
@@ -497,6 +509,7 @@ describe('Health signal ↔ strategy availability coherence', () => {
       variancePercent: 3.05,
       tolerancePercent: 3,
       recalibrationNeeded: true,
+      trendDiverging: false,
       options: offTrackOptions,
       planProjection: [],
       landingPoint: {
@@ -534,6 +547,7 @@ describe('Health signal ↔ strategy availability coherence', () => {
       variancePercent: 0,
       tolerancePercent: 3,
       recalibrationNeeded: false,
+      trendDiverging: false,
       planProjection: [],
       landingPoint: {
         weightKg: 85.5, // 0.5kg from goal — ON TRACK
@@ -614,6 +628,7 @@ describe('Health signal ↔ strategy availability coherence', () => {
       variancePercent: 2.82,
       tolerancePercent: 3,
       recalibrationNeeded: true,
+      trendDiverging: false,
       options: offTrackOptions,
       planProjection: [],
       landingPoint: {
@@ -691,6 +706,7 @@ describe('Health signal ↔ strategy availability coherence', () => {
       variancePercent: 2.82,
       tolerancePercent: 3,
       recalibrationNeeded: true,
+      trendDiverging: false,
       // options intentionally absent
       planProjection: [],
       landingPoint: {

@@ -19,12 +19,8 @@ func NewBodyIssueStore(db DBTX) *BodyIssueStore {
 }
 
 // Create inserts a new body part issue into the database.
+// Caller must set input.Severity before calling (e.g. via input.ResolveSeverity()).
 func (s *BodyIssueStore) Create(ctx context.Context, input domain.BodyPartIssueInput) (*domain.BodyPartIssue, error) {
-	severity := domain.GetSymptomSeverity(input.Symptom)
-	if severity == 0 {
-		severity = domain.IssueSeverityMinor // Default to minor if symptom not recognized
-	}
-
 	const query = `
 		INSERT INTO body_part_issues (date, body_part, symptom, severity, raw_text, session_id, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -36,7 +32,7 @@ func (s *BodyIssueStore) Create(ctx context.Context, input domain.BodyPartIssueI
 		input.Date,
 		input.BodyPart,
 		input.Symptom,
-		severity,
+		input.Severity,
 		input.RawText,
 		input.SessionID,
 		time.Now(),
@@ -69,17 +65,12 @@ func (s *BodyIssueStore) CreateBatch(ctx context.Context, inputs []domain.BodyPa
 	var ids []int64
 	now := time.Now()
 	for _, input := range inputs {
-		severity := domain.GetSymptomSeverity(input.Symptom)
-		if severity == 0 {
-			severity = domain.IssueSeverityMinor
-		}
-
 		var id int64
 		err := tx.QueryRowContext(ctx, query,
 			input.Date,
 			input.BodyPart,
 			input.Symptom,
-			severity,
+			input.Severity,
 			input.RawText,
 			input.SessionID,
 			now,

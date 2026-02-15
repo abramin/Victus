@@ -20,11 +20,15 @@ func NewBodyIssueService(bs *store.BodyIssueStore) *BodyIssueService {
 
 // CreateIssue creates a single body part issue.
 func (s *BodyIssueService) CreateIssue(ctx context.Context, input domain.BodyPartIssueInput) (*domain.BodyPartIssue, error) {
+	input.ResolveSeverity()
 	return s.bodyIssueStore.Create(ctx, input)
 }
 
 // CreateIssues creates multiple body part issues in a batch.
 func (s *BodyIssueService) CreateIssues(ctx context.Context, inputs []domain.BodyPartIssueInput) ([]domain.BodyPartIssue, error) {
+	for i := range inputs {
+		inputs[i].ResolveSeverity()
+	}
 	return s.bodyIssueStore.CreateBatch(ctx, inputs)
 }
 

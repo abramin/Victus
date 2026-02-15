@@ -485,6 +485,7 @@ func (g *GarminImporter) importActivities(ctx context.Context, reader io.Reader)
 			DataSource:      "garmin_import",
 			RawActivityName: rawActivityName,
 		}
+		summary.ComputeAvgCalories()
 
 		created, err := g.monthlySummaryStore.Upsert(ctx, summary)
 		if err != nil {

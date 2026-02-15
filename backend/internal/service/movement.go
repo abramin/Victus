@@ -75,7 +75,7 @@ func (s *MovementService) RecordSessionCompletion(ctx context.Context, movementI
 	}
 
 	// Calculate progression (pure domain function)
-	updated := domain.CalculateMovementProgression(*current, input)
+	updated := domain.CalculateMovementProgression(*current, input, time.Now())
 
 	// Persist
 	if err := s.movementStore.UpsertUserProgress(ctx, updated); err != nil {

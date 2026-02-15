@@ -86,6 +86,13 @@ type MonthlySummary struct {
 	CreatedAt             time.Time
 }
 
+// ComputeAvgCalories sets AvgCaloriesPerSession from TotalCalories and SessionCount.
+func (s *MonthlySummary) ComputeAvgCalories() {
+	if s.SessionCount > 0 && s.TotalCalories > 0 {
+		s.AvgCaloriesPerSession = s.TotalCalories / s.SessionCount
+	}
+}
+
 // GarminActivityMapping maps Garmin activity type names to Victus TrainingTypes.
 // Supports both Spanish (Garmin Connect ES) and English names.
 var GarminActivityMapping = map[string]TrainingType{

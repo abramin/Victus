@@ -21,12 +21,6 @@ func NewMonthlySummaryStore(db DBTX) *MonthlySummaryStore {
 // Upsert creates or updates a monthly summary.
 // Returns true if a new record was created, false if updated.
 func (s *MonthlySummaryStore) Upsert(ctx context.Context, summary domain.MonthlySummary) (bool, error) {
-	// Calculate average if we have both count and calories
-	avgCals := 0
-	if summary.SessionCount > 0 && summary.TotalCalories > 0 {
-		avgCals = summary.TotalCalories / summary.SessionCount
-	}
-
 	const query = `
 		INSERT INTO monthly_summaries
 			(year_month, activity_type, session_count, total_calories, avg_calories_per_session, data_source, raw_activity_name)
@@ -46,7 +40,7 @@ func (s *MonthlySummaryStore) Upsert(ctx context.Context, summary domain.Monthly
 		string(summary.ActivityType),
 		summary.SessionCount,
 		nullableInt(summary.TotalCalories),
-		nullableInt(avgCals),
+		nullableInt(summary.AvgCaloriesPerSession),
 		summary.DataSource,
 		summary.RawActivityName,
 	)

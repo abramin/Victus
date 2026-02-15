@@ -241,7 +241,8 @@ func NewServer(db store.DBTX) *Server {
 	srv.registerEchoRoutes()
 
 	// Voice command routes (Neural Voice Command feature)
-	voiceHandler := NewVoiceCommandHandler(ollamaService, bodyIssueStore, dailyLogService, foodReferenceStore)
+	voiceService := service.NewVoiceCommandService(ollamaService, bodyIssueStore, dailyLogService, foodReferenceStore)
+	voiceHandler := NewVoiceCommandHandler(voiceService)
 	mux.HandleFunc("POST /api/voice/parse", voiceHandler.ParseVoiceCommand)
 
 	return srv

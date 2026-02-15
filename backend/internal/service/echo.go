@@ -159,6 +159,9 @@ func (s *EchoService) createBodyIssuesFromDeltas(ctx context.Context, deltas map
 		return nil, nil
 	}
 
+	for i := range inputs {
+		inputs[i].ResolveSeverity()
+	}
 	return s.bodyIssueStore.CreateBatch(ctx, inputs)
 }
 

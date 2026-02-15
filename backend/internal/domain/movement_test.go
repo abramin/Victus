@@ -2,6 +2,7 @@ package domain
 
 import (
 	"testing"
+	"time"
 )
 
 func TestCalculateNeuralBattery_Nil(t *testing.T) {
@@ -79,12 +80,13 @@ func TestFilterMovementsByJointIntegrity(t *testing.T) {
 }
 
 func TestCalculateMovementProgression_NoProgress(t *testing.T) {
+	now := time.Now()
 	current := UserMovementProgress{MovementID: "test", UserDifficulty: 3, SuccessfulSessions: 0}
 
 	// Form issue blocks progression
 	result := CalculateMovementProgression(current, MovementProgressionInput{
 		CompletedReps: 10, TargetReps: 10, RPE: 6, HadFormIssue: true,
-	})
+	}, now)
 	if result.SuccessfulSessions != 0 {
 		t.Errorf("sessions = %d, want 0 (form issue)", result.SuccessfulSessions)
 	}
@@ -92,17 +94,18 @@ func TestCalculateMovementProgression_NoProgress(t *testing.T) {
 	// High RPE blocks progression
 	result = CalculateMovementProgression(current, MovementProgressionInput{
 		CompletedReps: 10, TargetReps: 10, RPE: 9, HadFormIssue: false,
-	})
+	}, now)
 	if result.SuccessfulSessions != 0 {
 		t.Errorf("sessions = %d, want 0 (high RPE)", result.SuccessfulSessions)
 	}
 }
 
 func TestCalculateMovementProgression_Increments(t *testing.T) {
+	now := time.Now()
 	current := UserMovementProgress{MovementID: "test", UserDifficulty: 3, SuccessfulSessions: 2}
 	input := MovementProgressionInput{CompletedReps: 10, TargetReps: 10, RPE: 6}
 
-	result := CalculateMovementProgression(current, input)
+	result := CalculateMovementProgression(current, input, now)
 	if result.UserDifficulty != 4 {
 		t.Errorf("difficulty = %d, want 4", result.UserDifficulty)
 	}
@@ -112,10 +115,11 @@ func TestCalculateMovementProgression_Increments(t *testing.T) {
 }
 
 func TestCalculateMovementProgression_MaxDifficulty(t *testing.T) {
+	now := time.Now()
 	current := UserMovementProgress{MovementID: "test", UserDifficulty: 10, SuccessfulSessions: 2}
 	input := MovementProgressionInput{CompletedReps: 10, TargetReps: 10, RPE: 6}
 
-	result := CalculateMovementProgression(current, input)
+	result := CalculateMovementProgression(current, input, now)
 	if result.UserDifficulty != 10 {
 		t.Errorf("difficulty = %d, want 10 (max)", result.UserDifficulty)
 	}

@@ -222,6 +222,69 @@ func parseBodyMapUpdates(text string) []BodyMapUpdate {
 	return updates
 }
 
+// FindBestFoodMatch finds the best matching food from a list by name.
+// Uses exact match, then contains match, then partial word match.
+func FindBestFoodMatch(searchTerm string, foods []FoodNutrition) *FoodNutrition {
+	searchLower := strings.ToLower(searchTerm)
+
+	// First pass: exact match
+	for i := range foods {
+		if strings.ToLower(foods[i].FoodItem) == searchLower {
+			return &foods[i]
+		}
+	}
+
+	// Second pass: contains match
+	for i := range foods {
+		foodLower := strings.ToLower(foods[i].FoodItem)
+		if strings.Contains(foodLower, searchLower) || strings.Contains(searchLower, foodLower) {
+			return &foods[i]
+		}
+	}
+
+	// Third pass: partial word match
+	searchWords := strings.Fields(searchLower)
+	for i := range foods {
+		foodLower := strings.ToLower(foods[i].FoodItem)
+		for _, word := range searchWords {
+			if len(word) > 2 && strings.Contains(foodLower, word) {
+				return &foods[i]
+			}
+		}
+	}
+
+	return nil
+}
+
+// ConvertToGrams converts a quantity with unit to grams.
+func ConvertToGrams(quantity float64, unit string) float64 {
+	unit = strings.ToLower(unit)
+	switch unit {
+	case "g", "gram", "grams":
+		return quantity
+	case "kg", "kilogram", "kilograms":
+		return quantity * 1000
+	case "oz", "ounce", "ounces":
+		return quantity * 28.35
+	case "lb", "pound", "pounds":
+		return quantity * 453.6
+	case "cup", "cups":
+		return quantity * 240 // approximate
+	case "tbsp", "tablespoon", "tablespoons":
+		return quantity * 15
+	case "tsp", "teaspoon", "teaspoons":
+		return quantity * 5
+	case "ml", "milliliter", "milliliters":
+		return quantity // approximate 1:1 for water-based liquids
+	case "l", "liter", "liters":
+		return quantity * 1000
+	case "whole", "piece", "pieces":
+		return quantity * 100 // rough estimate for "whole" items
+	default:
+		return quantity
+	}
+}
+
 // ToTrainingSession converts TrainingVoiceData to a TrainingSession for logging.
 // The session will be marked as IsDraft if DurationMin is nil.
 func (t *TrainingVoiceData) ToTrainingSession(order int) TrainingSession {

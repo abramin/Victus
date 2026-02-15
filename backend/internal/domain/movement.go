@@ -63,7 +63,7 @@ type MovementProgressionInput struct {
 
 // CalculateMovementProgression determines if a movement should progress in difficulty.
 // Returns updated progress. Pure function — no I/O.
-func CalculateMovementProgression(current UserMovementProgress, input MovementProgressionInput) UserMovementProgress {
+func CalculateMovementProgression(current UserMovementProgress, input MovementProgressionInput, now time.Time) UserMovementProgress {
 	result := current
 
 	// No progression if form correction was needed
@@ -87,7 +87,6 @@ func CalculateMovementProgression(current UserMovementProgress, input MovementPr
 		result.SuccessfulSessions = 0
 	}
 
-	now := time.Now()
 	result.LastPerformedAt = &now
 	return result
 }

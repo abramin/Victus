@@ -117,7 +117,7 @@ export function StatusZone({
                 />
               )}
               {systemicLoad && (
-                <SystemicGyroscope load={systemicLoad} size="sm" />
+                <SystemicGyroscope load={systemicLoad} size="md" />
               )}
               {cnsStatus && (
                 <CNSShieldIndicator cnsStatus={cnsStatus} size="sm" />

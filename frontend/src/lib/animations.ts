@@ -727,13 +727,25 @@ export const gyroscopeGlow: Variants = {
   },
 };
 
-export const gyroscopeShake = {
+export const gyroscopeShake: Variants = {
   shake: {
     x: [0, -1.5, 1.5, -1, 1, 0],
     transition: {
       duration: 0.4,
       repeat: Infinity,
       repeatDelay: 4,
+      ease: 'easeInOut' as const,
+    },
+  },
+};
+
+export const gyroscopeTiltPulse: Variants = {
+  idle: { scale: 1 },
+  pulse: {
+    scale: [1, 1.06, 1],
+    transition: {
+      duration: 1.2,
+      repeat: Infinity,
       ease: 'easeInOut',
     },
   },

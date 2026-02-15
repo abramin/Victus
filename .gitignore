@@ -4,6 +4,7 @@ frontend/dist
 frontend/cypress/videos
 frontend/cypress/screenshots
 frontend/coverage
+frontend/.env.local
 
 # Go
 backend/bin

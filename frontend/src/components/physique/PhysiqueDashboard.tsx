@@ -1,9 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useBodyStatus } from '../../hooks/useBodyStatus';
 import { BodyMapVisualizer } from '../body-map';
 import { getRecoveryStatus } from '../../utils';
 import type { MuscleGroup, MuscleFatigue } from '../../api/types';
+
+const ENABLE_3D_AVATAR = import.meta.env.VITE_ENABLE_3D_AVATAR === 'true';
+
+const Avatar3DView = lazy(() =>
+  import('./avatar3d').then((m) => ({ default: m.Avatar3DView })),
+);
 
 // Region grouping for organized muscle display (forearms merged into pull)
 const MUSCLE_REGIONS: Record<string, { label: string; icon: string; muscles: MuscleGroup[] }> = {
@@ -169,6 +175,9 @@ function MuscleStatusCard({
 export function PhysiqueDashboard() {
   const { bodyStatus, loading, error, refresh } = useBodyStatus();
   const [selectedMuscle, setSelectedMuscle] = useState<MuscleGroup | null>(null);
+  const [viewMode, setViewMode] = useState<'2d' | '3d'>('2d');
+  const [cameraDistance, setCameraDistance] = useState(3);
+  const isZoomedIn = viewMode === '3d' && cameraDistance < 2.2;
 
   // Refresh body status on mount to get latest fatigue data after workout logging
   useEffect(() => {
@@ -252,21 +261,91 @@ export function PhysiqueDashboard() {
 
       {/* Main Content - Flex Layout */}
       <div className="flex flex-col lg:flex-row gap-6">
-        {/* Body Map - Fixed Width */}
-        <div className="bg-gray-900 rounded-xl p-6 border border-gray-800 lg:w-[420px] lg:shrink-0">
-          <h2 className="text-lg font-medium text-white mb-4">Muscle Map</h2>
+        {/* Body Map - Fixed Width, expands when zoomed in */}
+        <div className={`bg-gray-900 rounded-xl p-6 border border-gray-800 transition-all duration-300 ease-in-out ${
+          isZoomedIn ? 'lg:w-full' : 'lg:w-[420px] lg:shrink-0'
+        }`}>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-medium text-white">Muscle Map</h2>
+            {ENABLE_3D_AVATAR && (
+              <div className="flex bg-gray-800 rounded-lg p-0.5">
+                <button
+                  onClick={() => setViewMode('2d')}
+                  className={`px-2.5 py-1 text-xs rounded-md transition-colors ${
+                    viewMode === '2d'
+                      ? 'bg-gray-700 text-white'
+                      : 'text-gray-400 hover:text-gray-200'
+                  }`}
+                >
+                  2D
+                </button>
+                <button
+                  onClick={() => setViewMode('3d')}
+                  className={`px-2.5 py-1 text-xs rounded-md transition-colors ${
+                    viewMode === '3d'
+                      ? 'bg-gray-700 text-white'
+                      : 'text-gray-400 hover:text-gray-200'
+                  }`}
+                >
+                  3D
+                </button>
+              </div>
+            )}
+          </div>
           <div className="flex justify-center">
-            <BodyMapVisualizer
-              muscles={bodyStatus.muscles}
-              size="lg"
-              onMuscleClick={setSelectedMuscle}
-              highlightMuscles={selectedMuscle ? [selectedMuscle] : []}
-            />
+            {ENABLE_3D_AVATAR && viewMode === '3d' ? (
+              <div className="relative">
+                <Suspense
+                  fallback={
+                    <div className="flex items-center justify-center h-[500px] text-gray-500 text-sm">
+                      Loading 3D view...
+                    </div>
+                  }
+                >
+                  <Avatar3DView
+                    muscles={bodyStatus.muscles}
+                    onMuscleClick={setSelectedMuscle}
+                    highlightMuscles={selectedMuscle ? [selectedMuscle] : []}
+                    selectedMuscle={selectedMuscle}
+                    onZoomChange={setCameraDistance}
+                  />
+                </Suspense>
+                {isZoomedIn && (
+                  <div className="absolute bottom-3 left-3 right-3 flex gap-2 overflow-x-auto pointer-events-none z-10">
+                    {bodyStatus.muscles
+                      .filter(m => m.fatiguePercent > 40)
+                      .sort((a, b) => b.fatiguePercent - a.fatiguePercent)
+                      .slice(0, 5)
+                      .map(m => (
+                        <div
+                          key={m.muscle}
+                          className="px-2 py-1 bg-gray-900/80 backdrop-blur-sm rounded text-xs text-white border border-gray-700 whitespace-nowrap"
+                        >
+                          <span
+                            className="inline-block w-2 h-2 rounded-full mr-1.5 align-middle"
+                            style={{ backgroundColor: m.color }}
+                          />
+                          {m.displayName} {m.fatiguePercent.toFixed(0)}%
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <BodyMapVisualizer
+                muscles={bodyStatus.muscles}
+                size="lg"
+                onMuscleClick={setSelectedMuscle}
+                highlightMuscles={selectedMuscle ? [selectedMuscle] : []}
+              />
+            )}
           </div>
         </div>
 
-        {/* Fatigue Panel - Fills Remaining Space */}
-        <div className="bg-gray-900 rounded-xl p-6 border border-gray-800 flex-1 min-w-0">
+        {/* Fatigue Panel - Fills Remaining Space, collapses when zoomed */}
+        <div className={`bg-gray-900 rounded-xl border border-gray-800 flex-1 min-w-0 transition-all duration-300 ease-in-out overflow-hidden ${
+          isZoomedIn ? 'lg:max-h-0 lg:opacity-0 lg:p-0 lg:border-0 p-6' : 'lg:max-h-[800px] p-6'
+        }`}>
           <h2 className="text-lg font-medium text-white mb-4">Fatigue by Region</h2>
 
           {/* Selected muscle detail */}
