@@ -22,6 +22,10 @@ func (s *CNSSuite) baselineHistory() []int {
 	return []int{45, 46, 47, 48, 49, 50, 51}
 }
 
+func cnsIntPtr(v int) *int {
+	return &v
+}
+
 func (s *CNSSuite) TestStatusCalculationPreconditions() {
 	s.Run("nil when no current HRV", func() {
 		input := CNSInput{
@@ -63,54 +67,65 @@ func (s *CNSSuite) TestStatusCalculationPreconditions() {
 }
 
 func (s *CNSSuite) TestStatusThresholds() {
-	s.Run("optimized when above baseline", func() {
+	s.Run("depleted only when all 3 conditions are met", func() {
 		input := CNSInput{
-			CurrentHRV: 55,
-			HRVHistory: s.baselineHistory(), // avg ~48
-		}
-		result := CalculateCNSStatus(input)
-		s.Require().NotNil(result)
-		s.Equal(CNSStatusOptimized, result.Status)
-	})
-
-	s.Run("optimized when at baseline", func() {
-		input := CNSInput{
-			CurrentHRV: 48,
-			HRVHistory: s.baselineHistory(), // avg = 48
-		}
-		result := CalculateCNSStatus(input)
-		s.Require().NotNil(result)
-		s.Equal(CNSStatusOptimized, result.Status)
-	})
-
-	s.Run("optimized when 5% below baseline", func() {
-		input := CNSInput{
-			CurrentHRV: 46, // ~4% below 48
-			HRVHistory: s.baselineHistory(),
-		}
-		result := CalculateCNSStatus(input)
-		s.Require().NotNil(result)
-		s.Equal(CNSStatusOptimized, result.Status)
-	})
-
-	s.Run("strained when 15% below baseline", func() {
-		input := CNSInput{
-			CurrentHRV: 41, // ~15% below 48
-			HRVHistory: s.baselineHistory(),
-		}
-		result := CalculateCNSStatus(input)
-		s.Require().NotNil(result)
-		s.Equal(CNSStatusStrained, result.Status)
-	})
-
-	s.Run("depleted when 25% below baseline", func() {
-		input := CNSInput{
-			CurrentHRV: 36, // ~25% below 48
-			HRVHistory: s.baselineHistory(),
+			CurrentHRV:       36,
+			HRVHistory:       []int{50, 50, 50, 50, 50, 36, 36},
+			CurrentRestingHR: cnsIntPtr(66),
+			RestingHRHistory: []int{60, 60, 60, 60, 60, 60, 60},
 		}
 		result := CalculateCNSStatus(input)
 		s.Require().NotNil(result)
 		s.Equal(CNSStatusDepleted, result.Status)
+		s.NotNil(result.RestingHRChangePercent)
+	})
+
+	s.Run("optimized when HRV drop does not exceed 20%", func() {
+		input := CNSInput{
+			CurrentHRV:       41,
+			HRVHistory:       s.baselineHistory(),
+			CurrentRestingHR: cnsIntPtr(64),
+			RestingHRHistory: []int{60, 60, 60, 60, 60, 60, 60},
+		}
+		result := CalculateCNSStatus(input)
+		s.Require().NotNil(result)
+		s.Equal(CNSStatusOptimized, result.Status)
+	})
+
+	s.Run("optimized when low HRV is not sustained 3 consecutive days", func() {
+		input := CNSInput{
+			CurrentHRV:       36,
+			HRVHistory:       []int{50, 50, 50, 50, 50, 50, 50},
+			CurrentRestingHR: cnsIntPtr(66),
+			RestingHRHistory: []int{60, 60, 60, 60, 60, 60, 60},
+		}
+		result := CalculateCNSStatus(input)
+		s.Require().NotNil(result)
+		s.Equal(CNSStatusOptimized, result.Status)
+	})
+
+	s.Run("optimized when resting HR increase is outside 5-10%", func() {
+		input := CNSInput{
+			CurrentHRV:       36,
+			HRVHistory:       []int{50, 50, 50, 50, 50, 36, 36},
+			CurrentRestingHR: cnsIntPtr(70),
+			RestingHRHistory: []int{60, 60, 60, 60, 60, 60, 60},
+		}
+		result := CalculateCNSStatus(input)
+		s.Require().NotNil(result)
+		s.Equal(CNSStatusOptimized, result.Status)
+	})
+
+	s.Run("strained when HRV conditions met but RHR data missing", func() {
+		input := CNSInput{
+			CurrentHRV:       36,
+			HRVHistory:       []int{50, 50, 50, 50, 50, 36, 36},
+			CurrentRestingHR: nil,
+			RestingHRHistory: []int{60, 60, 60, 60, 60, 60, 60},
+		}
+		result := CalculateCNSStatus(input)
+		s.Require().NotNil(result)
+		s.Equal(CNSStatusStrained, result.Status)
 	})
 }
 
@@ -189,5 +204,90 @@ func (s *CNSSuite) TestOverrideDurationCaps() {
 		overrides := CalculateTrainingOverride(CNSStatusDepleted, sessions)
 		s.Require().Len(overrides, 1)
 		s.Equal(MaxWalkingDuration, overrides[0].RecommendedDuration)
+	})
+}
+
+func (s *CNSSuite) TestReferenceRangeValidation() {
+	s.Run("optimized when HRV above reference minimum", func() {
+		refMin := 31
+		refMax := 40
+		input := CNSInput{
+			CurrentHRV:   50,
+			HRVHistory:   []int{48, 49, 50, 51, 52, 53, 54}, // avg ~51, above ref min
+			ReferenceMin: &refMin,
+			ReferenceMax: &refMax,
+		}
+		result := CalculateCNSStatus(input)
+		s.Require().NotNil(result)
+		s.Equal(CNSStatusOptimized, result.Status)
+		s.False(result.BelowReference)
+		s.Nil(result.ReferenceRatio)
+	})
+
+	s.Run("strained when HRV 7-day average below reference minimum", func() {
+		refMin := 31
+		refMax := 40
+		input := CNSInput{
+			CurrentHRV:   24,
+			HRVHistory:   []int{24, 25, 26, 27, 26, 25, 24}, // avg ~25, below ref min of 31
+			ReferenceMin: &refMin,
+			ReferenceMax: &refMax,
+		}
+		result := CalculateCNSStatus(input)
+		s.Require().NotNil(result)
+		s.Equal(CNSStatusStrained, result.Status)
+		s.True(result.BelowReference)
+		s.NotNil(result.ReferenceRatio)
+		s.Less(*result.ReferenceRatio, 1.0) // ratio < 1 means below reference
+		s.Contains(result.DepletionReason, "below reference")
+	})
+
+	s.Run("depleted status maintained when also below reference", func() {
+		refMin := 31
+		refMax := 40
+		input := CNSInput{
+			CurrentHRV:       20,
+			HRVHistory:       []int{30, 30, 30, 30, 30, 20, 20}, // avg ~27, below ref min 31, drop >20% and low 3+ days
+			CurrentRestingHR: cnsIntPtr(66),
+			RestingHRHistory: []int{60, 60, 60, 60, 60, 60, 60}, // +10% RHR increase
+			ReferenceMin:     &refMin,
+			ReferenceMax:     &refMax,
+		}
+		result := CalculateCNSStatus(input)
+		s.Require().NotNil(result)
+		s.Equal(CNSStatusDepleted, result.Status) // Should stay depleted, not downgrade
+		s.True(result.BelowReference)
+		s.Contains(result.DepletionReason, "also below reference")
+	})
+
+	s.Run("handles nil reference range gracefully", func() {
+		input := CNSInput{
+			CurrentHRV:   50,
+			HRVHistory:   []int{45, 46, 47, 48, 49, 50, 51},
+			ReferenceMin: nil,
+			ReferenceMax: nil,
+		}
+		result := CalculateCNSStatus(input)
+		s.Require().NotNil(result)
+		s.Equal(CNSStatusOptimized, result.Status)
+		s.False(result.BelowReference)
+		s.Nil(result.ReferenceMin)
+		s.Nil(result.ReferenceMax)
+	})
+
+	s.Run("reference ratio calculated correctly", func() {
+		refMin := 50
+		refMax := 60
+		input := CNSInput{
+			CurrentHRV:   25,
+			HRVHistory:   []int{25, 25, 25, 25, 25, 25, 25}, // avg = 25
+			ReferenceMin: &refMin,
+			ReferenceMax: &refMax,
+		}
+		result := CalculateCNSStatus(input)
+		s.Require().NotNil(result)
+		s.True(result.BelowReference)
+		s.NotNil(result.ReferenceRatio)
+		s.InDelta(0.5, *result.ReferenceRatio, 0.01) // 25/50 = 0.5
 	})
 }

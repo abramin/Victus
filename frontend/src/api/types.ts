@@ -132,10 +132,15 @@ export type CNSStatus = 'optimized' | 'strained' | 'depleted';
 
 // CNSStatusBreakdown contains HRV analysis results.
 export interface CNSStatusBreakdown {
-  currentHrv: number;    // Today's HRV in ms
-  baselineHrv: number;   // 7-day moving average
-  deviationPct: number;  // (current - baseline) / baseline
-  status: CNSStatus;     // optimized, strained, depleted
+  currentHrv: number;      // Today's HRV in ms
+  baselineHrv: number;     // 7-day moving average
+  deviationPct: number;    // (current - baseline) / baseline
+  status: CNSStatus;       // optimized, strained, depleted
+  depletionReason?: string; // Why status is strained/depleted
+  referenceMin?: number;   // Garmin reference range minimum
+  referenceMax?: number;   // Garmin reference range maximum
+  belowReference?: boolean; // True if below reference minimum
+  referenceRatio?: number;  // 7-day average / reference min
 }
 
 // TrainingOverride contains recommended training modification when CNS is depleted.
@@ -307,6 +312,7 @@ export interface WeightTrendResponse {
 export interface HistoryPoint {
   date: string;
   weightKg: number;
+  hasExplicitWeight?: boolean;
   estimatedTDEE: number;
   tdeeConfidence: number;
   hasTraining: boolean;
@@ -499,6 +505,7 @@ export interface DualTrackAnalysis {
   variancePercent: number;
   tolerancePercent: number;
   recalibrationNeeded: boolean;
+  gracePeriod: boolean;
   trendDiverging: boolean;
   trendDivergingMsg?: string;
   options?: RecalibrationOption[];
@@ -1040,6 +1047,16 @@ export interface GarminImportResult {
   /** Non-fatal warnings encountered during import */
   warnings?: string[];
   /** Fatal errors for specific records */
+  errors?: string[];
+}
+
+export interface GarminSyncResult {
+  date: string;
+  weightSynced: boolean;
+  sleepSynced: boolean;
+  hrvSynced: boolean;
+  rhrSynced: boolean;
+  caloriesSynced: boolean;
   errors?: string[];
 }
 

@@ -22,6 +22,7 @@ type DualTrackAnalysisResponse struct {
 	VariancePercent     float64                        `json:"variancePercent"`
 	TolerancePercent    float64                        `json:"tolerancePercent"`
 	RecalibrationNeeded bool                           `json:"recalibrationNeeded"`
+	GracePeriod         bool                           `json:"gracePeriod"`
 	TrendDiverging      bool                           `json:"trendDiverging"`
 	TrendDivergingMsg   string                         `json:"trendDivergingMsg,omitempty"`
 	Options             []RecalibrationOptionResponse  `json:"options,omitempty"`
@@ -162,6 +163,7 @@ func analysisToResponse(a *domain.DualTrackAnalysis) DualTrackAnalysisResponse {
 		VariancePercent:     a.VariancePercent,
 		TolerancePercent:    a.TolerancePercent,
 		RecalibrationNeeded: a.RecalibrationNeeded,
+		GracePeriod:         a.GracePeriod,
 		TrendDiverging:      a.TrendDiverging,
 		TrendDivergingMsg:   a.TrendDivergingMsg,
 	}

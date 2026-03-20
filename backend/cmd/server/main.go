@@ -59,6 +59,10 @@ func main() {
 		}
 	}()
 
+	bgCtx, bgCancel := context.WithCancel(context.Background())
+	defer bgCancel()
+	go srv.StartBackgroundJobs(bgCtx)
+
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 	<-stop

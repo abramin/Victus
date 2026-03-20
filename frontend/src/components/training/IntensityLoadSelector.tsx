@@ -1,25 +1,32 @@
 import { useRef, useCallback, useState } from 'react';
 import { motion } from 'framer-motion';
+import type { TrainingType } from '../../api/types';
+import { formatNumber } from '../../utils/format';
 
-interface RadialIntensitySelectorProps {
+interface IntensityLoadSelectorProps {
   value: number | undefined;
   onChange: (value: number | undefined) => void;
+  durationMin: number;
+  trainingType: TrainingType;
   disabled?: boolean;
 }
 
 const DEFAULT_RPE = 5;
 
-const RPE_LABELS: Record<number, string> = {
-  1: 'Rest',
-  2: 'Easy',
-  3: 'Easy',
-  4: 'Mod',
-  5: 'Mod',
-  6: 'Mod',
-  7: 'Hard',
-  8: 'Hard',
-  9: 'Max',
-  10: 'Max',
+// Load score coefficients matching backend
+const TRAINING_LOAD_SCORES: Record<TrainingType, number> = {
+  rest: 0,
+  qigong: 0.5,
+  mobility: 0.5,
+  walking: 1,
+  cycle: 2,
+  gmb: 3,
+  run: 3,
+  row: 3,
+  calisthenics: 3,
+  mixed: 4,
+  strength: 5,
+  hiit: 5,
 };
 
 // Tick mark positions and labels
@@ -48,22 +55,41 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
+function calculateLoadScore(trainingType: TrainingType, durationMin: number, rpe: number): number {
+  if (trainingType === 'rest') return 0;
+  const loadScore = TRAINING_LOAD_SCORES[trainingType] ?? 1;
+  const durationFactor = durationMin / 60;
+  const rpeFactor = rpe / 3;
+  return Math.round(loadScore * durationFactor * rpeFactor * 100) / 100;
+}
+
+function getLoadTone(score: number) {
+  if (score <= 0) return { label: 'No Load', className: 'text-gray-500' };
+  if (score <= 1) return { label: 'Very Low', className: 'text-emerald-400' };
+  if (score <= 3) return { label: 'Low Stress', className: 'text-green-400' };
+  if (score <= 6) return { label: 'Moderate Stress', className: 'text-yellow-400' };
+  if (score <= 10) return { label: 'High Stress', className: 'text-orange-400' };
+  return { label: 'Max Stress', className: 'text-red-400' };
+}
+
 /**
- * Semi-circle radial gauge for selecting RPE (Rate of Perceived Exertion) 1-10.
- * Features interactive drag to set value with color-coded glow effect.
- * Tick marks anchor the labels visually to the arc.
+ * Integrated intensity and load selector.
+ * Combines radial RPE dial with real-time load calculation display.
  */
-export function RadialIntensitySelector({
+export function IntensityLoadSelector({
   value,
   onChange,
+  durationMin,
+  trainingType,
   disabled = false,
-}: RadialIntensitySelectorProps) {
+}: IntensityLoadSelectorProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [isDragging, setIsDragging] = useState(false);
 
   const displayValue = value ?? DEFAULT_RPE;
-  const displayLabel = RPE_LABELS[displayValue];
   const scoreColor = getRpeColor(displayValue);
+  const loadScore = calculateLoadScore(trainingType, durationMin, displayValue);
+  const loadTone = getLoadTone(loadScore);
 
   // SVG dimensions - sized to contain the arc and all labels within bounds
   const width = 220;
@@ -159,6 +185,17 @@ export function RadialIntensitySelector({
 
   return (
     <div className="flex flex-col items-center">
+      {/* Load Display - Top */}
+      <div className="mb-2 text-center">
+        <div className="flex items-center justify-center gap-2">
+          <span className="text-lg">⚡</span>
+          <span className="text-2xl font-bold text-white">
+            LOAD: {formatNumber(loadScore, 1)}
+          </span>
+        </div>
+      </div>
+
+      {/* Radial Intensity Selector - Middle */}
       <svg
         ref={svgRef}
         width={width}
@@ -301,6 +338,11 @@ export function RadialIntensitySelector({
           {displayValue}
         </text>
       </svg>
+
+      {/* Load Tone - Bottom */}
+      <p className={`text-sm mt-2 font-medium ${loadTone.className}`}>
+        {loadTone.label}
+      </p>
     </div>
   );
 }

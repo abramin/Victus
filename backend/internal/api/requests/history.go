@@ -7,11 +7,12 @@ import (
 )
 
 type HistoryPointResponse struct {
-	Date           string  `json:"date"`
-	WeightKg       float64 `json:"weightKg"`
-	EstimatedTDEE  int     `json:"estimatedTDEE"`
-	TDEEConfidence float64 `json:"tdeeConfidence"`
-	HasTraining    bool    `json:"hasTraining"`
+	Date              string  `json:"date"`
+	WeightKg          float64 `json:"weightKg"`
+	HasExplicitWeight bool    `json:"hasExplicitWeight"`
+	EstimatedTDEE     int     `json:"estimatedTDEE"`
+	TDEEConfidence    float64 `json:"tdeeConfidence"`
+	HasTraining       bool    `json:"hasTraining"`
 
 	// Per-day training details for compliance tracking
 	PlannedSessionCount int      `json:"plannedSessionCount"`
@@ -61,6 +62,7 @@ func HistoryToResponse(summary *domain.HistorySummary) HistoryResponse {
 		resp := HistoryPointResponse{
 			Date:                point.Date,
 			WeightKg:            point.WeightKg,
+			HasExplicitWeight:   point.HasExplicitWeight,
 			EstimatedTDEE:       point.EstimatedTDEE,
 			TDEEConfidence:      point.TDEEConfidence,
 			HasTraining:         point.HasTraining,
@@ -76,7 +78,7 @@ func HistoryToResponse(summary *domain.HistorySummary) HistoryResponse {
 			HRVMs:               point.HRVMs,
 		}
 		// Calculate lean mass and fat mass if body fat is available
-		if point.BodyFatPercent != nil {
+		if point.HasExplicitWeight && point.BodyFatPercent != nil {
 			leanMass := point.WeightKg * (1 - *point.BodyFatPercent/100)
 			fatMass := point.WeightKg * (*point.BodyFatPercent / 100)
 			resp.LeanMassKg = &leanMass

@@ -52,6 +52,7 @@ import type {
   MovementProgressionInput,
   SystemicLoadResponse,
   SystemicLoad,
+  GarminSyncResult,
 } from './types';
 
 const API_BASE = '/api';
@@ -801,6 +802,15 @@ export async function importGarminData(
 }
 
 /**
+ * Trigger a live Garmin Connect sync for a specific date (defaults to today).
+ */
+export async function syncGarmin(date?: string): Promise<GarminSyncResult> {
+  const url = date ? `${API_BASE}/sync/garmin?date=${date}` : `${API_BASE}/sync/garmin`;
+  const response = await fetch(url, { method: 'POST' });
+  return handleResponse<GarminSyncResult>(response);
+}
+
+/**
  * Get monthly activity summaries.
  * @param from Optional start year-month (e.g., "2025-01")
  * @param to Optional end year-month (e.g., "2025-12")
@@ -819,7 +829,32 @@ export async function getMonthlySummaries(
     : `${API_BASE}/stats/monthly-summaries`;
 
   const response = await fetch(url, { signal });
-  return handleResponse<MonthlySummary[]>(response);
+  type RawMonthlySummary = Partial<MonthlySummary> & {
+    ID?: number;
+    YearMonth?: string;
+    ActivityType?: string;
+    SessionCount?: number;
+    TotalCalories?: number;
+    AvgCaloriesPerSession?: number;
+    DataSource?: string;
+    RawActivityName?: string;
+    CreatedAt?: string;
+  };
+
+  const rows = await handleResponse<RawMonthlySummary[]>(response);
+  return rows.map((row, index) => ({
+    id: row.id ?? row.ID ?? index,
+    yearMonth: row.yearMonth ?? row.YearMonth ?? '',
+    activityType:
+      (row.activityType ?? row.ActivityType ?? 'mixed') as MonthlySummary['activityType'],
+    sessionCount: row.sessionCount ?? row.SessionCount ?? 0,
+    totalCalories: row.totalCalories ?? row.TotalCalories ?? 0,
+    avgCaloriesPerSession:
+      row.avgCaloriesPerSession ?? row.AvgCaloriesPerSession ?? 0,
+    dataSource: row.dataSource ?? row.DataSource ?? 'garmin_import',
+    rawActivityName: row.rawActivityName ?? row.RawActivityName ?? '',
+    createdAt: row.createdAt ?? row.CreatedAt ?? '',
+  }));
 }
 
 // =============================================================================

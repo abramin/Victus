@@ -45,14 +45,14 @@ func (s *AnalysisService) AnalyzePlan(ctx context.Context, planID int64, analysi
 		return nil, err
 	}
 
-	// Get rolling 7-day average weight
-	actualWeight, err := s.getRolling7DayWeight(ctx, analysisDate)
+	// Get rolling 7-day average weight from in-plan logs only
+	actualWeight, err := s.getRolling7DayWeight(ctx, analysisDate, plan.StartDate)
 	if err != nil {
 		return nil, err
 	}
 
-	// Get weight trend for trend projection (last 30 days)
-	weightTrend, _ := s.getWeightTrend(ctx, analysisDate, 30)
+	// Get weight trend for trend projection (last 30 days, in-plan logs only)
+	weightTrend, _ := s.getWeightTrend(ctx, analysisDate, 30, plan.StartDate)
 
 	// Perform analysis
 	input := domain.AnalysisInput{
@@ -77,11 +77,15 @@ func (s *AnalysisService) AnalyzeActivePlan(ctx context.Context, analysisDate ti
 	return s.AnalyzePlan(ctx, plan.ID, analysisDate)
 }
 
-// getRolling7DayWeight calculates the rolling 7-day average weight.
+// getRolling7DayWeight calculates the rolling 7-day average weight using
+// only samples logged on or after planStartDate.
 // Returns error if insufficient data (fewer than 1 weight entry in last 7 days).
-func (s *AnalysisService) getRolling7DayWeight(ctx context.Context, asOfDate time.Time) (float64, error) {
+func (s *AnalysisService) getRolling7DayWeight(ctx context.Context, asOfDate, planStartDate time.Time) (float64, error) {
 	// Calculate start date for 7-day window
 	startDate := asOfDate.AddDate(0, 0, -6) // 7 days including today
+	if planStartDate.After(startDate) {
+		startDate = planStartDate
+	}
 	startDateStr := startDate.Format("2006-01-02")
 	endDateStr := asOfDate.Format("2006-01-02")
 
@@ -112,10 +116,14 @@ func (s *AnalysisService) getRolling7DayWeight(ctx context.Context, asOfDate tim
 	return sum / float64(len(validSamples)), nil
 }
 
-// getWeightTrend calculates the weight trend over the specified number of days.
+// getWeightTrend calculates the weight trend over the specified number of days
+// using only samples logged on or after planStartDate.
 // Returns nil if insufficient data for trend calculation.
-func (s *AnalysisService) getWeightTrend(ctx context.Context, asOfDate time.Time, days int) (*domain.WeightTrend, error) {
+func (s *AnalysisService) getWeightTrend(ctx context.Context, asOfDate time.Time, days int, planStartDate time.Time) (*domain.WeightTrend, error) {
 	startDate := asOfDate.AddDate(0, 0, -(days - 1))
+	if planStartDate.After(startDate) {
+		startDate = planStartDate
+	}
 	startDateStr := startDate.Format("2006-01-02")
 	endDateStr := asOfDate.Format("2006-01-02")
 

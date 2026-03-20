@@ -35,6 +35,7 @@ type DualTrackAnalysis struct {
 	VariancePercent     float64 // (Variance / Planned) * 100
 	TolerancePercent    float64
 	RecalibrationNeeded bool
+	GracePeriod         bool   // True during first days of plan when variance is unreliable
 	TrendDiverging      bool   // True if trend direction opposes goal direction
 	TrendDivergingMsg   string // e.g., "Weight trending +0.3 kg/wk, plan requires -0.5 kg/wk"
 	Options             []RecalibrationOption
@@ -99,7 +100,23 @@ func CalculateDualTrackAnalysis(input AnalysisInput) (*DualTrackAnalysis, error)
 	if weeklyTarget == nil {
 		return nil, ErrPlanNotFound
 	}
-	plannedWeightKg := weeklyTarget.ProjectedWeightKg
+
+	// Interpolate planned weight within the week based on day position.
+	// On day 0 of week 1, planned = start weight (no loss expected yet).
+	// On day 6 of week 1, planned ≈ week-end target.
+	var prevWeightKg float64
+	if currentWeek == 1 {
+		prevWeightKg = plan.StartWeightKg
+	} else {
+		prevTarget := plan.GetWeeklyTarget(currentWeek - 1)
+		prevWeightKg = prevTarget.ProjectedWeightKg
+	}
+
+	daysSinceStart := int(analysisDate.Sub(plan.StartDate).Hours() / 24)
+	dayInWeek := daysSinceStart % 7
+
+	plannedWeightKg := prevWeightKg + (weeklyTarget.ProjectedWeightKg-prevWeightKg)*float64(dayInWeek)/7.0
+	plannedWeightKg = math.Round(plannedWeightKg*100) / 100
 
 	// Calculate variance
 	varianceKg := input.ActualWeightKg - plannedWeightKg
@@ -111,8 +128,15 @@ func CalculateDualTrackAnalysis(input AnalysisInput) (*DualTrackAnalysis, error)
 		tolerancePercent = 3 // Default 3%
 	}
 
-	// Check current variance (old logic)
+	// Check current variance
 	recalibrationNeeded := math.Abs(variancePercent) >= tolerancePercent
+
+	// Suppress recalibration during grace period — insufficient in-plan data
+	const minDaysForRecalibration = 3
+	gracePeriod := daysSinceStart < minDaysForRecalibration
+	if gracePeriod {
+		recalibrationNeeded = false
+	}
 
 	analysis := &DualTrackAnalysis{
 		PlanID:              plan.ID,
@@ -124,6 +148,7 @@ func CalculateDualTrackAnalysis(input AnalysisInput) (*DualTrackAnalysis, error)
 		VariancePercent:     math.Round(variancePercent*100) / 100,
 		TolerancePercent:    tolerancePercent,
 		RecalibrationNeeded: recalibrationNeeded,
+		GracePeriod:         gracePeriod,
 	}
 
 	// Generate plan projection points
@@ -162,6 +187,13 @@ func CalculateDualTrackAnalysis(input AnalysisInput) (*DualTrackAnalysis, error)
 	// (user should be able to adjust even if variance is within tolerance but trending wrong way)
 	if recalibrationNeeded || analysis.TrendDiverging {
 		analysis.Options = generateRecalibrationOptions(plan, input.ActualWeightKg, varianceKg, currentWeek)
+	}
+
+	// Suppress all alerts during grace period — trend data is pre-plan noise
+	if gracePeriod {
+		analysis.TrendDiverging = false
+		analysis.TrendDivergingMsg = ""
+		analysis.Options = nil
 	}
 
 	return analysis, nil

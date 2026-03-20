@@ -18,16 +18,32 @@ export function useHistorySummary(range: WeightTrendRange): UseHistorySummaryRet
   const refresh = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     setError(null);
+    const maxAttempts = 3;
     try {
-      const response = await getHistorySummary(range);
-      if (signal?.aborted) return;
-      setData(response);
-    } catch (err) {
-      if (signal?.aborted) return;
-      if (err instanceof ApiError) {
-        setError(err.message);
-      } else {
-        setError('Failed to load history');
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          const response = await getHistorySummary(range, signal);
+          if (signal?.aborted) return;
+          setData(response);
+          return;
+        } catch (err) {
+          if (signal?.aborted) return;
+
+          const retryable = !(err instanceof ApiError) || err.status >= 500;
+          const hasMoreAttempts = attempt < maxAttempts;
+
+          if (retryable && hasMoreAttempts) {
+            await new Promise<void>((resolve) => setTimeout(resolve, attempt * 250));
+            continue;
+          }
+
+          if (err instanceof ApiError) {
+            setError(err.message);
+          } else {
+            setError('Failed to load history');
+          }
+          return;
+        }
       }
     } finally {
       if (!signal?.aborted) {

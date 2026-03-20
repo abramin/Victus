@@ -342,15 +342,21 @@ func (g *GarminImporter) importHRV(ctx context.Context, reader io.Reader, year i
 			continue
 		}
 
-		// Parse HRV value (format: "33ms")
+		// Parse HRV value from column 1 (format: "33ms")
 		hrvMs := ParseHRVValue(record[1])
 		if hrvMs == nil {
 			result.Skipped++
 			continue
 		}
 
-		// Update daily log
-		err = g.dailyLogStore.UpdateHRV(ctx, date, *hrvMs)
+		// Parse reference range from column 2 if present (format: "31ms - 40ms")
+		var refMin, refMax *int
+		if len(record) >= 3 {
+			refMin, refMax = ParseHRVReferenceRange(record[2])
+		}
+
+		// Update daily log with HRV and reference range
+		err = g.dailyLogStore.UpdateHRV(ctx, date, *hrvMs, refMin, refMax)
 		if err != nil {
 			if strings.Contains(err.Error(), "not found") {
 				result.Skipped++

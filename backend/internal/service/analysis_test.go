@@ -332,3 +332,76 @@ func (s *AnalysisServiceSuite) TestRolling7DayWeightCalculation() {
 		s.InDelta(expectedAvg, result.ActualWeightKg, 0.1, "should use 7-day rolling average")
 	})
 }
+
+func (s *AnalysisServiceSuite) TestAnalyzePlanExcludesPrePlanWeightsOnStartDay() {
+	s.createProfile()
+	planStart := time.Date(2026, 2, 15, 0, 0, 0, 0, time.UTC)
+	planID := s.createActivePlan(planStart, 90.5, 79.0, 28)
+
+	// Pre-plan history should not affect in-plan analysis.
+	for i := 10; i >= 1; i-- {
+		date := planStart.AddDate(0, 0, -i)
+		weight := 88.0 + float64(i)*0.3
+		s.createDailyLog(date.Format("2006-01-02"), weight)
+	}
+
+	// Single in-plan weigh-in.
+	s.createDailyLog(planStart.Format("2006-01-02"), 90.5)
+
+	analysisDate := planStart.Add(12 * time.Hour)
+	result, err := s.service.AnalyzePlan(s.ctx, planID, analysisDate)
+
+	s.Require().NoError(err)
+	s.InDelta(90.5, result.ActualWeightKg, 0.01, "actual weight should use only in-plan sample")
+	s.Empty(result.TrendProjection, "single in-plan sample should not produce trend projection")
+	s.Nil(result.LandingPoint, "single in-plan sample should not produce landing point")
+}
+
+func (s *AnalysisServiceSuite) TestAnalyzePlanExcludesPrePlanWeightsOnDayFourWithSingleInPlanSample() {
+	s.createProfile()
+	planStart := time.Date(2026, 2, 15, 0, 0, 0, 0, time.UTC)
+	planID := s.createActivePlan(planStart, 90.5, 79.0, 28)
+
+	// Pre-plan history should not leak into 7-day average or 30-day trend.
+	for i := 14; i >= 1; i-- {
+		date := planStart.AddDate(0, 0, -i)
+		weight := 87.0 + float64(i)*0.2
+		s.createDailyLog(date.Format("2006-01-02"), weight)
+	}
+
+	// Still only one in-plan sample by day 4.
+	s.createDailyLog(planStart.Format("2006-01-02"), 90.5)
+
+	analysisDate := planStart.AddDate(0, 0, 4).Add(12 * time.Hour)
+	result, err := s.service.AnalyzePlan(s.ctx, planID, analysisDate)
+
+	s.Require().NoError(err)
+	s.InDelta(90.5, result.ActualWeightKg, 0.01, "actual weight should exclude all pre-plan samples")
+	s.Empty(result.TrendProjection, "trend should not be generated with fewer than 2 in-plan samples")
+	s.Nil(result.LandingPoint, "landing point should not be generated with fewer than 2 in-plan samples")
+}
+
+func (s *AnalysisServiceSuite) TestAnalyzePlanGeneratesTrendAfterSecondInPlanSample() {
+	s.createProfile()
+	planStart := time.Date(2026, 2, 15, 0, 0, 0, 0, time.UTC)
+	planID := s.createActivePlan(planStart, 90.5, 79.0, 28)
+
+	// Add substantial pre-plan history to verify it is ignored.
+	for i := 20; i >= 1; i-- {
+		date := planStart.AddDate(0, 0, -i)
+		weight := 86.0 + float64(i)*0.25
+		s.createDailyLog(date.Format("2006-01-02"), weight)
+	}
+
+	// Two in-plan samples enable trend calculation.
+	s.createDailyLog(planStart.Format("2006-01-02"), 90.5)
+	s.createDailyLog(planStart.AddDate(0, 0, 3).Format("2006-01-02"), 90.2)
+
+	analysisDate := planStart.AddDate(0, 0, 4).Add(12 * time.Hour)
+	result, err := s.service.AnalyzePlan(s.ctx, planID, analysisDate)
+
+	s.Require().NoError(err)
+	s.InDelta((90.5+90.2)/2.0, result.ActualWeightKg, 0.01, "actual weight should average in-plan samples only")
+	s.NotEmpty(result.TrendProjection, "trend projection should be generated after two in-plan samples")
+	s.NotNil(result.LandingPoint, "landing point should be generated after two in-plan samples")
+}

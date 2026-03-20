@@ -58,6 +58,7 @@ func (s *DailyLogStore) GetByDate(ctx context.Context, date string) (*domain.Dai
 	const query = `
 		SELECT
 			id, log_date, weight_kg, body_fat_percent, resting_heart_rate, hrv_ms,
+			hrv_reference_min, hrv_reference_max,
 			sleep_quality, sleep_hours,
 			COALESCE(total_carbs_g, 0), COALESCE(total_protein_g, 0), COALESCE(total_fats_g, 0), COALESCE(total_calories, 0),
 			COALESCE(breakfast_carb_points, 0), COALESCE(breakfast_protein_points, 0), COALESCE(breakfast_fat_points, 0),
@@ -86,6 +87,8 @@ func (s *DailyLogStore) GetByDate(ctx context.Context, date string) (*domain.Dai
 		bodyFatPercent       sql.NullFloat64
 		heartRate            sql.NullInt64
 		hrvMs                sql.NullInt64
+		hrvReferenceMin      sql.NullInt64
+		hrvReferenceMax      sql.NullInt64
 		sleepHours           sql.NullFloat64
 		activeCaloriesBurned sql.NullInt64
 		steps                sql.NullInt64
@@ -96,6 +99,7 @@ func (s *DailyLogStore) GetByDate(ctx context.Context, date string) (*domain.Dai
 
 	err := s.db.QueryRowContext(ctx, query, date).Scan(
 		&log.ID, &log.Date, &log.WeightKg, &bodyFatPercent, &heartRate, &hrvMs,
+		&hrvReferenceMin, &hrvReferenceMax,
 		&log.SleepQuality, &sleepHours,
 		&log.CalculatedTargets.TotalCarbsG, &log.CalculatedTargets.TotalProteinG,
 		&log.CalculatedTargets.TotalFatsG, &log.CalculatedTargets.TotalCalories,
@@ -140,6 +144,14 @@ func (s *DailyLogStore) GetByDate(ctx context.Context, date string) (*domain.Dai
 	if hrvMs.Valid {
 		hrv := int(hrvMs.Int64)
 		log.HRVMs = &hrv
+	}
+	if hrvReferenceMin.Valid {
+		min := int(hrvReferenceMin.Int64)
+		log.HRVReferenceMin = &min
+	}
+	if hrvReferenceMax.Valid {
+		max := int(hrvReferenceMax.Int64)
+		log.HRVReferenceMax = &max
 	}
 	if sleepHours.Valid {
 		log.SleepHours = &sleepHours.Float64
@@ -276,10 +288,10 @@ func (s *DailyLogStore) DeleteByDate(ctx context.Context, date string) error {
 // ListWeights returns weight samples ordered by date.
 // If startDate is empty, all samples are returned.
 func (s *DailyLogStore) ListWeights(ctx context.Context, startDate string) ([]domain.WeightSample, error) {
-	query := "SELECT log_date, weight_kg FROM daily_logs"
+	query := "SELECT log_date, weight_kg FROM daily_logs WHERE has_explicit_weight = true"
 	var args []interface{}
 	if startDate != "" {
-		query += " WHERE log_date >= $1"
+		query += " AND log_date >= $1"
 		args = append(args, startDate)
 	}
 	query += " ORDER BY log_date ASC"
@@ -310,7 +322,7 @@ func (s *DailyLogStore) ListWeights(ctx context.Context, startDate string) ([]do
 // If startDate is empty, all samples are returned.
 func (s *DailyLogStore) ListHistoryPoints(ctx context.Context, startDate string) ([]domain.HistoryPoint, error) {
 	query := `
-		SELECT log_date, weight_kg, COALESCE(estimated_tdee, 0), COALESCE(tdee_confidence, 0),
+		SELECT log_date, weight_kg, has_explicit_weight, COALESCE(estimated_tdee, 0), COALESCE(tdee_confidence, 0),
 			body_fat_percent, resting_heart_rate, sleep_hours, hrv_ms
 		FROM daily_logs
 	`
@@ -337,6 +349,7 @@ func (s *DailyLogStore) ListHistoryPoints(ctx context.Context, startDate string)
 		if err := rows.Scan(
 			&point.Date,
 			&point.WeightKg,
+			&point.HasExplicitWeight,
 			&point.EstimatedTDEE,
 			&point.TDEEConfidence,
 			&bodyFatPercent,
@@ -435,6 +448,7 @@ func (s *DailyLogStore) ListAdaptiveDataPoints(ctx context.Context, endDate stri
 		SELECT log_date, weight_kg, total_calories, COALESCE(estimated_tdee, 0), COALESCE(formula_tdee, 0)
 		FROM daily_logs
 		WHERE log_date <= $1
+		  AND has_explicit_weight = true
 		  AND total_calories > 0
 		ORDER BY log_date DESC
 		LIMIT $2
@@ -682,6 +696,46 @@ func (s *DailyLogStore) GetHRVHistory(ctx context.Context, beforeDate string, da
 	}
 
 	return hrvValues, nil
+}
+
+// GetRHRHistory returns resting heart rate values for the last N days before (not including) the given date.
+// Results are ordered by date descending (newest first), then reversed to oldest first.
+// Only returns non-null RHR values.
+func (s *DailyLogStore) GetRHRHistory(ctx context.Context, beforeDate string, days int) ([]int, error) {
+	const query = `
+		SELECT resting_heart_rate
+		FROM daily_logs
+		WHERE log_date < $1
+		  AND resting_heart_rate IS NOT NULL
+		ORDER BY log_date DESC
+		LIMIT $2
+	`
+
+	rows, err := s.db.QueryContext(ctx, query, beforeDate, days)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var rhrValues []int
+	for rows.Next() {
+		var rhr int
+		if err := rows.Scan(&rhr); err != nil {
+			return nil, err
+		}
+		rhrValues = append(rhrValues, rhr)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	// Reverse to get oldest first (for baseline calculation)
+	for i, j := 0, len(rhrValues)-1; i < j; i, j = i+1, j-1 {
+		rhrValues[i], rhrValues[j] = rhrValues[j], rhrValues[i]
+	}
+
+	return rhrValues, nil
 }
 
 // UpdateFastingOverride updates the fasting override for a given date.
@@ -932,6 +986,7 @@ func (s *DailyLogStore) updateHealthKitMetrics(ctx context.Context, date string,
 		setClauses = append(setClauses, fmt.Sprintf("weight_kg = $%d", paramNum))
 		args = append(args, *metrics.WeightKg)
 		paramNum++
+		setClauses = append(setClauses, "has_explicit_weight = true")
 	}
 	if metrics.BodyFatPercent != nil {
 		setClauses = append(setClauses, fmt.Sprintf("body_fat_percent = $%d", paramNum))
@@ -1175,14 +1230,21 @@ func (s *DailyLogStore) UpdateSleepData(ctx context.Context, date string, data S
 		sleepQuality = *data.SleepQuality
 	}
 
-	// UPSERT: create if not exists (with default weight), update sleep fields only
+	// UPSERT: create if not exists (carry forward last known weight), update sleep fields only
 	query := `
 		INSERT INTO daily_logs (
-			log_date, weight_kg, sleep_quality, sleep_hours,
+			log_date, weight_kg, has_explicit_weight, sleep_quality, sleep_hours,
 			resting_heart_rate, hrv_ms,
 			planned_training_type, planned_duration_min,
 			created_at, updated_at
-		) VALUES ($1, 75.0, $2, $3, $4, $5, 'rest', 0, $6, $7)
+		) VALUES (
+			$1,
+			COALESCE(
+				(SELECT weight_kg FROM daily_logs WHERE has_explicit_weight = true AND log_date <= $1 ORDER BY log_date DESC LIMIT 1),
+				75.0
+			),
+			false, $2, $3, $4, $5, 'rest', 0, $6, $7
+		)
 		ON CONFLICT (log_date) DO UPDATE SET
 			sleep_quality = EXCLUDED.sleep_quality,
 			sleep_hours = COALESCE(EXCLUDED.sleep_hours, daily_logs.sleep_hours),
@@ -1213,23 +1275,24 @@ func (s *DailyLogStore) UpdateWeightData(ctx context.Context, date string, data 
 	if data.WeightKg == nil && data.BodyFatPercent == nil {
 		return nil
 	}
-
-	weightKg := 75.0 // default
-	if data.WeightKg != nil {
-		weightKg = *data.WeightKg
+	if data.WeightKg == nil {
+		return fmt.Errorf("weight is required to upsert weight data")
 	}
+
+	weightKg := *data.WeightKg
 
 	now := time.Now()
 
 	// Use UPSERT to create if not exists, update weight fields only if exists
 	query := `
 		INSERT INTO daily_logs (
-			log_date, weight_kg, body_fat_percent, sleep_quality, 
+			log_date, weight_kg, has_explicit_weight, body_fat_percent, sleep_quality,
 			planned_training_type, planned_duration_min,
 			created_at, updated_at
-		) VALUES ($1, $2, $3, 50, 'rest', 0, $4, $5)
+		) VALUES ($1, $2, true, $3, 50, 'rest', 0, $4, $5)
 		ON CONFLICT (log_date) DO UPDATE SET
-			weight_kg = COALESCE(EXCLUDED.weight_kg, daily_logs.weight_kg),
+			weight_kg = EXCLUDED.weight_kg,
+			has_explicit_weight = true,
 			body_fat_percent = COALESCE(EXCLUDED.body_fat_percent, daily_logs.body_fat_percent),
 			updated_at = EXCLUDED.updated_at
 	`
@@ -1242,24 +1305,33 @@ func (s *DailyLogStore) UpdateWeightData(ctx context.Context, date string, data 
 	return nil
 }
 
-// UpdateHRV updates the HRV field for an existing daily log.
+// UpdateHRV updates the HRV field and reference range for an existing daily log.
 // If no log exists, creates one with default values and preserves weight if later imported.
-func (s *DailyLogStore) UpdateHRV(ctx context.Context, date string, hrvMs int) error {
+func (s *DailyLogStore) UpdateHRV(ctx context.Context, date string, hrvMs int, refMin *int, refMax *int) error {
 	now := time.Now()
 
-	// UPSERT: create if not exists (with default weight), update HRV only
-	const query = `
+	// UPSERT: create if not exists (carry forward last known weight), update HRV and reference range
+	query := `
 		INSERT INTO daily_logs (
-			log_date, weight_kg, sleep_quality, hrv_ms,
+			log_date, weight_kg, has_explicit_weight, sleep_quality, hrv_ms, hrv_reference_min, hrv_reference_max,
 			planned_training_type, planned_duration_min,
 			created_at, updated_at
-		) VALUES ($1, 75.0, 50, $2, 'rest', 0, $3, $4)
+		) VALUES (
+			$1,
+			COALESCE(
+				(SELECT weight_kg FROM daily_logs WHERE has_explicit_weight = true AND log_date <= $1 ORDER BY log_date DESC LIMIT 1),
+				75.0
+			),
+			false, 50, $2, $3, $4, 'rest', 0, $5, $6
+		)
 		ON CONFLICT (log_date) DO UPDATE SET
 			hrv_ms = EXCLUDED.hrv_ms,
+			hrv_reference_min = EXCLUDED.hrv_reference_min,
+			hrv_reference_max = EXCLUDED.hrv_reference_max,
 			updated_at = EXCLUDED.updated_at
 	`
 
-	_, err := s.db.ExecContext(ctx, query, date, hrvMs, now, now)
+	_, err := s.db.ExecContext(ctx, query, date, hrvMs, refMin, refMax, now, now)
 	return err
 }
 
@@ -1268,13 +1340,20 @@ func (s *DailyLogStore) UpdateHRV(ctx context.Context, date string, hrvMs int) e
 func (s *DailyLogStore) UpdateRHR(ctx context.Context, date string, rhr int) error {
 	now := time.Now()
 
-	// UPSERT: create if not exists (with default weight), update RHR only
-	const query = `
+	// UPSERT: create if not exists (carry forward last known weight), update RHR only
+	query := `
 		INSERT INTO daily_logs (
-			log_date, weight_kg, sleep_quality, resting_heart_rate,
+			log_date, weight_kg, has_explicit_weight, sleep_quality, resting_heart_rate,
 			planned_training_type, planned_duration_min,
 			created_at, updated_at
-		) VALUES ($1, 75.0, 50, $2, 'rest', 0, $3, $4)
+		) VALUES (
+			$1,
+			COALESCE(
+				(SELECT weight_kg FROM daily_logs WHERE has_explicit_weight = true AND log_date <= $1 ORDER BY log_date DESC LIMIT 1),
+				75.0
+			),
+			false, 50, $2, 'rest', 0, $3, $4
+		)
 		ON CONFLICT (log_date) DO UPDATE SET
 			resting_heart_rate = EXCLUDED.resting_heart_rate,
 			updated_at = EXCLUDED.updated_at

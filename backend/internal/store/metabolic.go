@@ -273,6 +273,7 @@ func (s *MetabolicStore) ListRecentWeights(ctx context.Context, days int) ([]dom
 		SELECT log_date, weight_kg
 		FROM daily_logs
 		WHERE log_date >= CURRENT_DATE - $1 * INTERVAL '1 day'
+		  AND has_explicit_weight = true
 		ORDER BY log_date ASC
 	`
 

@@ -34,6 +34,7 @@ describe('PlanHealthPanel - Vector-First Plan Health Status', () => {
       variancePercent: 1.9, // Within tolerance
       tolerancePercent: 3,
       recalibrationNeeded: false, // Backend says within tolerance
+      gracePeriod: false,
       trendDiverging: true, // But trend is going WRONG direction
       trendDivergingMsg: 'Weight trending +0.6 kg/wk, plan requires -0.5 kg/wk',
       planProjection: [],
@@ -69,6 +70,7 @@ describe('PlanHealthPanel - Vector-First Plan Health Status', () => {
       variancePercent: -2.5, // Within tolerance
       tolerancePercent: 3,
       recalibrationNeeded: false,
+      gracePeriod: false,
       trendDiverging: true, // Weight gain plan but losing weight
       trendDivergingMsg: 'Weight trending -0.3 kg/wk, plan requires +0.5 kg/wk',
       planProjection: [],
@@ -99,6 +101,7 @@ describe('PlanHealthPanel - Vector-First Plan Health Status', () => {
       variancePercent: -0.68,
       tolerancePercent: 3,
       recalibrationNeeded: false,
+      gracePeriod: false,
       trendDiverging: false,
       planProjection: [],
       landingPoint: {
@@ -126,6 +129,7 @@ describe('PlanHealthPanel - Vector-First Plan Health Status', () => {
       variancePercent: -0.68,
       tolerancePercent: 3,
       recalibrationNeeded: false,
+      gracePeriod: false,
       trendDiverging: false,
       planProjection: [],
       landingPoint: {
@@ -152,6 +156,7 @@ describe('PlanHealthPanel - Vector-First Plan Health Status', () => {
       variancePercent: 0,
       tolerancePercent: 3,
       recalibrationNeeded: false,
+      gracePeriod: false,
       trendDiverging: false,
       planProjection: [],
       landingPoint: {
@@ -179,6 +184,7 @@ describe('PlanHealthPanel - Vector-First Plan Health Status', () => {
       variancePercent: 0,
       tolerancePercent: 3,
       recalibrationNeeded: false,
+      gracePeriod: false,
       trendDiverging: false,
       planProjection: [],
       landingPoint: {
@@ -205,6 +211,7 @@ describe('PlanHealthPanel - Vector-First Plan Health Status', () => {
       variancePercent: 0,
       tolerancePercent: 3,
       recalibrationNeeded: false,
+      gracePeriod: false,
       trendDiverging: false,
       planProjection: [],
       landingPoint: {
@@ -231,6 +238,7 @@ describe('PlanHealthPanel - Vector-First Plan Health Status', () => {
       variancePercent: 0,
       tolerancePercent: 3,
       recalibrationNeeded: false,
+      gracePeriod: false,
       trendDiverging: false,
       planProjection: [],
       landingPoint: {
@@ -258,6 +266,7 @@ describe('PlanHealthPanel - Vector-First Plan Health Status', () => {
       variancePercent: 0,
       tolerancePercent: 3,
       recalibrationNeeded: false,
+      gracePeriod: false,
       trendDiverging: false,
       planProjection: [],
       landingPoint: {
@@ -284,6 +293,7 @@ describe('PlanHealthPanel - Vector-First Plan Health Status', () => {
       variancePercent: 0,
       tolerancePercent: 3,
       recalibrationNeeded: false,
+      gracePeriod: false,
       trendDiverging: false,
       planProjection: [],
       landingPoint: {
@@ -320,6 +330,7 @@ describe('PlanHealthPanel - Vector-First Plan Health Status', () => {
       variancePercent: -0.82,
       tolerancePercent: 3,
       recalibrationNeeded: false,
+      gracePeriod: false,
       trendDiverging: false,
       planProjection: [],
       landingPoint: {
@@ -348,6 +359,7 @@ describe('PlanHealthPanel - Vector-First Plan Health Status', () => {
       variancePercent: -0.68,
       tolerancePercent: 3,
       recalibrationNeeded: false,
+      gracePeriod: false,
       trendDiverging: false,
       planProjection: [],
       // No landingPoint — insufficient trend data
@@ -372,6 +384,7 @@ describe('PlanHealthPanel - Vector-First Plan Health Status', () => {
       variancePercent: 1.9,
       tolerancePercent: 3,
       recalibrationNeeded: false,
+      gracePeriod: false,
       trendDiverging: true,
       trendDivergingMsg: 'Weight trending +0.6 kg/wk, plan requires -0.5 kg/wk',
       planProjection: [],
@@ -435,6 +448,7 @@ describe('Health signal ↔ strategy availability coherence', () => {
       variancePercent: 0,
       tolerancePercent: 3,
       recalibrationNeeded: false,
+      gracePeriod: false,
       trendDiverging: false,
       planProjection: [],
       landingPoint: {
@@ -471,6 +485,7 @@ describe('Health signal ↔ strategy availability coherence', () => {
       variancePercent: 3.95,
       tolerancePercent: 3,
       recalibrationNeeded: true,
+      gracePeriod: false,
       trendDiverging: false,
       options: offTrackOptions,
       planProjection: [],
@@ -509,6 +524,7 @@ describe('Health signal ↔ strategy availability coherence', () => {
       variancePercent: 3.05,
       tolerancePercent: 3,
       recalibrationNeeded: true,
+      gracePeriod: false,
       trendDiverging: false,
       options: offTrackOptions,
       planProjection: [],
@@ -547,6 +563,7 @@ describe('Health signal ↔ strategy availability coherence', () => {
       variancePercent: 0,
       tolerancePercent: 3,
       recalibrationNeeded: false,
+      gracePeriod: false,
       trendDiverging: false,
       planProjection: [],
       landingPoint: {
@@ -590,6 +607,7 @@ describe('Health signal ↔ strategy availability coherence', () => {
       variancePercent: 3.95,
       tolerancePercent: 3,
       recalibrationNeeded: true,
+      gracePeriod: false,
       trendDiverging: true, // Trend opposes goal
       trendDivergingMsg: 'Weight trending +0.6 kg/wk, plan requires -0.5 kg/wk',
       options: offTrackOptions,
@@ -628,6 +646,7 @@ describe('Health signal ↔ strategy availability coherence', () => {
       variancePercent: 2.82,
       tolerancePercent: 3,
       recalibrationNeeded: true,
+      gracePeriod: false,
       trendDiverging: false,
       options: offTrackOptions,
       planProjection: [],
@@ -667,6 +686,7 @@ describe('Health signal ↔ strategy availability coherence', () => {
       variancePercent: 1.58,
       tolerancePercent: 3,
       recalibrationNeeded: false, // Variance within tolerance
+      gracePeriod: false,
       trendDiverging: true, // But trend is going wrong direction!
       trendDivergingMsg: 'Weight trending +0.6 kg/wk, plan requires -0.5 kg/wk',
       options: offTrackOptions, // Backend generates options when trendDiverging
@@ -706,6 +726,7 @@ describe('Health signal ↔ strategy availability coherence', () => {
       variancePercent: 2.82,
       tolerancePercent: 3,
       recalibrationNeeded: true,
+      gracePeriod: false,
       trendDiverging: false,
       // options intentionally absent
       planProjection: [],

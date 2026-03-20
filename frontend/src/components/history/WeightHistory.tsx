@@ -4,8 +4,9 @@ import type {
   UserProfile,
   WeightTrendRange,
 } from '../../api/types';
-import { getLogByDate } from '../../api/client';
+import { getLogByDate, syncGarmin } from '../../api/client';
 import { useHistorySummary } from '../../hooks/useHistorySummary';
+import { useMonthlySummaries } from '../../hooks/useMonthlySummaries';
 import { Card } from '../common/Card';
 import { HistoryLogModal } from './HistoryLogModal';
 import { formatShortDate } from '../../utils';
@@ -17,6 +18,7 @@ import {
   CompositionChart,
   RecoveryCorrelationChart,
   ResilienceChart,
+  MonthlyActivitySummaryChart,
 } from './charts';
 
 const RANGE_OPTIONS: { label: string; value: WeightTrendRange }[] = [
@@ -52,27 +54,79 @@ function formatWeeklyChange(value: number): string {
 
 export function WeightHistory({ profile }: { profile: UserProfile }) {
   const [range, setRange] = useState<WeightTrendRange>('30d');
-  const { data, loading, error } = useHistorySummary(range);
+  const { data, loading, error, refresh } = useHistorySummary(range);
+  const {
+    data: monthlySummaries,
+    loading: monthlyLoading,
+    error: monthlyError,
+  } = useMonthlySummaries(range);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedLog, setSelectedLog] = useState<DailyLog | null>(null);
   const [logLoading, setLogLoading] = useState(false);
   const [logError, setLogError] = useState<string | null>(null);
   const [chartView, setChartView] = useState<ChartView>('weight');
   const activeDateRef = useRef<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [syncSuccess, setSyncSuccess] = useState(false);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    setSyncError(null);
+    setSyncSuccess(false);
+    try {
+      await syncGarmin();
+      setSyncSuccess(true);
+      refresh();
+      setTimeout(() => setSyncSuccess(false), 3000);
+    } catch {
+      setSyncError('Sync failed. Check Garmin credentials.');
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const points = data?.points ?? [];
+  const explicitWeightPoints = useMemo(
+    () => points.filter((p) => p.hasExplicitWeight !== false),
+    [points]
+  );
+  // Build chart points with carry-forward weight for non-weigh days.
+  // This gives a continuous line with dots only on actual weigh-in days.
+  const chartWeightPoints = useMemo(() => {
+    let lastKnown: number | null = null;
+    // First pass: find earliest explicit weight for backfill
+    const firstExplicit = points.find((p) => p.hasExplicitWeight !== false);
+    if (firstExplicit) lastKnown = firstExplicit.weightKg;
+    // Second pass: carry forward
+    lastKnown = null;
+    return points.map((p) => {
+      if (p.hasExplicitWeight !== false) {
+        lastKnown = p.weightKg;
+        return p;
+      }
+      if (lastKnown !== null) {
+        return { ...p, weightKg: lastKnown };
+      }
+      // Before any explicit weight, use the first explicit weight
+      if (firstExplicit) {
+        return { ...p, weightKg: firstExplicit.weightKg };
+      }
+      return p;
+    });
+  }, [points]);
   const trend = data?.trend;
   const trainingSummary = data?.trainingSummary;
 
-  const latest = points[points.length - 1];
-  const earliest = points[0];
+  const latest = explicitWeightPoints[explicitWeightPoints.length - 1];
+  const earliest = explicitWeightPoints[0];
   const rangeChange = latest && earliest ? latest.weightKg - earliest.weightKg : 0;
 
   const weightStats = useMemo(() => {
     const trendConfidence = trend ? getTrendConfidence(trend.rSquared) : null;
 
     // Body fat stats for composition view
-    const pointsWithBodyFat = points.filter((p) => p.bodyFatPercent !== undefined);
+    const pointsWithBodyFat = explicitWeightPoints.filter((p) => p.bodyFatPercent !== undefined);
     const latestBf = pointsWithBodyFat.length > 0 ? pointsWithBodyFat[pointsWithBodyFat.length - 1] : null;
     const earliestBf = pointsWithBodyFat.length > 0 ? pointsWithBodyFat[0] : null;
     const bodyFatChange = latestBf && earliestBf && latestBf.bodyFatPercent !== undefined && earliestBf.bodyFatPercent !== undefined
@@ -81,22 +135,22 @@ export function WeightHistory({ profile }: { profile: UserProfile }) {
 
     return {
       latestWeight: latest ? formatWeight(latest.weightKg) : '--',
-      rangeChange: points.length > 1 ? `${rangeChange >= 0 ? '+' : ''}${rangeChange.toFixed(1)} kg` : '--',
+      rangeChange: explicitWeightPoints.length > 1 ? `${rangeChange >= 0 ? '+' : ''}${rangeChange.toFixed(1)} kg` : '--',
       weeklyChange: trend ? formatWeeklyChange(trend.weeklyChangeKg) : '--',
       trendConfidence,
-      dataPoints: points.length,
+      dataPoints: explicitWeightPoints.length,
       // Body fat specific
       latestBodyFat: latestBf?.bodyFatPercent !== undefined ? `${latestBf.bodyFatPercent.toFixed(1)}%` : '--',
       bodyFatChange: bodyFatChange !== null ? `${bodyFatChange >= 0 ? '+' : ''}${bodyFatChange.toFixed(1)}%` : '--',
       bodyFatMeasurements: pointsWithBodyFat.length,
     };
-  }, [latest, points, rangeChange, trend]);
+  }, [explicitWeightPoints, latest, rangeChange, trend]);
 
   // Check if enough composition data exists to show toggle (at least 3 points with body fat)
   const hasCompositionData = useMemo(() => {
-    const pointsWithBodyFat = points.filter((p) => p.bodyFatPercent !== undefined);
+    const pointsWithBodyFat = explicitWeightPoints.filter((p) => p.bodyFatPercent !== undefined);
     return pointsWithBodyFat.length >= 3;
-  }, [points]);
+  }, [explicitWeightPoints]);
 
   // Check if recovery data exists (at least 3 points with RHR or sleep)
   const hasRecoveryData = useMemo(() => {
@@ -140,7 +194,7 @@ export function WeightHistory({ profile }: { profile: UserProfile }) {
     setLogLoading(false);
   };
 
-  const recentPoints = points.slice(-RECENT_LOG_LIMIT);
+  const recentPoints = explicitWeightPoints.slice(-RECENT_LOG_LIMIT);
 
   return (
     <div className="p-6 space-y-6" data-testid="weight-history">
@@ -150,20 +204,33 @@ export function WeightHistory({ profile }: { profile: UserProfile }) {
           <h1 className="text-2xl font-semibold text-white">History</h1>
           <p className="text-sm text-slate-500">Weight trends, training consistency, and metabolic insights.</p>
         </div>
-        <div className="flex items-center gap-1 bg-slate-900 rounded-lg p-1 border border-slate-800" data-testid="range-selector">
-          {RANGE_OPTIONS.map((option) => (
+        <div className="flex items-center gap-3">
+          <div className="flex flex-col items-end gap-0.5">
             <button
-              key={option.value}
-              onClick={() => setRange(option.value)}
-              data-testid={`range-${option.value}`}
-              className={`px-3 py-1.5 rounded text-sm transition-colors ${range === option.value
-                  ? 'bg-slate-700 text-white'
-                  : 'text-slate-400 hover:text-white'
-                }`}
+              onClick={handleSync}
+              disabled={syncing}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white disabled:opacity-50 transition-colors"
             >
-              {option.label}
+              {syncing ? '↻ Syncing...' : '↑ Sync Garmin'}
             </button>
-          ))}
+            {syncSuccess && <span className="text-xs text-emerald-400">Synced</span>}
+            {syncError && <span className="text-xs text-red-400">{syncError}</span>}
+          </div>
+          <div className="flex items-center gap-1 bg-slate-900 rounded-lg p-1 border border-slate-800" data-testid="range-selector">
+            {RANGE_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                onClick={() => setRange(option.value)}
+                data-testid={`range-${option.value}`}
+                className={`px-3 py-1.5 rounded text-sm transition-colors ${range === option.value
+                    ? 'bg-slate-700 text-white'
+                    : 'text-slate-400 hover:text-white'
+                  }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -293,7 +360,7 @@ export function WeightHistory({ profile }: { profile: UserProfile }) {
           <div data-testid="weight-chart">
             {chartView === 'weight' && (
               <WeightTrendChart
-                points={points}
+                points={chartWeightPoints}
                 trend={trend}
                 onSelectDate={handleSelectDate}
                 selectedDate={selectedDate}
@@ -301,7 +368,7 @@ export function WeightHistory({ profile }: { profile: UserProfile }) {
             )}
             {chartView === 'composition' && (
               <CompositionChart
-                points={points}
+                points={explicitWeightPoints}
                 onSelectDate={handleSelectDate}
                 selectedDate={selectedDate}
               />
@@ -382,6 +449,27 @@ export function WeightHistory({ profile }: { profile: UserProfile }) {
         )}
         {!loading && !error && (
           <TrainingVolumeChart points={points} trainingSummary={trainingSummary} />
+        )}
+      </Card>
+
+      {/* Garmin Monthly Activity (from Actividades.csv imports) */}
+      <Card title="Imported Monthly Activity">
+        <p className="text-xs text-slate-500 mb-4">
+          Garmin `Actividades` imports are monthly aggregates. They are shown here instead of daily
+          training compliance charts.
+        </p>
+        {monthlyLoading && (
+          <div className="h-48 bg-slate-900/60 rounded-lg border border-slate-800 flex items-center justify-center text-slate-500 text-sm">
+            Loading monthly activity...
+          </div>
+        )}
+        {!monthlyLoading && monthlyError && (
+          <div className="h-48 bg-slate-900/60 rounded-lg border border-slate-800 flex items-center justify-center text-rose-400 text-sm">
+            {monthlyError}
+          </div>
+        )}
+        {!monthlyLoading && !monthlyError && (
+          <MonthlyActivitySummaryChart summaries={monthlySummaries} />
         )}
       </Card>
 

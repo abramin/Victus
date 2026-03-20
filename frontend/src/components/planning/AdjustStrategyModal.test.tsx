@@ -44,6 +44,7 @@ describe('AdjustStrategyModal', () => {
     variancePercent: 1.3,
     tolerancePercent: 5.0,
     recalibrationNeeded: true,
+    gracePeriod: false,
     trendDiverging: false,
     options: [increaseDeficitOption, extendTimelineOption],
     planProjection: [],

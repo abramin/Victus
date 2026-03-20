@@ -123,6 +123,7 @@ CREATE TABLE IF NOT EXISTS daily_logs (
     id SERIAL PRIMARY KEY,
     log_date TEXT UNIQUE NOT NULL,
     weight_kg REAL NOT NULL,
+    has_explicit_weight BOOLEAN NOT NULL DEFAULT true,
     body_fat_percent REAL,
     resting_heart_rate INTEGER,
     sleep_quality INTEGER NOT NULL CHECK (sleep_quality BETWEEN 1 AND 100),
@@ -479,6 +480,33 @@ var pgAlterMigrations = []string{
 	`ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS raw_echo_log TEXT`,
 	// Echo logging: parsed metadata (achievements, rpe_offset, etc.)
 	`ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS extra_metadata JSONB`,
+	// HRV reference ranges from Garmin for CNS alert detection
+	`ALTER TABLE daily_logs ADD COLUMN IF NOT EXISTS hrv_reference_min INTEGER`,
+	`ALTER TABLE daily_logs ADD COLUMN IF NOT EXISTS hrv_reference_max INTEGER`,
+	// Track whether a weight was explicitly recorded (vs placeholder value from non-weight imports)
+	`ALTER TABLE daily_logs ADD COLUMN IF NOT EXISTS has_explicit_weight BOOLEAN NOT NULL DEFAULT true`,
+	// Backfill common placeholder rows created by non-weight imports (75kg + recovery-only data).
+	`UPDATE daily_logs
+		SET has_explicit_weight = false
+		WHERE weight_kg = 75
+		  AND planned_training_type = 'rest'
+		  AND planned_duration_min = 0
+		  AND day_type IS NULL
+		  AND total_calories IS NULL
+		  AND body_fat_percent IS NULL
+		  AND (sleep_quality <> 50 OR sleep_hours IS NOT NULL OR resting_heart_rate IS NOT NULL OR hrv_ms IS NOT NULL)`,
+	// Carry forward last known weight for non-explicit placeholder rows (replace 75kg default).
+	`UPDATE daily_logs d
+		SET weight_kg = sub.prev_weight
+		FROM (
+			SELECT d2.log_date,
+				(SELECT weight_kg FROM daily_logs
+				 WHERE has_explicit_weight = true AND log_date <= d2.log_date
+				 ORDER BY log_date DESC LIMIT 1) AS prev_weight
+			FROM daily_logs d2
+			WHERE d2.has_explicit_weight = false
+		) sub
+		WHERE d.log_date = sub.log_date AND sub.prev_weight IS NOT NULL`,
 }
 
 func pgSeedTrainingConfigs(db *sql.DB) error {

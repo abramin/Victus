@@ -85,6 +85,30 @@ export function PlanHealthPanel({ plan, analysis }: PlanHealthPanelProps) {
     );
   }
 
+  if (analysis.gracePeriod) {
+    return (
+      <Card title="Plan Health">
+        <div className={`p-4 rounded-xl ${SIGNAL_CONFIG.on_track.bgColor} border-2 ${SIGNAL_CONFIG.on_track.borderColor}`}>
+          <div className="flex items-center gap-4">
+            <motion.div
+              className={`w-5 h-5 rounded-full ${SIGNAL_CONFIG.on_track.dotColor}`}
+              animate={{ scale: [1, 1.15, 1], opacity: [1, 0.8, 1] }}
+              transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+            />
+            <div>
+              <div className={`text-xl font-bold ${SIGNAL_CONFIG.on_track.textColor}`}>
+                PLAN STARTED
+              </div>
+              <div className="text-sm text-gray-400 mt-0.5">
+                Gathering data — variance tracking begins in a few days.
+              </div>
+            </div>
+          </div>
+        </div>
+      </Card>
+    );
+  }
+
   const signal = getSignalStatus(analysis);
   const config = SIGNAL_CONFIG[signal];
 

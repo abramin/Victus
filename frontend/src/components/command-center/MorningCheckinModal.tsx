@@ -348,7 +348,7 @@ export function MorningCheckinModal({
                   Sleep Duration
                 </label>
                 <span className="text-white font-medium text-lg">
-                  {sleepHours}h
+                  {sleepHours.toFixed(2)}h
                 </span>
               </div>
               <input

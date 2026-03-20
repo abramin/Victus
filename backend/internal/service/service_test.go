@@ -385,10 +385,15 @@ func (s *DailyLogServiceSuite) TestCNSTrainingOverrideWhenDepleted() {
 		for i := 0; i < 14; i++ {
 			date := baseDate.AddDate(0, 0, i).Format("2006-01-02")
 			hrvValue := 55 // High baseline HRV
+			if i >= 12 {
+				hrvValue = 30 // Keep last 2 days low for 3-day consecutive low streak with today
+			}
+			rhrValue := 60
 			log := &domain.DailyLog{
 				Date:              date,
 				WeightKg:          85,
 				SleepQuality:      80,
+				RestingHeartRate:  &rhrValue,
 				HRVMs:             &hrvValue,
 				DayType:           domain.DayTypeFatburner,
 				CalculatedTargets: domain.DailyTargets{DayType: domain.DayTypeFatburner},
@@ -397,11 +402,13 @@ func (s *DailyLogServiceSuite) TestCNSTrainingOverrideWhenDepleted() {
 			s.Require().NoError(err)
 		}
 
-		// Create log with significantly lower HRV (>25% below baseline should be depleted)
+		// Create log with significantly lower HRV and 10% higher resting HR
 		hrvValue := 30 // 45% below baseline of 55
+		rhrValue := 66 // 10% above baseline of 60
 		input := domain.DailyLogInput{
-			WeightKg: 85,
-			HRVMs:    &hrvValue,
+			WeightKg:         85,
+			HRVMs:            &hrvValue,
+			RestingHeartRate: &rhrValue,
 			PlannedSessions: []domain.TrainingSession{{
 				SessionOrder: 1,
 				IsPlanned:    true,
@@ -412,9 +419,9 @@ func (s *DailyLogServiceSuite) TestCNSTrainingOverrideWhenDepleted() {
 		result, err := s.logService.Create(s.ctx, input, s.now)
 		s.Require().NoError(err)
 
-		// HRV 45% below a high baseline triggers depletion; override must be generated
+		// All 3 conditions met: >20% HRV drop, 3+ consecutive low days, 5-10% RHR increase
 		s.Require().NotNil(result.CNSResult, "CNS result must be computed with 14 days of HRV history")
-		s.Equal(domain.CNSStatusDepleted, result.CNSResult.Status, "45%% drop below baseline should be depleted")
+		s.Equal(domain.CNSStatusDepleted, result.CNSResult.Status, "all depletion conditions should be met")
 		s.NotEmpty(result.TrainingOverrides, "Should have training overrides when CNS depleted")
 	})
 }

@@ -87,7 +87,7 @@ export function BiometricHUD({ log, yesterdayLog, onEdit }: BiometricHUDProps) {
 
   // Format sleep display
   const sleepDisplay = log.sleepHours
-    ? `${log.sleepHours}h`
+    ? `${log.sleepHours.toFixed(2)}h`
     : '—';
 
   const sleepQualityDisplay = log.sleepQuality

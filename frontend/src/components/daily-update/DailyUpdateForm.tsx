@@ -518,9 +518,9 @@ export function DailyUpdateForm({
               </div>
               {(log?.bodyFatPercent || log?.restingHeartRate || log?.sleepHours || log?.bmrPrecisionMode) && (
                 <div className="flex flex-wrap gap-x-4 gap-y-2 mt-4 pt-4 border-t border-gray-800 text-sm text-gray-400 items-center">
-                  {log?.bodyFatPercent && <span>Body Fat: {log.bodyFatPercent}%</span>}
+                  {log?.bodyFatPercent && <span>Body Fat: {log.bodyFatPercent.toFixed(2)}%</span>}
                   {log?.restingHeartRate && <span>HR: {log.restingHeartRate} bpm</span>}
-                  {log?.sleepHours && <span>Slept: {log.sleepHours}h</span>}
+                  {log?.sleepHours && <span>Slept: {log.sleepHours.toFixed(2)}h</span>}
                   {log?.bmrPrecisionMode && (
                     <BMRPrecisionBadge active={true} bodyFatDate={log.bodyFatUsedDate} />
                   )}

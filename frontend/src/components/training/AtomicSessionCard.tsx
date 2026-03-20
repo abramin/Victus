@@ -1,28 +1,9 @@
 import { useState } from 'react';
-import { RadialIntensitySelector } from './RadialIntensitySelector';
+import { IntensityLoadSelector } from './IntensityLoadSelector';
 import { TrainingTypeCards } from './TrainingTypeCards';
 import { SemanticHighlighter } from '../semantic/SemanticHighlighter';
 import type { TrainingType, Archetype } from '../../api/types';
 import type { SemanticToken } from '../semantic/semanticDictionary';
-import { formatNumber } from '../../utils/format';
-
-// Load score coefficients matching backend
-const TRAINING_LOAD_SCORES: Record<TrainingType, number> = {
-  rest: 0,
-  qigong: 0.5,
-  mobility: 0.5,
-  walking: 1,
-  cycle: 2,
-  gmb: 3,
-  run: 3,
-  row: 3,
-  calisthenics: 3,
-  mixed: 4,
-  strength: 5,
-  hiit: 5,
-};
-
-const DEFAULT_RPE = 5;
 
 interface SessionData {
   _id: string;
@@ -46,24 +27,6 @@ interface AtomicSessionCardProps {
   onTokensChange: (id: string, tokens: SemanticToken[]) => void;
 }
 
-function getSessionLoadScore(session: SessionData): number {
-  if (session.type === 'rest') return 0;
-  const loadScore = TRAINING_LOAD_SCORES[session.type] ?? 1;
-  const durationFactor = session.durationMin / 60;
-  const rpeValue = session.perceivedIntensity ?? DEFAULT_RPE;
-  const rpeFactor = rpeValue / 3;
-  return Math.round(loadScore * durationFactor * rpeFactor * 100) / 100;
-}
-
-function getLoadTone(score: number) {
-  if (score <= 0) return { label: 'No Load', className: 'text-gray-500' };
-  if (score <= 1) return { label: 'Very Low', className: 'text-emerald-400' };
-  if (score <= 3) return { label: 'Low Stress', className: 'text-green-400' };
-  if (score <= 6) return { label: 'Moderate Stress', className: 'text-yellow-400' };
-  if (score <= 10) return { label: 'High Stress', className: 'text-orange-400' };
-  return { label: 'Max Stress', className: 'text-red-400' };
-}
-
 export function AtomicSessionCard({
   session,
   index,
@@ -79,8 +42,6 @@ export function AtomicSessionCard({
     (session.notes ?? '').trim().length > 0
   );
 
-  const loadScore = getSessionLoadScore(session);
-  const loadTone = getLoadTone(loadScore);
   const hasNotes = (session.notes ?? '').trim().length > 0;
   const isNotesVisible = notesExpanded || hasNotes;
   const isCommitted = session.committed;
@@ -119,12 +80,34 @@ export function AtomicSessionCard({
           value={session.type}
           onChange={handleTypeChange}
           disabled={saving || isCommitted}
+          excludeTypes={['rest']}
         />
 
         {/* Duration Input */}
         {session.type !== 'rest' && (
-          <div className="flex items-center gap-2 mt-3">
-            <span className="text-sm text-gray-400">Duration:</span>
+          <div className="mt-3">
+            <span className="text-sm text-gray-400 mb-2 block">Duration</span>
+
+            {/* Preset buttons */}
+            <div className="flex flex-wrap gap-2 mb-2">
+              {[15, 30, 45, 60, 90].map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => onUpdate(session._id, { durationMin: preset })}
+                  className={`px-3 py-1 text-sm rounded-lg transition-colors ${
+                    session.durationMin === preset
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                  }`}
+                  disabled={saving || isCommitted}
+                >
+                  {preset}m
+                </button>
+              ))}
+            </div>
+
+            {/* Number input for custom values */}
             <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg hover:border-gray-600 transition-colors">
               <span className="text-gray-400">⏱</span>
               <input
@@ -148,30 +131,17 @@ export function AtomicSessionCard({
         )}
       </div>
 
-      {/* RPE Dial */}
+      {/* Intensity & Load Selector */}
       {session.type !== 'rest' && (
-        <>
-          <div className="flex justify-center my-4">
-            <RadialIntensitySelector
-              value={session.perceivedIntensity}
-              onChange={(val) => onUpdate(session._id, { perceivedIntensity: val })}
-              disabled={saving || isCommitted}
-            />
-          </div>
-
-          {/* Load Output */}
-          <div className="text-center mt-6 p-3 bg-slate-800 rounded-lg border border-slate-700">
-            <div className="flex items-center justify-center gap-2">
-              <span className="text-lg">⚡</span>
-              <span className="text-xl font-bold text-white">
-                LOAD: {formatNumber(loadScore, 1)}
-              </span>
-            </div>
-            <p className={`text-xs mt-1 ${loadTone.className}`}>
-              ({loadTone.label})
-            </p>
-          </div>
-        </>
+        <div className="flex justify-center my-4">
+          <IntensityLoadSelector
+            value={session.perceivedIntensity}
+            onChange={(val) => onUpdate(session._id, { perceivedIntensity: val })}
+            durationMin={session.durationMin}
+            trainingType={session.type}
+            disabled={saving || isCommitted}
+          />
+        </div>
       )}
 
       {/* Notes Section */}

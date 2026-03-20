@@ -247,7 +247,7 @@ export function PlanOverview() {
         currentWeek={plan.currentWeek}
         totalWeeks={plan.durationWeeks}
         startWeightKg={plan.startWeightKg}
-        currentWeightKg={analysis?.actualWeightKg ?? plan.startWeightKg}
+        currentWeightKg={analysis?.gracePeriod ? plan.startWeightKg : (analysis?.actualWeightKg ?? plan.startWeightKg)}
         targetWeightKg={plan.goalWeightKg}
       />
 

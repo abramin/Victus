@@ -79,7 +79,7 @@ export function PlanSummaryCard({ plan, analysis, onComplete, onAbandon }: PlanS
         </div>
 
         {/* Variance info */}
-        {analysis && (
+        {analysis && !analysis.gracePeriod && (
           <div className={`p-3 rounded-lg ${analysis.recalibrationNeeded ? 'bg-yellow-50 border border-yellow-200' : 'bg-green-50'}`}>
             <div className="flex justify-between items-center">
               <div>

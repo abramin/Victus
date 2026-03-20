@@ -2,11 +2,12 @@ package domain
 
 // HistoryPoint represents a single historical data point for history views.
 type HistoryPoint struct {
-	Date           string
-	WeightKg       float64
-	EstimatedTDEE  int
-	TDEEConfidence float64
-	HasTraining    bool // Whether actual training sessions occurred on this day
+	Date              string
+	WeightKg          float64
+	HasExplicitWeight bool
+	EstimatedTDEE     int
+	TDEEConfidence    float64
+	HasTraining       bool // Whether actual training sessions occurred on this day
 
 	// Per-day training details for compliance tracking
 	PlannedSessionCount int

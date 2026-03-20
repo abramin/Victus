@@ -32,6 +32,7 @@ type Server struct {
 	ollamaService        *service.OllamaService
 	movementService      *service.MovementService
 	systemicLoadService  *service.SystemicLoadService
+	garminSyncService    *service.GarminSyncService
 	plannedDayTypeStore  *store.PlannedDayTypeStore
 	plannerSessionStore  *store.PlannerSessionStore
 	foodReferenceStore   *store.FoodReferenceStore
@@ -99,6 +100,7 @@ func NewServer(db store.DBTX) *Server {
 		solverService:        solverService,
 		weeklyDebriefService: weeklyDebriefService,
 		importService:        service.NewImportService(dailyLogStore, monthlySummaryStore),
+		garminSyncService:    service.NewGarminSyncService(dailyLogStore),
 		bodyIssueService:     service.NewBodyIssueService(bodyIssueStore),
 		auditService:         auditService,
 		ollamaService:        ollamaService,
@@ -214,6 +216,7 @@ func NewServer(db store.DBTX) *Server {
 
 	// Garmin Data Import routes
 	mux.HandleFunc("POST /api/import/garmin", srv.uploadGarminData)
+	mux.HandleFunc("POST /api/sync/garmin", srv.syncGarminData)
 	mux.HandleFunc("GET /api/stats/monthly-summaries", srv.getMonthlySummaries)
 
 	// Body Issues routes (Semantic Tagger - Phase 4)

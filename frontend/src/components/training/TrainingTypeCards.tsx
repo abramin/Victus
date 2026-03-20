@@ -26,8 +26,9 @@ const TRAINING_TYPES_ORDER: TrainingType[] = [
 ];
 
 /**
- * Horizontal scrolling row of training type icon cards.
+ * Grid of training type icon cards.
  * Replaces dropdown selector with visual, tap-friendly cards.
+ * Grid layout: 3 columns on mobile, 4 columns on desktop.
  */
 export function TrainingTypeCards({
   value,
@@ -42,7 +43,7 @@ export function TrainingTypeCards({
   return (
     <div className="space-y-2">
       <span className="text-sm text-gray-400">Training Type</span>
-      <div className="flex gap-2 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
+      <div className="grid grid-cols-3 md:grid-cols-4 gap-2">
         {availableTypes.map((type) => {
           const isSelected = value === type;
           const colors = TRAINING_COLORS[type];
@@ -54,7 +55,6 @@ export function TrainingTypeCards({
               onClick={() => onChange(type)}
               disabled={disabled}
               className={`
-                flex-shrink-0 snap-center
                 w-20 h-24 rounded-xl
                 flex flex-col items-center justify-center gap-2
                 border-2 transition-all duration-150

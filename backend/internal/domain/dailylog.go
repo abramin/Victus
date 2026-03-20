@@ -16,6 +16,8 @@ type DailyLog struct {
 	BodyFatPercent    *float64
 	RestingHeartRate  *int
 	HRVMs             *int // Heart Rate Variability in milliseconds (rMSSD)
+	HRVReferenceMin   *int // Garmin HRV reference range minimum (age/fitness adjusted)
+	HRVReferenceMax   *int // Garmin HRV reference range maximum (age/fitness adjusted)
 	SleepQuality      SleepQuality
 	SleepHours        *float64
 	PlannedSessions   []TrainingSession // Multiple training sessions per day

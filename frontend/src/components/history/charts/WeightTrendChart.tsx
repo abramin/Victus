@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   ComposedChart,
@@ -29,6 +29,7 @@ interface ChartDataPoint {
   weightDisplay: number | null;
   isOutlier: boolean;
   hasTraining: boolean;
+  hasExplicitWeight: boolean;
   trendWeight?: number;
   notes?: string;
 }
@@ -66,6 +67,23 @@ function calculatePercentileBounds(
   };
 }
 
+function calculateRawBounds(
+  weights: number[],
+  paddingFactor = 0.15
+): { min: number; max: number; p5: number; p95: number } {
+  if (weights.length === 0) return { min: 70, max: 90, p5: 70, p95: 90 };
+  const minWeight = Math.min(...weights);
+  const maxWeight = Math.max(...weights);
+  const range = maxWeight - minWeight;
+  const padding = range === 0 ? 2 : range * paddingFactor;
+  return {
+    min: minWeight - padding,
+    max: maxWeight + padding,
+    p5: minWeight,
+    p95: maxWeight,
+  };
+}
+
 /**
  * Calculate trend line points using regression coefficients.
  */
@@ -85,21 +103,25 @@ export function WeightTrendChart({
   onSelectDate,
   selectedDate,
 }: WeightTrendChartProps) {
-  const [brushRange, setBrushRange] = useState<{ startIndex: number; endIndex: number } | null>(
-    null
-  );
+  const [brushRange, setBrushRange] = useState<{ startIndex: number; endIndex: number }>({
+    startIndex: 0,
+    endIndex: 0,
+  });
 
   const { chartData, bounds, outliers } = useMemo(() => {
     if (points.length === 0) {
       return { chartData: [], bounds: { min: 70, max: 90, p5: 70, p95: 90 }, outliers: [] };
     }
 
-    const weights = points.map((p) => p.weightKg);
+    // Only use explicit weight points for percentile bounds
+    const explicitWeights = points.filter((p) => p.hasExplicitWeight !== false).map((p) => p.weightKg);
+    const weights = explicitWeights.length > 0 ? explicitWeights : points.map((p) => p.weightKg);
     const bounds = calculatePercentileBounds(weights);
 
     const outlierPoints: ChartDataPoint[] = [];
-    const data: ChartDataPoint[] = points.map((point, index) => {
-      const isOutlier = point.weightKg < bounds.p5 || point.weightKg > bounds.p95;
+    let data: ChartDataPoint[] = points.map((point, index) => {
+      const hasExplicit = point.hasExplicitWeight !== false;
+      const isOutlier = hasExplicit && (point.weightKg < bounds.p5 || point.weightKg > bounds.p95);
 
       if (isOutlier) {
         outlierPoints.push({
@@ -108,6 +130,7 @@ export function WeightTrendChart({
           weight: point.weightKg,
           weightDisplay: null,
           isOutlier: true,
+          hasExplicitWeight: true,
           hasTraining: point.hasTraining,
         });
       }
@@ -126,14 +149,40 @@ export function WeightTrendChart({
         weight: point.weightKg,
         weightDisplay: isOutlier ? null : point.weightKg,
         isOutlier,
+        hasExplicitWeight: hasExplicit,
         hasTraining: point.hasTraining,
         trendWeight,
         notes: point.notes,
       };
     });
 
+    const nonOutlierCount = data.filter((d) => !d.isOutlier).length;
+    if (data.length > 0 && nonOutlierCount < 2) {
+      data = data.map((d) => ({
+        ...d,
+        weightDisplay: d.weight,
+        isOutlier: false,
+      }));
+      return {
+        chartData: data,
+        bounds: calculateRawBounds(weights),
+        outliers: [],
+      };
+    }
+
     return { chartData: data, bounds, outliers: outlierPoints };
   }, [points, trend]);
+
+  useEffect(() => {
+    if (chartData.length === 0) {
+      setBrushRange({ startIndex: 0, endIndex: 0 });
+      return;
+    }
+    setBrushRange({
+      startIndex: 0,
+      endIndex: chartData.length - 1,
+    });
+  }, [chartData.length]);
 
   const handleBrushChange = useCallback(
     (brushData: { startIndex?: number; endIndex?: number }) => {
@@ -276,6 +325,9 @@ export function WeightTrendChart({
                 const isSelected = payload.date === selectedDate;
                 const hasNotes = !!payload.notes;
 
+                // No dot for carry-forward (non-explicit) days
+                if (!payload.hasExplicitWeight) return null;
+
                 // Pulsing marker for days with notes
                 if (hasNotes) {
                   return (
@@ -380,6 +432,8 @@ export function WeightTrendChart({
               stroke="#475569"
               fill="#1e293b"
               tickFormatter={(date: string) => formatShortDate(date)}
+              startIndex={brushRange.startIndex}
+              endIndex={brushRange.endIndex}
               onChange={handleBrushChange}
             />
           </ComposedChart>
@@ -410,9 +464,9 @@ export function WeightTrendChart({
             </div>
           )}
         </div>
-        {brushRange && (
+        {points.length > 0 && (
           <span className="text-slate-500">
-            Viewing {brushRange.endIndex - brushRange.startIndex + 1} of {points.length} days
+            Viewing {Math.max(0, brushRange.endIndex - brushRange.startIndex + 1)} of {points.length} days
           </span>
         )}
       </div>

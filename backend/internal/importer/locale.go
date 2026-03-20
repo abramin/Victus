@@ -104,6 +104,40 @@ func ParseHRVValue(s string) *int {
 	return &val
 }
 
+// ParseHRVReferenceRange parses values like "31ms - 40ms" to min/max integers.
+// Returns (nil, nil) for "--", empty strings, or malformed ranges.
+func ParseHRVReferenceRange(s string) (*int, *int) {
+	s = strings.TrimSpace(s)
+	if s == "" || s == "--" {
+		return nil, nil
+	}
+
+	// Split on " - " or "-"
+	parts := strings.Split(s, " - ")
+	if len(parts) != 2 {
+		// Try without spaces
+		parts = strings.Split(s, "-")
+		if len(parts) != 2 {
+			return nil, nil
+		}
+	}
+
+	minVal := ParseHRVValue(strings.TrimSpace(parts[0]))
+	maxVal := ParseHRVValue(strings.TrimSpace(parts[1]))
+
+	// Both must be valid
+	if minVal == nil || maxVal == nil {
+		return nil, nil
+	}
+
+	// Sanity check: min should be less than max
+	if *minVal >= *maxVal {
+		return nil, nil
+	}
+
+	return minVal, maxVal
+}
+
 // ParseHeartRate parses values like "63 ppm" or "63" to integer.
 func ParseHeartRate(s string) *int {
 	s = strings.TrimSpace(s)

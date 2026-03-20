@@ -6,3 +6,4 @@ export { TrainingVolumeChart } from './TrainingVolumeChart';
 export { CompositionChart } from './CompositionChart';
 export { RecoveryCorrelationChart } from './RecoveryCorrelationChart';
 export { ResilienceChart } from './ResilienceChart';
+export { MonthlyActivitySummaryChart } from './MonthlyActivitySummaryChart';

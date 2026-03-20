@@ -111,9 +111,14 @@ func (s *DailyLogService) Create(ctx context.Context, input domain.DailyLogInput
 	// Calculate CNS status if HRV is provided
 	if log.HRVMs != nil {
 		hrvHistory, _ := s.logStore.GetHRVHistory(ctx, log.Date, domain.HRVBaselineWindowDays)
+		rhrHistory, _ := s.logStore.GetRHRHistory(ctx, log.Date, domain.RestingHRWindowDays)
 		cnsInput := domain.CNSInput{
-			CurrentHRV: *log.HRVMs,
-			HRVHistory: hrvHistory,
+			CurrentHRV:       *log.HRVMs,
+			HRVHistory:       hrvHistory,
+			CurrentRestingHR: log.RestingHeartRate,
+			RestingHRHistory: rhrHistory,
+			ReferenceMin:     log.HRVReferenceMin,
+			ReferenceMax:     log.HRVReferenceMax,
 		}
 		cnsResult := domain.CalculateCNSStatus(cnsInput)
 		if cnsResult != nil {
@@ -244,9 +249,14 @@ func (s *DailyLogService) GetByDate(ctx context.Context, date string) (*domain.D
 	// Calculate CNS status if HRV is present
 	if log.HRVMs != nil {
 		hrvHistory, _ := s.logStore.GetHRVHistory(ctx, log.Date, domain.HRVBaselineWindowDays)
+		rhrHistory, _ := s.logStore.GetRHRHistory(ctx, log.Date, domain.RestingHRWindowDays)
 		cnsInput := domain.CNSInput{
-			CurrentHRV: *log.HRVMs,
-			HRVHistory: hrvHistory,
+			CurrentHRV:       *log.HRVMs,
+			HRVHistory:       hrvHistory,
+			CurrentRestingHR: log.RestingHeartRate,
+			RestingHRHistory: rhrHistory,
+			ReferenceMin:     log.HRVReferenceMin,
+			ReferenceMax:     log.HRVReferenceMax,
 		}
 		cnsResult := domain.CalculateCNSStatus(cnsInput)
 		if cnsResult != nil {
@@ -282,9 +292,15 @@ func (s *DailyLogService) GetNeuralBattery(ctx context.Context) *domain.NeuralBa
 		return nil
 	}
 
+	rhrHistory, _ := s.logStore.GetRHRHistory(ctx, today, domain.RestingHRWindowDays)
+
 	cnsResult := domain.CalculateCNSStatus(domain.CNSInput{
-		CurrentHRV: *log.HRVMs,
-		HRVHistory: hrvHistory,
+		CurrentHRV:       *log.HRVMs,
+		HRVHistory:       hrvHistory,
+		CurrentRestingHR: log.RestingHeartRate,
+		RestingHRHistory: rhrHistory,
+		ReferenceMin:     log.HRVReferenceMin,
+		ReferenceMax:     log.HRVReferenceMax,
 	})
 	return domain.CalculateNeuralBattery(cnsResult)
 }
@@ -418,12 +434,15 @@ func (s *DailyLogService) GetHistorySummary(ctx context.Context, startDate, endD
 		return nil, err
 	}
 
-	weightSamples := make([]domain.WeightSample, len(points))
-	for i, point := range points {
-		weightSamples[i] = domain.WeightSample{
+	weightSamples := make([]domain.WeightSample, 0, len(points))
+	for _, point := range points {
+		if !point.HasExplicitWeight {
+			continue
+		}
+		weightSamples = append(weightSamples, domain.WeightSample{
 			Date:     point.Date,
 			WeightKg: point.WeightKg,
-		}
+		})
 	}
 
 	var plannedSummary domain.TrainingSummaryAggregate

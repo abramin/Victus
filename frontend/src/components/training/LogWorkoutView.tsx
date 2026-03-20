@@ -498,11 +498,17 @@ export function LogWorkoutView({ log, onUpdateActual, saving }: LogWorkoutViewPr
       {shouldShowWorkoutDetails && (
         <>
           {/* Status Banner */}
-          <div className={`rounded-xl p-4 border mb-6 ${hasActualTraining ? 'bg-emerald-900/20 border-emerald-800' : 'bg-gray-900 border-gray-800'
+          <div className={`rounded-xl p-4 border mb-6 ${hasActualTraining || sessionCount > 0 ? 'bg-emerald-900/20 border-emerald-800' : 'bg-gray-900 border-gray-800'
             }`}>
-            {hasActualTraining ? (
+            {hasActualTraining || sessionCount > 0 ? (
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
+                  {isPlannedRestDay && hasActiveSessions && (
+                    <p className="text-sm text-amber-500 mb-2 flex items-center gap-1">
+                      <span>⚠️</span>
+                      <span>Rest day overridden → Logging active training</span>
+                    </p>
+                  )}
                   <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-emerald-100">
                     <svg className="w-4 h-4 text-emerald-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />

@@ -26,13 +26,14 @@ func (s *AnalysisSuite) SetupTest() {
 }
 
 func (s *AnalysisSuite) TestVarianceCalculation() {
-	// Week 1 projected weight for 90->85 in 10 weeks = 90 + (-0.5) = 89.5
+	// Week 1 end target for 90->85 in 10 weeks = 89.5
+	// Analysis on day 4 (2026-01-05): interpolated = 90.0 + (89.5-90.0)*4/7 ≈ 89.71
 	analysisDate := s.mustParseDate("2026-01-05")
 
 	s.Run("exact match shows zero variance", func() {
 		input := AnalysisInput{
 			Plan:             s.basePlan,
-			ActualWeightKg:   89.5,
+			ActualWeightKg:   89.71,
 			TolerancePercent: 3,
 			AnalysisDate:     analysisDate,
 		}
@@ -45,14 +46,14 @@ func (s *AnalysisSuite) TestVarianceCalculation() {
 	s.Run("slightly over projected stays within tolerance", func() {
 		input := AnalysisInput{
 			Plan:             s.basePlan,
-			ActualWeightKg:   90.0, // ~0.5% over projected 89.5
+			ActualWeightKg:   90.0, // ~0.3% over interpolated 89.71
 			TolerancePercent: 3,
 			AnalysisDate:     analysisDate,
 		}
 		result, err := CalculateDualTrackAnalysis(input)
 		s.Require().NoError(err)
 		s.False(result.RecalibrationNeeded)
-		s.InDelta(0.56, result.VariancePercent, 0.1)
+		s.InDelta(0.32, result.VariancePercent, 0.1)
 	})
 
 	s.Run("5% over triggers recalibration", func() {
@@ -65,33 +66,124 @@ func (s *AnalysisSuite) TestVarianceCalculation() {
 		result, err := CalculateDualTrackAnalysis(input)
 		s.Require().NoError(err)
 		s.True(result.RecalibrationNeeded)
-		s.InDelta(5.03, result.VariancePercent, 0.1)
+		s.InDelta(4.78, result.VariancePercent, 0.1)
 	})
 
 	s.Run("just over 3% triggers recalibration", func() {
 		input := AnalysisInput{
 			Plan:             s.basePlan,
-			ActualWeightKg:   92.2,
+			ActualWeightKg:   92.5, // ~3.1% over interpolated 89.71
 			TolerancePercent: 3,
 			AnalysisDate:     analysisDate,
 		}
 		result, err := CalculateDualTrackAnalysis(input)
 		s.Require().NoError(err)
 		s.True(result.RecalibrationNeeded)
-		s.InDelta(3.02, result.VariancePercent, 0.1)
+		s.InDelta(3.11, result.VariancePercent, 0.1)
 	})
 
 	s.Run("custom 5% tolerance accepts larger variance", func() {
 		input := AnalysisInput{
 			Plan:             s.basePlan,
-			ActualWeightKg:   93.0, // ~3.9% over
+			ActualWeightKg:   93.0, // ~3.7% over
 			TolerancePercent: 5,
 			AnalysisDate:     analysisDate,
 		}
 		result, err := CalculateDualTrackAnalysis(input)
 		s.Require().NoError(err)
 		s.False(result.RecalibrationNeeded)
-		s.InDelta(3.91, result.VariancePercent, 0.1)
+		s.InDelta(3.67, result.VariancePercent, 0.1)
+	})
+}
+
+func (s *AnalysisSuite) TestIntraWeekInterpolation() {
+	s.Run("day 0 of plan has zero planned variance", func() {
+		plan := s.createTestPlan("2026-01-10", 89.0, 84.0, 10)
+		input := AnalysisInput{
+			Plan:             plan,
+			ActualWeightKg:   89.0,
+			TolerancePercent: 3,
+			AnalysisDate:     s.mustParseDate("2026-01-10"),
+		}
+		result, err := CalculateDualTrackAnalysis(input)
+		s.Require().NoError(err)
+		s.InDelta(89.0, result.PlannedWeightKg, 0.01)
+		s.InDelta(0, result.VarianceKg, 0.01)
+		s.False(result.RecalibrationNeeded)
+	})
+
+	s.Run("mid-week planned weight is interpolated", func() {
+		plan := s.createTestPlan("2026-01-01", 90.0, 85.0, 10)
+		// Day 3 of week 1: planned = 90.0 + (89.5-90.0)*3/7 ≈ 89.79
+		input := AnalysisInput{
+			Plan:             plan,
+			ActualWeightKg:   89.79,
+			TolerancePercent: 3,
+			AnalysisDate:     s.mustParseDate("2026-01-04"),
+		}
+		result, err := CalculateDualTrackAnalysis(input)
+		s.Require().NoError(err)
+		s.InDelta(89.79, result.PlannedWeightKg, 0.05)
+		s.InDelta(0, result.VarianceKg, 0.1)
+	})
+
+	s.Run("first day of week 2 uses week 1 end as prev weight", func() {
+		plan := s.createTestPlan("2026-01-01", 90.0, 85.0, 10)
+		// Day 7 = first day of week 2, dayInWeek=0
+		// prevWeight = week 1 target = 89.5, planned = 89.5 + (89.0-89.5)*0/7 = 89.5
+		input := AnalysisInput{
+			Plan:             plan,
+			ActualWeightKg:   89.5,
+			TolerancePercent: 3,
+			AnalysisDate:     s.mustParseDate("2026-01-08"),
+		}
+		result, err := CalculateDualTrackAnalysis(input)
+		s.Require().NoError(err)
+		s.InDelta(89.5, result.PlannedWeightKg, 0.01)
+		s.InDelta(0, result.VarianceKg, 0.01)
+	})
+}
+
+func (s *AnalysisSuite) TestGracePeriodSuppressesRecalibration() {
+	plan := s.createTestPlan("2026-01-01", 90.0, 85.0, 10)
+
+	s.Run("day 0 high variance suppressed", func() {
+		input := AnalysisInput{
+			Plan:             plan,
+			ActualWeightKg:   95.0, // ~5.6% over — would normally trigger
+			TolerancePercent: 3,
+			AnalysisDate:     s.mustParseDate("2026-01-01"),
+		}
+		result, err := CalculateDualTrackAnalysis(input)
+		s.Require().NoError(err)
+		s.False(result.RecalibrationNeeded, "grace period should suppress recalibration on day 0")
+		s.Empty(result.Options)
+	})
+
+	s.Run("day 2 high variance still suppressed", func() {
+		input := AnalysisInput{
+			Plan:             plan,
+			ActualWeightKg:   95.0,
+			TolerancePercent: 3,
+			AnalysisDate:     s.mustParseDate("2026-01-03"),
+		}
+		result, err := CalculateDualTrackAnalysis(input)
+		s.Require().NoError(err)
+		s.False(result.RecalibrationNeeded, "grace period should suppress recalibration on day 2")
+		s.Empty(result.Options)
+	})
+
+	s.Run("day 3 high variance triggers normally", func() {
+		input := AnalysisInput{
+			Plan:             plan,
+			ActualWeightKg:   95.0,
+			TolerancePercent: 3,
+			AnalysisDate:     s.mustParseDate("2026-01-04"),
+		}
+		result, err := CalculateDualTrackAnalysis(input)
+		s.Require().NoError(err)
+		s.True(result.RecalibrationNeeded, "past grace period, recalibration should trigger")
+		s.NotEmpty(result.Options)
 	})
 }
 
@@ -312,9 +404,10 @@ func (s *AnalysisSuite) TestPostRecalibrationHealthStaysOnTrack() {
 	// (current variance ≈ 0) but historical trend still diverges from goal.
 	// RecalibrationNeeded must stay false — the stale trend must not override.
 	s.Run("aligned plan with divergent trend stays on track", func() {
-		// Plan recalibrated so week 3 projected weight matches actual (92 kg)
+		// Plan recalibrated so projected weight matches actual (92 kg)
 		plan := s.createTestPlan("2026-01-01", 90.0, 85.0, 10)
-		// Manually set week 3 projected weight to match actual (simulates regenerateWeeklyTargets)
+		// Simulate recalibration by aligning weeks 2-3 to actual weight
+		plan.WeeklyTargets[1].ProjectedWeightKg = 92.0
 		plan.WeeklyTargets[2].ProjectedWeightKg = 92.0
 
 		// Trend shows weight is actually increasing (+0.5 kg/week)
@@ -394,7 +487,9 @@ func (s *AnalysisSuite) TestLandingPointIsInformationalOnly() {
 
 	s.Run("landing point displayed even when plan is on track", func() {
 		plan := s.createTestPlan("2026-01-01", 90.0, 85.0, 10)
-		plan.WeeklyTargets[2].ProjectedWeightKg = 92.0 // Freshly recalibrated
+		// Simulate recalibration by aligning weeks 2-3 to actual weight
+		plan.WeeklyTargets[1].ProjectedWeightKg = 92.0
+		plan.WeeklyTargets[2].ProjectedWeightKg = 92.0
 
 		trend := &WeightTrend{
 			WeeklyChangeKg: 0.5, // Gaining — stale trend (diverging from goal)
@@ -468,10 +563,10 @@ func (s *AnalysisSuite) TestOptionsGateMatchesRecalibrationFlag() {
 	})
 
 	s.Run("borderline at-risk: just over tolerance produces options", func() {
-		// 89.5 * 1.0301 ≈ 92.19 — variance just above 3%
+		// interpolated 89.71 * 1.031 ≈ 92.5 — variance just above 3%
 		input := AnalysisInput{
 			Plan:             s.basePlan,
-			ActualWeightKg:   92.2,
+			ActualWeightKg:   92.5,
 			TolerancePercent: 3,
 			AnalysisDate:     analysisDate,
 		}
@@ -488,8 +583,8 @@ func (s *AnalysisSuite) TestOptionsGateMatchesRecalibrationFlag() {
 		}{
 			{"well within tolerance", 89.5},
 			{"slightly under projected", 89.0},
-			{"at upper tolerance edge", 92.1}, // ~2.85% — still under 3%
-			{"just over tolerance", 92.2},     // ~3.02%
+			{"at upper tolerance edge", 92.3}, // ~2.89% — still under 3%
+			{"just over tolerance", 92.5},     // ~3.11%
 			{"significantly over", 94.0},
 			{"significantly under", 86.0},     // negative variance, also triggers
 		}
