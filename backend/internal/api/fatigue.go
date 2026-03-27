@@ -60,6 +60,11 @@ type ApplyLoadRequest struct {
 	RPE         *int   `json:"rpe,omitempty"`
 }
 
+// ApplyMuscleFatigueRequest represents pre-computed per-muscle fatigue injections.
+type ApplyMuscleFatigueRequest struct {
+	Muscles map[string]float64 `json:"muscles"` // muscle_name -> fatigue percent to inject
+}
+
 // getBodyStatus handles GET /api/body-status
 func (s *Server) getBodyStatus(w http.ResponseWriter, r *http.Request) {
 	status, err := s.fatigueService.GetBodyStatus(r.Context(), time.Now())
@@ -129,6 +134,47 @@ func (s *Server) applyFatigueByParams(w http.ResponseWriter, r *http.Request) {
 
 	response := toSessionFatigueReportResponse(report)
 
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(response)
+}
+
+// applyMuscleFatigue handles POST /api/fatigue/apply-muscles
+// Accepts pre-computed per-muscle fatigue percentages (from frontend exercise-level calculation).
+func (s *Server) applyMuscleFatigue(w http.ResponseWriter, r *http.Request) {
+	var req ApplyMuscleFatigueRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json", "Invalid JSON request body")
+		return
+	}
+
+	if len(req.Muscles) == 0 {
+		writeError(w, http.StatusBadRequest, "empty_muscles", "At least one muscle must be specified")
+		return
+	}
+
+	// Validate and convert muscle names
+	muscles := make(map[domain.MuscleGroup]float64, len(req.Muscles))
+	for name, pct := range req.Muscles {
+		mg, err := domain.ParseMuscleGroup(name)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_muscle", "Unknown muscle group: "+name)
+			return
+		}
+		if pct <= 0 || pct > 100 {
+			writeError(w, http.StatusBadRequest, "invalid_fatigue_percent", "Fatigue percent must be between 0 and 100")
+			return
+		}
+		muscles[mg] = pct
+	}
+
+	report, err := s.fatigueService.ApplyMuscleFatigue(r.Context(), muscles)
+	if err != nil {
+		writeInternalError(w, err, "applyMuscleFatigue")
+		return
+	}
+
+	response := toSessionFatigueReportResponse(report)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(response)

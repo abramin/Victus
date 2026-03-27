@@ -148,6 +148,7 @@ func NewServer(db store.DBTX) *Server {
 	mux.HandleFunc("GET /api/body-status", srv.getBodyStatus)
 	mux.HandleFunc("GET /api/archetypes", srv.getArchetypes)
 	mux.HandleFunc("POST /api/fatigue/apply", srv.applyFatigueByParams)
+	mux.HandleFunc("POST /api/fatigue/apply-muscles", srv.applyMuscleFatigue)
 	mux.HandleFunc("POST /api/sessions/{id}/apply-load", srv.applySessionLoad)
 
 	// Stats routes
@@ -230,6 +231,12 @@ func NewServer(db store.DBTX) *Server {
 
 	// Systemic Gyroscope routes (Load Balancing)
 	mux.HandleFunc("GET /api/systemic-load", srv.getSystemicLoad)
+
+	// GMB Elements session generator
+	mux.HandleFunc("GET /api/gmb/session", srv.getGMBSession)
+
+	// Calisthenics session generator
+	mux.HandleFunc("GET /api/calisthenics/session", srv.getCalisthenicsSession)
 
 	// Movement taxonomy routes (Adaptive Movement Engine)
 	mux.HandleFunc("GET /api/movements", srv.listMovements)

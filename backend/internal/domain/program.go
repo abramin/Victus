@@ -279,13 +279,14 @@ const (
 	SessionPhasePrepare  SessionPhase = "prepare"
 	SessionPhasePractice SessionPhase = "practice"
 	SessionPhasePush     SessionPhase = "push"
+	SessionPhasePonder   SessionPhase = "ponder"
 )
 
-const MaxSessionExercises = 12
+const MaxSessionExercises = 20
 
 func ParseSessionPhase(s string) (SessionPhase, error) {
 	switch SessionPhase(s) {
-	case SessionPhasePrepare, SessionPhasePractice, SessionPhasePush:
+	case SessionPhasePrepare, SessionPhasePractice, SessionPhasePush, SessionPhasePonder:
 		return SessionPhase(s), nil
 	}
 	return "", ErrInvalidSessionPhase

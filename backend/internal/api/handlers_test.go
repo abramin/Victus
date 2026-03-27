@@ -598,3 +598,131 @@ func (s *HandlerSuite) TestRecalibrateFullCycle() {
 			"planned weight should be near actual weight after recalibration")
 	})
 }
+
+// --- Fatigue endpoint validation tests ---
+// Justification: POST /api/fatigue/apply-muscles has novel validation rules (unknown
+// muscle names, out-of-range percentages) not exercised by any E2E scenario.
+
+func (s *HandlerSuite) TestApplyMuscleFatigue_Validation() {
+	s.Run("empty muscles map returns 400", func() {
+		rec := s.doRequest("POST", "/api/fatigue/apply-muscles", map[string]interface{}{
+			"muscles": map[string]interface{}{},
+		})
+		s.Equal(http.StatusBadRequest, rec.Code)
+
+		var resp APIError
+		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
+		s.Equal("empty_muscles", resp.Error)
+	})
+
+	s.Run("unknown muscle name returns 400", func() {
+		rec := s.doRequest("POST", "/api/fatigue/apply-muscles", map[string]interface{}{
+			"muscles": map[string]interface{}{
+				"not_a_real_muscle": 50.0,
+			},
+		})
+		s.Equal(http.StatusBadRequest, rec.Code)
+
+		var resp APIError
+		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
+		s.Equal("invalid_muscle", resp.Error)
+	})
+
+	s.Run("fatigue percent above 100 returns 400", func() {
+		rec := s.doRequest("POST", "/api/fatigue/apply-muscles", map[string]interface{}{
+			"muscles": map[string]interface{}{
+				"chest": 101.0,
+			},
+		})
+		s.Equal(http.StatusBadRequest, rec.Code)
+
+		var resp APIError
+		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
+		s.Equal("invalid_fatigue_percent", resp.Error)
+	})
+
+	s.Run("fatigue percent at or below zero returns 400", func() {
+		rec := s.doRequest("POST", "/api/fatigue/apply-muscles", map[string]interface{}{
+			"muscles": map[string]interface{}{
+				"chest": 0.0,
+			},
+		})
+		s.Equal(http.StatusBadRequest, rec.Code)
+
+		var resp APIError
+		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
+		s.Equal("invalid_fatigue_percent", resp.Error)
+	})
+
+	s.Run("invalid JSON returns 400", func() {
+		req := httptest.NewRequest("POST", "/api/fatigue/apply-muscles", bytes.NewBufferString("{bad json}"))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		s.server.Handler().ServeHTTP(rec, req)
+		s.Equal(http.StatusBadRequest, rec.Code)
+	})
+}
+
+func (s *HandlerSuite) TestApplyFatigueByParams_Validation() {
+	s.Run("duration of 0 returns 400", func() {
+		rec := s.doRequest("POST", "/api/fatigue/apply", map[string]interface{}{
+			"archetype":   "push",
+			"durationMin": 0,
+		})
+		s.Equal(http.StatusBadRequest, rec.Code)
+
+		var resp APIError
+		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
+		s.Equal("invalid_duration", resp.Error)
+	})
+
+	s.Run("duration above 480 returns 400", func() {
+		rec := s.doRequest("POST", "/api/fatigue/apply", map[string]interface{}{
+			"archetype":   "push",
+			"durationMin": 481,
+		})
+		s.Equal(http.StatusBadRequest, rec.Code)
+
+		var resp APIError
+		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
+		s.Equal("invalid_duration", resp.Error)
+	})
+
+	s.Run("invalid archetype returns 400", func() {
+		rec := s.doRequest("POST", "/api/fatigue/apply", map[string]interface{}{
+			"archetype":   "ultra_mega_workout",
+			"durationMin": 60,
+		})
+		s.Equal(http.StatusBadRequest, rec.Code)
+
+		var resp APIError
+		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
+		s.Equal("invalid_archetype", resp.Error)
+	})
+
+	s.Run("RPE above 10 returns 400", func() {
+		rec := s.doRequest("POST", "/api/fatigue/apply", map[string]interface{}{
+			"archetype":   "push",
+			"durationMin": 60,
+			"rpe":         11,
+		})
+		s.Equal(http.StatusBadRequest, rec.Code)
+
+		var resp APIError
+		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
+		s.Equal("invalid_rpe", resp.Error)
+	})
+
+	s.Run("RPE below 1 returns 400", func() {
+		rec := s.doRequest("POST", "/api/fatigue/apply", map[string]interface{}{
+			"archetype":   "push",
+			"durationMin": 60,
+			"rpe":         0,
+		})
+		s.Equal(http.StatusBadRequest, rec.Code)
+
+		var resp APIError
+		s.Require().NoError(json.Unmarshal(rec.Body.Bytes(), &resp))
+		s.Equal("invalid_rpe", resp.Error)
+	})
+}

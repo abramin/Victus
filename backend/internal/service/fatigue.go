@@ -110,6 +110,62 @@ func (s *FatigueService) ApplyLoadByParams(
 	}, nil
 }
 
+// ApplyMuscleFatigue applies pre-computed per-muscle fatigue percentages directly.
+// Used by GMB session completion where exercise-level muscle maps are available.
+func (s *FatigueService) ApplyMuscleFatigue(
+	ctx context.Context,
+	muscles map[domain.MuscleGroup]float64,
+) (*domain.SessionFatigueReport, error) {
+	now := time.Now()
+	injections := make([]domain.FatigueInjection, 0, len(muscles))
+
+	err := s.fatigueStore.WithTx(ctx, func(tx *sql.Tx) error {
+		for muscle, injectionPercent := range muscles {
+			muscleID, err := s.fatigueStore.GetMuscleGroupIDByName(ctx, muscle)
+			if err != nil {
+				return err
+			}
+
+			row, err := s.fatigueStore.GetMuscleFatigue(ctx, muscleID)
+			if err != nil {
+				return err
+			}
+
+			var currentFatigue float64
+			if row != nil {
+				lastUpdateTime, err := time.Parse("2006-01-02 15:04:05", row.LastUpdated)
+				if err == nil {
+					hoursElapsed := now.Sub(lastUpdateTime).Hours()
+					currentFatigue = domain.ApplyFatigueDecay(row.FatiguePercent, hoursElapsed)
+				} else {
+					currentFatigue = row.FatiguePercent
+				}
+			}
+
+			newTotal := domain.AddFatigue(currentFatigue, injectionPercent)
+
+			if err := s.fatigueStore.UpsertMuscleFatigueWithTx(ctx, tx, muscleID, newTotal); err != nil {
+				return err
+			}
+
+			injections = append(injections, domain.BuildFatigueInjection(muscle, injectionPercent, newTotal))
+		}
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &domain.SessionFatigueReport{
+		SessionID:  0,
+		Archetype:  "",
+		TotalLoad:  0,
+		Injections: injections,
+		AppliedAt:  now.Format(time.RFC3339),
+	}, nil
+}
+
 // GetAllArchetypes retrieves all workout archetypes.
 func (s *FatigueService) GetAllArchetypes(ctx context.Context) ([]domain.ArchetypeConfig, error) {
 	return s.fatigueStore.GetAllArchetypes(ctx)
