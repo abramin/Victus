@@ -42,9 +42,23 @@ const PHASE_CONFIG: Record<SessionPhase, { label: string; accent: string; glowBo
     glowBg: 'bg-violet-500/10',
     dotColor: 'bg-violet-500',
   },
+  play: {
+    label: 'PLAY',
+    accent: 'Free Play',
+    glowBorder: 'border-teal-500',
+    glowBg: 'bg-teal-500/10',
+    dotColor: 'bg-teal-500',
+  },
+  ponder: {
+    label: 'PONDER',
+    accent: 'Cool-down & Reflection',
+    glowBorder: 'border-blue-500',
+    glowBg: 'bg-blue-500/10',
+    dotColor: 'bg-blue-500',
+  },
 };
 
-const PHASES_FOR_MOVE: SessionPhase[] = ['prepare', 'practice', 'push'];
+const PHASES_FOR_MOVE: SessionPhase[] = ['prepare', 'practice', 'push', 'ponder'];
 
 function estimateDurationSec(exercises: PlacedExercise[]): number {
   return exercises.reduce((sum, { exerciseDef }) => {

@@ -138,6 +138,7 @@ describe('PlanContext API boundary integration', () => {
           startWeightKg: 85,
           goalWeightKg: 78,
           durationWeeks: 10,
+          startDate: '2025-01-19',
         });
       });
 
@@ -184,6 +185,7 @@ describe('PlanContext API boundary integration', () => {
           startWeightKg: 90,
           goalWeightKg: 85,
           durationWeeks: 6,
+          startDate: '2025-01-19',
         });
       });
 

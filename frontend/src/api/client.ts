@@ -542,6 +542,22 @@ export async function applyFatigue(
   return handleResponse<SessionFatigueReport>(response);
 }
 
+// Apply pre-computed per-muscle fatigue from a GMB session
+export async function applyMuscleFatigue(
+  muscles: Record<string, number>,
+  signal?: AbortSignal
+): Promise<SessionFatigueReport> {
+  const response = await fetch(`${API_BASE}/fatigue/apply-muscles`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ muscles }),
+    signal,
+  });
+  return handleResponse<SessionFatigueReport>(response);
+}
+
 // =============================================================================
 // Training Program API (Program Management feature)
 // =============================================================================
@@ -1101,4 +1117,38 @@ export async function getSystemicLoad(withPrescription?: boolean, signal?: Abort
     return handleResponse<SystemicLoadResponse>(response);
   }
   return handleResponse<SystemicLoad>(response);
+}
+
+// ── Calisthenics Session Generator ──────────────────────────────────────────
+
+import type { CalisthenicsSession } from './types';
+
+export async function generateCalisthenicsSession(
+  level: string,
+  exercises: number,
+  seed?: number,
+  signal?: AbortSignal
+): Promise<CalisthenicsSession> {
+  const params = new URLSearchParams({ level, exercises: String(exercises) });
+  if (seed !== undefined) params.set('seed', String(seed));
+  const response = await fetch(`${API_BASE}/calisthenics/session?${params}`, { signal });
+  return handleResponse<CalisthenicsSession>(response);
+}
+
+// ── GMB Elements Session Generator ──────────────────────────────────────────
+
+import type { GMBSession } from './types';
+
+export async function generateGMBSession(
+  level: string,
+  focus: string,
+  duration: number,
+  seed?: number,
+  signal?: AbortSignal
+): Promise<GMBSession> {
+  const params = new URLSearchParams({ level, duration: String(duration) });
+  if (focus) params.set('focus', focus);
+  if (seed !== undefined) params.set('seed', String(seed));
+  const response = await fetch(`${API_BASE}/gmb/session?${params}`, { signal });
+  return handleResponse<GMBSession>(response);
 }

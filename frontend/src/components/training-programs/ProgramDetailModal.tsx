@@ -1,10 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import type { TrainingProgram, ProgramDay, SessionResponse } from '../../api/types';
-import { getTrainingProgram, deleteTrainingProgram, quickSubmitSession } from '../../api/client';
+import { getTrainingProgram, deleteTrainingProgram, quickSubmitSession, applyMuscleFatigue } from '../../api/client';
+import { calculateSessionMuscleFatigue } from '../../utils/calculateSessionMuscleFatigue';
 import { Modal } from '../common/Modal';
 import { WaveformChart } from './WaveformChart';
 import { ProgramInstaller } from './ProgramInstaller';
 import { ActiveSessionView, type SessionResult } from './ActiveSessionView';
+import { GmbSessionRunner } from './GmbSessionRunner';
 import { DraftSessionCard } from '../training/DraftSessionCard';
 import { DIFFICULTY_COLORS, FOCUS_COLORS, EQUIPMENT_CONFIG } from './constants';
 import { TRAINING_ICONS } from '../../constants';
@@ -106,33 +108,51 @@ export function ProgramDetailModal({ programId, onClose, onInstallationChange, o
 
   // Active session overlay
   if (activeSessionDay?.sessionExercises) {
+    const handleSessionComplete = async (result: SessionResult) => {
+      setActiveSessionDay(null);
+      const today = new Date().toISOString().split('T')[0];
+      try {
+        const rpes = result.exercises.map((e) => e.rpe);
+        const avgRpe = rpes.length > 0
+          ? Math.round(rpes.reduce((a, b) => a + b, 0) / rpes.length)
+          : 5;
+        const durationMin = Math.round(result.totalDurationSec / 60);
+        const draft = await quickSubmitSession(today, {
+          type: activeSessionDay.trainingType,
+          durationMin,
+          perceivedIntensity: avgRpe,
+          notes: `Program session: ${activeSessionDay.label}`,
+        });
+        setDraftSession(draft);
+
+        // Apply per-muscle fatigue from exercise-level muscle maps
+        const muscleMap = calculateSessionMuscleFatigue(result.exercises, avgRpe);
+        if (Object.keys(muscleMap).length > 0) {
+          applyMuscleFatigue(muscleMap).catch((err) => {
+            console.warn('Failed to apply muscle fatigue:', err);
+          });
+        }
+      } catch (err) {
+        console.error('Failed to submit session as draft:', err);
+      }
+    };
+    const handleSessionAbort = () => setActiveSessionDay(null);
+
+    if (activeSessionDay.trainingType === 'gmb') {
+      return (
+        <GmbSessionRunner
+          exercises={activeSessionDay.sessionExercises}
+          disableCheckpoint
+          onComplete={handleSessionComplete}
+          onAbort={handleSessionAbort}
+        />
+      );
+    }
     return (
       <ActiveSessionView
         exercises={activeSessionDay.sessionExercises}
-        onComplete={async (result: SessionResult) => {
-          setActiveSessionDay(null);
-          // Persist as draft session
-          const today = new Date().toISOString().split('T')[0];
-          try {
-            const rpes = result.exercises.map((e) => e.rpe);
-            const avgRpe = rpes.length > 0
-              ? Math.round(rpes.reduce((a, b) => a + b, 0) / rpes.length)
-              : 5;
-            const durationMin = Math.round(result.totalDurationSec / 60);
-            const draft = await quickSubmitSession(today, {
-              type: activeSessionDay.trainingType,
-              durationMin,
-              perceivedIntensity: avgRpe,
-              notes: `Program session: ${activeSessionDay.label}`,
-            });
-            setDraftSession(draft);
-          } catch (err) {
-            console.error('Failed to submit session as draft:', err);
-          }
-        }}
-        onAbort={() => {
-          setActiveSessionDay(null);
-        }}
+        onComplete={handleSessionComplete}
+        onAbort={handleSessionAbort}
       />
     );
   }

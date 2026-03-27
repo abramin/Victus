@@ -63,6 +63,7 @@ describe('RestInterventionScreen', () => {
           defaultDurationSec: 0,
           defaultReps: 8,
           tags: ['lower'],
+          source: 'bodyweight',
         }}
       />
     );

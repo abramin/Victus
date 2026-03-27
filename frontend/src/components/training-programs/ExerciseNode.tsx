@@ -5,7 +5,9 @@ import type { ExerciseDef } from './exerciseLibrary';
 const PHASE_DOT_COLOR: Record<SessionPhase, string> = {
   prepare: 'bg-amber-500',
   practice: 'bg-teal-500',
+  play: 'bg-teal-500',
   push: 'bg-violet-500',
+  ponder: 'bg-blue-500',
 };
 
 interface ExerciseNodeProps {

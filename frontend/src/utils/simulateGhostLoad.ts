@@ -194,7 +194,7 @@ export function simulateGhostLoad(
     // Inject fatigue per muscle (mirrors CalculateFatigueInjection + AddFatigue)
     for (const [muscle, coefficient] of Object.entries(coefficients)) {
       const m = muscle as MuscleGroup;
-      const injection = totalLoad * coefficient * 100;
+      const injection = totalLoad * (coefficient as number) * 100;
       muscleState[m] = Math.min(100, muscleState[m] + injection);
     }
   }

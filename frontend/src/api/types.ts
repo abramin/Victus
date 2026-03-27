@@ -647,7 +647,7 @@ export interface ProgressionPattern {
 }
 
 /** Phase segment in a day's session flow (Block Constructor) */
-export type SessionPhase = 'prepare' | 'practice' | 'push';
+export type SessionPhase = 'prepare' | 'practice' | 'play' | 'push' | 'ponder';
 
 /** A single exercise node placed in a day's session flow */
 export interface SessionExercise {
@@ -1371,4 +1371,58 @@ export interface SystemicPrescription {
 export interface SystemicLoadResponse {
   load: SystemicLoad;
   prescription?: SystemicPrescription;
+}
+
+// ── GMB Elements Session Generator ──────────────────────────────────────────
+
+export interface GMBExercise {
+  order: number;
+  name: string;
+  description: string;
+  category: string;
+  difficulty: number;
+  durationStr: string;
+  durationSecs: number;
+}
+
+// ── Calisthenics Session Generator ─────────────────────────────────────────
+
+export type CalimoveRepType = 'RM' | 'TM' | 'AMRAP';
+export type CalimoveLevel = '1' | '2';
+
+export interface CalisthenicsExercise {
+  order: number;
+  name: string;
+  type: string; // "strength" or "isometric"
+  sets: number | null;
+  reps: string; // "6-10", "15-25", "AMRAP", "50-80 sec"
+  rep_type: CalimoveRepType;
+  assisted: boolean;
+  muscles: { primary: string[]; secondary: string[] };
+  pattern: string; // "push", "pull", "squat", "hinge", "core", "isometric_upper", etc.
+}
+
+export interface CalisthenicsSession {
+  level: string;
+  sessionType: string; // "strength" or "isometric"
+  restBetweenExercises: string;
+  exerciseCount: number;
+  exercises: CalisthenicsExercise[];
+  seed: number;
+}
+
+export interface GMBSession {
+  level: string;
+  theme: string;
+  targetDuration: string;
+  totalTimeEst: string;
+  totalSecs: number;
+  exerciseCount: number;
+  phases: {
+    PREPARE: GMBExercise[];
+    PRACTICE: GMBExercise[];
+    PLAY: GMBExercise[];
+    PUSH: GMBExercise[];
+    PONDER: GMBExercise[];
+  };
 }

@@ -7,6 +7,9 @@ export interface CompletedExercise {
   phase: SessionPhase;
   actualDurationSec: number;
   rpe: number;
+  // Optional: sets/reps-based (calimove). When set, fatigue calc uses sets×reps instead of duration.
+  setsCompleted?: number;
+  repsPerSet?: number;
 }
 
 interface SessionCompleteScreenProps {
@@ -25,7 +28,9 @@ function formatTime(sec: number): string {
 const PHASE_DOT: Record<SessionPhase, string> = {
   prepare: 'bg-amber-500',
   practice: 'bg-teal-500',
+  play: 'bg-teal-500',
   push: 'bg-violet-500',
+  ponder: 'bg-blue-500',
 };
 
 /**

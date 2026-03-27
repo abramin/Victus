@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { TrainingSession, ActualTrainingSession, TrainingSummary, ScheduledSession, SessionExercise, SessionResponse } from '../../api/types';
-import { quickSubmitSession } from '../../api/client';
+import { quickSubmitSession, applyMuscleFatigue } from '../../api/client';
+import { calculateSessionMuscleFatigue } from '../../utils/calculateSessionMuscleFatigue';
 import { TRAINING_LABELS, TRAINING_ICONS, TRAINING_COLORS } from '../../constants';
 import { Panel } from '../common/Panel';
 import { ActiveSessionView, type SessionResult } from '../training-programs/ActiveSessionView';
@@ -83,6 +84,14 @@ export function MissionZone({
         notes: `Program session: ${programSession.scheduledSession.label}`,
       });
       setDraftSession(draft);
+
+      // Apply per-muscle fatigue from exercise-level muscle maps
+      const muscleMap = calculateSessionMuscleFatigue(result.exercises, avgRpe);
+      if (Object.keys(muscleMap).length > 0) {
+        applyMuscleFatigue(muscleMap).catch((err) => {
+          console.warn('Failed to apply muscle fatigue:', err);
+        });
+      }
     } catch (err) {
       console.error('Failed to submit session as draft:', err);
     } finally {

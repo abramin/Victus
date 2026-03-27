@@ -24,6 +24,12 @@ services:
       - DATABASE_URL=postgres://victus:victus@postgres:5432/victus?sslmode=disable
       - DEBUG_MODE=${DEBUG_MODE:-false}
       - OLLAMA_URL=http://host.docker.internal:11434
+      - GARMIN_EMAIL=${GARMIN_EMAIL:-}
+      - GARMIN_PASSWORD=${GARMIN_PASSWORD:-}
+      - GARMIN_SYNC_ENABLED=${GARMIN_SYNC_ENABLED:-false}
+      - GARMIN_PYTHON_PATH=/usr/bin/python3
+    volumes:
+      - garmin_tokens:/root/.garminconnect
     ports:
       - "${BACKEND_PORT:-8080}:8080"
     extra_hosts:
@@ -66,3 +72,5 @@ volumes:
   postgres_data:
     driver: local
   frontend_node_modules:
+  garmin_tokens:
+    driver: local

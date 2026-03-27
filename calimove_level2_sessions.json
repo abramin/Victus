@@ -1,0 +1,5004 @@
+[
+  {
+    "sessionNum": 1,
+    "sessionName": "T5 - W1 - Day 1 - Monday - T5-1",
+    "phase": "T5",
+    "week": 1,
+    "day": 1,
+    "weekday": "Monday",
+    "sessionId": "T5-1",
+    "restBetweenExercises": "90 sec",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Push Up",
+        "type": "strength",
+        "sets": 1,
+        "reps": "6-10",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "lats",
+            "traps"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Bodyrow",
+        "type": "strength",
+        "sets": 1,
+        "reps": "6-10",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "forearms",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Hollow Body Crunch",
+        "type": "strength",
+        "sets": 2,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "core"
+          ],
+          "secondary": [
+            "quads"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 2,
+    "sessionName": "T5 - W1 - Day 4 - Thursday - T5-2",
+    "phase": "T5",
+    "week": 1,
+    "day": 4,
+    "weekday": "Thursday",
+    "sessionId": "T5-2",
+    "restBetweenExercises": "90 sec",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Pike Stand",
+        "type": "isometric",
+        "sets": null,
+        "reps": "50-80 sec",
+        "rep_type": "TM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "front_delt",
+            "traps",
+            "core"
+          ],
+          "secondary": [
+            "triceps",
+            "lats",
+            "hamstrings"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Active Hang",
+        "type": "isometric",
+        "sets": null,
+        "reps": "50-80 sec",
+        "rep_type": "TM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "lats",
+            "forearms",
+            "biceps"
+          ],
+          "secondary": [
+            "rear_delt",
+            "traps",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Deep Squat",
+        "type": "isometric",
+        "sets": null,
+        "reps": "50-80 sec",
+        "rep_type": "TM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "calves",
+            "lower_back"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Arch Up",
+        "type": "isometric",
+        "sets": null,
+        "reps": "50-80 sec",
+        "rep_type": "TM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "lower_back",
+            "glutes"
+          ],
+          "secondary": [
+            "hamstrings",
+            "traps"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 3,
+    "sessionName": "P5 - W2 - Day 8 - Monday - 5A",
+    "phase": "P5",
+    "week": 2,
+    "day": 8,
+    "weekday": "Monday",
+    "sessionId": "5A",
+    "restBetweenExercises": "90 sec",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Push Up",
+        "type": "strength",
+        "sets": 1,
+        "reps": "6-10",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "lats",
+            "traps"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Bodyrow",
+        "type": "strength",
+        "sets": 1,
+        "reps": "6-10",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "forearms",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Jumping Squat",
+        "type": "strength",
+        "sets": 1,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "calves"
+          ],
+          "secondary": [
+            "hamstrings",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Hollow Body Crunch",
+        "type": "strength",
+        "sets": 2,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "core"
+          ],
+          "secondary": [
+            "quads"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 4,
+    "sessionName": "P5 - W2 - Day 10 - Wednesday - 5A",
+    "phase": "P5",
+    "week": 2,
+    "day": 10,
+    "weekday": "Wednesday",
+    "sessionId": "5A",
+    "restBetweenExercises": "90 sec",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Push Up",
+        "type": "strength",
+        "sets": 1,
+        "reps": "6-10",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "lats",
+            "traps"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Bodyrow",
+        "type": "strength",
+        "sets": 1,
+        "reps": "6-10",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "forearms",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Jumping Squat",
+        "type": "strength",
+        "sets": 1,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "calves"
+          ],
+          "secondary": [
+            "hamstrings",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Hollow Body Crunch",
+        "type": "strength",
+        "sets": 2,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "core"
+          ],
+          "secondary": [
+            "quads"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 5,
+    "sessionName": "P5 - W2 - Day 12 - Friday - 5B",
+    "phase": "P5",
+    "week": 2,
+    "day": 12,
+    "weekday": "Friday",
+    "sessionId": "5B",
+    "restBetweenExercises": "90 sec",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Pike Stand",
+        "type": "isometric",
+        "sets": null,
+        "reps": "50-80 sec",
+        "rep_type": "TM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "front_delt",
+            "traps",
+            "core"
+          ],
+          "secondary": [
+            "triceps",
+            "lats",
+            "hamstrings"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Active Hang",
+        "type": "isometric",
+        "sets": null,
+        "reps": "50-80 sec",
+        "rep_type": "TM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "lats",
+            "forearms",
+            "biceps"
+          ],
+          "secondary": [
+            "rear_delt",
+            "traps",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Deep Squat",
+        "type": "isometric",
+        "sets": null,
+        "reps": "50-80 sec",
+        "rep_type": "TM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "calves",
+            "lower_back"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Arch Up",
+        "type": "isometric",
+        "sets": null,
+        "reps": "50-80 sec",
+        "rep_type": "TM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "lower_back",
+            "glutes"
+          ],
+          "secondary": [
+            "hamstrings",
+            "traps"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 6,
+    "sessionName": "P5 - W3 - Day 15 - Monday - 5A",
+    "phase": "P5",
+    "week": 3,
+    "day": 15,
+    "weekday": "Monday",
+    "sessionId": "5A",
+    "restBetweenExercises": "90 sec",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Push Up",
+        "type": "strength",
+        "sets": 1,
+        "reps": "6-10",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "lats",
+            "traps"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Bodyrow",
+        "type": "strength",
+        "sets": 1,
+        "reps": "6-10",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "forearms",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Jumping Squat",
+        "type": "strength",
+        "sets": 1,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "calves"
+          ],
+          "secondary": [
+            "hamstrings",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Hollow Body Crunch",
+        "type": "strength",
+        "sets": 2,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "core"
+          ],
+          "secondary": [
+            "quads"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 7,
+    "sessionName": "P5 - W3 - Day 17 - Wednesday - 5A",
+    "phase": "P5",
+    "week": 3,
+    "day": 17,
+    "weekday": "Wednesday",
+    "sessionId": "5A",
+    "restBetweenExercises": "90 sec",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Push Up",
+        "type": "strength",
+        "sets": 1,
+        "reps": "6-10",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "lats",
+            "traps"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Bodyrow",
+        "type": "strength",
+        "sets": 1,
+        "reps": "6-10",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "forearms",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Jumping Squat",
+        "type": "strength",
+        "sets": 1,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "calves"
+          ],
+          "secondary": [
+            "hamstrings",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Hollow Body Crunch",
+        "type": "strength",
+        "sets": 2,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "core"
+          ],
+          "secondary": [
+            "quads"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 8,
+    "sessionName": "P5 - W3 - Day 19 - Friday - 5B",
+    "phase": "P5",
+    "week": 3,
+    "day": 19,
+    "weekday": "Friday",
+    "sessionId": "5B",
+    "restBetweenExercises": "90 sec",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Pike Stand",
+        "type": "isometric",
+        "sets": null,
+        "reps": "50-80 sec",
+        "rep_type": "TM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "front_delt",
+            "traps",
+            "core"
+          ],
+          "secondary": [
+            "triceps",
+            "lats",
+            "hamstrings"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Active Hang",
+        "type": "isometric",
+        "sets": null,
+        "reps": "50-80 sec",
+        "rep_type": "TM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "lats",
+            "forearms",
+            "biceps"
+          ],
+          "secondary": [
+            "rear_delt",
+            "traps",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Deep Squat",
+        "type": "isometric",
+        "sets": null,
+        "reps": "50-80 sec",
+        "rep_type": "TM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "calves",
+            "lower_back"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Arch Up",
+        "type": "isometric",
+        "sets": null,
+        "reps": "50-80 sec",
+        "rep_type": "TM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "lower_back",
+            "glutes"
+          ],
+          "secondary": [
+            "hamstrings",
+            "traps"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 9,
+    "sessionName": "P5 - W4 - Day 22 - Monday - 5A",
+    "phase": "P5",
+    "week": 4,
+    "day": 22,
+    "weekday": "Monday",
+    "sessionId": "5A",
+    "restBetweenExercises": "90 sec",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Push Up",
+        "type": "strength",
+        "sets": 1,
+        "reps": "6-10",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "lats",
+            "traps"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Bodyrow",
+        "type": "strength",
+        "sets": 1,
+        "reps": "6-10",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "forearms",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Jumping Squat",
+        "type": "strength",
+        "sets": 1,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "calves"
+          ],
+          "secondary": [
+            "hamstrings",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Hollow Body Crunch",
+        "type": "strength",
+        "sets": 2,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "core"
+          ],
+          "secondary": [
+            "quads"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 10,
+    "sessionName": "P5 - W4 - Day 24 - Wednesday - 5A",
+    "phase": "P5",
+    "week": 4,
+    "day": 24,
+    "weekday": "Wednesday",
+    "sessionId": "5A",
+    "restBetweenExercises": "90 sec",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Push Up",
+        "type": "strength",
+        "sets": 1,
+        "reps": "6-10",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "lats",
+            "traps"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Bodyrow",
+        "type": "strength",
+        "sets": 1,
+        "reps": "6-10",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "forearms",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Jumping Squat",
+        "type": "strength",
+        "sets": 1,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "calves"
+          ],
+          "secondary": [
+            "hamstrings",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Hollow Body Crunch",
+        "type": "strength",
+        "sets": 2,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "core"
+          ],
+          "secondary": [
+            "quads"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 11,
+    "sessionName": "P5 - W4 - Day 26 - Friday - 5B",
+    "phase": "P5",
+    "week": 4,
+    "day": 26,
+    "weekday": "Friday",
+    "sessionId": "5B",
+    "restBetweenExercises": "90 sec",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Pike Stand",
+        "type": "isometric",
+        "sets": null,
+        "reps": "50-80 sec",
+        "rep_type": "TM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "front_delt",
+            "traps",
+            "core"
+          ],
+          "secondary": [
+            "triceps",
+            "lats",
+            "hamstrings"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Active Hang",
+        "type": "isometric",
+        "sets": null,
+        "reps": "50-80 sec",
+        "rep_type": "TM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "lats",
+            "forearms",
+            "biceps"
+          ],
+          "secondary": [
+            "rear_delt",
+            "traps",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Deep Squat",
+        "type": "isometric",
+        "sets": null,
+        "reps": "50-80 sec",
+        "rep_type": "TM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "calves",
+            "lower_back"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Arch Up",
+        "type": "isometric",
+        "sets": null,
+        "reps": "50-80 sec",
+        "rep_type": "TM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "lower_back",
+            "glutes"
+          ],
+          "secondary": [
+            "hamstrings",
+            "traps"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 12,
+    "sessionName": "T6 - W5 - Day 29 - Monday - T6-1",
+    "phase": "T6",
+    "week": 5,
+    "day": 29,
+    "weekday": "Monday",
+    "sessionId": "T6-1",
+    "restBetweenExercises": "3 min",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Push Up",
+        "type": "strength",
+        "sets": 1,
+        "reps": "6-10",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "lats",
+            "traps"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Bodyrow",
+        "type": "strength",
+        "sets": 1,
+        "reps": "6-10",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "forearms",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Jumping Squat",
+        "type": "strength",
+        "sets": 1,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "calves"
+          ],
+          "secondary": [
+            "hamstrings",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Hollow Body Crunch",
+        "type": "strength",
+        "sets": 2,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "core"
+          ],
+          "secondary": [
+            "quads"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 13,
+    "sessionName": "T6 - W5 - Day 32 - Thursday - T6-2",
+    "phase": "T6",
+    "week": 5,
+    "day": 32,
+    "weekday": "Thursday",
+    "sessionId": "T6-2",
+    "restBetweenExercises": "3 min",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Pike Stand",
+        "type": "isometric",
+        "sets": null,
+        "reps": "50-80 sec",
+        "rep_type": "TM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "front_delt",
+            "traps",
+            "core"
+          ],
+          "secondary": [
+            "triceps",
+            "lats",
+            "hamstrings"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Active Hang",
+        "type": "isometric",
+        "sets": null,
+        "reps": "50-80 sec",
+        "rep_type": "TM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "lats",
+            "forearms",
+            "biceps"
+          ],
+          "secondary": [
+            "rear_delt",
+            "traps",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Deep Squat",
+        "type": "isometric",
+        "sets": null,
+        "reps": "50-80 sec",
+        "rep_type": "TM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "calves",
+            "lower_back"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Arch Up",
+        "type": "isometric",
+        "sets": null,
+        "reps": "50-80 sec",
+        "rep_type": "TM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "lower_back",
+            "glutes"
+          ],
+          "secondary": [
+            "hamstrings",
+            "traps"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 14,
+    "sessionName": "P6 - W6 - Day 36 - Monday - 6A",
+    "phase": "P6",
+    "week": 6,
+    "day": 36,
+    "weekday": "Monday",
+    "sessionId": "6A",
+    "restBetweenExercises": "3 min",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Push Up",
+        "type": "strength",
+        "sets": 2,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "lats",
+            "traps"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Bodyrow",
+        "type": "strength",
+        "sets": 2,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "forearms",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Horse Stance",
+        "type": "isometric",
+        "sets": null,
+        "reps": "50-80 sec",
+        "rep_type": "TM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "core"
+          ],
+          "secondary": [
+            "hamstrings",
+            "lower_back"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Swimmer",
+        "type": "strength",
+        "sets": 1,
+        "reps": "6-10",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "lower_back",
+            "glutes",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "hamstrings"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 15,
+    "sessionName": "P6 - W6 - Day 38 - Wednesday - 6B",
+    "phase": "P6",
+    "week": 6,
+    "day": 38,
+    "weekday": "Wednesday",
+    "sessionId": "6B",
+    "restBetweenExercises": "3 min",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Pull Up",
+        "type": "strength",
+        "sets": null,
+        "reps": "8-15",
+        "rep_type": "RM",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "forearms",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Dip",
+        "type": "strength",
+        "sets": 2,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "lats",
+            "rear_delt"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Elevated Pistol Squat",
+        "type": "strength",
+        "sets": 2,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "calves"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Lying Knee Twist",
+        "type": "strength",
+        "sets": 2,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "core",
+            "lats"
+          ],
+          "secondary": [
+            "glutes",
+            "lower_back"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 16,
+    "sessionName": "P6 - W6 - Day 40 - Friday - 6A",
+    "phase": "P6",
+    "week": 6,
+    "day": 40,
+    "weekday": "Friday",
+    "sessionId": "6A",
+    "restBetweenExercises": "3 min",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Push Up",
+        "type": "strength",
+        "sets": 2,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "lats",
+            "traps"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Bodyrow",
+        "type": "strength",
+        "sets": 2,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "forearms",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Horse Stance",
+        "type": "isometric",
+        "sets": null,
+        "reps": "50-80 sec",
+        "rep_type": "TM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "core"
+          ],
+          "secondary": [
+            "hamstrings",
+            "lower_back"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Swimmer",
+        "type": "strength",
+        "sets": 1,
+        "reps": "6-10",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "lower_back",
+            "glutes",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "hamstrings"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 17,
+    "sessionName": "P6 - W7 - Day 43 - Monday - 6B",
+    "phase": "P6",
+    "week": 7,
+    "day": 43,
+    "weekday": "Monday",
+    "sessionId": "6B",
+    "restBetweenExercises": "3 min",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Pull Up",
+        "type": "strength",
+        "sets": null,
+        "reps": "8-15",
+        "rep_type": "RM",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "forearms",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Dip",
+        "type": "strength",
+        "sets": 2,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "lats",
+            "rear_delt"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Elevated Pistol Squat",
+        "type": "strength",
+        "sets": 2,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "calves"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Lying Knee Twist",
+        "type": "strength",
+        "sets": 2,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "core",
+            "lats"
+          ],
+          "secondary": [
+            "glutes",
+            "lower_back"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 18,
+    "sessionName": "P6 - W7 - Day 45 - Wednesday - 6A",
+    "phase": "P6",
+    "week": 7,
+    "day": 45,
+    "weekday": "Wednesday",
+    "sessionId": "6A",
+    "restBetweenExercises": "3 min",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Push Up",
+        "type": "strength",
+        "sets": 2,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "lats",
+            "traps"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Bodyrow",
+        "type": "strength",
+        "sets": 2,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "forearms",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Horse Stance",
+        "type": "isometric",
+        "sets": null,
+        "reps": "50-80 sec",
+        "rep_type": "TM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "core"
+          ],
+          "secondary": [
+            "hamstrings",
+            "lower_back"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Swimmer",
+        "type": "strength",
+        "sets": 1,
+        "reps": "6-10",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "lower_back",
+            "glutes",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "hamstrings"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 19,
+    "sessionName": "P6 - W7 - Day 47 - Friday - 6B",
+    "phase": "P6",
+    "week": 7,
+    "day": 47,
+    "weekday": "Friday",
+    "sessionId": "6B",
+    "restBetweenExercises": "3 min",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Pull Up",
+        "type": "strength",
+        "sets": null,
+        "reps": "8-15",
+        "rep_type": "RM",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "forearms",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Dip",
+        "type": "strength",
+        "sets": 2,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "lats",
+            "rear_delt"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Elevated Pistol Squat",
+        "type": "strength",
+        "sets": 2,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "calves"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Lying Knee Twist",
+        "type": "strength",
+        "sets": 2,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "core",
+            "lats"
+          ],
+          "secondary": [
+            "glutes",
+            "lower_back"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 20,
+    "sessionName": "P6 - W8 - Day 50 - Monday - 6A",
+    "phase": "P6",
+    "week": 8,
+    "day": 50,
+    "weekday": "Monday",
+    "sessionId": "6A",
+    "restBetweenExercises": "3 min",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Push Up",
+        "type": "strength",
+        "sets": 2,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "lats",
+            "traps"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Bodyrow",
+        "type": "strength",
+        "sets": 2,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "forearms",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Horse Stance",
+        "type": "isometric",
+        "sets": null,
+        "reps": "50-80 sec",
+        "rep_type": "TM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "core"
+          ],
+          "secondary": [
+            "hamstrings",
+            "lower_back"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Swimmer",
+        "type": "strength",
+        "sets": 1,
+        "reps": "6-10",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "lower_back",
+            "glutes",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "hamstrings"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 21,
+    "sessionName": "P6 - W8 - Day 52 - Wednesday - 6B",
+    "phase": "P6",
+    "week": 8,
+    "day": 52,
+    "weekday": "Wednesday",
+    "sessionId": "6B",
+    "restBetweenExercises": "3 min",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Pull Up",
+        "type": "strength",
+        "sets": null,
+        "reps": "8-15",
+        "rep_type": "RM",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "forearms",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Dip",
+        "type": "strength",
+        "sets": 2,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "lats",
+            "rear_delt"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Elevated Pistol Squat",
+        "type": "strength",
+        "sets": 2,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "calves"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Lying Knee Twist",
+        "type": "strength",
+        "sets": 2,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "core",
+            "lats"
+          ],
+          "secondary": [
+            "glutes",
+            "lower_back"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 22,
+    "sessionName": "P6 - W8 - Day 54 - Friday - 6A",
+    "phase": "P6",
+    "week": 8,
+    "day": 54,
+    "weekday": "Friday",
+    "sessionId": "6A",
+    "restBetweenExercises": "3 min",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Push Up",
+        "type": "strength",
+        "sets": 2,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "lats",
+            "traps"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Bodyrow",
+        "type": "strength",
+        "sets": 2,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "forearms",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Horse Stance",
+        "type": "isometric",
+        "sets": null,
+        "reps": "50-80 sec",
+        "rep_type": "TM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "core"
+          ],
+          "secondary": [
+            "hamstrings",
+            "lower_back"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Swimmer",
+        "type": "strength",
+        "sets": 1,
+        "reps": "6-10",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "lower_back",
+            "glutes",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "hamstrings"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 23,
+    "sessionName": "P6 - W9 - Day 57 - Monday - 6B",
+    "phase": "P6",
+    "week": 9,
+    "day": 57,
+    "weekday": "Monday",
+    "sessionId": "6B",
+    "restBetweenExercises": "3 min",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Pull Up",
+        "type": "strength",
+        "sets": null,
+        "reps": "8-15",
+        "rep_type": "RM",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "forearms",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Dip",
+        "type": "strength",
+        "sets": 2,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "lats",
+            "rear_delt"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Elevated Pistol Squat",
+        "type": "strength",
+        "sets": 2,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "calves"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Lying Knee Twist",
+        "type": "strength",
+        "sets": 2,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "core",
+            "lats"
+          ],
+          "secondary": [
+            "glutes",
+            "lower_back"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 24,
+    "sessionName": "P6 - W9 - Day 59 - Wednesday - 6A",
+    "phase": "P6",
+    "week": 9,
+    "day": 59,
+    "weekday": "Wednesday",
+    "sessionId": "6A",
+    "restBetweenExercises": "3 min",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Push Up",
+        "type": "strength",
+        "sets": 2,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "lats",
+            "traps"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Bodyrow",
+        "type": "strength",
+        "sets": 2,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "forearms",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Horse Stance",
+        "type": "isometric",
+        "sets": null,
+        "reps": "50-80 sec",
+        "rep_type": "TM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "core"
+          ],
+          "secondary": [
+            "hamstrings",
+            "lower_back"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Swimmer",
+        "type": "strength",
+        "sets": 1,
+        "reps": "6-10",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "lower_back",
+            "glutes",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "hamstrings"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 25,
+    "sessionName": "P6 - W9 - Day 61 - Friday - 6B",
+    "phase": "P6",
+    "week": 9,
+    "day": 61,
+    "weekday": "Friday",
+    "sessionId": "6B",
+    "restBetweenExercises": "3 min",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Pull Up",
+        "type": "strength",
+        "sets": null,
+        "reps": "8-15",
+        "rep_type": "RM",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "forearms",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Dip",
+        "type": "strength",
+        "sets": 2,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "lats",
+            "rear_delt"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Elevated Pistol Squat",
+        "type": "strength",
+        "sets": 2,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "calves"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Lying Knee Twist",
+        "type": "strength",
+        "sets": 2,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "core",
+            "lats"
+          ],
+          "secondary": [
+            "glutes",
+            "lower_back"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 26,
+    "sessionName": "T7 - W10 - Day 64 - Monday - T7-1",
+    "phase": "T7",
+    "week": 10,
+    "day": 64,
+    "weekday": "Monday",
+    "sessionId": "T7-1",
+    "restBetweenExercises": "3 min",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Push Up",
+        "type": "strength",
+        "sets": 2,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "lats",
+            "traps"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Bodyrow",
+        "type": "strength",
+        "sets": 2,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "forearms",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Horse Stance",
+        "type": "isometric",
+        "sets": null,
+        "reps": "50-80 sec",
+        "rep_type": "TM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "core"
+          ],
+          "secondary": [
+            "hamstrings",
+            "lower_back"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Swimmer",
+        "type": "strength",
+        "sets": 1,
+        "reps": "6-10",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "lower_back",
+            "glutes",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "hamstrings"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 27,
+    "sessionName": "T7 - W10 - Day 67 - Thursday - T7-2",
+    "phase": "T7",
+    "week": 10,
+    "day": 67,
+    "weekday": "Thursday",
+    "sessionId": "T7-2",
+    "restBetweenExercises": "3 min",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Pull Up",
+        "type": "strength",
+        "sets": null,
+        "reps": "8-15",
+        "rep_type": "RM",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "forearms",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Dip",
+        "type": "strength",
+        "sets": 2,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "lats",
+            "rear_delt"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Elevated Pistol Squat",
+        "type": "strength",
+        "sets": 2,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "calves"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Lying Knee Twist",
+        "type": "strength",
+        "sets": 2,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "core",
+            "lats"
+          ],
+          "secondary": [
+            "glutes",
+            "lower_back"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 28,
+    "sessionName": "P7 - W11 - Day 71 - Monday - 7A",
+    "phase": "P7",
+    "week": 11,
+    "day": 71,
+    "weekday": "Monday",
+    "sessionId": "7A",
+    "restBetweenExercises": "3 min",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Pull Up",
+        "type": "strength",
+        "sets": null,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "forearms",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Dip",
+        "type": "strength",
+        "sets": 1,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "lats",
+            "rear_delt"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Elevated Pistol Squat",
+        "type": "strength",
+        "sets": 2,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "calves"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Sl Glute Bridge Raise",
+        "type": "strength",
+        "sets": 1,
+        "reps": "8-15",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "lower_back"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 29,
+    "sessionName": "P7 - W11 - Day 73 - Wednesday - 7B",
+    "phase": "P7",
+    "week": 11,
+    "day": 73,
+    "weekday": "Wednesday",
+    "sessionId": "7B",
+    "restBetweenExercises": "3 min",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Archer Bodyrow",
+        "type": "strength",
+        "sets": null,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "core",
+            "side_delt"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Side To Side Push Up",
+        "type": "strength",
+        "sets": 2,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "side_delt",
+            "lats"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Hollow Body",
+        "type": "isometric",
+        "sets": null,
+        "reps": "50-80 sec",
+        "rep_type": "TM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "core"
+          ],
+          "secondary": [
+            "quads",
+            "front_delt"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Arch Up",
+        "type": "isometric",
+        "sets": null,
+        "reps": "50-80 sec",
+        "rep_type": "TM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "lower_back",
+            "glutes"
+          ],
+          "secondary": [
+            "hamstrings",
+            "traps"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 30,
+    "sessionName": "P7 - W11 - Day 75 - Friday - 7A",
+    "phase": "P7",
+    "week": 11,
+    "day": 75,
+    "weekday": "Friday",
+    "sessionId": "7A",
+    "restBetweenExercises": "3 min",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Pull Up",
+        "type": "strength",
+        "sets": null,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "forearms",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Dip",
+        "type": "strength",
+        "sets": 1,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "lats",
+            "rear_delt"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Elevated Pistol Squat",
+        "type": "strength",
+        "sets": 2,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "calves"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Sl Glute Bridge Raise",
+        "type": "strength",
+        "sets": 1,
+        "reps": "8-15",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "lower_back"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 31,
+    "sessionName": "P7 - W12 - Day 78 - Monday - 7B",
+    "phase": "P7",
+    "week": 12,
+    "day": 78,
+    "weekday": "Monday",
+    "sessionId": "7B",
+    "restBetweenExercises": "3 min",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Archer Bodyrow",
+        "type": "strength",
+        "sets": null,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "core",
+            "side_delt"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Side To Side Push Up",
+        "type": "strength",
+        "sets": 2,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "side_delt",
+            "lats"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Hollow Body",
+        "type": "isometric",
+        "sets": null,
+        "reps": "50-80 sec",
+        "rep_type": "TM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "core"
+          ],
+          "secondary": [
+            "quads",
+            "front_delt"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Arch Up",
+        "type": "isometric",
+        "sets": null,
+        "reps": "50-80 sec",
+        "rep_type": "TM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "lower_back",
+            "glutes"
+          ],
+          "secondary": [
+            "hamstrings",
+            "traps"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 32,
+    "sessionName": "P7 - W12 - Day 80 - Wednesday - 7A",
+    "phase": "P7",
+    "week": 12,
+    "day": 80,
+    "weekday": "Wednesday",
+    "sessionId": "7A",
+    "restBetweenExercises": "3 min",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Pull Up",
+        "type": "strength",
+        "sets": null,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "forearms",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Dip",
+        "type": "strength",
+        "sets": 1,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "lats",
+            "rear_delt"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Elevated Pistol Squat",
+        "type": "strength",
+        "sets": 2,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "calves"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Sl Glute Bridge Raise",
+        "type": "strength",
+        "sets": 1,
+        "reps": "8-15",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "lower_back"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 33,
+    "sessionName": "P7 - W12 - Day 82 - Friday - 7B",
+    "phase": "P7",
+    "week": 12,
+    "day": 82,
+    "weekday": "Friday",
+    "sessionId": "7B",
+    "restBetweenExercises": "3 min",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Archer Bodyrow",
+        "type": "strength",
+        "sets": null,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "core",
+            "side_delt"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Side To Side Push Up",
+        "type": "strength",
+        "sets": 2,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "side_delt",
+            "lats"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Hollow Body",
+        "type": "isometric",
+        "sets": null,
+        "reps": "50-80 sec",
+        "rep_type": "TM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "core"
+          ],
+          "secondary": [
+            "quads",
+            "front_delt"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Arch Up",
+        "type": "isometric",
+        "sets": null,
+        "reps": "50-80 sec",
+        "rep_type": "TM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "lower_back",
+            "glutes"
+          ],
+          "secondary": [
+            "hamstrings",
+            "traps"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 34,
+    "sessionName": "P7 - W13 - Day 85 - Monday - 7A",
+    "phase": "P7",
+    "week": 13,
+    "day": 85,
+    "weekday": "Monday",
+    "sessionId": "7A",
+    "restBetweenExercises": "3 min",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Pull Up",
+        "type": "strength",
+        "sets": null,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "forearms",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Dip",
+        "type": "strength",
+        "sets": 1,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "lats",
+            "rear_delt"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Elevated Pistol Squat",
+        "type": "strength",
+        "sets": 2,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "calves"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Sl Glute Bridge Raise",
+        "type": "strength",
+        "sets": 1,
+        "reps": "8-15",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "lower_back"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 35,
+    "sessionName": "P7 - W13 - Day 87 - Wednesday - 7B",
+    "phase": "P7",
+    "week": 13,
+    "day": 87,
+    "weekday": "Wednesday",
+    "sessionId": "7B",
+    "restBetweenExercises": "3 min",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Archer Bodyrow",
+        "type": "strength",
+        "sets": null,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "core",
+            "side_delt"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Side To Side Push Up",
+        "type": "strength",
+        "sets": 2,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "side_delt",
+            "lats"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Hollow Body",
+        "type": "isometric",
+        "sets": null,
+        "reps": "50-80 sec",
+        "rep_type": "TM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "core"
+          ],
+          "secondary": [
+            "quads",
+            "front_delt"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Arch Up",
+        "type": "isometric",
+        "sets": null,
+        "reps": "50-80 sec",
+        "rep_type": "TM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "lower_back",
+            "glutes"
+          ],
+          "secondary": [
+            "hamstrings",
+            "traps"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 36,
+    "sessionName": "P7 - W13 - Day 89 - Friday - 7A",
+    "phase": "P7",
+    "week": 13,
+    "day": 89,
+    "weekday": "Friday",
+    "sessionId": "7A",
+    "restBetweenExercises": "3 min",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Pull Up",
+        "type": "strength",
+        "sets": null,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "forearms",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Dip",
+        "type": "strength",
+        "sets": 1,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "lats",
+            "rear_delt"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Elevated Pistol Squat",
+        "type": "strength",
+        "sets": 2,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "calves"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Sl Glute Bridge Raise",
+        "type": "strength",
+        "sets": 1,
+        "reps": "8-15",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "lower_back"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 37,
+    "sessionName": "P7 - W14 - Day 92 - Monday - 7B",
+    "phase": "P7",
+    "week": 14,
+    "day": 92,
+    "weekday": "Monday",
+    "sessionId": "7B",
+    "restBetweenExercises": "3 min",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Archer Bodyrow",
+        "type": "strength",
+        "sets": null,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "core",
+            "side_delt"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Side To Side Push Up",
+        "type": "strength",
+        "sets": 2,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "side_delt",
+            "lats"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Hollow Body",
+        "type": "isometric",
+        "sets": null,
+        "reps": "50-80 sec",
+        "rep_type": "TM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "core"
+          ],
+          "secondary": [
+            "quads",
+            "front_delt"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Arch Up",
+        "type": "isometric",
+        "sets": null,
+        "reps": "50-80 sec",
+        "rep_type": "TM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "lower_back",
+            "glutes"
+          ],
+          "secondary": [
+            "hamstrings",
+            "traps"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 38,
+    "sessionName": "P7 - W14 - Day 94 - Wednesday - 7A",
+    "phase": "P7",
+    "week": 14,
+    "day": 94,
+    "weekday": "Wednesday",
+    "sessionId": "7A",
+    "restBetweenExercises": "3 min",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Pull Up",
+        "type": "strength",
+        "sets": null,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "forearms",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Dip",
+        "type": "strength",
+        "sets": 1,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "lats",
+            "rear_delt"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Elevated Pistol Squat",
+        "type": "strength",
+        "sets": 2,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "calves"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Sl Glute Bridge Raise",
+        "type": "strength",
+        "sets": 1,
+        "reps": "8-15",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "lower_back"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 39,
+    "sessionName": "P7 - W14 - Day 96 - Friday - 7B",
+    "phase": "P7",
+    "week": 14,
+    "day": 96,
+    "weekday": "Friday",
+    "sessionId": "7B",
+    "restBetweenExercises": "3 min",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Archer Bodyrow",
+        "type": "strength",
+        "sets": null,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "core",
+            "side_delt"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Side To Side Push Up",
+        "type": "strength",
+        "sets": 2,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "side_delt",
+            "lats"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Hollow Body",
+        "type": "isometric",
+        "sets": null,
+        "reps": "50-80 sec",
+        "rep_type": "TM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "core"
+          ],
+          "secondary": [
+            "quads",
+            "front_delt"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Arch Up",
+        "type": "isometric",
+        "sets": null,
+        "reps": "50-80 sec",
+        "rep_type": "TM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "lower_back",
+            "glutes"
+          ],
+          "secondary": [
+            "hamstrings",
+            "traps"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 40,
+    "sessionName": "T8 - W15 - Day 99 - Monday - T8-1",
+    "phase": "T8",
+    "week": 15,
+    "day": 99,
+    "weekday": "Monday",
+    "sessionId": "T8-1",
+    "restBetweenExercises": "3 min",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Pull Up",
+        "type": "strength",
+        "sets": null,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "forearms",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Dip",
+        "type": "strength",
+        "sets": 1,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "lats",
+            "rear_delt"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Elevated Pistol Squat",
+        "type": "strength",
+        "sets": 2,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "calves"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Sl Glute Bridge Raise",
+        "type": "strength",
+        "sets": 1,
+        "reps": "8-15",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "lower_back"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 41,
+    "sessionName": "T8 - W15 - Day 102 - Thursday - T8-2",
+    "phase": "T8",
+    "week": 15,
+    "day": 102,
+    "weekday": "Thursday",
+    "sessionId": "T8-2",
+    "restBetweenExercises": "3 min",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Archer Bodyrow",
+        "type": "strength",
+        "sets": null,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "core",
+            "side_delt"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Side To Side Push Up",
+        "type": "strength",
+        "sets": 2,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "side_delt",
+            "lats"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Hollow Body",
+        "type": "isometric",
+        "sets": null,
+        "reps": "50-80 sec",
+        "rep_type": "TM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "core"
+          ],
+          "secondary": [
+            "quads",
+            "front_delt"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Arch Up",
+        "type": "isometric",
+        "sets": null,
+        "reps": "50-80 sec",
+        "rep_type": "TM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "lower_back",
+            "glutes"
+          ],
+          "secondary": [
+            "hamstrings",
+            "traps"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 42,
+    "sessionName": "P8 - W16 - Day 106 - Monday - 8A",
+    "phase": "P8",
+    "week": 16,
+    "day": 106,
+    "weekday": "Monday",
+    "sessionId": "8A",
+    "restBetweenExercises": "3 min",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Pull Up",
+        "type": "strength",
+        "sets": 1,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "forearms",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Dip",
+        "type": "strength",
+        "sets": 2,
+        "reps": "6-10",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "lats",
+            "rear_delt"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Elevated Pistol Squat",
+        "type": "strength",
+        "sets": 2,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "calves"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Archer Squat",
+        "type": "strength",
+        "sets": 2,
+        "reps": "6-10",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "calves",
+            "lower_back"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 43,
+    "sessionName": "P8 - W16 - Day 108 - Wednesday - 8A",
+    "phase": "P8",
+    "week": 16,
+    "day": 108,
+    "weekday": "Wednesday",
+    "sessionId": "8A",
+    "restBetweenExercises": "3 min",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Pull Up",
+        "type": "strength",
+        "sets": 1,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "forearms",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Dip",
+        "type": "strength",
+        "sets": 2,
+        "reps": "6-10",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "lats",
+            "rear_delt"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Elevated Pistol Squat",
+        "type": "strength",
+        "sets": 2,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "calves"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Archer Squat",
+        "type": "strength",
+        "sets": 2,
+        "reps": "6-10",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "calves",
+            "lower_back"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 44,
+    "sessionName": "P8 - W16 - Day 110 - Friday - 8B",
+    "phase": "P8",
+    "week": 16,
+    "day": 110,
+    "weekday": "Friday",
+    "sessionId": "8B",
+    "restBetweenExercises": "3 min",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Pull Up",
+        "type": "strength",
+        "sets": null,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "forearms",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Dip",
+        "type": "strength",
+        "sets": 1,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "lats",
+            "rear_delt"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Step Up",
+        "type": "strength",
+        "sets": 2,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes"
+          ],
+          "secondary": [
+            "hamstrings",
+            "calves",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Sl Glute Bridge Raise",
+        "type": "strength",
+        "sets": 1,
+        "reps": "8-15",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "lower_back"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 45,
+    "sessionName": "P8 - W17 - Day 113 - Monday - 8A",
+    "phase": "P8",
+    "week": 17,
+    "day": 113,
+    "weekday": "Monday",
+    "sessionId": "8A",
+    "restBetweenExercises": "3 min",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Pull Up",
+        "type": "strength",
+        "sets": null,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "forearms",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Dip",
+        "type": "strength",
+        "sets": 1,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "lats",
+            "rear_delt"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Elevated Pistol Squat",
+        "type": "strength",
+        "sets": 2,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "calves"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Archer Squat",
+        "type": "strength",
+        "sets": 2,
+        "reps": "6-10",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "calves",
+            "lower_back"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 46,
+    "sessionName": "P8 - W17 - Day 115 - Wednesday - 8A",
+    "phase": "P8",
+    "week": 17,
+    "day": 115,
+    "weekday": "Wednesday",
+    "sessionId": "8A",
+    "restBetweenExercises": "3 min",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Pull Up",
+        "type": "strength",
+        "sets": 1,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "forearms",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Dip",
+        "type": "strength",
+        "sets": 2,
+        "reps": "6-10",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "lats",
+            "rear_delt"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Elevated Pistol Squat",
+        "type": "strength",
+        "sets": 2,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "calves"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Archer Squat",
+        "type": "strength",
+        "sets": 2,
+        "reps": "6-10",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "calves",
+            "lower_back"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 47,
+    "sessionName": "P8 - W17 - Day 117 - Friday - 8B",
+    "phase": "P8",
+    "week": 17,
+    "day": 117,
+    "weekday": "Friday",
+    "sessionId": "8B",
+    "restBetweenExercises": "3 min",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Pull Up",
+        "type": "strength",
+        "sets": null,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "forearms",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Dip",
+        "type": "strength",
+        "sets": 1,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "lats",
+            "rear_delt"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Step Up",
+        "type": "strength",
+        "sets": 2,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes"
+          ],
+          "secondary": [
+            "hamstrings",
+            "calves",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Sl Glute Bridge Raise",
+        "type": "strength",
+        "sets": 1,
+        "reps": "8-15",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "lower_back"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 48,
+    "sessionName": "P8 - W18 - Day 120 - Monday - 8A",
+    "phase": "P8",
+    "week": 18,
+    "day": 120,
+    "weekday": "Monday",
+    "sessionId": "8A",
+    "restBetweenExercises": "3 min",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Pull Up",
+        "type": "strength",
+        "sets": 1,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "forearms",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Dip",
+        "type": "strength",
+        "sets": 2,
+        "reps": "6-10",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "lats",
+            "rear_delt"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Elevated Pistol Squat",
+        "type": "strength",
+        "sets": 2,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "calves"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Archer Squat",
+        "type": "strength",
+        "sets": 2,
+        "reps": "6-10",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "calves",
+            "lower_back"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 49,
+    "sessionName": "P8 - W18 - Day 122 - Wednesday - 8A",
+    "phase": "P8",
+    "week": 18,
+    "day": 122,
+    "weekday": "Wednesday",
+    "sessionId": "8A",
+    "restBetweenExercises": "3 min",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Pull Up",
+        "type": "strength",
+        "sets": null,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "forearms",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Dip",
+        "type": "strength",
+        "sets": 1,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "lats",
+            "rear_delt"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Elevated Pistol Squat",
+        "type": "strength",
+        "sets": 2,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "calves"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Archer Squat",
+        "type": "strength",
+        "sets": 2,
+        "reps": "6-10",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "calves",
+            "lower_back"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 50,
+    "sessionName": "P8 - W18 - Day 124 - Friday - 8B",
+    "phase": "P8",
+    "week": 18,
+    "day": 124,
+    "weekday": "Friday",
+    "sessionId": "8B",
+    "restBetweenExercises": "3 min",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Pull Up",
+        "type": "strength",
+        "sets": null,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "forearms",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Dip",
+        "type": "strength",
+        "sets": 1,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "lats",
+            "rear_delt"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Step Up",
+        "type": "strength",
+        "sets": 2,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes"
+          ],
+          "secondary": [
+            "hamstrings",
+            "calves",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Sl Glute Bridge Raise",
+        "type": "strength",
+        "sets": 1,
+        "reps": "8-15",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "lower_back"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 51,
+    "sessionName": "P8 - W19 - Day 127 - Monday - 8A",
+    "phase": "P8",
+    "week": 19,
+    "day": 127,
+    "weekday": "Monday",
+    "sessionId": "8A",
+    "restBetweenExercises": "3 min",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Pull Up",
+        "type": "strength",
+        "sets": 1,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "forearms",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Dip",
+        "type": "strength",
+        "sets": 2,
+        "reps": "6-10",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "lats",
+            "rear_delt"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Elevated Pistol Squat",
+        "type": "strength",
+        "sets": 2,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "calves"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Archer Squat",
+        "type": "strength",
+        "sets": 2,
+        "reps": "6-10",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "calves",
+            "lower_back"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 52,
+    "sessionName": "P8 - W19 - Day 129 - Wednesday - 8A",
+    "phase": "P8",
+    "week": 19,
+    "day": 129,
+    "weekday": "Wednesday",
+    "sessionId": "8A",
+    "restBetweenExercises": "3 min",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Pull Up",
+        "type": "strength",
+        "sets": null,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "forearms",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Dip",
+        "type": "strength",
+        "sets": 1,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "lats",
+            "rear_delt"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Elevated Pistol Squat",
+        "type": "strength",
+        "sets": 2,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "calves"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Archer Squat",
+        "type": "strength",
+        "sets": 2,
+        "reps": "6-10",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "calves",
+            "lower_back"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 53,
+    "sessionName": "P8 - W19 - Day 131 - Friday - 8B",
+    "phase": "P8",
+    "week": 19,
+    "day": 131,
+    "weekday": "Friday",
+    "sessionId": "8B",
+    "restBetweenExercises": "3 min",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Pull Up",
+        "type": "strength",
+        "sets": null,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "forearms",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Dip",
+        "type": "strength",
+        "sets": 1,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "lats",
+            "rear_delt"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Step Up",
+        "type": "strength",
+        "sets": 2,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes"
+          ],
+          "secondary": [
+            "hamstrings",
+            "calves",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Sl Glute Bridge Raise",
+        "type": "strength",
+        "sets": 1,
+        "reps": "8-15",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "lower_back"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sessionNum": 54,
+    "sessionName": "T9 - W20 - Day 134 - Monday - T9-1",
+    "phase": "T9",
+    "week": 20,
+    "day": 134,
+    "weekday": "Monday",
+    "sessionId": "T9-1",
+    "restBetweenExercises": "3 min",
+    "exercises": [
+      {
+        "order": 1,
+        "name": "Pull Up",
+        "type": "strength",
+        "sets": 1,
+        "reps": "15-25",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "lats",
+            "biceps",
+            "rear_delt"
+          ],
+          "secondary": [
+            "traps",
+            "forearms",
+            "core"
+          ]
+        }
+      },
+      {
+        "order": 2,
+        "name": "Dip",
+        "type": "strength",
+        "sets": 2,
+        "reps": "6-10",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "chest",
+            "triceps",
+            "front_delt"
+          ],
+          "secondary": [
+            "core",
+            "lats",
+            "rear_delt"
+          ]
+        }
+      },
+      {
+        "order": 3,
+        "name": "Elevated Pistol Squat",
+        "type": "strength",
+        "sets": 2,
+        "reps": "AMRAP",
+        "rep_type": "AMRAP",
+        "assisted": true,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "calves"
+          ]
+        }
+      },
+      {
+        "order": 4,
+        "name": "Archer Squat",
+        "type": "strength",
+        "sets": 2,
+        "reps": "6-10",
+        "rep_type": "RM",
+        "assisted": false,
+        "muscles": {
+          "primary": [
+            "quads",
+            "glutes",
+            "hamstrings"
+          ],
+          "secondary": [
+            "core",
+            "calves",
+            "lower_back"
+          ]
+        }
+      }
+    ]
+  }
+]

@@ -99,9 +99,9 @@ export function sortFoodsForContext(
   mealName: MealName
 ): FoodReference[] {
   const weights: Record<DayType, Record<FoodCategory, number>> = {
-    fatburner: { high_protein: 3, high_fat: 2, high_carb: 1 },
-    performance: { high_carb: 3, high_protein: 2, high_fat: 1 },
-    metabolize: { high_protein: 2, high_carb: 2, high_fat: 1 },
+    fatburner: { high_protein: 3, high_fat: 2, high_carb: 1, vegetable: 1, fruit: 1 },
+    performance: { high_carb: 3, high_protein: 2, high_fat: 1, vegetable: 1, fruit: 1 },
+    metabolize: { high_protein: 2, high_carb: 2, high_fat: 1, vegetable: 1, fruit: 1 },
   };
 
   // Meal-time boost

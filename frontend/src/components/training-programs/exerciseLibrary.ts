@@ -10,8 +10,12 @@ export interface ExerciseDef {
   defaultDurationSec: number; // 0 = rep-based
   defaultReps: number; // 0 = timed
   defaultWeightKg?: number; // Optional default weight for rep-based exercises
+  description?: string;
+  cues?: string[];   // key coaching cues shown during exercise
+  howTo?: string[];  // step-by-step how-to instructions
   tags: string[];
   source: ExerciseSource;
+  muscles?: { primary: string[]; secondary: string[] };
 }
 
 // ── PREPARE: Mobility & Activation ──
@@ -63,20 +67,33 @@ const PUSH_EXERCISES: ExerciseDef[] = [
   { id: 'tuck_jumps', name: 'Tuck Jumps', defaultPhase: 'push', icon: 'T', defaultDurationSec: 0, defaultReps: 10, tags: ['explosive', 'legs'], source: 'bodyweight' },
 ];
 
-export const EXERCISE_LIBRARY: ExerciseDef[] = [
+import { GMB_EXERCISE_LIBRARY } from './gmbExerciseLibrary';
+import { CALIMOVE_EXERCISE_LIBRARY } from './calimoveExerciseLibrary';
+
+const BASE_EXERCISE_LIBRARY: ExerciseDef[] = [
   ...PREPARE_EXERCISES,
   ...PRACTICE_EXERCISES,
   ...PUSH_EXERCISES,
 ];
 
+export const EXERCISE_LIBRARY: ExerciseDef[] = [
+  ...BASE_EXERCISE_LIBRARY,
+  ...GMB_EXERCISE_LIBRARY,
+  ...CALIMOVE_EXERCISE_LIBRARY,
+];
+
 export const EXERCISES_BY_PHASE: Record<SessionPhase, ExerciseDef[]> = {
-  prepare: PREPARE_EXERCISES,
-  practice: PRACTICE_EXERCISES,
-  push: PUSH_EXERCISES,
+  prepare: EXERCISE_LIBRARY.filter((e) => e.defaultPhase === 'prepare'),
+  practice: EXERCISE_LIBRARY.filter((e) => e.defaultPhase === 'practice'),
+  play: [],
+  push: EXERCISE_LIBRARY.filter((e) => e.defaultPhase === 'push'),
+  ponder: EXERCISE_LIBRARY.filter((e) => e.defaultPhase === 'ponder'),
 };
 
+const EXERCISE_MAP = new Map<string, ExerciseDef>(EXERCISE_LIBRARY.map((ex) => [ex.id, ex]));
+
 export function getExerciseById(id: string): ExerciseDef | undefined {
-  return EXERCISE_LIBRARY.find((ex) => ex.id === id);
+  return EXERCISE_MAP.get(id);
 }
 
 export const EXERCISES_BY_SOURCE: Record<ExerciseSource, ExerciseDef[]> = {

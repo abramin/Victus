@@ -5,7 +5,7 @@ import { getExerciseById, EXERCISES_BY_PHASE } from './exerciseLibrary';
 import type { ExerciseDef } from './exerciseLibrary';
 import { ExerciseNode } from './ExerciseNode';
 
-const PHASES: SessionPhase[] = ['prepare', 'practice', 'push'];
+const PHASES: SessionPhase[] = ['prepare', 'practice', 'push', 'ponder'];
 
 interface SessionFlowCanvasProps {
   initialExercises?: SessionExercise[];
@@ -30,7 +30,7 @@ export function SessionFlowCanvas({
   onChangeRef.current = onChange;
 
   const [phaseExercises, setPhaseExercises] = useState<Record<SessionPhase, PlacedExercise[]>>(() => {
-    const initial: Record<SessionPhase, PlacedExercise[]> = { prepare: [], practice: [], push: [] };
+    const initial: Record<SessionPhase, PlacedExercise[]> = { prepare: [], practice: [], play: [], push: [], ponder: [] };
     if (initialExercises) {
       for (const se of initialExercises) {
         const def = getExerciseById(se.exerciseId);

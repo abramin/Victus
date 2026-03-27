@@ -50,7 +50,15 @@ describe('Exercise Library Catalog', () => {
     const phaseTotal =
       EXERCISES_BY_PHASE.prepare.length +
       EXERCISES_BY_PHASE.practice.length +
-      EXERCISES_BY_PHASE.push.length;
+      EXERCISES_BY_PHASE.push.length +
+      EXERCISES_BY_PHASE.ponder.length;
     expect(phaseTotal).toBe(EXERCISE_LIBRARY.length);
+  });
+
+  it('every exercise defaultPhase is a recognized key in EXERCISES_BY_PHASE', () => {
+    const validPhases = Object.keys(EXERCISES_BY_PHASE);
+    for (const ex of EXERCISE_LIBRARY) {
+      expect(validPhases, `exercise "${ex.id}" has unrecognized defaultPhase "${ex.defaultPhase}"`).toContain(ex.defaultPhase);
+    }
   });
 });

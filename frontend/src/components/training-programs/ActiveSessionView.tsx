@@ -30,7 +30,7 @@ interface ActiveSessionViewProps {
   onAbort: () => void;
 }
 
-const PHASE_ORDER: Record<SessionPhase, number> = { prepare: 0, practice: 1, push: 2 };
+const PHASE_ORDER: Record<SessionPhase, number> = { prepare: 0, practice: 1, play: 2, push: 3, ponder: 4 };
 
 /**
  * Session state machine orchestrator.

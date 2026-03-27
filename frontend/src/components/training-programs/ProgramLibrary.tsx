@@ -4,6 +4,7 @@ import { listTrainingPrograms, deleteTrainingProgram } from '../../api/client';
 import { ProgramCard } from './ProgramCard';
 import { ProgramDetailModal } from './ProgramDetailModal';
 import { ProgramBuilder } from './ProgramBuilder';
+import { GmbImportModal } from './GmbImportModal';
 import { DIFFICULTY_COLORS, FOCUS_COLORS } from './constants';
 import { useActiveInstallation } from '../../contexts/ActiveInstallationContext';
 
@@ -29,6 +30,9 @@ export function ProgramLibrary() {
 
   // Program builder modal
   const [showBuilder, setShowBuilder] = useState(false);
+
+  // GMB import modal
+  const [showGmbImport, setShowGmbImport] = useState(false);
 
   // Delete confirmation state
   const [confirmingDelete, setConfirmingDelete] = useState<ProgramSummary | null>(null);
@@ -180,6 +184,17 @@ export function ProgramLibrary() {
           + Create Custom
         </button>
 
+        {/* GMB Elements import */}
+        <button
+          onClick={() => setShowGmbImport(true)}
+          className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg
+                     transition-colors focus:outline-none focus:ring-2 focus:ring-slate-500
+                     flex items-center gap-2"
+        >
+          <span>🤸</span>
+          Import GMB Elements
+        </button>
+
         {/* Manage active button - only when active installation exists */}
         {activeInstallation && (
           <button
@@ -296,6 +311,18 @@ export function ProgramLibrary() {
         <ProgramBuilder
           onClose={() => setShowBuilder(false)}
           onCreated={handleProgramCreated}
+        />
+      )}
+
+      {/* GMB import modal */}
+      {showGmbImport && (
+        <GmbImportModal
+          onClose={() => setShowGmbImport(false)}
+          onCreated={(programId) => {
+            setShowGmbImport(false);
+            refreshPrograms();
+            setSelectedProgramId(programId);
+          }}
         />
       )}
     </div>

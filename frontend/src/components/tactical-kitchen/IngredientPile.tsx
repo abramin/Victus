@@ -7,7 +7,7 @@ const CATEGORY_DOT_COLORS: Record<FoodCategory, string> = {
   high_protein: 'bg-purple-500',
   high_carb: 'bg-orange-500',
   high_fat: 'bg-gray-500',
-  veg: 'bg-green-500',
+  vegetable: 'bg-green-500',
   fruit: 'bg-pink-500',
 };
 

@@ -25,13 +25,17 @@ interface ExerciseCardProps {
 const PHASE_BADGE: Record<SessionPhase, { label: string; bg: string; text: string }> = {
   prepare: { label: 'PREPARE', bg: 'bg-amber-500/20', text: 'text-amber-400' },
   practice: { label: 'PRACTICE', bg: 'bg-teal-500/20', text: 'text-teal-400' },
+  play: { label: 'PLAY', bg: 'bg-teal-500/20', text: 'text-teal-400' },
   push: { label: 'PUSH', bg: 'bg-violet-500/20', text: 'text-violet-400' },
+  ponder: { label: 'PONDER', bg: 'bg-blue-500/20', text: 'text-blue-400' },
 };
 
 const PHASE_HERO_GRADIENT: Record<SessionPhase, string> = {
   prepare: 'from-amber-900/50 to-amber-800/20',
   practice: 'from-teal-900/50 to-teal-800/20',
+  play: 'from-teal-900/50 to-teal-800/20',
   push: 'from-violet-900/50 to-violet-800/20',
+  ponder: 'from-blue-900/50 to-blue-800/20',
 };
 
 function formatTime(sec: number): string {
